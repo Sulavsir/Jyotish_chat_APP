@@ -1,0 +1,43 @@
+{
+  "name": "jyotish-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time Jyotish consultation platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api \"pnpm --filter web dev\" \"pnpm --filter api dev\"",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
+    "build": "pnpm --filter database db:generate && pnpm -r --workspace-concurrency=1 build",
+    "build:web": "pnpm --filter web build",
+    "build:api": "pnpm --filter api build",
+    "start": "concurrently -n web,api \"pnpm --filter web start\" \"pnpm --filter api start\"",
+    "start:web": "pnpm --filter web start",
+    "start:api": "pnpm --filter api start",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "db:generate": "pnpm --filter database db:generate",
+    "db:push": "pnpm --filter database db:push",
+    "db:migrate": "pnpm --filter database db:migrate",
+    "db:migrate:create": "pnpm --filter database db:migrate:create",
+    "db:migrate:status": "pnpm --filter database db:migrate:status",
+    "db:migrate:reset": "pnpm --filter database db:migrate:reset",
+    "db:studio": "pnpm --filter database db:studio",
+    "db:format": "pnpm --filter database db:format"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.1.1",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
