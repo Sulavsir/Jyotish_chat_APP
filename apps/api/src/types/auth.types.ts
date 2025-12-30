@@ -8,7 +8,8 @@ import { UserRole } from '@jyotish/shared';
 
 export interface UserPayload {
   id: string;
-  phone: string;
+  phone?: string;
+  email?: string;
   role: UserRole;
   type?: typeof TOKEN_TYPES.ACCESS | typeof TOKEN_TYPES.REFRESH;
 }

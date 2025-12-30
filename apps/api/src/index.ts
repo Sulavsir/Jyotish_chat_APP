@@ -40,10 +40,12 @@ const httpServer = createServer(app);
 
 // Initialize Socket.io with network access
 const allowedOrigins: string[] = [
-  'http://localhost:3000',
-  'http://localhost:3001', // Next.js dev server alternative port
+  'http://localhost:3000',    // Web app
+  'http://localhost:3001',    // Web app alternative
+  'http://localhost:3002',    // Admin panel
   'http://192.168.0.206:3000',
   'http://192.168.0.206:3001',
+  'http://192.168.0.206:3002',
   process.env.CORS_ORIGIN || '',
   process.env.FRONTEND_URL || '',
 ].filter((origin): origin is string => Boolean(origin) && origin !== '');

@@ -7,44 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Client users only
 model User {
-  id                            String                   @id @default(uuid())
-  phone                         String                   @unique
-  email                         String?                  @unique
-  password                      String?
-  name                          String?
-  role                          UserRole                 @default(CLIENT)
-  isActive                      Boolean                  @default(true)
-  emailVerified                 DateTime?
-  profilePhoto                  String?
-  profileCompleted              Boolean                  @default(false)
-  dateOfBirth                   DateTime?
-  timeOfBirth                   String?
-  placeOfBirth                  String?
-  currentAddress                String?
-  permanentAddress              String?
-  latitude                      Float?
-  longitude                     Float?
-  zodiacSign                    ZodiacSign?
-  createdAt                     DateTime                 @default(now())
-  updatedAt                     DateTime                 @updatedAt
-  consultationsAsAstrologer     Consultation[]           @relation("AstrologerConsultations")
-  consultationsAsClient         Consultation[]           @relation("ClientConsultations")
-  instantChatRequestsAsClient   InstantChatRequest[]     @relation("ClientInstantChatRequests")
-  acceptedInstantChatRequests   InstantChatRequest[]     @relation("AcceptedInstantChatRequests")
-  consultationRequestsAsClient  ConsultationRequest[]    @relation("ClientConsultationRequests")
-  acceptedConsultationRequests  ConsultationRequest[]    @relation("AcceptedConsultationRequests")
-  broadcastMessagesAsClient     BroadcastMessage[]       @relation("ClientBroadcastMessages")
-  acceptedBroadcastMessages     BroadcastMessage[]       @relation("AcceptedBroadcastMessages")
-  horoscopeSubscriptions        HoroscopeSubscription?
-  receivedMessages              Message[]                @relation("ReceivedMessages")
-  sentMessages                  Message[]                @relation("SentMessages")
-  notifications                 Notification[]
-  notificationSettings          NotificationSettings?
-  payments                      Payment[]
-  sessions                      Session[]
-  chatsAsParticipant1           Chat[]                   @relation("ChatParticipant1")
-  chatsAsParticipant2           Chat[]                   @relation("ChatParticipant2")
+  id                           String                 @id @default(uuid())
+  phone                        String                 @unique
+  email                        String?                @unique
+  password                     String?
+  name                         String?
+  role                         UserRole               @default(CLIENT)
+  isActive                     Boolean                @default(true)
+  emailVerified                DateTime?
+  profilePhoto                 String?
+  profileCompleted             Boolean                @default(false)
+  dateOfBirth                  DateTime?
+  timeOfBirth                  String?
+  placeOfBirth                 String?
+  currentAddress               String?
+  permanentAddress             String?
+  latitude                     Float?
+  longitude                    Float?
+  zodiacSign                   ZodiacSign?
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
+  consultationsAsClient        Consultation[]         @relation("ClientConsultations")
+  instantChatRequestsAsClient  InstantChatRequest[]   @relation("ClientInstantChatRequests")
+  consultationRequestsAsClient ConsultationRequest[]  @relation("ClientConsultationRequests")
+  broadcastMessagesAsClient    BroadcastMessage[]     @relation("ClientBroadcastMessages")
+  horoscopeSubscriptions       HoroscopeSubscription?
+  notifications                Notification[]
+  notificationSettings         NotificationSettings?
+  payments                     Payment[]
+  sessions                     Session[]
+  chatsAsClient                Chat[]                 @relation("ChatParticipant1")
+  auditLogs                    AuditLog[]
 
   @@index([phone])
   @@index([email])
@@ -52,25 +47,136 @@ model User {
   @@index([zodiacSign])
 }
 
-model Session {
-  id                String   @id @default(uuid())
-  userId            String
-  refreshTokenHash  String   @unique // Hashed refresh token for security
-  accessToken       String?  // Optional: for tracking (not used for validation)
-  expiresAt         DateTime // Refresh token expiration
-  isRevoked         Boolean  @default(false) // For logout/revocation
-  userAgent         String?
-  ipAddress         String?
-  lastUsedAt        DateTime @default(now()) // Track last refresh
-  createdAt         DateTime @default(now())
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+// Astrologer (Jyotish) - Created and managed by admin only
+model Astrologer {
+  id                           String                @id @default(uuid())
+  phone                        String                @unique
+  email                        String?               @unique
+  password                     String // Required for login
+  name                         String
+  profilePhoto                 String?
+  bio                          String?
+  specialization               String[] // e.g., ["Vedic", "Tarot", "Numerology"]
+  experience                   Int? // Years of experience
+  rating                       Float?                @default(0.0)
+  totalConsultations           Int                   @default(0)
+  isActive                     Boolean               @default(true)
+  isOnline                     Boolean               @default(false)
+  isVerified                   Boolean               @default(false)
+  commissionRate               Float                 @default(0.0) // Percentage (e.g., 20.0 for 20%)
+  bankAccountDetails           Json? // Store bank info securely
+  documentVerification         Json? // Store verification documents metadata
+  availabilitySchedule         Json? // Store weekly schedule
+  languages                    String[]              @default(["English", "Nepali"])
+  createdBy                    String // Admin ID who created this astrologer
+  createdAt                    DateTime              @default(now())
+  updatedAt                    DateTime              @updatedAt
+  consultationsAsAstrologer    Consultation[]        @relation("AstrologerConsultations")
+  acceptedInstantChatRequests  InstantChatRequest[]  @relation("AcceptedInstantChatRequests")
+  acceptedConsultationRequests ConsultationRequest[] @relation("AcceptedConsultationRequests")
+  acceptedBroadcastMessages    BroadcastMessage[]    @relation("AcceptedBroadcastMessages")
+  astrologerNotifications      Notification[]        @relation("AstrologerNotifications")
+  astrologerSessions           Session[]             @relation("AstrologerSessions")
+  chatsAsAstrologer            Chat[]                @relation("ChatAstrologerParticipant2")
+  auditLogs                    AuditLog[]            @relation("AstrologerAuditLogs")
+  earnings                     AstrologerEarnings[]
 
-  // Legacy field for backward compatibility
-  token             String?  @unique
+  @@index([phone])
+  @@index([email])
+  @@index([isActive])
+  @@index([isOnline])
+  @@index([rating])
+}
+
+// Admin users for managing the platform
+model Admin {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  password  String
+  name      String
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@index([isActive])
+}
+
+// Audit logging for admin monitoring
+model AuditLog {
+  id           String      @id @default(uuid())
+  userId       String? // Client user ID (if applicable)
+  astrologerId String? // Astrologer ID (if applicable)
+  adminId      String? // Admin who performed the action (if applicable)
+  action       AuditAction // Type of action performed
+  resource     String // Resource affected (e.g., "User", "Chat", "Consultation")
+  resourceId   String? // ID of the affected resource
+  details      Json? // Additional details about the action
+  ipAddress    String?
+  userAgent    String?
+  metadata     Json? // Extra context (e.g., before/after values)
+  createdAt    DateTime    @default(now())
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  astrologer   Astrologer? @relation("AstrologerAuditLogs", fields: [astrologerId], references: [id], onDelete: SetNull)
+  admin        Admin?      @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([astrologerId])
+  @@index([adminId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@index([userId, action])
+  @@index([astrologerId, action])
+}
+
+// Astrologer earnings and commission tracking
+model AstrologerEarnings {
+  id             String        @id @default(uuid())
+  astrologerId   String
+  consultationId String?
+  chatId         String?
+  amount         Float // Total amount earned
+  commission     Float // Platform commission
+  netEarning     Float // Amount after commission
+  status         EarningStatus @default(PENDING)
+  payoutDate     DateTime? // When the earning was paid out
+  transactionId  String? // Payment transaction reference
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  astrologer     Astrologer    @relation(fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  @@index([astrologerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([astrologerId, status])
+}
+
+model Session {
+  id               String          @id @default(uuid())
+  userId           String? // For client users
+  astrologerId     String? // For astrologers
+  userType         SessionUserType // CLIENT, ASTROLOGER, ADMIN
+  refreshTokenHash String          @unique // Hashed refresh token for security
+  accessToken      String? // Optional: for tracking (not used for validation)
+  expiresAt        DateTime // Refresh token expiration
+  isRevoked        Boolean         @default(false) // For logout/revocation
+  userAgent        String?
+  ipAddress        String?
+  lastUsedAt       DateTime        @default(now()) // Track last refresh
+  createdAt        DateTime        @default(now())
+  user             User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  astrologer       Astrologer?     @relation("AstrologerSessions", fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  // Legacy field for backward compatibility
+  token String? @unique
+
+  @@index([userId])
+  @@index([astrologerId])
   @@index([refreshTokenHash])
   @@index([userId, isRevoked])
+  @@index([astrologerId, isRevoked])
   @@index([expiresAt])
 }
 
@@ -89,22 +195,26 @@ model OTPSession {
 }
 
 model Chat {
-  id                String     @id @default(uuid())
-  participant1Id    String
-  participant2Id    String
-  consultationId    String?
-  status            ChatStatus @default(ACTIVE)
-  endedBy           String?    // User ID who ended the chat
-  endedAt           DateTime?  // When the chat was ended
-  lastMessageAt     DateTime?
-  lastMessageText   String?
-  participant1Read  Boolean    @default(true)
-  participant2Read  Boolean    @default(true)
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  participant1      User       @relation("ChatParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
-  participant2      User       @relation("ChatParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
-  messages          Message[]
+  id                    String          @id @default(uuid())
+  participant1Id        String // Client User ID
+  participant2Id        String // Astrologer ID
+  participant1Type      ParticipantType @default(CLIENT) // Always CLIENT for participant1
+  participant2Type      ParticipantType @default(ASTROLOGER) // Always ASTROLOGER for participant2
+  consultationId        String?
+  status                ChatStatus      @default(ACTIVE)
+  endedBy               String? // User/Astrologer ID who ended the chat
+  endedAt               DateTime? // When the chat was ended
+  lastMessageAt         DateTime?
+  lastMessageText       String?
+  participant1Read      Boolean         @default(true)
+  participant2Read      Boolean         @default(true)
+  isMonitoredByAdmin    Boolean         @default(false) // Flag for admin monitoring
+  adminNotes            String? // Admin notes about this chat
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  clientParticipant     User            @relation("ChatParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  astrologerParticipant Astrologer      @relation("ChatAstrologerParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages              Message[]
 
   @@unique([participant1Id, participant2Id])
   @@index([participant1Id])
@@ -112,28 +222,34 @@ model Chat {
   @@index([consultationId])
   @@index([lastMessageAt])
   @@index([status])
+  @@index([isMonitoredByAdmin])
 }
 
 model Message {
-  id         String      @id @default(uuid())
-  chatId     String
-  senderId   String
-  receiverId String
-  content    String
-  type       MessageType @default(TEXT)
-  metadata   Json?
-  isRead     Boolean     @default(false)
-  isDeleted  Boolean     @default(false)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  chat       Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  receiver   User        @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  sender     User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  id             String          @id @default(uuid())
+  chatId         String
+  senderId       String // ID of sender (User or Astrologer)
+  receiverId     String // ID of receiver (User or Astrologer)
+  senderType     ParticipantType // CLIENT or ASTROLOGER
+  receiverType   ParticipantType // CLIENT or ASTROLOGER
+  content        String
+  type           MessageType     @default(TEXT)
+  metadata       Json?
+  isRead         Boolean         @default(false)
+  isDeleted      Boolean         @default(false)
+  flaggedByAdmin Boolean         @default(false) // Admin can flag inappropriate messages
+  adminNotes     String? // Admin notes about this message
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  chat           Chat            @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId])
   @@index([senderId])
   @@index([receiverId])
+  @@index([senderType])
+  @@index([receiverType])
   @@index([createdAt])
+  @@index([flaggedByAdmin])
 }
 
 model Consultation {
@@ -150,7 +266,7 @@ model Consultation {
   review       String?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
-  astrologer   User               @relation("AstrologerConsultations", fields: [astrologerId], references: [id], onDelete: Cascade)
+  astrologer   Astrologer         @relation("AstrologerConsultations", fields: [astrologerId], references: [id], onDelete: Cascade)
   client       User               @relation("ClientConsultations", fields: [clientId], references: [id], onDelete: Cascade)
   payment      Payment?
 
@@ -162,20 +278,20 @@ model Consultation {
 
 // Instant Chat Request - Like ride-sharing app, broadcast to all online astrologers
 model InstantChatRequest {
-  id              String                    @id @default(uuid())
-  clientId        String
-  clientName      String?
-  clientPhoto     String?
-  message         String?                   // Optional message from client
-  status          InstantChatRequestStatus  @default(PENDING)
-  acceptedBy      String?                   // Astrologer who accepted
-  chatId          String?                   // Link to created chat
-  expiresAt       DateTime                  // Auto-expire after 2-3 minutes
-  acceptedAt      DateTime?                 // When it was accepted
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  client          User                      @relation("ClientInstantChatRequests", fields: [clientId], references: [id], onDelete: Cascade)
-  acceptedAstrologer User?                  @relation("AcceptedInstantChatRequests", fields: [acceptedBy], references: [id], onDelete: SetNull)
+  id                 String                   @id @default(uuid())
+  clientId           String
+  clientName         String?
+  clientPhoto        String?
+  message            String? // Optional message from client
+  status             InstantChatRequestStatus @default(PENDING)
+  acceptedBy         String? // Astrologer ID who accepted
+  chatId             String? // Link to created chat
+  expiresAt          DateTime // Auto-expire after 2-3 minutes
+  acceptedAt         DateTime? // When it was accepted
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  client             User                     @relation("ClientInstantChatRequests", fields: [clientId], references: [id], onDelete: Cascade)
+  acceptedAstrologer Astrologer?              @relation("AcceptedInstantChatRequests", fields: [acceptedBy], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([status])
@@ -187,19 +303,19 @@ model InstantChatRequest {
 
 // Broadcast Chat - Clients send messages to "Everyone Jyotish", astrologers see and can accept
 model BroadcastMessage {
-  id              String                  @id @default(uuid())
-  clientId        String
-  content         String
-  type            MessageType             @default(TEXT)
-  status          BroadcastMessageStatus  @default(PENDING)
-  acceptedBy      String?                 // Astrologer who accepted this message
-  chatId          String?                 // Chat created after acceptance
-  acceptedAt      DateTime?               // When astrologer accepted
-  metadata        Json?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  client          User                    @relation("ClientBroadcastMessages", fields: [clientId], references: [id], onDelete: Cascade)
-  acceptedAstrologer User?                @relation("AcceptedBroadcastMessages", fields: [acceptedBy], references: [id], onDelete: SetNull)
+  id                 String                 @id @default(uuid())
+  clientId           String
+  content            String
+  type               MessageType            @default(TEXT)
+  status             BroadcastMessageStatus @default(PENDING)
+  acceptedBy         String? // Astrologer ID who accepted this message
+  chatId             String? // Chat created after acceptance
+  acceptedAt         DateTime? // When astrologer accepted
+  metadata           Json?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  client             User                   @relation("ClientBroadcastMessages", fields: [clientId], references: [id], onDelete: Cascade)
+  acceptedAstrologer Astrologer?            @relation("AcceptedBroadcastMessages", fields: [acceptedBy], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([status])
@@ -210,20 +326,20 @@ model BroadcastMessage {
 
 // Future consultation booking system (not implemented yet)
 model ConsultationRequest {
-  id              String                    @id @default(uuid())
-  clientId        String
-  type            ConsultationType
-  description     String?
-  preferredTime   DateTime?
-  duration        Int                       @default(30) // Duration in minutes
-  status          ConsultationRequestStatus @default(PENDING)
-  acceptedBy      String?                   // Astrologer who accepted
-  consultationId  String?                   // Link to created consultation
-  expiresAt       DateTime?                 // Auto-expire after certain time
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
-  client          User                      @relation("ClientConsultationRequests", fields: [clientId], references: [id], onDelete: Cascade)
-  acceptedAstrologer User?                  @relation("AcceptedConsultationRequests", fields: [acceptedBy], references: [id], onDelete: SetNull)
+  id                 String                    @id @default(uuid())
+  clientId           String
+  type               ConsultationType
+  description        String?
+  preferredTime      DateTime?
+  duration           Int                       @default(30) // Duration in minutes
+  status             ConsultationRequestStatus @default(PENDING)
+  acceptedBy         String? // Astrologer ID who accepted
+  consultationId     String? // Link to created consultation
+  expiresAt          DateTime? // Auto-expire after certain time
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  client             User                      @relation("ClientConsultationRequests", fields: [clientId], references: [id], onDelete: Cascade)
+  acceptedAstrologer Astrologer?               @relation("AcceptedConsultationRequests", fields: [acceptedBy], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([status])
@@ -261,40 +377,46 @@ model HoroscopeSubscription {
 }
 
 model Notification {
-  id          String           @id @default(uuid())
-  userId      String
-  title       String
-  message     String
-  type        NotificationType
-  isRead      Boolean          @default(false)
-  metadata    Json?
-  groupKey    String?          // For grouping notifications (e.g., "chat_from_userId")
-  count       Int              @default(1) // Number of notifications in this group
-  lastUpdated DateTime         @default(now()) @updatedAt // Last time this notification was updated
-  createdAt   DateTime         @default(now())
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String           @id @default(uuid())
+  userId        String? // Client user ID
+  astrologerId  String? // Astrologer ID
+  recipientType ParticipantType // CLIENT or ASTROLOGER
+  title         String
+  message       String
+  type          NotificationType
+  isRead        Boolean          @default(false)
+  metadata      Json?
+  groupKey      String? // For grouping notifications (e.g., "chat_from_userId")
+  count         Int              @default(1) // Number of notifications in this group
+  lastUpdated   DateTime         @default(now()) @updatedAt // Last time this notification was updated
+  createdAt     DateTime         @default(now())
+  user          User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  astrologer    Astrologer?      @relation("AstrologerNotifications", fields: [astrologerId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([astrologerId])
   @@index([userId, isRead])
+  @@index([astrologerId, isRead])
   @@index([createdAt])
   @@index([groupKey])
   @@index([userId, groupKey, isRead])
+  @@index([astrologerId, groupKey, isRead])
 }
 
 model NotificationSettings {
-  id                     String   @id @default(uuid())
-  userId                 String   @unique
-  notificationsEnabled   Boolean  @default(true)
-  chatNotifications      Boolean  @default(true)
+  id                        String   @id @default(uuid())
+  userId                    String   @unique
+  notificationsEnabled      Boolean  @default(true)
+  chatNotifications         Boolean  @default(true)
   consultationNotifications Boolean  @default(true)
-  paymentNotifications   Boolean  @default(true)
-  marketingNotifications Boolean  @default(false)
-  emailNotifications     Boolean  @default(true)
-  pushNotifications      Boolean  @default(true)
-  soundEnabled           Boolean  @default(true)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentNotifications      Boolean  @default(true)
+  marketingNotifications    Boolean  @default(false)
+  emailNotifications        Boolean  @default(true)
+  pushNotifications         Boolean  @default(true)
+  soundEnabled              Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -373,24 +495,24 @@ enum ConsultationStatus {
 }
 
 enum InstantChatRequestStatus {
-  PENDING      // Request active, broadcast to online astrologers
-  ACCEPTED     // Astrologer accepted, chat being created
-  EXPIRED      // Request expired (no one accepted in time)
-  CANCELLED    // Client cancelled the request
+  PENDING // Request active, broadcast to online astrologers
+  ACCEPTED // Astrologer accepted, chat being created
+  EXPIRED // Request expired (no one accepted in time)
+  CANCELLED // Client cancelled the request
 }
 
 enum BroadcastMessageStatus {
-  PENDING      // Message sent, waiting for astrologer to accept
-  ACCEPTED     // Astrologer accepted, chat created
-  EXPIRED      // Message expired (no response in reasonable time)
+  PENDING // Message sent, waiting for astrologer to accept
+  ACCEPTED // Astrologer accepted, chat created
+  EXPIRED // Message expired (no response in reasonable time)
 }
 
 enum ConsultationRequestStatus {
-  PENDING      // Request created, waiting for astrologer
-  ACCEPTED     // Astrologer accepted, consultation being created
-  COMPLETED    // Consultation created successfully
-  EXPIRED      // Request expired (no one accepted in time)
-  CANCELLED    // Client cancelled the request
+  PENDING // Request created, waiting for astrologer
+  ACCEPTED // Astrologer accepted, consultation being created
+  COMPLETED // Consultation created successfully
+  EXPIRED // Request expired (no one accepted in time)
+  CANCELLED // Client cancelled the request
 }
 
 enum ConsultationType {
@@ -422,4 +544,50 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   REFUNDED
+}
+
+enum SessionUserType {
+  CLIENT
+  ASTROLOGER
+  ADMIN
+}
+
+enum ParticipantType {
+  CLIENT
+  ASTROLOGER
+}
+
+enum AuditAction {
+  USER_LOGIN
+  USER_LOGOUT
+  USER_REGISTER
+  USER_UPDATE
+  USER_DELETE
+  ASTROLOGER_LOGIN
+  ASTROLOGER_LOGOUT
+  ASTROLOGER_CREATE
+  ASTROLOGER_UPDATE
+  ASTROLOGER_DELETE
+  ADMIN_LOGIN
+  ADMIN_LOGOUT
+  ADMIN_ACTION
+  CHAT_START
+  CHAT_END
+  MESSAGE_SEND
+  MESSAGE_DELETE
+  MESSAGE_FLAG
+  CONSULTATION_CREATE
+  CONSULTATION_UPDATE
+  CONSULTATION_CANCEL
+  PAYMENT_CREATE
+  PAYMENT_SUCCESS
+  PAYMENT_FAIL
+  SYSTEM_ACTION
+}
+
+enum EarningStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
 }

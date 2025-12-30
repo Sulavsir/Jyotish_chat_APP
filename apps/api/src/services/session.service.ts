@@ -38,6 +38,34 @@ export class SessionService {
     await prisma.session.create({
       data: {
         userId,
+        userType: 'CLIENT' as any,
+        refreshTokenHash,
+        expiresAt,
+        userAgent: metadata?.userAgent,
+        ipAddress: metadata?.ipAddress,
+        isRevoked: false,
+      },
+    });
+  }
+
+  /**
+   * Create a new session for astrologer with refresh token
+   */
+  async createSessionForAstrologer(
+    astrologerId: string,
+    refreshToken: string,
+    metadata?: {
+      userAgent?: string;
+      ipAddress?: string;
+    }
+  ): Promise<void> {
+    const refreshTokenHash = this.hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN_MS);
+
+    await prisma.session.create({
+      data: {
+        astrologerId,
+        userType: 'ASTROLOGER' as any,
         refreshTokenHash,
         expiresAt,
         userAgent: metadata?.userAgent,

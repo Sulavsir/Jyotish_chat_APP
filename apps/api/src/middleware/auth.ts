@@ -41,6 +41,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     req.user = {
       id: decoded.id,
       phone: decoded.phone,
+      email: decoded.email,
       role: decoded.role,
     };
 

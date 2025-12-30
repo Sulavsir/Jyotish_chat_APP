@@ -13,7 +13,7 @@
     "db:migrate:status": "prisma migrate status",
     "db:migrate:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
-    "db:seed": "ts-node src/seed.ts",
+    "db:seed": "ts-node prisma/seed.ts",
     "db:format": "prisma format"
   },
   "dependencies": {

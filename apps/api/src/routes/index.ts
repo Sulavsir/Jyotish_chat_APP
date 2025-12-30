@@ -9,6 +9,8 @@ import broadcastMessageRoutes from './broadcastMessage.routes';
 import horoscopeRoutes from './horoscope.routes';
 import notificationRoutes from './notification.routes';
 import notificationSettingsRoutes from './notificationSettings.routes';
+import astrologerRoutes from './astrologer.routes';
+import adminRoutes from './admin.routes';
 
 const router = Router();
 
@@ -22,6 +24,12 @@ router.use('/broadcast-messages', broadcastMessageRoutes); // "Everyone Jyotish"
 router.use('/horoscopes', horoscopeRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/notification-settings', notificationSettingsRoutes);
+
+// Astrologer routes
+router.use('/astrologer', astrologerRoutes);
+
+// Admin routes
+router.use('/admin', adminRoutes);
 
 export default router;
 
