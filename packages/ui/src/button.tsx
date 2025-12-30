@@ -10,8 +10,9 @@ const buttonVariants = cva(
       variant: {
         default: '',
         outline: 'border-2 bg-transparent',
-        ghost: 'bg-transparent',
-        link: 'underline-offset-4 hover:underline bg-transparent',
+        ghost:
+          'bg-transparent border-0 shadow-none hover:bg-transparent [&]:!text-white [&]:!bg-none [&]:!bg-transparent [&]:!shadow-none',
+        link: 'underline-offset-4 hover:underline bg-transparent border-0 shadow-none px-0',
       },
       color: {
         primary:
@@ -26,6 +27,7 @@ const buttonVariants = cva(
           'bg-gradient-to-r from-orange-600 to-amber-600 text-white hover:from-orange-500 hover:to-amber-500 shadow-lg hover:shadow-xl',
         info: 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-500 hover:to-cyan-500 shadow-lg hover:shadow-xl',
         neutral: 'bg-gray-700 text-white hover:bg-gray-600 shadow-md hover:shadow-lg',
+        none: '', // No color styling - for ghost variant
       },
       size: {
         default: 'h-10 px-4 py-2',
@@ -75,41 +77,54 @@ const buttonVariants = cva(
         color: 'neutral',
         className: 'border-white/40 text-white hover:bg-white/10 hover:border-white/60',
       },
-      // Ghost variants with colors
+      // Ghost variants - completely override all background styles
       {
         variant: 'ghost',
         color: 'primary',
-        className: 'text-purple-300 hover:bg-purple-500/20',
+        className:
+          'text-purple-300 hover:text-purple-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       {
         variant: 'ghost',
         color: 'secondary',
-        className: 'text-pink-300 hover:bg-pink-500/20',
+        className:
+          'text-pink-300 hover:text-pink-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       {
         variant: 'ghost',
         color: 'success',
-        className: 'text-green-300 hover:bg-green-500/20',
+        className:
+          'text-green-300 hover:text-green-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       {
         variant: 'ghost',
         color: 'danger',
-        className: 'text-red-300 hover:bg-red-500/20',
+        className:
+          'text-red-300 hover:text-red-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       {
         variant: 'ghost',
         color: 'warning',
-        className: 'text-orange-300 hover:bg-orange-500/20',
+        className:
+          'text-orange-300 hover:text-orange-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       {
         variant: 'ghost',
         color: 'info',
-        className: 'text-blue-300 hover:bg-blue-500/20',
+        className:
+          'text-blue-300 hover:text-blue-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       {
         variant: 'ghost',
         color: 'neutral',
-        className: 'text-gray-300 hover:bg-gray-500/20',
+        className:
+          'text-gray-300 hover:text-gray-200 !bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
+      },
+      {
+        variant: 'ghost',
+        color: 'none',
+        className:
+          '!bg-none !from-transparent !via-transparent !to-transparent hover:!from-transparent hover:!via-transparent hover:!to-transparent',
       },
       // Link variants with colors
       {
@@ -157,7 +172,9 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  extends
+    Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'>,
+    VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 

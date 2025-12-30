@@ -1,56 +1,77 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { HttpError } from './errorHandler';
+import { AppError } from './error-handler';
 import { UserRole } from '@jyotish/shared';
+import { authService } from '../services';
 
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    email: string;
+    phone?: string;
+    email?: string;
     role: UserRole;
   };
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
+/**
+ * Authentication Middleware
+ *
+ * Validates access token from httpOnly cookie on every request:
+ * Step 1: Check if token cookie is present → 401 if not
+ * Step 2: Validate token signature → 401 if invalid
+ * Step 3: Check expiration → 401 if expired
+ * Step 4: Check claims → Continue if valid
+ *
+ * Server NEVER contacts database for token validation
+ * Access token is read from httpOnly cookie (most secure)
+ */
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorization;
+    // Step 1: Check if access token cookie is present
+    const token = req.cookies?.accessToken;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new HttpError(401, 'Authentication required', 'UNAUTHORIZED');
+    if (!token) {
+      throw new AppError('Authentication required', 401, 'UNAUTHORIZED');
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    // Step 2, 3: Validate token signature and expiration
+    // This will throw 401 if token is invalid or expired
+    const decoded = authService.verifyAccessToken(token);
 
+    // Step 4: Set user claims in request
     req.user = {
       id: decoded.id,
-      email: decoded.email,
+      phone: decoded.phone,
       role: decoded.role,
     };
 
     next();
   } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      next(new HttpError(401, 'Invalid token', 'INVALID_TOKEN'));
-    } else {
+    // All token validation errors return 401
+    if (error instanceof AppError && error.statusCode === 401) {
       next(error);
+    } else {
+      next(new AppError('Invalid token', 401, 'INVALID_TOKEN'));
     }
   }
 }
 
+/**
+ * Authorization Middleware
+ *
+ * Checks user roles/permissions after authentication:
+ * - Wrong audience/role/scope → 403 Forbidden
+ */
 export function authorize(...roles: UserRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new HttpError(401, 'Authentication required', 'UNAUTHORIZED'));
+      return next(new AppError('Authentication required', 401, 'UNAUTHORIZED'));
     }
 
+    // Check if user has required role
     if (roles.length && !roles.includes(req.user.role)) {
-      return next(new HttpError(403, 'Insufficient permissions', 'FORBIDDEN'));
+      return next(new AppError('Insufficient permissions', 403, 'FORBIDDEN'));
     }
 
     next();
   };
 }
-

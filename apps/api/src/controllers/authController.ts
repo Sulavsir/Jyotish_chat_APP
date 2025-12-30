@@ -1,122 +1,452 @@
 /**
  * Auth Controller - Handle authentication requests
+ * Controllers should be thin - only handle request validation, input handling, and responses
+ * All business logic is delegated to services
+ * Validation is handled at route level via middleware
+ * Errors are handled by global error handler
  */
 
 import { Response, NextFunction } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { prisma } from '@jyotish/database';
-import { userRegisterSchema, userLoginSchema } from '../validators';
+import { UserRole } from '@jyotish/database';
 import { AuthRequest } from '../types';
-import { sendSuccess, sendError } from '../utils';
-import { HTTP_STATUS, ERROR_CODES, JWT_CONFIG } from '../constants';
+import { sendSuccess, setAuthCookies, clearAuthCookies } from '../utils';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { otpService, authService, userService, sessionService } from '../services';
+import { AppError } from '../middleware/error-handler';
 
 /**
- * Register new user
- * POST /api/v1/auth/register
+ * Check if phone number exists
+ * POST /api/v1/auth/check-phone
  */
-export async function register(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    // Validate request body
-    const validatedData = userRegisterSchema.parse(req.body);
+export async function checkPhone(req: AuthRequest, res: Response, next: NextFunction) {
+  const { phoneNumber } = req.body;
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
-    });
+  // Check if user exists via service
+  const exists = await userService.userExists(phoneNumber);
 
-    if (existingUser) {
-      return sendError(
-        res,
-        'Email already registered',
-        HTTP_STATUS.CONFLICT,
-        ERROR_CODES.EMAIL_EXISTS
-      );
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email: validatedData.email,
-        password: hashedPassword,
-        name: validatedData.name,
-        phone: validatedData.phone,
-        role: validatedData.role,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        phone: true,
-        createdAt: true,
-      },
-    });
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_CONFIG.SECRET,
-      { expiresIn: JWT_CONFIG.EXPIRES_IN }
-    );
-
-    return sendSuccess(res, { user, token }, HTTP_STATUS.CREATED);
-  } catch (error) {
-    next(error);
-  }
+  return sendSuccess(res, {
+    exists,
+    message: exists ? 'Phone number found' : 'New user',
+  });
 }
 
 /**
- * Login user
+ * Send OTP to phone number (for both new and existing users)
+ * POST /api/v1/auth/send-otp
+ * Unified OTP flow - no need to check if user exists first
+ */
+export async function sendOTP(req: AuthRequest, res: Response, next: NextFunction) {
+  const { phoneNumber } = req.body;
+
+  // Check rate limiting
+  const isRateLimited = await otpService.checkRateLimit(phoneNumber);
+  if (isRateLimited) {
+    throw new AppError(
+      'Too many OTP requests. Please try again later.',
+      HTTP_STATUS.TOO_MANY_REQUESTS,
+      ERROR_CODES.RATE_LIMIT_EXCEEDED
+    );
+  }
+
+  // Send OTP via service
+  const result = await otpService.sendOTP(phoneNumber);
+
+  return sendSuccess(res, {
+    sessionId: result.sessionId,
+    isExistingUser: result.isExistingUser,
+    message: 'OTP sent successfully',
+    // Only include OTP in development mode for testing (NEVER in production)
+    ...(process.env.NODE_ENV === 'development' && result.otp && { otp: result.otp }),
+  });
+}
+
+/**
+ * Verify OTP
+ * POST /api/v1/auth/verify-otp
+ * - Creates user if new (without password)
+ * - Logs in existing user
+ * - Returns token and user for both cases
+ */
+export async function verifyOTP(req: AuthRequest, res: Response, next: NextFunction) {
+  const { sessionId, phoneNumber, otp, role } = req.body;
+
+  // Verify OTP via service
+  const verifyResult = await otpService.verifyOTP(sessionId, phoneNumber, otp);
+
+  // Check if user exists
+  const isExistingUser = await otpService.isExistingUser(verifyResult.phoneNumber);
+
+  if (isExistingUser) {
+    // EXISTING USER - Log them in
+    const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber);
+
+    // Set both tokens as httpOnly cookies
+    setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);
+
+    return sendSuccess(res, {
+      isNewUser: false,
+      message: 'Login successful',
+    });
+  }
+
+  // NEW USER - Create account without password
+  // Use provided role or default to CLIENT
+  const userRole = (role as UserRole) || UserRole.CLIENT;
+  const createResult = await userService.createUserWithoutPassword(
+    verifyResult.phoneNumber,
+    userRole
+  );
+
+  // Set both tokens as httpOnly cookies
+  setAuthCookies(res, createResult.accessToken, createResult.refreshToken);
+
+  return sendSuccess(res, {
+    isNewUser: true,
+    message: 'Account created successfully. You can set a password later.',
+  });
+}
+
+/**
+ * Set password for new user (after OTP verification)
+ * POST /api/v1/auth/set-password
+ */
+export async function setPassword(req: AuthRequest, res: Response, next: NextFunction) {
+  const { tempToken, password } = req.body;
+
+  // Verify temp token
+  const decoded = authService.verifyTempToken(tempToken);
+
+  // Check if user already exists
+  const exists = await userService.userExists(decoded.phoneNumber);
+  if (exists) {
+    throw new AppError('User already exists', HTTP_STATUS.CONFLICT, ERROR_CODES.USER_EXISTS);
+  }
+
+  // Create user via service
+  const result = await userService.createUser({
+    phoneNumber: decoded.phoneNumber,
+    password,
+  });
+
+  // Set both tokens as httpOnly cookies
+  setAuthCookies(res, result.accessToken, result.refreshToken);
+
+  return sendSuccess(
+    res,
+    {
+      message: 'Account created successfully. Use /api/v1/users/me to get user details.',
+    },
+    HTTP_STATUS.CREATED
+  );
+}
+
+/**
+ * Login user with email/phone + password
  * POST /api/v1/auth/login
+ * Supports both email and phone number login
  */
 export async function login(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    // Validate request body
-    const validatedData = userLoginSchema.parse(req.body);
+  const { identifier, password } = req.body;
 
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: validatedData.email },
-    });
+  // Login via service
+  const result = await authService.loginWithPassword(identifier, password);
 
-    if (!user) {
-      return sendError(
-        res,
-        'Invalid credentials',
-        HTTP_STATUS.UNAUTHORIZED,
-        ERROR_CODES.INVALID_CREDENTIALS
-      );
-    }
+  // Set both tokens as httpOnly cookies
+  setAuthCookies(res, result.accessToken, result.refreshToken);
 
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(validatedData.password, user.password);
-
-    if (!isPasswordValid) {
-      return sendError(
-        res,
-        'Invalid credentials',
-        HTTP_STATUS.UNAUTHORIZED,
-        ERROR_CODES.INVALID_CREDENTIALS
-      );
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_CONFIG.SECRET,
-      { expiresIn: JWT_CONFIG.EXPIRES_IN }
-    );
-
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
-
-    return sendSuccess(res, { user: userWithoutPassword, token });
-  } catch (error) {
-    next(error);
-  }
+  return sendSuccess(res, {
+    message: 'Login successful. Use /api/v1/users/me to get user details.',
+  });
 }
 
+/**
+ * Request OTP for passwordless login (existing users only)
+ * POST /api/v1/auth/login-with-otp
+ */
+export async function requestLoginOTP(req: AuthRequest, res: Response, next: NextFunction) {
+  const { phoneNumber } = req.body;
+
+  // Check if user exists
+  const exists = await userService.userExists(phoneNumber);
+  if (!exists) {
+    throw new AppError(
+      'No account found with this phone number',
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODES.USER_NOT_FOUND
+    );
+  }
+
+  // Check rate limiting
+  const isRateLimited = await otpService.checkRateLimit(phoneNumber);
+  if (isRateLimited) {
+    throw new AppError(
+      'Too many OTP requests. Please try again later.',
+      HTTP_STATUS.TOO_MANY_REQUESTS,
+      ERROR_CODES.RATE_LIMIT_EXCEEDED
+    );
+  }
+
+  // Send OTP via service
+  const result = await otpService.sendOTP(phoneNumber);
+
+  return sendSuccess(res, {
+    sessionId: result.sessionId,
+    message: 'OTP sent successfully',
+    // Only include OTP in development mode for testing (NEVER in production)
+    ...(process.env.NODE_ENV === 'development' && result.otp && { otp: result.otp }),
+  });
+}
+
+/**
+ * Verify OTP and login (passwordless)
+ * POST /api/v1/auth/verify-login-otp
+ */
+export async function verifyLoginOTP(req: AuthRequest, res: Response, next: NextFunction) {
+  const { sessionId, phoneNumber, otp } = req.body;
+
+  // Verify OTP via service
+  const verifyResult = await otpService.verifyOTP(sessionId, phoneNumber, otp);
+
+  // Login user via service
+  const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber);
+
+  // Set both tokens as httpOnly cookies
+  setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);
+
+  return sendSuccess(res, {
+    message: 'Login successful. Use /api/v1/users/me to get user details.',
+  });
+}
+
+/**
+ * Setup user profile (after account creation)
+ * POST /api/v1/users/profile-setup
+ */
+export async function profileSetup(req: AuthRequest, res: Response, next: NextFunction) {
+  // Check authentication
+  if (!req.user?.id) {
+    throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+  }
+
+  // Handle profile photo if uploaded (multer middleware adds 'file' property)
+  // @ts-ignore - multer adds 'file' property
+  const profilePhoto = req.file?.path || undefined;
+
+  // Setup profile via service
+  const user = await userService.setupProfile(req.user.id, {
+    ...req.body,
+    profilePhoto,
+  });
+
+  return sendSuccess(res, {
+    user,
+    message: 'Profile completed successfully',
+  });
+}
+
+/**
+ * Legacy register endpoint (deprecated)
+ */
+export async function register(req: AuthRequest, res: Response, next: NextFunction) {
+  throw new AppError(
+    'This endpoint is deprecated. Please use phone-based authentication.',
+    HTTP_STATUS.GONE,
+    ERROR_CODES.DEPRECATED
+  );
+}
+
+/**
+ * Change password
+ * POST /api/v1/auth/change-password
+ */
+export async function changePassword(req: AuthRequest, res: Response, next: NextFunction) {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError(
+      'User not authenticated',
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODES.UNAUTHORIZED
+    );
+  }
+
+  // Change password via service
+  await authService.changePassword(userId, currentPassword, newPassword);
+
+  return sendSuccess(res, {
+    message: 'Password changed successfully',
+  });
+}
+
+/**
+ * Set password for existing user who doesn't have one
+ * POST /api/v1/auth/set-password-existing
+ */
+export async function setPasswordForExistingUser(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const { password } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError(
+      'User not authenticated',
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODES.UNAUTHORIZED
+    );
+  }
+
+  // Set password via service
+  await authService.setPasswordForExistingUser(userId, password);
+
+  return sendSuccess(res, {
+    message: 'Password set successfully',
+  });
+}
+
+/**
+ * Logout user
+ * POST /api/v1/auth/logout
+ *
+ * Security features:
+ * - Revokes refresh token in session
+ * - Marks session as invalid
+ * - Client clears access token
+ */
+export async function logout(req: AuthRequest, res: Response, next: NextFunction) {
+  // Get refresh token from cookie
+  const refreshToken = req.cookies.refreshToken;
+
+  // Clear all auth cookies
+  clearAuthCookies(res);
+
+  if (!refreshToken) {
+    // Even if no refresh token provided, return success (client-side logout)
+    return sendSuccess(res, {
+      message: 'Logged out successfully',
+    });
+  }
+
+  // Revoke the refresh token session
+  try {
+    await sessionService.revokeSessionByToken(refreshToken);
+  } catch (error) {
+    // Log error but still return success - cookies are cleared
+    console.error('Error revoking session:', error);
+  }
+
+  return sendSuccess(res, {
+    message: 'Logged out successfully',
+  });
+}
+
+/**
+ * Logout from all devices
+ * POST /api/v1/auth/logout-all
+ *
+ * Revokes all refresh tokens for the authenticated user
+ */
+export async function logoutAll(req: AuthRequest, res: Response, next: NextFunction) {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    throw new AppError(
+      'User not authenticated',
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODES.UNAUTHORIZED
+    );
+  }
+
+  // Clear cookies on this device
+  clearAuthCookies(res);
+
+  // Revoke all sessions for this user (all devices)
+  const count = await sessionService.revokeAllUserSessions(userId);
+
+  return sendSuccess(res, {
+    message: `Logged out from ${count} device(s) successfully`,
+    devicesLoggedOut: count,
+  });
+}
+
+/**
+ * Refresh access token using refresh token
+ * POST /api/v1/auth/refresh
+ *
+ * Security features:
+ * - Validates refresh token from session (hashed)
+ * - One-time use: Rotates refresh token on every use
+ * - Revokes old session, creates new one
+ */
+export async function refreshToken(req: AuthRequest, res: Response, next: NextFunction) {
+  // Get refresh token from cookie
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    clearAuthCookies(res);
+    throw new AppError(
+      'Refresh token is required',
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODES.UNAUTHORIZED
+    );
+  }
+
+  // Validate refresh token from session (checks hash, expiry, revocation)
+  const session = await sessionService.validateRefreshToken(refreshToken);
+
+  if (!session) {
+    // Clear invalid cookies
+    clearAuthCookies(res);
+    throw new AppError(
+      'Invalid or expired refresh token',
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODES.UNAUTHORIZED
+    );
+  }
+
+  // Verify JWT signature and get user data
+  const decoded = authService.verifyRefreshToken(refreshToken);
+
+  // Verify user still exists
+  const exists = await userService.userExists(decoded.phone);
+  if (!exists) {
+    clearAuthCookies(res);
+    throw new AppError('User not found', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+  }
+
+  // Generate new token pair
+  const { accessToken: newAccessToken, refreshToken: newRefreshToken } = authService.generateTokens(
+    {
+      id: decoded.id,
+      phone: decoded.phone,
+      role: decoded.role,
+    }
+  );
+
+  // Rotate refresh token (one-time use)
+  // Revoke old session and create new one
+  const metadata = {
+    userAgent: req.headers['user-agent'],
+    ipAddress: req.ip || req.socket.remoteAddress,
+  };
+
+  const rotated = await sessionService.rotateRefreshToken(refreshToken, newRefreshToken, metadata);
+
+  if (!rotated) {
+    throw new AppError(
+      'Failed to rotate refresh token',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      ERROR_CODES.SERVER_ERROR
+    );
+  }
+
+  // Set new tokens as httpOnly cookies
+  setAuthCookies(res, newAccessToken, newRefreshToken);
+
+  return sendSuccess(res, {
+    message: 'Tokens refreshed successfully',
+  });
+}

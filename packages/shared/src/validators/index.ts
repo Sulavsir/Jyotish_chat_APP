@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { UserRole, MessageType, ConsultationStatus, ConsultationType, ZodiacSign, NotificationType } from '../types';
+import {
+  UserRole,
+  MessageType,
+  ConsultationStatus,
+  ConsultationType,
+  ZodiacSign,
+  NotificationType,
+} from '../types';
 
 // User validators
 export const userRegisterSchema = z.object({
@@ -10,9 +17,75 @@ export const userRegisterSchema = z.object({
   role: z.nativeEnum(UserRole).default(UserRole.CLIENT),
 });
 
+// Phone number validation helper (Nepali format: 98XXXXXXXX)
+const nepaliPhoneRegex = /^(98|97)\d{8}$/;
+const phoneValidation = z
+  .string()
+  .min(1, 'Phone number is required')
+  .regex(nepaliPhoneRegex, 'Phone number must be valid Nepali number (98XXXXXXXX or 97XXXXXXXX)');
+
+// New phone-based auth validators
+export const checkPhoneSchema = z.object({
+  phoneNumber: phoneValidation,
+});
+
+export const sendOTPSchema = z.object({
+  phoneNumber: phoneValidation,
+  role: z.nativeEnum(UserRole).optional(),
+});
+
+export const verifyOTPSchema = z.object({
+  phoneNumber: phoneValidation,
+  otp: z
+    .string()
+    .length(6, 'OTP must be 6 digits')
+    .regex(/^[0-9]{6}$/, 'OTP must contain only numbers'),
+  sessionId: z.string().uuid('Invalid session ID'),
+  role: z.nativeEnum(UserRole).optional(),
+});
+
+export const setPasswordSchema = z
+  .object({
+    tempToken: z.string().min(1, 'Temporary token is required'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/(?=.*[a-z])/, 'Password must contain at least one lowercase letter')
+      .regex(/(?=.*[A-Z])/, 'Password must contain at least one uppercase letter')
+      .regex(/(?=.*\d)/, 'Password must contain at least one number'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 export const userLoginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  identifier: z.string().min(1, 'Email or phone number is required'), // Can be email or phone
   password: z.string().min(1, 'Password is required'),
+});
+
+export const loginWithOTPRequestSchema = z.object({
+  phoneNumber: phoneValidation,
+});
+
+export const verifyLoginOTPSchema = z.object({
+  phoneNumber: phoneValidation,
+  otp: z
+    .string()
+    .length(6, 'OTP must be 6 digits')
+    .regex(/^[0-9]{6}$/, 'OTP must contain only numbers'),
+  sessionId: z.string().uuid('Invalid session ID'),
+});
+
+export const profileSetupSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  dateOfBirth: z.string().or(z.date()),
+  timeOfBirth: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
+  placeOfBirth: z.string().min(2, 'Place of birth is required'),
+  currentAddress: z.string().min(5, 'Current address is required'),
+  permanentAddress: z.string().min(5, 'Permanent address is required'),
 });
 
 export const birthDetailsSchema = z.object({
@@ -21,6 +94,8 @@ export const birthDetailsSchema = z.object({
   placeOfBirth: z.string().min(2, 'Place of birth is required'),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  currentAddress: z.string().optional(),
+  permanentAddress: z.string().optional(),
 });
 
 // Chat validators
@@ -94,3 +169,23 @@ export const idParamSchema = z.object({
   id: z.string().uuid('Invalid ID format'),
 });
 
+// Change password validator
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z
+      .string()
+      .min(8, 'New password must be at least 8 characters')
+      .regex(/(?=.*[a-z])/, 'New password must contain at least one lowercase letter')
+      .regex(/(?=.*[A-Z])/, 'New password must contain at least one uppercase letter')
+      .regex(/(?=.*\d)/, 'New password must contain at least one number'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'New password must be different from current password',
+    path: ['newPassword'],
+  });

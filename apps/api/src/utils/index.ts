@@ -6,6 +6,18 @@ import { Response } from 'express';
 import { ApiResponse } from '../types';
 import { HTTP_STATUS } from '../constants';
 
+// Re-export encryption utilities
+export * from './encryption';
+
+// Re-export async handler
+export * from './async-handler';
+
+// Re-export user utilities
+export * from './user-utils';
+
+// Re-export cookie utilities
+export * from './cookie-utils';
+
 /**
  * Send success response
  */
@@ -77,7 +89,7 @@ export function calculateConsultationAmount(
     VOICE: 30,
     VIDEO: 50,
   };
-  
+
   return (duration / 15) * baseRates[type];
 }
 
@@ -113,4 +125,3 @@ export function isToday(date: Date): boolean {
 export function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
-

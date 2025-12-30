@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "currentAddress" TEXT,
+ADD COLUMN "permanentAddress" TEXT;
+

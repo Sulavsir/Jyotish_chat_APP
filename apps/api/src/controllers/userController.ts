@@ -1,48 +1,62 @@
 /**
  * User Controller - Handle user-related requests
+ * Controllers should be thin - only handle request validation, input handling, and responses
+ * All business logic is delegated to services
+ * Errors are handled by global error handler
  */
 
 import { Response, NextFunction } from 'express';
 import { prisma } from '@jyotish/database';
 import { birthDetailsSchema } from '../validators';
 import { AuthRequest } from '../types';
-import { sendSuccess, sendError } from '../utils';
+import { sendSuccess } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { getZodiacSign } from '@jyotish/shared';
+import { AppError } from '../middleware/error-handler';
+import * as userServiceNew from '../services/userService';
 
 /**
  * Get current user profile
  * GET /api/v1/users/me
  */
 export async function getCurrentUser(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        role: true,
-        image: true,
-        dateOfBirth: true,
-        timeOfBirth: true,
-        placeOfBirth: true,
-        zodiacSign: true,
-        latitude: true,
-        longitude: true,
-        createdAt: true,
-      },
-    });
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      profilePhoto: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true, // Include to check if password is set
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 
-    if (!user) {
-      return sendError(res, 'User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
-    }
-
-    return sendSuccess(res, user);
-  } catch (error) {
-    next(error);
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
   }
+
+  // Format response to match frontend expectations (phoneNumber instead of phone)
+  const { phone, password, ...userWithoutSensitiveData } = user;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: phone,
+    hasPassword: !!password,
+  };
+
+  return sendSuccess(res, formattedUser);
 }
 
 /**
@@ -50,31 +64,47 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
  * PATCH /api/v1/users/me
  */
 export async function updateProfile(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const { name, phone, image } = req.body;
+  const { name, email, phone, profilePhoto } = req.body;
 
-    const user = await prisma.user.update({
-      where: { id: req.user!.id },
-      data: {
-        ...(name && { name }),
-        ...(phone && { phone }),
-        ...(image && { image }),
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        role: true,
-        image: true,
-        createdAt: true,
-      },
-    });
+  const user = await prisma.user.update({
+    where: { id: req.user!.id },
+    data: {
+      ...(name && { name }),
+      ...(email !== undefined && { email }),
+      ...(phone && { phone }),
+      ...(profilePhoto && { profilePhoto }),
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      profilePhoto: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true,
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 
-    return sendSuccess(res, user);
-  } catch (error) {
-    next(error);
-  }
+  // Format response to match frontend expectations
+  const { phone: userPhone, password, ...userWithoutSensitiveData } = user;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: userPhone,
+    hasPassword: !!password,
+  };
+
+  return sendSuccess(res, formattedUser);
 }
 
 /**
@@ -82,35 +112,206 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
  * PATCH /api/v1/users/me/birth-details
  */
 export async function updateBirthDetails(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const validatedData = birthDetailsSchema.parse(req.body);
-    const dob = new Date(validatedData.dateOfBirth);
-    const zodiacSign = getZodiacSign(dob);
+  const validatedData = birthDetailsSchema.parse(req.body);
+  const dob = new Date(validatedData.dateOfBirth);
+  const zodiacSign = getZodiacSign(dob);
 
-    const user = await prisma.user.update({
-      where: { id: req.user!.id },
-      data: {
-        dateOfBirth: dob,
-        timeOfBirth: validatedData.timeOfBirth,
-        placeOfBirth: validatedData.placeOfBirth,
-        latitude: validatedData.latitude,
-        longitude: validatedData.longitude,
-        zodiacSign,
-      },
-      select: {
-        id: true,
-        dateOfBirth: true,
-        timeOfBirth: true,
-        placeOfBirth: true,
-        latitude: true,
-        longitude: true,
-        zodiacSign: true,
-      },
-    });
+  const user = await prisma.user.update({
+    where: { id: req.user!.id },
+    data: {
+      dateOfBirth: dob,
+      timeOfBirth: validatedData.timeOfBirth,
+      placeOfBirth: validatedData.placeOfBirth,
+      latitude: validatedData.latitude,
+      longitude: validatedData.longitude,
+      currentAddress: validatedData.currentAddress,
+      permanentAddress: validatedData.permanentAddress,
+      zodiacSign,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      profilePhoto: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true,
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 
-    return sendSuccess(res, user);
-  } catch (error) {
-    next(error);
-  }
+  // Format response to match frontend expectations
+  const { phone, password, ...userWithoutSensitiveData } = user;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: phone,
+    hasPassword: !!password,
+  };
+
+  return sendSuccess(res, formattedUser);
 }
 
+/**
+ * Upload profile photo
+ * POST /api/v1/users/upload-photo
+ */
+export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFunction) {
+  // @ts-ignore - multer adds 'file' property
+  const file = req.file;
+
+  if (!file) {
+    throw new AppError('No file uploaded', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  // Get current user to check if they have an existing photo
+  const currentUser = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { profilePhoto: true },
+  });
+
+  // Delete old profile photo if exists
+  if (currentUser?.profilePhoto) {
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const oldPhotoPath = path.join(process.cwd(), currentUser.profilePhoto);
+      if (fs.existsSync(oldPhotoPath)) {
+        fs.unlinkSync(oldPhotoPath);
+      }
+    } catch (error) {
+      // Continue even if old file deletion fails
+      console.error('Error deleting old profile photo:', error);
+    }
+  }
+
+  // Generate URL for the uploaded file
+  const fileUrl = `/uploads/profiles/${file.filename}`;
+
+  // Update user's profile photo in database
+  const user = await prisma.user.update({
+    where: { id: req.user!.id },
+    data: { profilePhoto: fileUrl },
+    select: {
+      id: true,
+      profilePhoto: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true,
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  // Format response to match frontend expectations
+  const { phone, password, ...userWithoutSensitiveData } = user;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: phone,
+    hasPassword: !!password,
+  };
+
+  return sendSuccess(res, formattedUser);
+}
+
+/**
+ * Remove profile photo
+ * DELETE /api/v1/users/remove-photo
+ */
+export async function removePhoto(req: AuthRequest, res: Response, next: NextFunction) {
+  // Get current user to check if they have a photo
+  const currentUser = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { profilePhoto: true },
+  });
+
+  if (!currentUser?.profilePhoto) {
+    throw new AppError(
+      'No profile photo to remove',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // Delete the profile photo file
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const photoPath = path.join(process.cwd(), currentUser.profilePhoto);
+    if (fs.existsSync(photoPath)) {
+      fs.unlinkSync(photoPath);
+    }
+  } catch (error) {
+    console.error('Error deleting profile photo file:', error);
+    // Continue even if file deletion fails
+  }
+
+  // Update user's profile photo to null in database
+  const user = await prisma.user.update({
+    where: { id: req.user!.id },
+    data: { profilePhoto: null },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      profilePhoto: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true,
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  // Format response to match frontend expectations
+  const { phone, password, ...userWithoutSensitiveData } = user;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: phone,
+    hasPassword: !!password,
+  };
+
+  return sendSuccess(res, formattedUser);
+}
+
+/**
+ * Get users to chat with (astrologers for clients, clients for astrologers)
+ * GET /api/v1/users/chatable
+ */
+export async function getChatableUsers(req: AuthRequest, res: Response, next: NextFunction) {
+  const userId = req.user!.id;
+  const userRole = req.user!.role;
+
+  const users = await userServiceNew.getChatableUsers(userId, userRole);
+
+  return sendSuccess(res, users);
+}

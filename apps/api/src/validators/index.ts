@@ -1,12 +1,19 @@
 /**
- * Request Validators
- * Centralized validation schemas
+ * Validators - Barrel Export
  */
 
 // Re-export validators from shared package
 export {
   userRegisterSchema,
   userLoginSchema,
+  loginWithOTPRequestSchema,
+  verifyLoginOTPSchema,
+  checkPhoneSchema,
+  sendOTPSchema,
+  verifyOTPSchema,
+  setPasswordSchema,
+  changePasswordSchema,
+  profileSetupSchema,
   birthDetailsSchema,
   sendMessageSchema,
   getChatHistorySchema,
@@ -20,22 +27,7 @@ export {
   idParamSchema,
 } from '@jyotish/shared';
 
-import { z } from 'zod';
-
-// Additional backend-specific validators
-
-/**
- * Query string pagination validator
- */
-export const queryPaginationSchema = z.object({
-  page: z.string().optional().transform((val) => (val ? parseInt(val) : 1)),
-  limit: z.string().optional().transform((val) => (val ? parseInt(val) : 20)),
-});
-
-/**
- * UUID param validator
- */
-export const uuidParamSchema = z.object({
-  id: z.string().uuid('Invalid ID format'),
-});
-
+// Export backend-specific validators
+export * from './query.validators';
+export * from './horoscope.validators';
+export * from './notification.validators';
