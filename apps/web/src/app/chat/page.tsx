@@ -141,7 +141,7 @@ export default function ChatPage() {
           : message.metadata
             ? '📎 Sent an attachment'
             : message.content?.substring(0, 100) || '';
-            
+
         updatedChats[chatIndex] = {
           ...chat,
           lastMessageText,
@@ -237,7 +237,7 @@ export default function ChatPage() {
 
       // Clear messages first to prevent duplicates from store merge
       setMessages([]);
-      
+
       // Directly set the active chat and load messages
       setActiveChat(chat);
       setActiveChatId(chat.id);
@@ -325,7 +325,7 @@ export default function ChatPage() {
 
     // Clear messages first to prevent duplicates from store merge
     setMessages([]);
-    
+
     setIsBroadcastChatActive(false); // Clear broadcast chat state
     setActiveChat(selectedChat);
     setActiveChatId(chatId);
@@ -368,10 +368,10 @@ export default function ChatPage() {
     if (attachment) {
       try {
         toast.loading('Uploading file...');
-        
+
         // Upload file first
         const fileData = await chatService.uploadChatFile(attachment.file);
-        
+
         toast.dismiss();
         toast.success('File uploaded!');
 
@@ -440,13 +440,13 @@ export default function ChatPage() {
   const handleChatEnded = async () => {
     // Reload conversations to update status
     await loadConversations();
-    
+
     // Clear active chat
     setActiveChat(null);
     setActiveChatId(null);
     setMessages([]);
     setShowMobileChat(false);
-    
+
     toast.success('You can now start a new chat');
   };
 

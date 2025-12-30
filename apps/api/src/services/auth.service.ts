@@ -9,6 +9,7 @@ import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES, TOKEN_TYPES } from '../constants
 import { AppError } from '../middleware/error-handler';
 import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
+import { UserRole } from '@jyotish/shared';
 import type {
   UserPayload,
   LoginResult,
@@ -283,7 +284,7 @@ export class AuthService {
     const { accessToken, refreshToken } = this.generateTokens({
       id: user.id,
       phone: user.phone,
-      role: user.role,
+      role: user.role as UserRole,
     });
 
     // Store refresh token in session (hashed)
@@ -327,7 +328,7 @@ export class AuthService {
     const { accessToken, refreshToken } = this.generateTokens({
       id: user.id,
       phone: user.phone,
-      role: user.role,
+      role: user.role as UserRole,
     });
 
     // Store refresh token in session (hashed)

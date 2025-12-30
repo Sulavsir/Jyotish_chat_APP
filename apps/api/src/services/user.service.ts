@@ -2,7 +2,8 @@
  * User Service - Handle user-related business logic
  */
 
-import { prisma, UserRole } from '@jyotish/database';
+import { prisma } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
 import { authService } from './auth.service';
 import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
@@ -79,7 +80,7 @@ export class UserService {
     const { accessToken, refreshToken } = authService.generateTokens({
       id: user.id,
       phone: user.phone,
-      role: user.role,
+      role: user.role as UserRole,
     });
 
     // Store refresh token in session (hashed)
@@ -147,7 +148,7 @@ export class UserService {
     const { accessToken, refreshToken } = authService.generateTokens({
       id: user.id,
       phone: user.phone,
-      role: user.role,
+      role: user.role as UserRole,
     });
 
     // Store refresh token in session (hashed)

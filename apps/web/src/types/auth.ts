@@ -1,128 +1,112 @@
+/**
+ * Auth-related type definitions for frontend
+ */
+
+import type { User, UserRole } from '@jyotish/shared';
+
+// Re-export User type for convenience
+export type { User };
+
+// API Error type
+export interface ApiError {
+  message: string;
+  code?: string;
+  details?: unknown;
+  statusCode?: number;
+}
+
+// Check Phone
 export interface CheckPhoneRequest {
   phoneNumber: string;
 }
 
 export interface CheckPhoneResponse {
-  success: boolean;
   exists: boolean;
   message: string;
 }
 
+// Send OTP
 export interface SendOTPRequest {
   phoneNumber: string;
-  role?: string; // Optional: ASTROLOGER for astrologer registration
+  role?: UserRole;
 }
 
 export interface SendOTPResponse {
-  success: boolean;
   message: string;
-  sessionId: string;
-  isExistingUser?: boolean;
-  otp?: string; // Only in development
+  expiresIn: number;
 }
 
+// Verify OTP
 export interface VerifyOTPRequest {
   phoneNumber: string;
   otp: string;
-  sessionId: string;
-  role?: string; // Optional: ASTROLOGER for astrologer registration
+  role?: UserRole;
 }
 
 export interface VerifyOTPResponse {
-  success: boolean;
-  message: string;
   isNewUser: boolean;
-  // Tokens are stored as httpOnly cookies - not returned in response
-  // User details must be fetched via /api/v1/users/me
+  message: string;
 }
 
+// Set Password
 export interface SetPasswordRequest {
+  phoneNumber: string;
   tempToken: string;
   password: string;
   confirmPassword: string;
 }
 
 export interface SetPasswordResponse {
-  success: boolean;
   message: string;
-  // Tokens are stored as httpOnly cookies - not returned in response
-  // User details must be fetched via /api/v1/users/me
 }
 
+// Login with Email/Phone and Password
 export interface LoginRequest {
-  identifier: string; // Can be email or phone
+  identifier: string; // email or phone
   password: string;
 }
 
 export interface LoginResponse {
-  success: boolean;
   message: string;
-  // Tokens are stored as httpOnly cookies - not returned in response
-  // User details must be fetched via /api/v1/users/me
 }
 
+// Login with OTP (send OTP)
 export interface LoginWithOTPRequest {
   phoneNumber: string;
 }
 
 export interface LoginWithOTPResponse {
-  success: boolean;
   message: string;
-  sessionId: string;
-  otp?: string; // Only in development
+  expiresIn: number;
 }
 
+// Verify Login OTP
 export interface VerifyLoginOTPRequest {
   phoneNumber: string;
   otp: string;
-  sessionId: string;
 }
 
 export interface VerifyLoginOTPResponse {
-  success: boolean;
   message: string;
-  // Tokens are stored as httpOnly cookies - not returned in response
-  // User details must be fetched via /api/v1/users/me
 }
 
-export interface User {
-  id: string;
-  phoneNumber: string;
+// Profile Setup
+export interface ProfileSetupRequest {
+  name: string;
   email?: string;
-  name?: string;
-  role?: string;
-  profilePhoto?: string;
   dateOfBirth?: string;
   timeOfBirth?: string;
   placeOfBirth?: string;
-  currentAddress?: string;
-  permanentAddress?: string;
-  zodiacSign?: string;
-  profileCompleted: boolean;
-  hasPassword: boolean; // Flag to indicate if user has set a password
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProfileSetupRequest {
-  name: string;
-  email: string;
-  dateOfBirth: string; // YYYY-MM-DD
-  timeOfBirth: string; // HH:MM (24-hour format)
-  placeOfBirth: string;
-  currentAddress: string;
-  permanentAddress: string;
-  profilePhoto?: File;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface ProfileSetupResponse {
-  success: boolean;
-  message: string;
   user: User;
+  message: string;
 }
 
-export interface ApiError {
-  message: string;
-  statusCode: number;
-  errors?: Record<string, string[]>;
+// Get Current User
+export interface GetProfileResponse {
+  user: User;
 }

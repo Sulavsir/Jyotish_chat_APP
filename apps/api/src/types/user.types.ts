@@ -27,4 +27,3 @@ export interface ProfileSetupData {
   permanentAddress: string;
   profilePhoto?: string;
 }
-

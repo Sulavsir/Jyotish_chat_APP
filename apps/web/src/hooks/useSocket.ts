@@ -103,10 +103,22 @@ export function useSocket() {
         socketRef.current = null;
       }
     };
-  }, [isAuthenticated, addMessage, setUserTyping, addUserOnline, removeUserOnline, addNotification]);
+  }, [
+    isAuthenticated,
+    addMessage,
+    setUserTyping,
+    addUserOnline,
+    removeUserOnline,
+    addNotification,
+  ]);
 
   // Send message
-  const sendMessage = (receiverId: string, content: string, type: string = 'TEXT', metadata?: any) => {
+  const sendMessage = (
+    receiverId: string,
+    content: string,
+    type: string = 'TEXT',
+    metadata?: any
+  ) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit(WS_EVENTS.CHAT_SEND, {
         receiverId,

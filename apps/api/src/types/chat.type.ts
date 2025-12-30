@@ -1,4 +1,4 @@
-import { MessageType } from "@jyotish/shared";
+import { MessageType } from '@jyotish/shared';
 
 export interface CreateChatParams {
   participant1Id: string;

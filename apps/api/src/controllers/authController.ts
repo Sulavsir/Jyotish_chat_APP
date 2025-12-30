@@ -7,7 +7,7 @@
  */
 
 import { Response, NextFunction } from 'express';
-import { UserRole } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
 import { AuthRequest } from '../types';
 import { sendSuccess, setAuthCookies, clearAuthCookies } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -134,7 +134,7 @@ export async function setPassword(req: AuthRequest, res: Response, next: NextFun
   return sendSuccess(
     res,
     {
-      message: 'Account created successfully. Use /api/v1/users/me to get user details.',
+      message: 'Account created successfully.',
     },
     HTTP_STATUS.CREATED
   );
@@ -155,7 +155,7 @@ export async function login(req: AuthRequest, res: Response, next: NextFunction)
   setAuthCookies(res, result.accessToken, result.refreshToken);
 
   return sendSuccess(res, {
-    message: 'Login successful. Use /api/v1/users/me to get user details.',
+    message: 'Login successful.',
   });
 }
 
@@ -214,7 +214,7 @@ export async function verifyLoginOTP(req: AuthRequest, res: Response, next: Next
   setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);
 
   return sendSuccess(res, {
-    message: 'Login successful. Use /api/v1/users/me to get user details.',
+    message: 'Login successful.',
   });
 }
 
