@@ -1,0 +1,82 @@
+/**
+ * useChat Hook - Helper for initiating and managing chats
+ */
+
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import chatService from '@/services/chat.service';
+import { toast } from 'sonner';
+import { useAuthStore } from '@/store/auth-store';
+import { UserRole } from '@/types';
+
+export function useChat() {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const [isStartingChat, setIsStartingChat] = useState(false);
+
+  /**
+   * Start a chat with another user
+   * @param otherUserId - The user ID to chat with
+   * @param consultationId - Optional consultation ID to link
+   * @returns The chat ID
+   */
+  const startChat = async (otherUserId: string, consultationId?: string) => {
+    if (!user) {
+      toast.error('Please login to start a chat');
+      return null;
+    }
+
+    if (otherUserId === user.id) {
+      toast.error('You cannot chat with yourself');
+      return null;
+    }
+
+    try {
+      setIsStartingChat(true);
+
+      // Get or create the chat
+      const chat = await chatService.getOrCreateChat({
+        otherUserId,
+        consultationId,
+      });
+
+      // Validate chat response
+      if (!chat || !chat.id) {
+        console.error('Invalid chat response from server');
+        throw new Error('Invalid chat response from server');
+      }
+
+      // Navigate to the appropriate chat page based on user role
+      if (user.role === UserRole.ASTROLOGER) {
+        router.push(`/jyotish/chat?chatId=${chat.id}`);
+      } else {
+        router.push(`/chat?chatId=${chat.id}`);
+      }
+
+      return chat.id;
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      toast.error('Failed to start chat. Please try again.');
+      return null;
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
+
+  /**
+   * Navigate to chat with a specific user
+   */
+  const navigateToChat = (chatId: string) => {
+    if (user?.role === UserRole.ASTROLOGER) {
+      router.push(`/jyotish/chat?chatId=${chatId}`);
+    } else {
+      router.push(`/chat?chatId=${chatId}`);
+    }
+  };
+
+  return {
+    startChat,
+    navigateToChat,
+    isStartingChat,
+  };
+}

@@ -1,0 +1,46 @@
+/**
+ * User related types and enums
+ */
+
+// User Role Enum (matches Prisma schema)
+export enum UserRole {
+  CLIENT = 'CLIENT',
+  ASTROLOGER = 'ASTROLOGER',
+  ADMIN = 'ADMIN',
+}
+
+// User Role Type
+export type UserRoleType = UserRole | 'CLIENT' | 'ASTROLOGER' | 'ADMIN';
+
+// User Interface
+export interface User {
+  id: string;
+  name: string | null;
+  email?: string | null;
+  phone?: string;
+  phoneNumber?: string;
+  profilePhoto?: string | null;
+  role: UserRoleType;
+  zodiacSign?: string;
+  dateOfBirth?: string;
+  timeOfBirth?: string;
+  placeOfBirth?: string;
+  currentAddress?: string;
+  permanentAddress?: string;
+  profileCompleted?: boolean;
+  hasPassword?: boolean;
+  isActive?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+// User with minimal info (for lists)
+export interface UserBasicInfo {
+  id: string;
+  name: string | null;
+  email?: string | null;
+  phone?: string;
+  profilePhoto?: string | null;
+  role: UserRoleType;
+  zodiacSign?: string;
+}

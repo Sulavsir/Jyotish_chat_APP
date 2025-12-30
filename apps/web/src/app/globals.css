@@ -1,0 +1,264 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 264 67% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 264 67% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 264 67% 12%;
+    --primary: 33 100% 50%; /* Orange #ff8f00 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 45 100% 66%; /* Gold #ffc107 */
+    --secondary-foreground: 264 67% 12%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 333 77% 48%; /* Magenta #d81b60 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 68% 45%; /* Red #c62828 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 33 100% 50%;
+    --radius: 0.5rem;
+
+    /* Custom App Theme Colors - Cosmic Jyotish */
+    --color-bg-dark: #1a0a2e; /* Deep purple - main background */
+    --color-bg-primary: #0b0d0d; /* Lighter purple - cards, dialogs */
+    --color-bg-secondary: #0f051d; /* Very dark purple - overlays */
+
+    --color-primary: #ff8f00; /* Orange accent */
+    --color-primary-hover: #ff6f00; /* Darker orange */
+    --color-primary-light: #ffa726; /* Light orange */
+
+    --color-secondary: #ffc107; /* Gold */
+    --color-secondary-hover: #ffb300; /* Darker gold */
+
+    --color-text-primary: #ffffff; /* White text */
+    --color-text-secondary: #e0e0e0; /* Light gray text */
+    --color-text-muted: #9e9e9e; /* Muted gray text */
+
+    --color-border: rgba(255, 143, 0, 0.2); /* Orange border with opacity */
+    --color-border-light: rgba(255, 193, 7, 0.15); /* Gold border with opacity */
+
+    --color-success: #4caf50; /* Green */
+    --color-warning: #ff9800; /* Orange */
+    --color-error: #c62828; /* Red */
+    --color-info: #2196f3; /* Blue */
+  }
+
+  .dark {
+    --background: 257 47% 15%; /* Deep space purple #1a0f3b */
+    --foreground: 38 90% 61%; /* Golden yellow #f6b73c */
+    --card: 257 47% 15%;
+    --card-foreground: 38 90% 61%;
+    --popover: 257 47% 15%;
+    --popover-foreground: 38 90% 61%;
+    --primary: 20 68% 53%; /* Dark orange #e07b2e */
+    --primary-foreground: 38 90% 61%;
+    --secondary: 38 90% 61%; /* Golden yellow #f6b73c */
+    --secondary-foreground: 257 47% 15%;
+    --muted: 257 30% 25%;
+    --muted-foreground: 38 70% 65%;
+    --accent: 8 68% 49%; /* Bright red #d43924 */
+    --accent-foreground: 38 90% 61%;
+    --destructive: 8 68% 49%;
+    --destructive-foreground: 38 90% 61%;
+    --border: 20 68% 53%;
+    --input: 257 30% 25%;
+    --ring: 20 68% 53%;
+  }
+}
+
+/* Optimized Cosmic Space Background - Red-Dark-Blue-Purple-Pink Theme */
+.cosmic-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(75, 0, 130, 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(220, 20, 60, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(25, 25, 112, 0.3) 0%, transparent 60%),
+    linear-gradient(135deg, #000000 0%, #0a0418 50%, #000000 100%);
+}
+
+.cosmic-gradient {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 40% 40%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 60%, rgba(220, 20, 60, 0.15) 0%, transparent 50%);
+  opacity: 0.8;
+}
+
+/* Optimized Nebula Clouds - Reduced for Performance */
+.nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.nebula-1 {
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(75, 0, 130, 0.4) 0%, transparent 70%);
+  top: -10%;
+  left: -10%;
+}
+
+.nebula-2 {
+  width: 900px;
+  height: 900px;
+  background: radial-gradient(circle, rgba(220, 20, 60, 0.35) 0%, transparent 70%);
+  top: -5%;
+  right: -10%;
+}
+
+.nebula-3 {
+  width: 850px;
+  height: 850px;
+  background: radial-gradient(circle, rgba(138, 43, 226, 0.3) 0%, transparent 70%);
+  bottom: -10%;
+  left: -5%;
+}
+
+/* Optimized Star Animation */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.stars-small,
+.stars-medium,
+.stars-large {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-repeat: repeat;
+  pointer-events: none;
+}
+
+.stars-small {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, white, transparent),
+    radial-gradient(1px 1px at 60% 70%, rgba(147, 112, 219, 0.8), transparent),
+    radial-gradient(1px 1px at 80% 20%, rgba(255, 182, 193, 0.8), transparent),
+    radial-gradient(1px 1px at 30% 80%, rgba(100, 149, 237, 0.7), transparent),
+    radial-gradient(1px 1px at 90% 50%, rgba(220, 20, 60, 0.7), transparent),
+    radial-gradient(1px 1px at 15% 60%, white, transparent),
+    radial-gradient(1px 1px at 70% 40%, rgba(186, 85, 211, 0.8), transparent),
+    radial-gradient(1px 1px at 40% 10%, rgba(255, 105, 180, 0.7), transparent);
+  background-size: 250px 250px;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+.stars-medium {
+  background-image:
+    radial-gradient(2px 2px at 40% 50%, white, transparent),
+    radial-gradient(2px 2px at 70% 80%, rgba(138, 43, 226, 0.9), transparent),
+    radial-gradient(2px 2px at 10% 60%, rgba(220, 20, 60, 0.8), transparent),
+    radial-gradient(2px 2px at 85% 25%, rgba(100, 149, 237, 0.8), transparent),
+    radial-gradient(2px 2px at 50% 90%, rgba(255, 105, 180, 0.8), transparent);
+  background-size: 400px 400px;
+  animation: twinkle 4s ease-in-out infinite 1s;
+}
+
+.stars-large {
+  background-image:
+    radial-gradient(2.5px 2.5px at 30% 40%, white, transparent),
+    radial-gradient(2.5px 2.5px at 65% 15%, rgba(138, 43, 226, 0.9), transparent),
+    radial-gradient(2.5px 2.5px at 75% 70%, rgba(220, 20, 60, 0.9), transparent),
+    radial-gradient(2.5px 2.5px at 20% 75%, rgba(100, 149, 237, 0.9), transparent);
+  background-size: 500px 500px;
+  animation: twinkle 5s ease-in-out infinite 2s;
+}
+
+/* Remove colorful stars layer for performance */
+.stars-colorful {
+  display: none;
+}
+
+/* Shooting Stars - Disabled for Performance */
+.shooting-stars {
+  display: none;
+}
+
+/* Auth Pages - Twinkling Stars Only */
+.auth-stars-small,
+.auth-stars-medium,
+.auth-stars-large {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-repeat: repeat;
+  pointer-events: none;
+}
+
+.auth-stars-small {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, white, transparent),
+    radial-gradient(1px 1px at 60% 70%, rgba(255, 200, 220, 0.9), transparent),
+    radial-gradient(1px 1px at 80% 20%, rgba(200, 180, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 30% 80%, rgba(255, 220, 180, 0.8), transparent),
+    radial-gradient(1px 1px at 90% 50%, white, transparent),
+    radial-gradient(1px 1px at 15% 60%, rgba(220, 200, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 70% 40%, white, transparent),
+    radial-gradient(1px 1px at 40% 10%, rgba(255, 210, 200, 0.8), transparent),
+    radial-gradient(1px 1px at 55% 90%, rgba(230, 220, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 10% 25%, white, transparent);
+  background-size: 200px 200px;
+  animation: twinkle 2.5s ease-in-out infinite;
+}
+
+.auth-stars-medium {
+  background-image:
+    radial-gradient(2px 2px at 40% 50%, white, transparent),
+    radial-gradient(2px 2px at 70% 80%, rgba(255, 190, 220, 0.95), transparent),
+    radial-gradient(2px 2px at 10% 60%, rgba(220, 200, 255, 0.9), transparent),
+    radial-gradient(2px 2px at 85% 25%, white, transparent),
+    radial-gradient(2px 2px at 50% 90%, rgba(255, 220, 200, 0.9), transparent),
+    radial-gradient(2px 2px at 25% 35%, rgba(230, 210, 255, 0.95), transparent);
+  background-size: 350px 350px;
+  animation: twinkle 3.5s ease-in-out infinite 1s;
+}
+
+.auth-stars-large {
+  background-image:
+    radial-gradient(2.5px 2.5px at 30% 40%, white, transparent),
+    radial-gradient(2.5px 2.5px at 65% 15%, rgba(255, 200, 230, 1), transparent),
+    radial-gradient(2.5px 2.5px at 75% 70%, rgba(220, 190, 255, 0.95), transparent),
+    radial-gradient(2.5px 2.5px at 20% 75%, white, transparent);
+  background-size: 450px 450px;
+  animation: twinkle 4.5s ease-in-out infinite 2s;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  html {
+    overflow-x: hidden;
+  }
+}
