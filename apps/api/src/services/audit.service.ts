@@ -36,7 +36,35 @@ export class AuditService {
         userAgent: params.userAgent,
         metadata: params.metadata || {},
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+        astrologer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+      },
     });
+
+    // Emit to admin room for real-time monitoring
+    try {
+      const { getSocketInstance } = require('../utils/socket-instance');
+      const io = getSocketInstance();
+      if (io) {
+        io.to('admin').emit('auditLog:new', auditLog);
+      }
+    } catch (error) {
+      // Don't fail audit logging if socket emit fails
+      console.error('Failed to emit audit log to admin:', error);
+    }
 
     return auditLog;
   }
@@ -54,8 +82,20 @@ export class AuditService {
     resource?: string;
     startDate?: Date;
     endDate?: Date;
+    excludeChatRelated?: boolean;
   }) {
-    const { page = 1, limit = 20, userId, astrologerId, adminId, action, resource, startDate, endDate } = params;
+    const {
+      page = 1,
+      limit = 20,
+      userId,
+      astrologerId,
+      adminId,
+      action,
+      resource,
+      startDate,
+      endDate,
+      excludeChatRelated = true,
+    } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -72,12 +112,26 @@ export class AuditService {
       where.adminId = adminId;
     }
 
-    if (action) {
-      where.action = action;
-    }
-
     if (resource) {
       where.resource = resource;
+    }
+
+    // Exclude chat-related actions by default for main audit logs
+    if (excludeChatRelated && !action) {
+      where.action = {
+        notIn: [
+          'BROADCAST_MESSAGE_CREATE',
+          'BROADCAST_MESSAGE_ACCEPT',
+          'INSTANT_CHAT_REQUEST_CREATE',
+          'INSTANT_CHAT_REQUEST_ACCEPT',
+          'INSTANT_CHAT_REQUEST_EXPIRE',
+          'INSTANT_CHAT_REQUEST_CANCEL',
+          'CHAT_START',
+          'CHAT_END',
+        ],
+      };
+    } else if (action) {
+      where.action = action;
     }
 
     if (startDate || endDate) {
@@ -223,19 +277,20 @@ export class AuditService {
       }
     }
 
-    const [totalLogs, userActions, astrologerActions, adminActions, actionBreakdown] = await Promise.all([
-      prisma.auditLog.count({ where }),
-      prisma.auditLog.count({ where: { ...where, userId: { not: null } } }),
-      prisma.auditLog.count({ where: { ...where, astrologerId: { not: null } } }),
-      prisma.auditLog.count({ where: { ...where, adminId: { not: null } } }),
-      prisma.auditLog.groupBy({
-        by: ['action'],
-        where,
-        _count: {
-          _all: true,
-        },
-      }),
-    ]);
+    const [totalLogs, userActions, astrologerActions, adminActions, actionBreakdown] =
+      await Promise.all([
+        prisma.auditLog.count({ where }),
+        prisma.auditLog.count({ where: { ...where, userId: { not: null } } }),
+        prisma.auditLog.count({ where: { ...where, astrologerId: { not: null } } }),
+        prisma.auditLog.count({ where: { ...where, adminId: { not: null } } }),
+        prisma.auditLog.groupBy({
+          by: ['action'],
+          where,
+          _count: {
+            _all: true,
+          },
+        }),
+      ]);
 
     return {
       totalLogs,
@@ -248,6 +303,3 @@ export class AuditService {
 }
 
 export const auditService = new AuditService();
-
-
-

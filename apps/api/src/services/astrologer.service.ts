@@ -101,6 +101,19 @@ export class AstrologerService {
     languages: string[];
     createdBy: string; // Admin ID
   }) {
+    // Check if phone number is already used by a CLIENT
+    const existingUser = await prisma.user.findUnique({
+      where: { phone: data.phone },
+    });
+
+    if (existingUser) {
+      throw new AppError(
+        'This phone number is already registered as a client account. Please use a different phone number.',
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODES.PHONE_EXISTS
+      );
+    }
+
     // Check if astrologer already exists
     const existingPhone = await prisma.astrologer.findUnique({
       where: { phone: data.phone },
@@ -193,6 +206,7 @@ export class AstrologerService {
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, astrologer.password);
+    
     if (!isPasswordValid) {
       throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }

@@ -11,6 +11,7 @@ import notificationRoutes from './notification.routes';
 import notificationSettingsRoutes from './notificationSettings.routes';
 import astrologerRoutes from './astrologer.routes';
 import adminRoutes from './admin.routes';
+import pricingRoutes from './pricing.routes';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/broadcast-messages', broadcastMessageRoutes); // "Everyone Jyotish"
 router.use('/horoscopes', horoscopeRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/notification-settings', notificationSettingsRoutes);
+router.use('/pricing', pricingRoutes); // Pricing plans
 
 // Astrologer routes
 router.use('/astrologer', astrologerRoutes);

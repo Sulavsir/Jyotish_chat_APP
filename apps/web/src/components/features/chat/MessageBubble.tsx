@@ -28,12 +28,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start items-end'} mb-1`}>
       {!isOwn && showAvatar && (
         <Avatar className="h-8 w-8 flex-shrink-0 mr-2">
-          <AvatarImage 
-            src={getImageUrl(message.sender.profilePhoto) || undefined} 
-            alt={message.sender.name || 'User'} 
-          />
-          <AvatarFallback className="font-bold">
-            {message.sender.name?.charAt(0)?.toUpperCase() || 'U'}
+          {message.sender?.profilePhoto ? (
+            <AvatarImage
+              src={getImageUrl(message.sender.profilePhoto) || undefined}
+              alt={message.sender.name || 'User'}
+            />
+          ) : null}
+          <AvatarFallback className="font-bold bg-purple-600 text-white">
+            {message.sender?.name?.charAt(0)?.toUpperCase() || 'U'}
           </AvatarFallback>
         </Avatar>
       )}
@@ -44,11 +46,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
         <div
           className={`rounded-2xl overflow-hidden ${
-            hasFile && isImage
-              ? 'p-1'
-              : hasFile && !message.content?.trim()
-                ? 'p-2'
-                : 'px-4 py-2'
+            hasFile && isImage ? 'p-1' : hasFile && !message.content?.trim() ? 'p-2' : 'px-4 py-2'
           } ${
             isOwn
               ? 'bg-indigo-600 text-white rounded-br-sm'
@@ -101,14 +99,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <FileText className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-indigo-600'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isOwn ? 'text-white' : 'text-gray-900'}`}>
+                    <p
+                      className={`text-sm font-medium truncate ${isOwn ? 'text-white' : 'text-gray-900'}`}
+                    >
                       {metadata.fileName || 'File'}
                     </p>
                     <p className={`text-xs ${isOwn ? 'text-indigo-200' : 'text-gray-500'}`}>
-                      {metadata.fileSize ? `${(metadata.fileSize / 1024).toFixed(1)} KB` : 'Download'}
+                      {metadata.fileSize
+                        ? `${(metadata.fileSize / 1024).toFixed(1)} KB`
+                        : 'Download'}
                     </p>
                   </div>
-                  <Download className={`h-4 w-4 flex-shrink-0 ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`} />
+                  <Download
+                    className={`h-4 w-4 flex-shrink-0 ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}
+                  />
                 </a>
               )}
             </div>

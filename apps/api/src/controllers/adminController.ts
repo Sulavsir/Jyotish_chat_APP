@@ -42,16 +42,8 @@ export async function adminLogin(req: AuthRequest, res: Response, next: NextFunc
     // Set httpOnly cookies
     setAuthCookies(res, result.accessToken, result.refreshToken);
 
-    // Log admin login
-    await auditService.logAction({
-      adminId: result.admin.id,
-      action: 'ADMIN_LOGIN',
-      resource: 'Admin',
-      resourceId: result.admin.id,
-      details: { email },
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent'),
-    });
+    // Don't log admin login to avoid cluttering audit logs
+    // Admin activity monitoring is handled separately
 
     return sendSuccess(res, { admin: result.admin });
   } catch (error) {
@@ -67,15 +59,8 @@ export async function adminLogout(req: AuthRequest, res: Response, next: NextFun
   try {
     clearAuthCookies(res);
 
-    if (req.user?.id) {
-      await auditService.logAction({
-        adminId: req.user.id,
-        action: 'ADMIN_LOGOUT',
-        resource: 'Admin',
-        resourceId: req.user.id,
-        ipAddress: req.ip,
-      });
-    }
+    // Don't log admin logout to avoid cluttering audit logs
+    // Admin activity monitoring is handled separately
 
     return sendSuccess(res, null);
   } catch (error) {
@@ -91,19 +76,18 @@ export async function getAdminProfile(req: AuthRequest, res: Response, next: Nex
   try {
     const adminId = req.user?.id;
 
-    const admin = await prisma.user.findUnique({
+    const admin = await prisma.admin.findUnique({
       where: { id: adminId },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
-        profilePhoto: true,
+        isActive: true,
         createdAt: true,
       },
     });
 
-    if (!admin || admin.role !== 'ADMIN') {
+    if (!admin) {
       throw new AppError('Admin not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
@@ -873,6 +857,214 @@ export async function markEarningPaid(req: AuthRequest, res: Response, next: Nex
     });
 
     return sendSuccess(res, { earning });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ==================== Chat Audit ====================
+
+/**
+ * Get chat audit logs - includes broadcast messages, instant chat requests, all chat activities
+ * GET /api/v1/admin/chat-audit
+ */
+export async function getChatAudit(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { page = '1', limit = '10', status, search, type } = req.query;
+
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const take = parseInt(limit as string);
+
+    // Build where clauses
+    const broadcastWhere: any = {};
+    const instantChatWhere: any = {};
+
+    // Status filter
+    if (status && status !== 'ALL') {
+      broadcastWhere.status = status;
+      instantChatWhere.status = status;
+    }
+
+    // Search filter
+    if (search) {
+      const searchCondition = [
+        { client: { name: { contains: search as string, mode: 'insensitive' } } },
+        { client: { phone: { contains: search as string } } },
+      ];
+      broadcastWhere.OR = searchCondition;
+      instantChatWhere.OR = searchCondition;
+    }
+
+    // Type filter
+    const shouldFetchBroadcast = !type || type === 'BROADCAST_MESSAGE';
+    const shouldFetchInstant = !type || type === 'INSTANT_CHAT_REQUEST';
+
+    // Fetch both types in parallel
+    const [broadcastMessages, instantChatRequests] = await Promise.all([
+      shouldFetchBroadcast
+        ? prisma.broadcastMessage.findMany({
+            where: broadcastWhere,
+            take: take * 2, // Fetch more to merge and paginate
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  profilePhoto: true,
+                },
+              },
+              acceptedAstrologer: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  profilePhoto: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          })
+        : [],
+      shouldFetchInstant
+        ? prisma.instantChatRequest.findMany({
+            where: instantChatWhere,
+            take: take * 2, // Fetch more to merge and paginate
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  profilePhoto: true,
+                },
+              },
+              acceptedAstrologer: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  profilePhoto: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          })
+        : [],
+    ]);
+
+    // Transform into unified audit format
+    const broadcastAuditLogs = broadcastMessages.map((msg) => ({
+      id: msg.id,
+      type: 'BROADCAST_MESSAGE' as const,
+      action: msg.status,
+      status: msg.status,
+      client: msg.client,
+      astrologer: msg.acceptedAstrologer,
+      content: msg.content,
+      messageType: msg.type,
+      metadata: msg.metadata,
+      createdAt: msg.createdAt,
+      acceptedAt: msg.acceptedAt,
+      chatId: msg.chatId,
+    }));
+
+    const instantChatAuditLogs = instantChatRequests.map((req) => ({
+      id: req.id,
+      type: 'INSTANT_CHAT_REQUEST' as const,
+      action: req.status,
+      status: req.status,
+      client: req.client,
+      astrologer: req.acceptedAstrologer,
+      content: req.message,
+      messageType: 'TEXT' as const,
+      metadata: null,
+      createdAt: req.createdAt,
+      acceptedAt: req.acceptedAt,
+      chatId: req.chatId,
+      expiresAt: req.expiresAt,
+    }));
+
+    // Merge and sort by creation date
+    const allLogs = [...broadcastAuditLogs, ...instantChatAuditLogs].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    // Apply pagination
+    const paginatedLogs = allLogs.slice(skip, skip + take);
+
+    // Get total count for pagination
+    const [broadcastTotal, instantChatTotal] = await Promise.all([
+      shouldFetchBroadcast ? prisma.broadcastMessage.count({ where: broadcastWhere }) : 0,
+      shouldFetchInstant ? prisma.instantChatRequest.count({ where: instantChatWhere }) : 0,
+    ]);
+    const total = broadcastTotal + instantChatTotal;
+
+    return sendSuccess(res, {
+      logs: paginatedLogs,
+      pagination: {
+        page: parseInt(page as string),
+        limit: take,
+        total,
+        totalPages: Math.ceil(total / take),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get chat audit statistics
+ * GET /api/v1/admin/chat-audit/stats
+ */
+export async function getChatAuditStats(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const [
+      totalBroadcasts,
+      pendingBroadcasts,
+      acceptedBroadcasts,
+      expiredBroadcasts,
+      totalInstantChats,
+      pendingInstantChats,
+      acceptedInstantChats,
+      expiredInstantChats,
+      cancelledInstantChats,
+    ] = await Promise.all([
+      prisma.broadcastMessage.count(),
+      prisma.broadcastMessage.count({ where: { status: 'PENDING' } }),
+      prisma.broadcastMessage.count({ where: { status: 'ACCEPTED' } }),
+      prisma.broadcastMessage.count({ where: { status: 'EXPIRED' } }),
+      prisma.instantChatRequest.count(),
+      prisma.instantChatRequest.count({ where: { status: 'PENDING' } }),
+      prisma.instantChatRequest.count({ where: { status: 'ACCEPTED' } }),
+      prisma.instantChatRequest.count({ where: { status: 'EXPIRED' } }),
+      prisma.instantChatRequest.count({ where: { status: 'CANCELLED' } }),
+    ]);
+
+    const stats = {
+      broadcast: {
+        total: totalBroadcasts,
+        pending: pendingBroadcasts,
+        accepted: acceptedBroadcasts,
+        expired: expiredBroadcasts,
+      },
+      instantChat: {
+        total: totalInstantChats,
+        pending: pendingInstantChats,
+        accepted: acceptedInstantChats,
+        expired: expiredInstantChats,
+        cancelled: cancelledInstantChats,
+      },
+      overall: {
+        total: totalBroadcasts + totalInstantChats,
+        pending: pendingBroadcasts + pendingInstantChats,
+        accepted: acceptedBroadcasts + acceptedInstantChats,
+        expired: expiredBroadcasts + expiredInstantChats,
+      },
+    };
+
+    return sendSuccess(res, { stats });
   } catch (error) {
     next(error);
   }

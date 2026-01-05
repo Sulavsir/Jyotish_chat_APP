@@ -8,7 +8,7 @@ async function main() {
 
   // Create default admin account
   const adminEmail = 'admin@jyotish.com';
-  const adminPassword = 'Admin@123'; // Change this after first login!
+  const adminPassword = 'Admin@123'; 
 
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
 

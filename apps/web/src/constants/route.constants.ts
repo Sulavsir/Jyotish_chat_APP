@@ -5,6 +5,7 @@
 export const ROUTES = {
   // Public Routes
   HOME: '/',
+  ABOUT: '/about',
 
   // Client Auth Routes
   LOGIN: '/auth/login',
@@ -25,6 +26,7 @@ export const ROUTES = {
   HOROSCOPE: '/horoscope',
   PROFILE: '/profile',
   SETTINGS: '/settings',
+  PRICING: '/pricing',
 
   // Jyotish (Astrologer) Routes
   JYOTISH_DASHBOARD: '/jyotish/dashboard',

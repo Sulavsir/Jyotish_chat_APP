@@ -12,6 +12,7 @@ import { TokenManager } from '@/lib/auth';
 
 // Track requests that are waiting for token refresh
 let isRefreshing = false;
+let isSessionExpired = false; // Track if session has expired to prevent loops
 let failedQueue: Array<{
   resolve: (value?: any) => void;
   reject: (reason?: any) => void;
@@ -63,6 +64,43 @@ axiosInstance.interceptors.response.use(
 
     // Handle 401 Unauthorized - Token expired or invalid
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const requestUrl = originalRequest.url || '';
+      
+      // Don't try to refresh tokens for login/auth endpoints
+      const isAuthEndpoint = requestUrl.includes('/auth/login') || 
+                            requestUrl.includes('/auth/send-otp') ||
+                            requestUrl.includes('/auth/verify-otp') ||
+                            requestUrl.includes('/auth/set-password') ||
+                            requestUrl.includes('/auth/refresh') ||
+                            requestUrl.includes('/astrologer/auth/login');
+      
+      // Don't refresh if we're on a login page
+      const isLoginPage = typeof window !== 'undefined' && 
+                         (window.location.pathname === ROUTES.LOGIN || 
+                          window.location.pathname === ROUTES.JYOTISH_LOGIN ||
+                          window.location.pathname.includes('/auth/'));
+      
+      // Skip token refresh for auth endpoints or login pages
+      if (isAuthEndpoint || isLoginPage) {
+        return Promise.reject(error);
+      }
+
+      // If session already expired, immediately reject and stop all requests
+      if (isSessionExpired) {
+        console.log('🚫 Session expired - blocking request');
+        
+        // Ensure redirect happens (might have been blocked)
+        if (typeof window !== 'undefined' && 
+            window.location.pathname !== ROUTES.LOGIN && 
+            window.location.pathname !== ROUTES.JYOTISH_LOGIN) {
+          const isAstrologerRoute = window.location.pathname.startsWith('/jyotish');
+          const loginRoute = isAstrologerRoute ? ROUTES.JYOTISH_LOGIN : ROUTES.LOGIN;
+          setTimeout(() => window.location.replace(loginRoute), 0);
+        }
+        
+        return Promise.reject(new Error('Session expired'));
+      }
+
       // Prevent infinite loops
       originalRequest._retry = true;
 
@@ -87,22 +125,53 @@ axiosInstance.interceptors.response.use(
         // Cookies are automatically updated by server
         // No need to manually update tokens
 
+        // Reset session expired flag on successful refresh
+        isSessionExpired = false;
+
         // Process queued requests
         processQueue(null);
 
         // Retry the original request (with new cookies)
         return axiosInstance(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
+        // Mark session as expired to prevent further refresh attempts
+        isSessionExpired = true;
+
+        console.log('❌ Token refresh failed:', refreshError?.response?.data?.error || refreshError?.message);
+
         // Refresh failed - clear local storage and redirect to login
-        processQueue(new Error('Token refresh failed'));
+        processQueue(new Error('Session expired'));
         TokenManager.clearTokens();
 
-        // Only redirect if not already on login page
-        if (typeof window !== 'undefined' && window.location.pathname !== ROUTES.LOGIN) {
-          window.location.href = ROUTES.LOGIN;
+        // Clear auth store completely
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('jyotish-auth');
+            localStorage.removeItem('jyotish-store');
+            console.log('✅ Cleared localStorage');
+          } catch (e) {
+            console.error('Error clearing localStorage:', e);
+          }
         }
 
-        return Promise.reject(refreshError);
+        // Determine which login page to redirect to
+        const isAstrologerRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish');
+        const loginRoute = isAstrologerRoute ? ROUTES.JYOTISH_LOGIN : ROUTES.LOGIN;
+
+        // Force redirect immediately
+        if (typeof window !== 'undefined' && 
+            window.location.pathname !== ROUTES.LOGIN && 
+            window.location.pathname !== ROUTES.JYOTISH_LOGIN &&
+            !window.location.pathname.includes('/auth/')) {
+          console.log('🔄 Forcing redirect to login:', loginRoute);
+          
+          // Use setTimeout to ensure this happens after current execution
+          setTimeout(() => {
+            window.location.replace(loginRoute);
+          }, 100);
+        }
+
+        return Promise.reject(new Error('Session expired'));
       } finally {
         isRefreshing = false;
       }

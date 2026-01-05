@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMutation } from '@tanstack/react-query';
@@ -9,7 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '@/constants';
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@jyotish/ui';
 import spaceImage from '@/assets/images/space.jpg';
-import { LoadingButton, OTPInput, LoadingScreenWithBackground } from '@/components/ui';
+import { LoadingButton, OTPInput, LoadingScreenWithBackground, Navbar } from '@/components/ui';
 import { FormInput, FormPasswordInput } from '@/components/form';
 import { authApi } from '@/lib/auth-api';
 import { useAuthStore } from '@/store/auth-store';
@@ -23,6 +23,7 @@ import {
   type PasswordLoginFormData,
   type OTPRequestFormData,
 } from '@/lib/validations';
+import { Clock } from 'lucide-react';
 
 type LoginMethod = 'password' | 'otp';
 type OTPStep = 'request' | 'verify';
@@ -40,6 +41,7 @@ export default function LoginPage() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
   const [otpPhoneNumber, setOtpPhoneNumber] = useState('');
+  const [otpExpirySeconds, setOtpExpirySeconds] = useState<number>(0);
 
   // Password login form
   const passwordForm = useForm<PasswordLoginFormData>({
@@ -63,7 +65,7 @@ export default function LoginPage() {
     mutationFn: authApi.login,
     onSuccess: async () => {
       displaySuccess('Welcome back!');
-      
+
       // Fetch user details from /me endpoint
       try {
         const user = await authApi.getProfile();
@@ -89,6 +91,7 @@ export default function LoginPage() {
       displaySuccess('OTP sent to your phone!');
       setOtpSessionId(response.sessionId);
       setOtpPhoneNumber(variables.phoneNumber);
+      setOtpExpirySeconds(response.expiresIn); // Start countdown from expiresIn (300 seconds = 5 mins)
       setOtpStep('verify');
       setOtp(['', '', '', '', '', '']);
       setOtpError('');
@@ -98,12 +101,30 @@ export default function LoginPage() {
     },
   });
 
+  // OTP countdown timer
+  useEffect(() => {
+    if (otpExpirySeconds > 0 && otpStep === 'verify' && loginMethod === 'otp') {
+      const timer = setInterval(() => {
+        setOtpExpirySeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setOtpError('OTP has expired. Please request a new one.');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [otpExpirySeconds, otpStep, loginMethod]);
+
   // Verify OTP mutation
   const verifyOTPMutation = useMutation({
     mutationFn: authApi.verifyOTP,
     onSuccess: async (data) => {
       displaySuccess(data.isNewUser ? 'Welcome to Chat Jyotish!' : 'Welcome back!');
-      
+
       // Fetch user details from /me endpoint
       try {
         const user = await authApi.getProfile();
@@ -161,6 +182,13 @@ export default function LoginPage() {
     handleVerifyOTP(otpString);
   };
 
+  // Format countdown timer (MM:SS)
+  const formatCountdown = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Format phone number
   const formatPhoneNumber = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
@@ -174,6 +202,9 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Navbar */}
+      <Navbar />
+
       {/* Background */}
       <div className="absolute inset-0 z-0">
         <Image
@@ -188,7 +219,7 @@ export default function LoginPage() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md px-4">
+      <div className="relative z-10 w-full max-w-md px-4 py-20">
         <Card className="bg-black/40 backdrop-blur-lg border-primary/30">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-3xl font-bold text-white">Welcome Back! 🌟</CardTitle>
@@ -301,33 +332,66 @@ export default function LoginPage() {
                         Enter the 6-digit code sent to{' '}
                         <span className="font-semibold text-white">{otpPhoneNumber}</span>
                       </p>
+
+                      {/* OTP Countdown Timer */}
+                      {otpExpirySeconds > 0 && (
+                        <div className="flex items-center justify-center gap-2 py-2">
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-purple-400 ">
+                            Your OTP will expire in
+                            <Clock className="w-4 h-4" />
+                            <span
+                              className={`text-sm font-mono font-semibold ${
+                                otpExpirySeconds < 60 ? 'text-red-300' : 'text-blue-300'
+                              }`}
+                            >
+                              {formatCountdown(otpExpirySeconds)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       <OTPInput
                         length={6}
                         value={otp}
                         onChange={setOtp}
                         onComplete={handleOtpComplete}
                         error={otpError}
-                        disabled={verifyOTPMutation.isPending}
+                        disabled={verifyOTPMutation.isPending || otpExpirySeconds === 0}
                       />
                     </div>
 
                     <LoadingButton
                       onClick={() => handleVerifyOTP()}
                       isLoading={verifyOTPMutation.isPending}
-                      disabled={otp.join('').length !== 6}
+                      disabled={otp.join('').length !== 6 || otpExpirySeconds === 0}
                       className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white"
                     >
                       Verify OTP
                     </LoadingButton>
 
-                    <button
-                      type="button"
-                      onClick={() => setOtpStep('request')}
-                      disabled={verifyOTPMutation.isPending}
-                      className="w-full text-sm text-gray-300 hover:text-white transition-colors"
-                    >
-                      ← Back to phone number
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOtpStep('request')}
+                        disabled={verifyOTPMutation.isPending || sendOTPMutation.isPending}
+                        className="flex-1 text-sm text-gray-300 hover:text-white transition-colors"
+                      >
+                        ← Back
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => sendOTPMutation.mutate({ phoneNumber: otpPhoneNumber })}
+                        disabled={
+                          sendOTPMutation.isPending ||
+                          verifyOTPMutation.isPending ||
+                          otpExpirySeconds > 240
+                        }
+                        className="flex-1 text-sm text-blue-300 hover:text-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {sendOTPMutation.isPending ? 'Sending...' : 'Resend OTP'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

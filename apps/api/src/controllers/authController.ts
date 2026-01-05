@@ -8,9 +8,17 @@
 
 import { Response, NextFunction } from 'express';
 import { UserRole } from '@jyotish/shared';
+import { prisma } from '@jyotish/database';
 import { AuthRequest } from '../types';
-import { sendSuccess, setAuthCookies, clearAuthCookies } from '../utils';
-import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import {
+  sendSuccess,
+  setAuthCookies,
+  clearAuthCookies,
+  logUserLogin,
+  logUserLogout,
+  logUserRegister,
+} from '../utils';
+import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG } from '../constants';
 import { otpService, authService, userService, sessionService } from '../services';
 import { AppError } from '../middleware/error-handler';
 
@@ -38,6 +46,17 @@ export async function checkPhone(req: AuthRequest, res: Response, next: NextFunc
 export async function sendOTP(req: AuthRequest, res: Response, next: NextFunction) {
   const { phoneNumber } = req.body;
 
+  // Check if phone number belongs to an ASTROLOGER (they can't use client OTP login)
+  const phoneCheck = await otpService.checkPhoneNumberExists(phoneNumber);
+
+  if (phoneCheck.exists && phoneCheck.role === UserRole.ASTROLOGER) {
+    throw new AppError(
+      'This phone number is registered as an astrologer account. Please use the astrologer login page.',
+      HTTP_STATUS.CONFLICT,
+      ERROR_CODES.PHONE_EXISTS
+    );
+  }
+
   // Check rate limiting
   const isRateLimited = await otpService.checkRateLimit(phoneNumber);
   if (isRateLimited) {
@@ -55,6 +74,7 @@ export async function sendOTP(req: AuthRequest, res: Response, next: NextFunctio
     sessionId: result.sessionId,
     isExistingUser: result.isExistingUser,
     message: 'OTP sent successfully',
+    expiresIn: OTP_CONFIG.OTP_EXPIRY_MINUTES * 60, // Return expiry in seconds
     // Only include OTP in development mode for testing (NEVER in production)
     ...(process.env.NODE_ENV === 'development' && result.otp && { otp: result.otp }),
   });
@@ -73,25 +93,51 @@ export async function verifyOTP(req: AuthRequest, res: Response, next: NextFunct
   // Verify OTP via service
   const verifyResult = await otpService.verifyOTP(sessionId, phoneNumber, otp);
 
-  // Check if user exists
-  const isExistingUser = await otpService.isExistingUser(verifyResult.phoneNumber);
+  // Check if phone number is already registered (in either User or Astrologer table)
+  const phoneCheck = await otpService.checkPhoneNumberExists(verifyResult.phoneNumber);
 
-  if (isExistingUser) {
-    // EXISTING USER - Log them in
-    const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber);
+  if (phoneCheck.exists) {
+    // Phone number already exists
+    if (phoneCheck.role === UserRole.CLIENT) {
+      // Existing CLIENT - Log them in
+      const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber);
 
-    // Set both tokens as httpOnly cookies
-    setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);
+      // Set both tokens as httpOnly cookies
+      setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);
 
-    return sendSuccess(res, {
-      isNewUser: false,
-      message: 'Login successful',
-    });
+      // Log audit event
+      await logUserLogin(loginResult.user.id, req, {
+        loginMethod: 'OTP',
+        phoneNumber: verifyResult.phoneNumber,
+      });
+
+      return sendSuccess(res, {
+        isNewUser: false,
+        message: 'Login successful',
+      });
+    } else if (phoneCheck.role === UserRole.ASTROLOGER) {
+      // Phone number is registered as ASTROLOGER - Cannot use for client login/registration
+      throw new AppError(
+        'This phone number is registered as an astrologer account. Please use the astrologer login page.',
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODES.PHONE_EXISTS
+      );
+    }
   }
 
   // NEW USER - Create account without password
   // Use provided role or default to CLIENT
   const userRole = (role as UserRole) || UserRole.CLIENT;
+
+  // Double-check: Don't allow creating CLIENT accounts via this endpoint if trying to use ASTROLOGER role
+  if (userRole === UserRole.ASTROLOGER) {
+    throw new AppError(
+      'Astrologer accounts cannot be created through this endpoint. Please contact admin.',
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODES.FORBIDDEN
+    );
+  }
+
   const createResult = await userService.createUserWithoutPassword(
     verifyResult.phoneNumber,
     userRole
@@ -99,6 +145,13 @@ export async function verifyOTP(req: AuthRequest, res: Response, next: NextFunct
 
   // Set both tokens as httpOnly cookies
   setAuthCookies(res, createResult.accessToken, createResult.refreshToken);
+
+  // Log audit event
+  await logUserRegister(createResult.user.id, req, {
+    phoneNumber: verifyResult.phoneNumber,
+    method: 'OTP',
+    role: userRole,
+  });
 
   return sendSuccess(res, {
     isNewUser: true,
@@ -154,6 +207,12 @@ export async function login(req: AuthRequest, res: Response, next: NextFunction)
   // Set both tokens as httpOnly cookies
   setAuthCookies(res, result.accessToken, result.refreshToken);
 
+  // Log audit event
+  await logUserLogin(result.user.id, req, {
+    loginMethod: 'password',
+    identifier,
+  });
+
   return sendSuccess(res, {
     message: 'Login successful.',
   });
@@ -166,7 +225,18 @@ export async function login(req: AuthRequest, res: Response, next: NextFunction)
 export async function requestLoginOTP(req: AuthRequest, res: Response, next: NextFunction) {
   const { phoneNumber } = req.body;
 
-  // Check if user exists
+  // Check if phone number belongs to an ASTROLOGER (they can't use client OTP login)
+  const phoneCheck = await otpService.checkPhoneNumberExists(phoneNumber);
+
+  if (phoneCheck.exists && phoneCheck.role === UserRole.ASTROLOGER) {
+    throw new AppError(
+      'This phone number is registered as an astrologer account. Please use the astrologer login page.',
+      HTTP_STATUS.CONFLICT,
+      ERROR_CODES.PHONE_EXISTS
+    );
+  }
+
+  // Check if user exists in CLIENT table
   const exists = await userService.userExists(phoneNumber);
   if (!exists) {
     throw new AppError(
@@ -192,6 +262,7 @@ export async function requestLoginOTP(req: AuthRequest, res: Response, next: Nex
   return sendSuccess(res, {
     sessionId: result.sessionId,
     message: 'OTP sent successfully',
+    expiresIn: OTP_CONFIG.OTP_EXPIRY_MINUTES * 60, // Return expiry in seconds
     // Only include OTP in development mode for testing (NEVER in production)
     ...(process.env.NODE_ENV === 'development' && result.otp && { otp: result.otp }),
   });
@@ -274,8 +345,42 @@ export async function changePassword(req: AuthRequest, res: Response, next: Next
   // Change password via service
   await authService.changePassword(userId, currentPassword, newPassword);
 
+  // Fetch updated user to return hasPassword: true
+  const updatedUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      profilePhoto: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true,
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  // Format response
+  const { phone, password, ...userWithoutSensitiveData } = updatedUser!;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: phone,
+    hasPassword: !!password,
+  };
+
   return sendSuccess(res, {
     message: 'Password changed successfully',
+    user: formattedUser,
   });
 }
 
@@ -302,8 +407,42 @@ export async function setPasswordForExistingUser(
   // Set password via service
   await authService.setPasswordForExistingUser(userId, password);
 
+  // Fetch updated user to return hasPassword: true
+  const updatedUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      phone: true,
+      role: true,
+      profilePhoto: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      currentAddress: true,
+      permanentAddress: true,
+      zodiacSign: true,
+      latitude: true,
+      longitude: true,
+      password: true,
+      profileCompleted: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  // Format response
+  const { phone, password: hashedPassword, ...userWithoutSensitiveData } = updatedUser!;
+  const formattedUser = {
+    ...userWithoutSensitiveData,
+    phoneNumber: phone,
+    hasPassword: !!hashedPassword,
+  };
+
   return sendSuccess(res, {
     message: 'Password set successfully',
+    user: formattedUser,
   });
 }
 
@@ -319,6 +458,11 @@ export async function setPasswordForExistingUser(
 export async function logout(req: AuthRequest, res: Response, next: NextFunction) {
   // Get refresh token from cookie
   const refreshToken = req.cookies.refreshToken;
+
+  // Log audit event before clearing (while we still have user info)
+  if (req.user?.id) {
+    await logUserLogout(req.user.id, req);
+  }
 
   // Clear all auth cookies
   clearAuthCookies(res);
@@ -410,14 +554,36 @@ export async function refreshToken(req: AuthRequest, res: Response, next: NextFu
   // Verify JWT signature and get user data
   const decoded = authService.verifyRefreshToken(refreshToken);
 
-  // Verify user still exists
-  const exists = await userService.userExists(decoded.phone);
-  if (!exists) {
+  // Ensure decoded token has required phone field
+  if (!decoded.phone) {
     clearAuthCookies(res);
-    throw new AppError('User not found', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    throw new AppError('Invalid token data', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
   }
 
-  // Generate new token pair
+  if (decoded.role === UserRole.ASTROLOGER) {
+    // Check if astrologer exists
+    const astrologer = await prisma?.astrologer.findUnique({
+      where: { id: decoded.id },
+      select: { id: true },
+    });
+    if (!astrologer) {
+      clearAuthCookies(res);
+      throw new AppError(
+        'Astrologer not found',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+  } else {
+    // Check if user exists
+    const exists = await userService.userExists(decoded.phone);
+    if (!exists) {
+      clearAuthCookies(res);
+      throw new AppError('User not found', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+  }
+
+  // Generate new token pair (works for both users and astrologers)
   const { accessToken: newAccessToken, refreshToken: newRefreshToken } = authService.generateTokens(
     {
       id: decoded.id,

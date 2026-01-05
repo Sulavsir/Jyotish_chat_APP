@@ -1,6 +1,7 @@
 import { API_ENDPOINTS } from '@/constants';
 import { apiClient } from './api-client';
 import { TokenManager } from '@/lib/auth';
+import { useAuthStore } from '@/store/auth-store';
 import type {
   CheckPhoneRequest,
   CheckPhoneResponse,
@@ -101,6 +102,25 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<User> => {
+    // ALWAYS check store first to determine role
+    const user = useAuthStore.getState().user;
+
+    // If user is in store and is an astrologer, use astrologer endpoint
+    if (user?.role === 'ASTROLOGER') {
+      const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
+      return response.astrologer;
+    }
+
+    // Check if we're on an astrologer route as secondary check
+    const isAstrologerRoute =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish');
+
+    if (isAstrologerRoute) {
+      const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
+      return response.astrologer;
+    }
+
+    // Only default to user endpoint if we're certain it's a client
     return apiClient.get<User>(API_ENDPOINTS.USER.ME);
   },
 
@@ -157,5 +177,41 @@ export const authApi = {
 
   setPasswordForExistingUser: async (password: string): Promise<{ message: string }> => {
     return apiClient.post(API_ENDPOINTS.AUTH.SET_PASSWORD_EXISTING, { password });
+  },
+
+  // Astrologer-specific endpoints
+  loginAstrologer: async (data: {
+    identifier: string;
+    password: string;
+  }): Promise<{ astrologer: User }> => {
+    // Call astrologer login endpoint (tokens are set as httpOnly cookies by server)
+    const response = await apiClient.post<{ astrologer: User }>(
+      API_ENDPOINTS.ASTROLOGER.LOGIN,
+      data,
+      false
+    );
+
+    // Tokens are automatically stored as httpOnly cookies by server
+    // No manual token management needed
+
+    return response;
+  },
+
+  getAstrologerProfile: async (): Promise<User> => {
+    const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
+    return response.astrologer;
+  },
+
+  logoutAstrologer: async (): Promise<void> => {
+    // Call backend to revoke session and clear httpOnly cookies
+    try {
+      await apiClient.post<void>(API_ENDPOINTS.ASTROLOGER.LOGOUT, {});
+    } catch (error) {
+      // Continue with logout even if server call fails
+      console.error('Logout error (ignored):', error);
+    } finally {
+      // Clear local storage
+      TokenManager.clearTokens();
+    }
   },
 };

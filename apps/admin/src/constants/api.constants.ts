@@ -33,6 +33,12 @@ export const API_ENDPOINTS = {
     BY_ASTROLOGER: (astrologerId: string) => `/api/v1/admin/audit-logs/astrologer/${astrologerId}`,
   },
 
+  CHAT_AUDIT: {
+    // Chat Audit
+    LIST: '/api/v1/admin/chat-audit',
+    STATS: '/api/v1/admin/chat-audit/stats',
+  },
+
   CHATS: {
     // Chats
     LIST: '/api/v1/admin/chats',
@@ -50,5 +56,15 @@ export const API_ENDPOINTS = {
   DASHBOARD: {
     // Dashboard Stats
     STATS: '/api/v1/admin/stats',
+  },
+
+  PRICING: {
+    // Pricing Plans
+    LIST: '/api/v1/admin/pricing',
+    GET: (id: string) => `/api/v1/admin/pricing/${id}`,
+    CREATE: '/api/v1/admin/pricing',
+    UPDATE: (id: string) => `/api/v1/admin/pricing/${id}`,
+    DELETE: (id: string) => `/api/v1/admin/pricing/${id}`,
+    TOGGLE: (id: string) => `/api/v1/admin/pricing/${id}/toggle`,
   },
 };

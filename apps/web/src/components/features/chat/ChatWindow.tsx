@@ -6,50 +6,21 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
-import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
-import { ArrowLeft, MoreVertical, Phone, Video, PhoneOff } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback, Button } from '@jyotish/ui';
+import { ArrowLeft, MoreVertical, PhoneOff, MessageCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { getImageUrl } from '@/utils/image.utils';
 import { UserRole } from '@/types';
 import { useStore } from '@/store';
-import { endChat as endChatService } from '@/services/chat.service';
+import { endChat as endChatService, getOrCreateChat } from '@/services/chat.service';
 import { toast } from 'sonner';
-
-interface Message {
-  id: string;
-  content: string;
-  createdAt: Date;
-  isRead: boolean;
-  sender: {
-    id: string;
-    name: string;
-    profilePhoto?: string;
-  };
-  senderId: string;
-}
+import { Chat, Message } from '@/types/chat';
+import { useAuthStore } from '@/store/auth-store';
 
 interface ChatWindowProps {
-  chat: {
-    id: string;
-    participant1: {
-      id: string;
-      name: string | null;
-      email?: string | null;
-      phone?: string;
-      profilePhoto?: string | null;
-      role: string;
-    };
-    participant2: {
-      id: string;
-      name: string | null;
-      email?: string | null;
-      phone?: string;
-      profilePhoto?: string | null;
-      role: string;
-    };
-    status?: 'ACTIVE' | 'ENDED';
-  } | null;
+  chat: (Chat & { status?: 'ACTIVE' | 'ENDED'; isLocked?: boolean }) | null;
   messages: Message[];
   currentUserId: string;
   onSendMessage: (content: string) => void;
@@ -85,7 +56,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [isEndingChat, setIsEndingChat] = useState(false);
+  const [showEndChatConfirm, setShowEndChatConfirm] = useState(false);
+  const [isReopeningChat, setIsReopeningChat] = useState(false);
   const onlineUsers = useStore((state) => state.onlineUsers);
+  const user = useAuthStore((state) => state.user);
   const previousScrollHeight = useRef<number>(0);
   const isLoadingMoreRef = useRef(false);
   const previousChatId = useRef<string | null>(null);
@@ -161,13 +135,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
-  // Handle ending chat
-  const handleEndChat = async () => {
-    if (!chat) return;
+  // Handle showing end chat confirmation
+  const handleEndChat = () => {
+    setShowEndChatConfirm(true);
+  };
+
+  // Handle actual chat ending after confirmation
+  const handleConfirmEndChat = async () => {
+    if (!chat || isEndingChat) return;
 
     setIsEndingChat(true);
     try {
       await endChatService(chat.id);
+      setShowEndChatConfirm(false);
       toast.success('Chat ended successfully');
       if (onChatEnded) {
         onChatEnded();
@@ -177,6 +157,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       toast.error(error.message || 'Failed to end chat');
     } finally {
       setIsEndingChat(false);
+    }
+  };
+
+  // Handle reopening locked chat (only for clients)
+  const handleReopenChat = async () => {
+    if (!chat || !user || isReopeningChat) return;
+
+    // Determine the other user ID
+    const otherUserId =
+      chat.clientParticipant.id === currentUserId
+        ? chat.astrologerParticipant.id
+        : chat.clientParticipant.id;
+
+    setIsReopeningChat(true);
+    try {
+      // Call getOrCreateChat - this will unlock the locked chat
+      await getOrCreateChat({ otherUserId });
+      toast.success('Chat reopened! You can now send messages.');
+
+      // Socket event 'chat:reopened' will update the state automatically
+      // No need to reload the page
+    } catch (error: any) {
+      console.error('Error reopening chat:', error);
+      toast.error(error.message || 'Failed to reopen chat');
+    } finally {
+      setIsReopeningChat(false);
     }
   };
 
@@ -194,7 +200,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     );
   }
 
-  const otherUser = chat.participant1.id === currentUserId ? chat.participant2 : chat.participant1;
+  // Determine other user based on current user ID
+  const otherUser =
+    chat.clientParticipant.id === currentUserId
+      ? chat.astrologerParticipant
+      : chat.clientParticipant;
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -237,20 +247,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Voice/Video call buttons - Coming soon */}
-          <Tooltip content="Call - Coming soon" className="cursor-not-allowed">
-            <div className="p-2 rounded-lg opacity-50">
-              <Phone className="h-5 w-5 text-gray-400" />
-            </div>
-          </Tooltip>
-          <Tooltip content="Video call - Coming soon" className="cursor-not-allowed">
-            <div className="p-2 rounded-lg opacity-50">
-              <Video className="h-5 w-5 text-gray-400" />
-            </div>
-          </Tooltip>
-
-          {/* End Chat button - only show if chat is active */}
-          {chat?.status === 'ACTIVE' && (
+          {/* End Chat button - only show if chat is active and not locked */}
+          {chat?.status === 'ACTIVE' && !chat?.isLocked && (
             <Tooltip content="End chat session">
               <button
                 onClick={handleEndChat}
@@ -358,13 +356,61 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
       </div>
 
-      {/* Input */}
-      <ChatInput
-        onSendMessage={onSendMessage}
-        onTyping={onTyping}
-        onFocus={onInputFocus}
-        disabled={!isConnected}
-        placeholder={isConnected ? 'Type a message...' : 'Connecting to chat server...'}
+      {/* Input or Blocked Message */}
+      {chat?.isLocked ? (
+        <div className="px-4 py-6 bg-gray-100 border-t border-gray-200">
+          <div className="flex flex-col items-center justify-center gap-4 text-gray-600">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100">
+              <PhoneOff className="h-6 w-6 text-red-600" />
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-gray-900">Chat Session Ended</p>
+              <p className="text-sm text-gray-600 mt-1">You can no longer message this person</p>
+            </div>
+
+            {/* Reopen button - only show for clients */}
+            {user?.role === UserRole.CLIENT && (
+              <Button
+                onClick={handleReopenChat}
+                disabled={isReopeningChat}
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-2 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isReopeningChat ? (
+                  <>
+                    <Spinner />
+                    <span>Opening Chat...</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="h-5 w-5" />
+                    <span>Open Chat</span>
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <ChatInput
+          onSendMessage={onSendMessage}
+          onTyping={onTyping}
+          onFocus={onInputFocus}
+          disabled={!isConnected}
+          placeholder={isConnected ? 'Type a message...' : 'Connecting to chat server...'}
+        />
+      )}
+
+      {/* End Chat Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showEndChatConfirm}
+        onClose={() => setShowEndChatConfirm(false)}
+        onConfirm={handleConfirmEndChat}
+        title="End Chat Session"
+        description="Are you sure you want to end this conversation? This action cannot be undone."
+        confirmText="End Chat"
+        cancelText="Cancel"
+        isDestructive={true}
+        isLoading={isEndingChat}
       />
     </div>
   );

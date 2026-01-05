@@ -10,29 +10,7 @@ import { MessageCircle, Search } from 'lucide-react';
 import { getImageUrl } from '@/utils/image.utils';
 import { UserRole } from '@/types';
 import { useStore } from '@/store';
-
-interface Chat {
-  id: string;
-  participant1: {
-    id: string;
-    name: string | null;
-    email?: string | null;
-    phone?: string;
-    profilePhoto?: string | null;
-    role: string;
-  };
-  participant2: {
-    id: string;
-    name: string | null;
-    email?: string | null;
-    phone?: string;
-    profilePhoto?: string | null;
-    role: string;
-  };
-  lastMessageText?: string;
-  lastMessageAt?: Date;
-  unreadCount?: number;
-}
+import { Chat } from '@/types/chat';
 
 interface ChatListProps {
   chats: Chat[];
@@ -64,12 +42,15 @@ export const ChatList: React.FC<ChatListProps> = ({
   // Filter chats based on search term
   const filteredChats = chatList.filter((chat) => {
     // Skip chats with missing data
-    if (!chat?.participant1 || !chat?.participant2) {
+    if (!chat?.clientParticipant || !chat?.astrologerParticipant) {
       return false;
     }
 
+    // Determine other user based on current user ID
     const otherUser =
-      chat.participant1.id === currentUserId ? chat.participant2 : chat.participant1;
+      chat.clientParticipant.id === currentUserId 
+        ? chat.astrologerParticipant 
+        : chat.clientParticipant;
 
     // If no search term, show all chats
     if (!searchTerm) {
@@ -167,7 +148,9 @@ export const ChatList: React.FC<ChatListProps> = ({
         ) : (
           filteredChats.map((chat) => {
             const otherUser =
-              chat.participant1.id === currentUserId ? chat.participant2 : chat.participant1;
+              chat.clientParticipant.id === currentUserId 
+                ? chat.astrologerParticipant 
+                : chat.clientParticipant;
             const isActive = activeChat === chat.id;
 
             return (

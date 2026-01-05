@@ -64,9 +64,32 @@ export const authService = {
   },
 
   /**
-   * Get current user
+   * Get current user (role-aware)
    */
   async getCurrentUser(): Promise<User> {
+    // This method is deprecated, use authApi.getProfile() instead
+    // Keep for backward compatibility
+
+    // ALWAYS check store first to determine role
+    const { useAuthStore } = await import('@/store/auth-store');
+    const user = useAuthStore.getState().user;
+
+    // If user is in store and is an astrologer, use astrologer endpoint
+    if (user?.role === 'ASTROLOGER') {
+      const response = await apiClient.get<{ astrologer: User }>('/api/v1/astrologer/auth/me');
+      return response.astrologer;
+    }
+
+    // Check if we're on an astrologer route as secondary check
+    const isAstrologerRoute =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish');
+
+    if (isAstrologerRoute) {
+      const response = await apiClient.get<{ astrologer: User }>('/api/v1/astrologer/auth/me');
+      return response.astrologer;
+    }
+
+    // Only default to user endpoint if we're certain it's a client
     return await apiClient.get<User>(API_ENDPOINTS.USER.ME);
   },
 

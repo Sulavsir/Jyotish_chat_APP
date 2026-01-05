@@ -5,6 +5,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminStore } from '@/store/admin-store';
 import { adminApi } from '@/lib/admin-api';
+import { Button, UsersIcon, StarIcon, ChatIcon, DocumentIcon, MoneyIcon } from '@jyotish/ui';
+import { ADMIN_ROUTES } from '@/constants';
+import { useAdminSocket } from '@/hooks';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -13,34 +16,61 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { admin, isAuthenticated, logout } = useAdminStore();
+  const { admin, isAuthenticated, logout, setAdmin, _hasHydrated } = useAdminStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isValidatingSession, setIsValidatingSession] = useState(true);
+  const { isConnected, isConnecting, error: socketError } = useAdminSocket();
 
+  // Handle authentication state after hydration
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
+    // Wait for Zustand to hydrate from localStorage
+    if (!_hasHydrated) {
+      return;
     }
-  }, [isAuthenticated, router]);
+
+    // After hydration, check authentication status
+    if (!isAuthenticated) {
+      router.replace(ADMIN_ROUTES.LOGIN);
+      setIsValidatingSession(false);
+      return;
+    }
+
+    // User is authenticated in local storage, allow access immediately
+    setIsValidatingSession(false);
+
+    // Optional: Soft validation in background (doesn't block UI)
+    // This refreshes admin data and validates cookies are still valid
+    adminApi
+      .getProfile()
+      .then((response) => {
+        if (response?.admin) {
+          setAdmin(response.admin);
+          console.log('✅ Session validated successfully');
+        }
+      })
+      .catch((error) => {
+        // Only logout on 401 (unauthorized) errors
+        if (error?.response?.status === 401) {
+          console.log('🔒 Session expired, redirecting to login');
+          logout();
+          router.replace(ADMIN_ROUTES.LOGIN);
+        } else {
+          // Other errors (network, etc.) - keep user logged in
+          console.warn('⚠️ Session validation failed (keeping user logged in):', error?.message);
+        }
+      });
+  }, [_hasHydrated, isAuthenticated, router, setAdmin, logout]);
 
   const handleLogout = async () => {
-    try {
-      // Call logout API to clear cookies
-      await adminApi.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-
-    // Clear Zustand store
+    await adminApi.logout();
     logout();
-
-    // Redirect to login
-    router.push('/login');
+    router.push(ADMIN_ROUTES.LOGIN);
   };
 
   const navigation = [
     {
       name: 'Dashboard',
-      href: '/admin/dashboard',
+      href: ADMIN_ROUTES.DASHBOARD,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -54,63 +84,37 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
     {
       name: 'Astrologers',
-      href: '/admin/astrologers',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-          />
-        </svg>
-      ),
+      href: ADMIN_ROUTES.ASTROLOGERS,
+      icon: <StarIcon className="w-5 h-5" />,
     },
     {
       name: 'Users',
-      href: '/admin/users',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-          />
-        </svg>
-      ),
+      href: ADMIN_ROUTES.USERS,
+      icon: <UsersIcon className="w-5 h-5" />,
     },
     {
       name: 'Chat Monitor',
-      href: '/admin/chats',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-      ),
+      href: ADMIN_ROUTES.CHATS,
+      icon: <ChatIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Chat Audit',
+      href: ADMIN_ROUTES.CHAT_AUDIT,
+      icon: <ChatIcon className="w-5 h-5" />,
     },
     {
       name: 'Audit Logs',
-      href: '/admin/audit-logs',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-          />
-        </svg>
-      ),
+      href: ADMIN_ROUTES.AUDIT_LOGS,
+      icon: <DocumentIcon className="w-5 h-5" />,
     },
     {
       name: 'Earnings',
-      href: '/admin/earnings',
+      href: ADMIN_ROUTES.EARNINGS,
+      icon: <MoneyIcon className="w-5 h-5" />,
+    },
+    {
+      name: 'Pricing',
+      href: ADMIN_ROUTES.PRICING,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -124,8 +128,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
-  if (!admin) {
-    return null;
+  if (!isAuthenticated || isValidatingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-space-black via-deep-purple to-space-black">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -140,19 +151,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-6 border-b border-slate-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center glow">
-              <svg
-                className="w-6 h-6 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                />
-              </svg>
+              <StarIcon className="w-6 h-6 text-white" />
             </div>
             {sidebarOpen && (
               <div>
@@ -185,9 +184,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* Toggle Sidebar */}
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-4 border-t border-slate-700 text-slate-400 hover:text-white transition-colors"
+          className="p-4 border-t border-slate-700 text-slate-400 hover:text-white"
         >
           <svg
             className={`w-6 h-6 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`}
@@ -202,7 +202,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
             />
           </svg>
-        </button>
+        </Button>
       </aside>
 
       {/* Main Content */}
@@ -219,18 +219,39 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
             {/* Admin Profile */}
             <div className="flex items-center gap-4">
+              {/* Real-time Connection Status */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700">
+                {isConnecting ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                    <span className="text-xs text-slate-400">Connecting...</span>
+                  </>
+                ) : isConnected ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-green-400">Live</span>
+                  </>
+                ) : socketError ? (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-xs text-red-400">Offline</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-gray-500" />
+                    <span className="text-xs text-slate-400">Disconnected</span>
+                  </>
+                )}
+              </div>
+
               <div className="text-right">
-                <p className="text-sm font-medium text-white">{admin.name}</p>
-                <p className="text-xs text-slate-400">{admin.email}</p>
+                <p className="text-sm font-medium text-white">{admin?.name}</p>
+                <p className="text-xs text-slate-400">{admin?.email}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center text-white font-bold">
-                {admin.name?.charAt(0) || 'A'}
+                {admin?.name?.charAt(0) || 'A'}
               </div>
-              <button
-                onClick={handleLogout}
-                className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
-                title="Logout"
-              >
+              <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -239,7 +260,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                   />
                 </svg>
-              </button>
+              </Button>
             </div>
           </div>
         </header>

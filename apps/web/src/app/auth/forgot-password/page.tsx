@@ -16,6 +16,7 @@ import {
 } from '@jyotish/ui';
 import { toast } from 'sonner';
 import spaceImage from '@/assets/images/space.jpg';
+import { Navbar } from '@/components/ui';
 
 export default function ForgotPasswordPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -50,6 +51,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
+      {/* Navbar */}
+      <Navbar />
+      
       {/* Full Background Image */}
       <div className="absolute inset-0">
         <Image

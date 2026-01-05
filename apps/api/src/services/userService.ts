@@ -6,12 +6,12 @@
 import { prisma } from '@jyotish/database';
 
 /**
- * Get all astrologers
+ * Get all astrologers (for clients)
+ * NOTE: Includes isOnline field - clients CAN see which astrologers are online
  */
 export const getAstrologers = async (limit = 10) => {
-  const astrologers = await prisma.user.findMany({
+  const astrologers = await prisma.astrologer.findMany({
     where: {
-      role: 'ASTROLOGER',
       isActive: true,
     },
     select: {
@@ -20,7 +20,7 @@ export const getAstrologers = async (limit = 10) => {
       email: true,
       phone: true,
       profilePhoto: true,
-      role: true,
+      isOnline: true, // ✅ Clients CAN see astrologer online status
       createdAt: true,
     },
     take: limit,
@@ -29,11 +29,17 @@ export const getAstrologers = async (limit = 10) => {
     },
   });
 
-  return astrologers;
+  // Map to match the expected format (add role field for consistency)
+  return astrologers.map((astrologer) => ({
+    ...astrologer,
+    role: 'ASTROLOGER',
+  }));
 };
 
 /**
  * Get all clients (for astrologers)
+ * NOTE: Does NOT include isOnline - astrologers cannot see which clients are online
+ * They can only see online status in active chat conversations
  */
 export const getClients = async (limit = 10) => {
   const clients = await prisma.user.findMany({
@@ -49,6 +55,7 @@ export const getClients = async (limit = 10) => {
       profilePhoto: true,
       role: true,
       zodiacSign: true,
+      // isOnline: EXCLUDED - astrologers should NOT see client online status in list
       createdAt: true,
     },
     take: limit,
@@ -72,4 +79,3 @@ export const getChatableUsers = async (userId: string, userRole: string) => {
     return getAstrologers(20);
   }
 };
-

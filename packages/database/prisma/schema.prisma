@@ -16,6 +16,7 @@ model User {
   name                         String?
   role                         UserRole               @default(CLIENT)
   isActive                     Boolean                @default(true)
+  isOnline                     Boolean                @default(false)
   emailVerified                DateTime?
   profilePhoto                 String?
   profileCompleted             Boolean                @default(false)
@@ -44,6 +45,7 @@ model User {
   @@index([phone])
   @@index([email])
   @@index([role])
+  @@index([isOnline])
   @@index([zodiacSign])
 }
 
@@ -202,6 +204,7 @@ model Chat {
   participant2Type      ParticipantType @default(ASTROLOGER) // Always ASTROLOGER for participant2
   consultationId        String?
   status                ChatStatus      @default(ACTIVE)
+  isLocked              Boolean         @default(false) // When true, chat is locked (like Facebook block)
   endedBy               String? // User/Astrologer ID who ended the chat
   endedAt               DateTime? // When the chat was ended
   lastMessageAt         DateTime?
@@ -216,12 +219,13 @@ model Chat {
   astrologerParticipant Astrologer      @relation("ChatAstrologerParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
   messages              Message[]
 
-  @@unique([participant1Id, participant2Id])
+  @@unique([participant1Id, participant2Id]) // Keep unique - same chat is reused
   @@index([participant1Id])
   @@index([participant2Id])
   @@index([consultationId])
   @@index([lastMessageAt])
   @@index([status])
+  @@index([isLocked])
   @@index([isMonitoredByAdmin])
 }
 
@@ -452,6 +456,26 @@ model Settings {
   @@index([key])
 }
 
+model PricingPlan {
+  id              String   @id @default(uuid())
+  name            String   // e.g., "1 Day Unlimited", "50 Chats Pack"
+  description     String?  // Detailed description
+  priceInNrs      Int      // Price in Nepali Rupees
+  coins           Int      // Number of coins (100 Rs = 1 coin = 1 chat)
+  validityInDays  Int?     // Validity period in days (null for permanent)
+  isUnlimited     Boolean  @default(false) // Unlimited chats for validity period
+  discountPercent Int?     // Discount percentage
+  isActive        Boolean  @default(true) // Can be enabled/disabled by admin
+  isFeatured      Boolean  @default(false) // Show as featured offer
+  displayOrder    Int      @default(0) // Order in which to display
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([displayOrder])
+}
+
 enum UserRole {
   CLIENT
   ASTROLOGER
@@ -579,6 +603,17 @@ enum AuditAction {
   CONSULTATION_CREATE
   CONSULTATION_UPDATE
   CONSULTATION_CANCEL
+  CONSULTATION_REQUEST_CREATE
+  CONSULTATION_REQUEST_ACCEPT
+  CONSULTATION_REQUEST_EXPIRE
+  CONSULTATION_REQUEST_CANCEL
+  INSTANT_CHAT_REQUEST_CREATE
+  INSTANT_CHAT_REQUEST_ACCEPT
+  INSTANT_CHAT_REQUEST_EXPIRE
+  INSTANT_CHAT_REQUEST_CANCEL
+  BROADCAST_MESSAGE_CREATE
+  BROADCAST_MESSAGE_ACCEPT
+  BROADCAST_MESSAGE_EXPIRE
   PAYMENT_CREATE
   PAYMENT_SUCCESS
   PAYMENT_FAIL

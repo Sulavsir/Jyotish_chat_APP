@@ -36,7 +36,6 @@ export const OTPInput = memo(function OTPInput({
       const isComplete = newValue.every((digit) => digit !== '');
       if (isComplete && onComplete) {
         const otp = newValue.join('');
-        // Small delay to ensure UI updates before submission
         setTimeout(() => {
           onComplete(otp);
         }, 100);
@@ -200,7 +199,7 @@ export const OTPInput = memo(function OTPInput({
             onFocus={handleFocus}
             disabled={disabled}
             className={cn(
-              'w-12 h-14 text-center text-2xl font-bold',
+              'w-14 h-16 text-center text-2xl font-bold',
               'bg-white/10 border-2 border-white/20 text-white rounded-lg',
               'focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20',
               'transition-all duration-200',

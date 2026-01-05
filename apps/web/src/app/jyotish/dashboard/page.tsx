@@ -10,7 +10,6 @@ import { USER_ROLES } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useRouter } from 'next/navigation';
 import { LoadingScreenWithBackground } from '@/components/ui';
-import { OnlineUsers } from '@/components/features/chat';
 
 export default function JyotishDashboardPage() {
   const router = useRouter();
@@ -48,11 +47,11 @@ export default function JyotishDashboardPage() {
 
           <Card className="bg-gradient-to-br from-primary to-primary/80 backdrop-blur-sm border-primary/30">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium ">Active Clients</CardTitle>
+              <CardTitle className="text-sm font-medium ">Total Consultations</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">24</div>
-              <p className="text-xs  mt-1">+3 this week</p>
+              <div className="text-3xl font-bold text-white">156</div>
+              <p className="text-xs  mt-1">Lifetime completed</p>
             </CardContent>
           </Card>
 
@@ -76,9 +75,6 @@ export default function JyotishDashboardPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Online Clients - Who's Active Now */}
-        <OnlineUsers title="Active Clients - Connect Now!" maxUsers={6} />
 
         {/* Quick Actions */}
         <Card className="bg-black/20 backdrop-blur-sm border-white/10">
@@ -106,12 +102,12 @@ export default function JyotishDashboardPage() {
               </button>
 
               <button
-                onClick={() => router.push('/jyotish/clients')}
+                onClick={() => router.push('/jyotish/profile')}
                 className="p-6 rounded-lg bg-gradient-to-br from-amber-600/30 to-yellow-600/30 border border-amber-500/30 hover:from-amber-600/40 hover:to-yellow-600/40 transition-all group"
               >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">👥</div>
-                <h3 className="text-white font-semibold mb-1">View Clients</h3>
-                <p className="text-sm text-gray-400">Browse client profiles</p>
+                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">⚙️</div>
+                <h3 className="text-white font-semibold mb-1">My Profile</h3>
+                <p className="text-sm text-gray-400">Update your details</p>
               </button>
             </div>
           </CardContent>

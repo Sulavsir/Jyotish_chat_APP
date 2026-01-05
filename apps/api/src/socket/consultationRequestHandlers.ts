@@ -7,7 +7,7 @@ import { Server, Socket } from 'socket.io';
 import { consultationRequestService } from '../services/consultationRequest.service';
 import { notificationService } from '../services/notification.service';
 import { prisma, ConsultationRequest } from '@jyotish/database';
-import { NotificationType } from '@jyotish/shared';
+import { NotificationType, UserRole } from '@jyotish/shared';
 
 // Store online astrologers separately for efficient broadcasting
 const onlineAstrologers = new Map<string, string>(); // astrologerId -> socketId
@@ -16,7 +16,7 @@ export function consultationRequestHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
 
   // Register astrologer as online
-  if (user.role === 'ASTROLOGER') {
+  if (user.role === UserRole.ASTROLOGER) {
     onlineAstrologers.set(user.id, socket.id);
     console.log(`🔮 Astrologer ${user.id} is now online and can receive requests`);
 
@@ -28,7 +28,7 @@ export function consultationRequestHandlers(io: Server, socket: Socket) {
 
   // When astrologer disconnects, remove from online list
   socket.on('disconnect', () => {
-    if (user.role === 'ASTROLOGER') {
+    if (user.role === UserRole.ASTROLOGER) {
       onlineAstrologers.delete(user.id);
       console.log(`🔮 Astrologer ${user.id} is now offline`);
     }
@@ -69,7 +69,7 @@ export async function broadcastNewConsultationRequest(
   try {
     const astrologers = await prisma.user.findMany({
       where: {
-        role: 'ASTROLOGER',
+        role: UserRole.ASTROLOGER,
         isActive: true,
       },
       select: {

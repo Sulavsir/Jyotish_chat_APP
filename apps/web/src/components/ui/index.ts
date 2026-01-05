@@ -20,3 +20,4 @@ export * from './NotificationBell';
 export * from './Tooltip';
 export * from './DropdownMenu';
 export * from './EmojiPicker';
+export * from './Navbar';

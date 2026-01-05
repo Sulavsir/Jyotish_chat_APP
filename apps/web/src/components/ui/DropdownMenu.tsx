@@ -32,20 +32,18 @@ export function DropdownMenu({
     const updatePosition = () => {
       if (isOpen && triggerRef.current) {
         const rect = triggerRef.current.getBoundingClientRect();
-        const scrollY = window.scrollY;
-        const scrollX = window.scrollX;
 
-        let left = rect.left + scrollX;
+        let left = rect.left;
 
         // Adjust based on alignment
         if (align === 'right') {
-          left = rect.right + scrollX;
+          left = rect.right;
         } else if (align === 'center') {
-          left = rect.left + scrollX + rect.width / 2;
+          left = rect.left + rect.width / 2;
         }
 
         setPosition({
-          top: rect.bottom + scrollY + 8,
+          top: rect.bottom + 8,
           left,
         });
       }
@@ -54,14 +52,33 @@ export function DropdownMenu({
     updatePosition();
 
     if (isOpen) {
+      // Listen to ALL scroll events (including scrollable containers)
       window.addEventListener('scroll', updatePosition, true);
       window.addEventListener('resize', updatePosition);
+      
+      // Update position on animation frames for smooth tracking
+      let rafId: number | undefined;
+      let isTracking = true;
+      
+      const trackPosition = () => {
+        if (isTracking) {
+          updatePosition();
+          rafId = requestAnimationFrame(trackPosition);
+        }
+      };
+      rafId = requestAnimationFrame(trackPosition);
+
+      return () => {
+        isTracking = false;
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+        if (rafId !== undefined) {
+          cancelAnimationFrame(rafId);
+        }
+      };
     }
 
-    return () => {
-      window.removeEventListener('scroll', updatePosition, true);
-      window.removeEventListener('resize', updatePosition);
-    };
+    return () => {};
   }, [isOpen, align]);
 
   // Close on click outside

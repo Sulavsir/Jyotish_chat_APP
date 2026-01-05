@@ -8,6 +8,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '@/types/common.types';
 import { sendSuccess, sendError } from '../utils';
 import * as chatService from '../services/chatService';
+import { getSocketInstance } from '../utils/socket-instance';
 
 /**
  * Get all conversations/chats for the authenticated user
@@ -30,6 +31,7 @@ export const getConversations = async (req: AuthRequest, res: Response, next: Ne
 export const getOrCreateChat = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
+    const userRole = req.user!.role;
     const { otherUserId, consultationId } = req.body;
 
     if (!otherUserId) {
@@ -40,7 +42,31 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response, next: Nex
       participant1Id: userId,
       participant2Id: otherUserId,
       consultationId,
+      currentUserRole: userRole,
     });
+
+    // Emit real-time event to both participants when chat is active
+    try {
+      const io = getSocketInstance();
+      if (io && chat.status === 'ACTIVE' && !chat.isLocked) {
+        // Notify both participants that the chat is active/reopened
+        io.to(`user:${chat.participant1Id}`).emit('chat:reopened', {
+          chatId: chat.id,
+          status: chat.status,
+          isLocked: chat.isLocked,
+          chat: chat,
+        });
+        io.to(`user:${chat.participant2Id}`).emit('chat:reopened', {
+          chatId: chat.id,
+          status: chat.status,
+          isLocked: chat.isLocked,
+          chat: chat,
+        });
+      }
+    } catch (socketError) {
+      console.error('Error broadcasting chat reopen:', socketError);
+      // Don't fail the request if socket fails
+    }
 
     return sendSuccess(res, chat);
   } catch (error) {
@@ -75,6 +101,7 @@ export const getChatById = async (req: AuthRequest, res: Response, next: NextFun
 export const getChatHistory = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
+    const userRole = req.user!.role;
     const { otherUserId } = req.params;
     const { limit, offset } = req.query;
 
@@ -83,6 +110,7 @@ export const getChatHistory = async (req: AuthRequest, res: Response, next: Next
       otherUserId,
       limit: limit ? parseInt(limit as string) : 30,
       offset: offset ? parseInt(offset as string) : 0,
+      currentUserRole: userRole,
     });
 
     return sendSuccess(res, result.messages);
@@ -97,6 +125,7 @@ export const getChatHistory = async (req: AuthRequest, res: Response, next: Next
 export const sendMessage = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
+    const userRole = req.user!.role;
     const { chatId, receiverId, content, type, metadata } = req.body;
 
     if (!chatId || !receiverId || !content) {
@@ -110,6 +139,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       content,
       type,
       metadata,
+      senderRole: userRole,
     });
 
     return sendSuccess(
@@ -256,6 +286,31 @@ export const endChat = async (req: AuthRequest, res: Response, next: NextFunctio
     }
 
     const updatedChat = await chatService.endChat(chatId, userId);
+
+    // Emit real-time event to both participants
+    try {
+      const io = getSocketInstance();
+      if (io) {
+        // Notify both participants that the chat ended
+        io.to(`user:${updatedChat.participant1Id}`).emit('chat:ended', {
+          chatId: updatedChat.id,
+          status: updatedChat.status,
+          isLocked: updatedChat.isLocked,
+          endedBy: updatedChat.endedBy,
+          endedAt: updatedChat.endedAt,
+        });
+        io.to(`user:${updatedChat.participant2Id}`).emit('chat:ended', {
+          chatId: updatedChat.id,
+          status: updatedChat.status,
+          isLocked: updatedChat.isLocked,
+          endedBy: updatedChat.endedBy,
+          endedAt: updatedChat.endedAt,
+        });
+      }
+    } catch (socketError) {
+      console.error('Error broadcasting chat end:', socketError);
+      // Don't fail the request if socket fails
+    }
 
     return sendSuccess(res, updatedChat);
   } catch (error: any) {

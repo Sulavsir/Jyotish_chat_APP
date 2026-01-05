@@ -9,7 +9,7 @@ import { ROUTES, TOAST_MESSAGES } from '@/constants';
 import { Label, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@jyotish/ui';
 import { toast } from 'sonner';
 import spaceImage from '@/assets/images/space.jpg';
-import { PasswordInput, LoadingButton, FormError } from '@/components/ui';
+import { PasswordInput, LoadingButton, FormError, Navbar } from '@/components/ui';
 import { authApi } from '@/lib/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import type { ApiError } from '@/types/auth';
@@ -17,7 +17,7 @@ import { parseApiError, displayError, displaySuccess } from '@/utils/error-handl
 
 export default function SetPasswordPage() {
   const router = useRouter();
-  const { tempToken, setAuth, clearOtpSession } = useAuthStore();
+  const { tempToken, phoneNumber, setAuth, clearOtpSession } = useAuthStore();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState({ password: '', confirmPassword: '' });
@@ -40,7 +40,10 @@ export default function SetPasswordPage() {
         router.push(ROUTES.DASHBOARD);
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
-        displayError({ message: 'Failed to load user profile', statusCode: 500 } as ApiError, TOAST_MESSAGES.ERROR.GENERIC);
+        displayError(
+          { message: 'Failed to load user profile', statusCode: 500 } as ApiError,
+          TOAST_MESSAGES.ERROR.GENERIC
+        );
       }
     },
     onError: (error: ApiError) => {
@@ -70,11 +73,11 @@ export default function SetPasswordPage() {
   useEffect(() => {
     // Only redirect after hydration is complete
 
-    if (isHydrated && !tempToken) {
-      console.warn('No tempToken found, redirecting to login');
+    if (isHydrated && (!tempToken || !phoneNumber)) {
+      console.warn('No tempToken or phoneNumber found, redirecting to login');
       router.push(ROUTES.LOGIN);
     }
-  }, [router, tempToken, isHydrated]);
+  }, [router, tempToken, phoneNumber, isHydrated]);
 
   // Show loading while hydrating (after all hooks)
   if (!isHydrated) {
@@ -123,12 +126,13 @@ export default function SetPasswordPage() {
       return;
     }
 
-    if (!tempToken) {
+    if (!tempToken || !phoneNumber) {
       router.push(ROUTES.LOGIN);
       return;
     }
 
     setPasswordMutation.mutate({
+      phoneNumber,
       tempToken,
       password,
       confirmPassword,
@@ -137,6 +141,9 @@ export default function SetPasswordPage() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
+      {/* Navbar */}
+      <Navbar />
+      
       {/* Full Background Image */}
       <div className="absolute inset-0">
         <Image

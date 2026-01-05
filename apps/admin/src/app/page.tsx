@@ -2,23 +2,19 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ADMIN_ROUTES } from '@/constants';
 
-export default function HomePage() {
+export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if admin is logged in
-    const admin = localStorage.getItem('admin');
-    if (admin) {
-      router.push('/dashboard');
-    } else {
-      router.push('/login');
-    }
+    // Redirect to login page
+    router.replace(ADMIN_ROUTES.LOGIN);
   }, [router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cosmic-purple"></div>
+      <div className="w-8 h-8 border-4 border-cosmic-purple border-t-transparent rounded-full animate-spin" />
     </div>
   );
 }

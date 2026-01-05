@@ -8,4 +8,16 @@ export * from './avatar';
 export * from './label';
 export * from './textarea';
 export * from './popover';
+export * from './dialog';
+export * from './spinner';
+export * from './pagination';
 export * from './utils';
+
+// Shadcn components
+export * from './form';
+export * from './search';
+export * from './table';
+export * from './skeleton';
+export * from './table-skeleton';
+export * from './empty-state';
+export * from './icons';

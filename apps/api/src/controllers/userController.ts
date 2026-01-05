@@ -11,7 +11,7 @@ import { birthDetailsSchema } from '../validators';
 import { AuthRequest } from '../types';
 import { sendSuccess } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import { getZodiacSign } from '@jyotish/shared';
+import { getZodiacSign, UserRole } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
 
@@ -70,7 +70,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
     where: { id: req.user!.id },
     data: {
       ...(name && { name }),
-      ...(email !== undefined && { email }),
+      ...(email !== undefined && { email: email || null }), // Convert empty string to null for unique constraint
       ...(phone && { phone }),
       ...(profilePhoto && { profilePhoto }),
     },
@@ -173,18 +173,32 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
     throw new AppError('No file uploaded', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
 
-  // Get current user to check if they have an existing photo
-  const currentUser = await prisma.user.findUnique({
-    where: { id: req.user!.id },
-    select: { profilePhoto: true },
-  });
+  const userRole = req.user!.role;
+  const userId = req.user!.id;
+
+  // Get current photo to delete old one
+  let currentProfilePhoto: string | null = null;
+
+  if (userRole === UserRole.ASTROLOGER) {
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: userId },
+      select: { profilePhoto: true },
+    });
+    currentProfilePhoto = astrologer?.profilePhoto || null;
+  } else {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePhoto: true },
+    });
+    currentProfilePhoto = user?.profilePhoto || null;
+  }
 
   // Delete old profile photo if exists
-  if (currentUser?.profilePhoto) {
+  if (currentProfilePhoto) {
     try {
       const fs = await import('fs');
       const path = await import('path');
-      const oldPhotoPath = path.join(process.cwd(), currentUser.profilePhoto);
+      const oldPhotoPath = path.join(process.cwd(), currentProfilePhoto);
       if (fs.existsSync(oldPhotoPath)) {
         fs.unlinkSync(oldPhotoPath);
       }
@@ -197,41 +211,68 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
   // Generate URL for the uploaded file
   const fileUrl = `/uploads/profiles/${file.filename}`;
 
-  // Update user's profile photo in database
-  const user = await prisma.user.update({
-    where: { id: req.user!.id },
-    data: { profilePhoto: fileUrl },
-    select: {
-      id: true,
-      profilePhoto: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      dateOfBirth: true,
-      timeOfBirth: true,
-      placeOfBirth: true,
-      currentAddress: true,
-      permanentAddress: true,
-      zodiacSign: true,
-      latitude: true,
-      longitude: true,
-      password: true,
-      profileCompleted: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  // Update profile photo in the correct table based on role
+  let updatedUser: any;
 
-  // Format response to match frontend expectations
-  const { phone, password, ...userWithoutSensitiveData } = user;
-  const formattedUser = {
-    ...userWithoutSensitiveData,
-    phoneNumber: phone,
-    hasPassword: !!password,
-  };
+  if (userRole === UserRole.ASTROLOGER) {
+    updatedUser = await prisma.astrologer.update({
+      where: { id: userId },
+      data: { profilePhoto: fileUrl },
+      select: {
+        id: true,
+        profilePhoto: true,
+        name: true,
+        email: true,
+        phone: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return sendSuccess(res, formattedUser);
+    // Format response for astrologer
+    const formattedUser = {
+      ...updatedUser,
+      role: UserRole.ASTROLOGER,
+      phoneNumber: updatedUser.phone,
+    };
+
+    return sendSuccess(res, formattedUser);
+  } else {
+    updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: fileUrl },
+      select: {
+        id: true,
+        profilePhoto: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        currentAddress: true,
+        permanentAddress: true,
+        zodiacSign: true,
+        latitude: true,
+        longitude: true,
+        password: true,
+        profileCompleted: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Format response to match frontend expectations
+    const { phone, password, ...userWithoutSensitiveData } = updatedUser;
+    const formattedUser = {
+      ...userWithoutSensitiveData,
+      phoneNumber: phone,
+      hasPassword: !!password,
+    };
+
+    return sendSuccess(res, formattedUser);
+  }
 }
 
 /**
@@ -239,13 +280,27 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
  * DELETE /api/v1/users/remove-photo
  */
 export async function removePhoto(req: AuthRequest, res: Response, next: NextFunction) {
-  // Get current user to check if they have a photo
-  const currentUser = await prisma.user.findUnique({
-    where: { id: req.user!.id },
-    select: { profilePhoto: true },
-  });
+  const userRole = req.user!.role;
+  const userId = req.user!.id;
 
-  if (!currentUser?.profilePhoto) {
+  // Get current photo based on role
+  let currentProfilePhoto: string | null = null;
+
+  if (userRole === UserRole.ASTROLOGER) {
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: userId },
+      select: { profilePhoto: true },
+    });
+    currentProfilePhoto = astrologer?.profilePhoto || null;
+  } else {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePhoto: true },
+    });
+    currentProfilePhoto = user?.profilePhoto || null;
+  }
+
+  if (!currentProfilePhoto) {
     throw new AppError(
       'No profile photo to remove',
       HTTP_STATUS.BAD_REQUEST,
@@ -257,7 +312,7 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
   try {
     const fs = await import('fs');
     const path = await import('path');
-    const photoPath = path.join(process.cwd(), currentUser.profilePhoto);
+    const photoPath = path.join(process.cwd(), currentProfilePhoto);
     if (fs.existsSync(photoPath)) {
       fs.unlinkSync(photoPath);
     }
@@ -266,41 +321,68 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
     // Continue even if file deletion fails
   }
 
-  // Update user's profile photo to null in database
-  const user = await prisma.user.update({
-    where: { id: req.user!.id },
-    data: { profilePhoto: null },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      phone: true,
-      role: true,
-      profilePhoto: true,
-      dateOfBirth: true,
-      timeOfBirth: true,
-      placeOfBirth: true,
-      currentAddress: true,
-      permanentAddress: true,
-      zodiacSign: true,
-      latitude: true,
-      longitude: true,
-      password: true,
-      profileCompleted: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  // Update profile photo to null in the correct table based on role
+  let updatedUser: any;
 
-  // Format response to match frontend expectations
-  const { phone, password, ...userWithoutSensitiveData } = user;
-  const formattedUser = {
-    ...userWithoutSensitiveData,
-    phoneNumber: phone,
-    hasPassword: !!password,
-  };
+  if (userRole === UserRole.ASTROLOGER) {
+    updatedUser = await prisma.astrologer.update({
+      where: { id: userId },
+      data: { profilePhoto: null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        profilePhoto: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return sendSuccess(res, formattedUser);
+    // Format response for astrologer
+    const formattedUser = {
+      ...updatedUser,
+      role: UserRole.ASTROLOGER,
+      phoneNumber: updatedUser.phone,
+    };
+
+    return sendSuccess(res, formattedUser);
+  } else {
+    updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        profilePhoto: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        currentAddress: true,
+        permanentAddress: true,
+        zodiacSign: true,
+        latitude: true,
+        longitude: true,
+        password: true,
+        profileCompleted: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Format response to match frontend expectations
+    const { phone, password, ...userWithoutSensitiveData } = updatedUser;
+    const formattedUser = {
+      ...userWithoutSensitiveData,
+      phoneNumber: phone,
+      hasPassword: !!password,
+    };
+
+    return sendSuccess(res, formattedUser);
+  }
 }
 
 /**

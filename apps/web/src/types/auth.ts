@@ -32,12 +32,16 @@ export interface SendOTPRequest {
 }
 
 export interface SendOTPResponse {
+  sessionId: string;
+  isExistingUser: boolean;
   message: string;
-  expiresIn: number;
+  expiresIn: number; // OTP expiry time in seconds (5 minutes = 300 seconds)
+  otp?: string; // Only in development mode
 }
 
 // Verify OTP
 export interface VerifyOTPRequest {
+  sessionId: string;
   phoneNumber: string;
   otp: string;
   role?: UserRole;
@@ -99,6 +103,7 @@ export interface ProfileSetupRequest {
   placeOfBirth?: string;
   latitude?: number;
   longitude?: number;
+  profilePhoto?: File;
 }
 
 export interface ProfileSetupResponse {

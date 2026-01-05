@@ -9,7 +9,7 @@ import {
   Footer,
 } from '@/components/home';
 import { useRedirectIfAuthenticated } from '@/hooks';
-import { LoadingScreenWithBackground } from '@/components/ui';
+import { LoadingScreenWithBackground, Navbar } from '@/components/ui';
 
 export default function Home() {
   const { isCheckingAuth } = useRedirectIfAuthenticated();
@@ -21,6 +21,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black">
+      <Navbar />
       <HeroSection />
       <HoroscopeFeatureSection />
       <HowItWorksSection />

@@ -106,10 +106,19 @@ export class UserService {
     role: UserRole = UserRole.CLIENT,
     metadata?: { userAgent?: string; ipAddress?: string }
   ): Promise<CreateUserResult> {
-    // Check if user already exists
+    // Check if user already exists in User table
     const exists = await this.userExists(phoneNumber);
     if (exists) {
       throw new Error('User already exists');
+    }
+
+    // Check if phone number is already used by an ASTROLOGER
+    const existingAstrologer = await prisma.astrologer.findUnique({
+      where: { phone: phoneNumber },
+    });
+
+    if (existingAstrologer) {
+      throw new Error('This phone number is registered as an astrologer account. Please use the astrologer login page.');
     }
 
     // Create user without password
@@ -209,7 +218,7 @@ export class UserService {
       where: { id: userId },
       data: {
         name: data.name,
-        email: data.email,
+        email: data.email || null, // Convert empty string to null for unique constraint
         dateOfBirth: new Date(data.dateOfBirth),
         timeOfBirth: data.timeOfBirth,
         placeOfBirth: data.placeOfBirth,

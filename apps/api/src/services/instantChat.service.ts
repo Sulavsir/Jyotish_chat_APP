@@ -5,7 +5,9 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { InstantChatRequestStatus } from '@prisma/client';
+import { InstantChatRequestStatus, AuditAction } from '@prisma/client';
+import { notifyInstantChatRequestCreated, notifyInstantChatRequestAccepted, notifyInstantChatRequestCancelled } from '../utils';
+import { auditService } from './audit.service';
 
 /**
  * Create an instant chat request
@@ -70,6 +72,18 @@ export const createInstantChatRequest = async (
       },
     },
   });
+
+  // Log audit action
+  await auditService.logAction({
+    action: AuditAction.INSTANT_CHAT_REQUEST_CREATE,
+    resource: 'InstantChatRequest',
+    resourceId: request.id,
+    userId: clientId,
+    details: { requestId: request.id, message },
+  });
+
+  // Notify admin
+  notifyInstantChatRequestCreated(request);
 
   return request;
 };
@@ -156,20 +170,38 @@ export const acceptInstantChatRequest = async (
   }
 
   // Create or get existing chat between client and astrologer
-  let chat = await prisma.chat.findFirst({
+  let chat = await prisma.chat.findUnique({
     where: {
-      OR: [
-        { participant1Id: request.clientId, participant2Id: astrologerId },
-        { participant1Id: astrologerId, participant2Id: request.clientId },
-      ],
+      participant1Id_participant2Id: {
+        participant1Id: request.clientId,
+        participant2Id: astrologerId,
+      },
     },
   });
 
+  // If chat exists and is locked, unlock it
+  if (chat && chat.isLocked) {
+    chat = await prisma.chat.update({
+      where: { id: chat.id },
+      data: {
+        isLocked: false,
+        status: 'ACTIVE',
+        endedBy: null,
+        endedAt: null,
+      },
+    });
+  }
+
   if (!chat) {
+    // Create new chat (client=participant1, astrologer=participant2)
     chat = await prisma.chat.create({
       data: {
         participant1Id: request.clientId,
         participant2Id: astrologerId,
+        participant1Type: 'CLIENT',
+        participant2Type: 'ASTROLOGER',
+        status: 'ACTIVE',
+        isLocked: false,
       },
     });
   }
@@ -201,6 +233,19 @@ export const acceptInstantChatRequest = async (
       },
     },
   });
+
+  // Log audit action
+  await auditService.logAction({
+    action: AuditAction.INSTANT_CHAT_REQUEST_ACCEPT,
+    resource: 'InstantChatRequest',
+    resourceId: requestId,
+    userId: request.clientId,
+    astrologerId,
+    details: { requestId, clientId: request.clientId, chatId: chat.id },
+  });
+
+  // Notify admin
+  notifyInstantChatRequestAccepted(requestId, request.clientId, astrologerId, chat.id);
 
   return {
     request: updatedRequest,
@@ -238,6 +283,18 @@ export const cancelInstantChatRequest = async (
     where: { id: requestId },
     data: { status: InstantChatRequestStatus.CANCELLED },
   });
+
+  // Log audit action
+  await auditService.logAction({
+    action: AuditAction.INSTANT_CHAT_REQUEST_CANCEL,
+    resource: 'InstantChatRequest',
+    resourceId: requestId,
+    userId: clientId,
+    details: { requestId },
+  });
+
+  // Notify admin
+  notifyInstantChatRequestCancelled(requestId, clientId);
 
   return updatedRequest;
 };

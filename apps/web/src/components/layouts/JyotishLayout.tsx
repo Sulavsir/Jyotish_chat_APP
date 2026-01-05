@@ -26,7 +26,6 @@ const navigation = [
   { name: 'Dashboard', href: ROUTES.JYOTISH_DASHBOARD, icon: '📊' },
   { name: 'Chats', href: ROUTES.JYOTISH_CHAT, icon: '💬' },
   { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS, icon: '📅' },
-  { name: 'Clients', href: ROUTES.JYOTISH_CLIENTS, icon: '👥' },
   { name: 'Profile', href: ROUTES.JYOTISH_PROFILE, icon: '👤' },
 ];
 

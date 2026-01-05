@@ -15,7 +15,8 @@ import { sendSuccess } from '@/utils';
 export const getSettings = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
-    const settings = await notificationSettingsService.getNotificationSettings(userId);
+    const userRole = req.user!.role;
+    const settings = await notificationSettingsService.getNotificationSettings(userId, userRole);
     return sendSuccess(res, settings);
   } catch (error) {
     next(error);

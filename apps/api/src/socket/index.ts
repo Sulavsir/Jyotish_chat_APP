@@ -1,11 +1,14 @@
 import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { UserRole } from '@jyotish/shared';
 import { chatHandlers } from './chatHandlers';
 import { notificationHandlers } from './notificationHandlers';
 import { consultationRequestHandlers } from './consultationRequestHandlers';
 import { setupInstantChatHandlers, expireOldInstantChatRequests } from './instantChatHandlers';
 import { broadcastMessageHandlers } from './broadcastMessageHandlers';
 import { AUTH_CONFIG } from '../constants';
+import { initializeAdminMonitor } from '../utils/admin-monitor';
+import { prisma } from '@jyotish/database';
 
 interface SocketUser {
   id: string;
@@ -17,6 +20,9 @@ interface SocketUser {
 const onlineUsers = new Map<string, string>(); // userId -> socketId
 
 export function setupSocketHandlers(io: Server) {
+  // Initialize admin monitor
+  initializeAdminMonitor(io);
+  
   // Authentication middleware - reads access token from httpOnly cookie
   io.use((socket: Socket, next) => {
     try {
@@ -57,7 +63,7 @@ export function setupSocketHandlers(io: Server) {
     }
   });
 
-  io.on('connection', (socket: Socket) => {
+  io.on('connection', async (socket: Socket) => {
     const user = socket.data.user as SocketUser;
     console.log(`User connected: ${user.id} (${user.role})`);
 
@@ -68,16 +74,45 @@ export function setupSocketHandlers(io: Server) {
     // Store online user
     onlineUsers.set(user.id, socket.id);
 
-    // Broadcast user online status
+    // Update isOnline status in database
+    try {
+      if (user.role === UserRole.CLIENT) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isOnline: true },
+        });
+      } else if (user.role === UserRole.ASTROLOGER) {
+        await prisma.astrologer.update({
+          where: { id: user.id },
+          data: { isOnline: true },
+        });
+        console.log(`✅ Astrologer ${user.id} marked as online in database`);
+      }
+    } catch (error) {
+      console.error(`Error updating online status for ${user.id}:`, error);
+    }
+
+    // Send list of currently online users to the newly connected user
+    const currentlyOnlineUserIds = Array.from(onlineUsers.keys());
+    socket.emit('user:onlineList', { userIds: currentlyOnlineUserIds });
+    console.log(`✅ Sent online users list to ${user.id}: ${currentlyOnlineUserIds.length} users online`);
+
+    // Broadcast user online status to all clients
     io.emit('user:status', { userId: user.id, status: 'online' });
 
     // Join user-specific room for targeted messages
     socket.join(`user:${user.id}`);
 
     // If astrologer, join astrologers room for broadcast messages
-    if (user.role === 'ASTROLOGER') {
+    if (user.role === UserRole.ASTROLOGER) {
       socket.join('astrologers');
       console.log(`Astrologer ${user.id} joined astrologers room`);
+    }
+
+    // If admin, join admin room for monitoring
+    if (user.role === UserRole.ADMIN) {
+      socket.join('admin');
+      console.log(`✅ Admin ${user.id} joined admin monitoring room`);
     }
 
     // Setup handlers
@@ -88,10 +123,28 @@ export function setupSocketHandlers(io: Server) {
     broadcastMessageHandlers(io, socket);
 
     // Handle disconnection
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log(`User disconnected: ${user.id}`);
       onlineUsers.delete(user.id);
       io.emit('user:status', { userId: user.id, status: 'offline' });
+
+      // Update isOnline status in database
+      try {
+        if (user.role === UserRole.CLIENT) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { isOnline: false },
+          });
+        } else if (user.role === UserRole.ASTROLOGER) {
+          await prisma.astrologer.update({
+            where: { id: user.id },
+            data: { isOnline: false },
+          });
+          console.log(`✅ Astrologer ${user.id} marked as offline in database`);
+        }
+      } catch (error) {
+        console.error(`Error updating offline status for ${user.id}:`, error);
+      }
     });
   });
 

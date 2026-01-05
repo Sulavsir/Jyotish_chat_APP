@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { useAuthStore } from '@/store/auth-store';
-import { ROUTES } from '@/constants';
+import { ROUTES, USER_ROLES } from '@/constants';
 import {
   Card,
   CardContent,
@@ -45,7 +45,7 @@ import type { ApiError } from '@/types/auth';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user } = useRequireAuth();
+  const { user } = useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
   const { setUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);

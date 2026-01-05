@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
 import { encrypt, decrypt } from '../utils';
 import { smsService } from './sms.service';
 import { OTP_CONFIG } from '../constants';
@@ -34,13 +35,42 @@ export class OTPService {
   }
 
   /**
-   * Check if user exists by phone number
+   * Check if user exists by phone number (CLIENT only)
    */
   async isExistingUser(phoneNumber: string): Promise<boolean> {
     const user = await prisma.user.findUnique({
       where: { phone: phoneNumber },
     });
     return !!user;
+  }
+
+  /**
+   * Check if phone number is already used by any role (CLIENT or ASTROLOGER)
+   * Returns the role if exists, null otherwise
+   */
+  async checkPhoneNumberExists(
+    phoneNumber: string
+  ): Promise<{ exists: boolean; role?: UserRole.CLIENT | UserRole.ASTROLOGER }> {
+    const [user, astrologer] = await Promise.all([
+      prisma.user.findUnique({
+        where: { phone: phoneNumber },
+        select: { id: true, role: true },
+      }),
+      prisma.astrologer.findUnique({
+        where: { phone: phoneNumber },
+        select: { id: true },
+      }),
+    ]);
+
+    if (user) {
+      return { exists: true, role: UserRole.CLIENT };
+    }
+
+    if (astrologer) {
+      return { exists: true, role: UserRole.ASTROLOGER };
+    }
+
+    return { exists: false };
   }
 
   /**
@@ -51,7 +81,7 @@ export class OTPService {
     const otp = this.generateOTP();
     const expiresAt = new Date(Date.now() + OTP_CONFIG.OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Check if user exists
+    // Check if user exists (CLIENT only for backward compatibility)
     const isExistingUser = await this.isExistingUser(phoneNumber);
 
     // Save OTP session with encrypted OTP

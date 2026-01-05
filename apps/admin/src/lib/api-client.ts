@@ -10,6 +10,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 class ApiClient {
   private client: AxiosInstance;
   private isRefreshing = false;
+  private isSessionExpired = false; // Track if session has expired to prevent loops
   private failedQueue: Array<{
     resolve: (value?: unknown) => void;
     reject: (reason?: unknown) => void;
@@ -38,6 +39,27 @@ class ApiClient {
 
         // If error is 401 and we haven't retried yet
         if (error.response?.status === 401 && !originalRequest._retry) {
+          const requestUrl = originalRequest.url || '';
+          
+          // Don't try to refresh for login/auth endpoints
+          const isAuthEndpoint = requestUrl.includes('/auth/login') || 
+                                requestUrl.includes('/auth/refresh');
+          
+          // Don't refresh if we're on login page
+          const isLoginPage = typeof window !== 'undefined' && 
+                             (window.location.pathname === '/admin/login' ||
+                              window.location.pathname === '/login');
+          
+          if (isAuthEndpoint || isLoginPage) {
+            return Promise.reject(error);
+          }
+
+          // If session already expired, redirect immediately
+          if (this.isSessionExpired) {
+            console.log('🚫 Admin session expired - redirecting to login');
+            return Promise.reject(error);
+          }
+
           if (this.isRefreshing) {
             // Wait for the refresh to complete
             return new Promise((resolve, reject) => {
@@ -58,20 +80,39 @@ class ApiClient {
             // Attempt to refresh the token
             await this.client.post('/api/v1/admin/auth/refresh');
 
+            // Reset session expired flag on successful refresh
+            this.isSessionExpired = false;
+
             // Process failed queue
             this.failedQueue.forEach(({ resolve }) => resolve());
             this.failedQueue = [];
 
             // Retry the original request
             return this.client(originalRequest);
-          } catch (refreshError) {
+          } catch (refreshError: any) {
+            // Mark session as expired to prevent further attempts
+            this.isSessionExpired = true;
+
+            console.log('❌ Admin token refresh failed:', refreshError?.response?.data?.error || refreshError?.message);
+
             // Refresh failed, reject all queued requests
-            this.failedQueue.forEach(({ reject }) => reject(refreshError));
+            this.failedQueue.forEach(({ reject }) => reject(new Error('Session expired')));
             this.failedQueue = [];
 
-            // Redirect to login
+            // Clear admin store
             if (typeof window !== 'undefined') {
-              window.location.href = '/login';
+              try {
+                const adminStore = localStorage.getItem('admin-storage');
+                if (adminStore) {
+                  localStorage.removeItem('admin-storage');
+                }
+              } catch (e) {
+                console.error('Error clearing admin store:', e);
+              }
+
+              // Redirect to login using replace to prevent back button issues
+              console.log('🔄 Redirecting to admin login');
+              window.location.replace('/admin/login');
             }
 
             return Promise.reject(refreshError);

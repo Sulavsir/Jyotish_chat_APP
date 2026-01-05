@@ -5,7 +5,13 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { ConsultationRequestStatus, ConsultationType } from '@prisma/client';
+import { ConsultationRequestStatus, ConsultationType, AuditAction } from '@prisma/client';
+import {
+  notifyConsultationRequestCreated,
+  notifyConsultationRequestAccepted,
+  notifyConsultationRequestCancelled,
+} from '../utils';
+import { auditService } from './audit.service';
 
 export interface CreateConsultationRequestDto {
   clientId: string;
@@ -52,6 +58,22 @@ class ConsultationRequestService {
         },
       },
     });
+
+    // Log audit action
+    await auditService.logAction({
+      action: AuditAction.CONSULTATION_REQUEST_CREATE,
+      resource: 'ConsultationRequest',
+      resourceId: request.id,
+      userId: data.clientId,
+      details: {
+        requestId: request.id,
+        type: data.type,
+        duration: data.duration || 30,
+      },
+    });
+
+    // Notify admin
+    notifyConsultationRequestCreated(request);
 
     return request;
   }
@@ -195,7 +217,9 @@ class ConsultationRequestService {
     // Check if astrologer has active consultation
     const hasActive = await this.hasActiveConsultation(astrologerId);
     if (hasActive) {
-      throw new Error('You already have an active consultation. Please complete it before accepting a new request.');
+      throw new Error(
+        'You already have an active consultation. Please complete it before accepting a new request.'
+      );
     }
 
     // Get the request
@@ -296,6 +320,28 @@ class ConsultationRequestService {
       return { request: updatedRequest, consultation };
     });
 
+    // Log audit action
+    await auditService.logAction({
+      action: AuditAction.CONSULTATION_REQUEST_ACCEPT,
+      resource: 'ConsultationRequest',
+      resourceId: requestId,
+      userId: request.clientId,
+      astrologerId,
+      details: {
+        requestId,
+        clientId: request.clientId,
+        consultationId: result.consultation.id,
+        type: request.type,
+      },
+    });
+
+    // Notify admin - fetch astrologer name
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { name: true },
+    });
+    notifyConsultationRequestAccepted(request, astrologerId, astrologer?.name || 'Unknown');
+
     return result;
   }
 
@@ -335,6 +381,18 @@ class ConsultationRequestService {
         },
       },
     });
+
+    // Log audit action
+    await auditService.logAction({
+      action: AuditAction.CONSULTATION_REQUEST_CANCEL,
+      resource: 'ConsultationRequest',
+      resourceId: requestId,
+      userId: clientId,
+      details: { requestId, type: request.type },
+    });
+
+    // Notify admin
+    notifyConsultationRequestCancelled(requestId, clientId);
 
     return updatedRequest;
   }
@@ -395,4 +453,3 @@ class ConsultationRequestService {
 }
 
 export const consultationRequestService = new ConsultationRequestService();
-

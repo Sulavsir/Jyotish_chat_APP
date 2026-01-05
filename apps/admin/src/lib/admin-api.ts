@@ -23,10 +23,7 @@ export const adminApi = {
    * Admin login
    */
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>(
-      API_ENDPOINTS.ADMIN.LOGIN,
-      credentials
-    );
+    const response = await apiClient.post<LoginResponse>(API_ENDPOINTS.ADMIN.LOGIN, credentials);
     return response;
   },
 
@@ -111,6 +108,31 @@ export const adminApi = {
   },
 
   /**
+   * Chat Audit
+   */
+  chatAudit: {
+    list: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      search?: string;
+      type?: string;
+    }): Promise<import('@/types').ChatAuditListResponse> => {
+      const response = await apiClient.get<import('@/types').ChatAuditListResponse>(
+        API_ENDPOINTS.CHAT_AUDIT.LIST,
+        { params }
+      );
+      return response;
+    },
+    stats: async (): Promise<import('@/types').ChatAuditStatsResponse> => {
+      const response = await apiClient.get<import('@/types').ChatAuditStatsResponse>(
+        API_ENDPOINTS.CHAT_AUDIT.STATS
+      );
+      return response;
+    },
+  },
+
+  /**
    * Chats
    */
   chats: {
@@ -124,8 +146,8 @@ export const adminApi = {
       return response;
     },
 
-    getMessages: async (id: string) => {
-      const response = await apiClient.get(API_ENDPOINTS.CHATS.MESSAGES(id));
+    getMessages: async (id: string, params?: { page?: number; limit?: number }) => {
+      const response = await apiClient.get(API_ENDPOINTS.CHATS.MESSAGES(id), { params });
       return response;
     },
   },
@@ -144,10 +166,63 @@ export const adminApi = {
    * Dashboard
    */
   dashboard: {
-    getStats: async () => {
+    stats: async () => {
       const response = await apiClient.get(API_ENDPOINTS.DASHBOARD.STATS);
       return response;
     },
   },
-};
 
+  /**
+   * Pricing Plans
+   */
+  pricing: {
+    getAll: async (): Promise<import('@/types').GetAllPricingPlansResponse> => {
+      const response = await apiClient.get<import('@/types').GetAllPricingPlansResponse>(
+        API_ENDPOINTS.PRICING.LIST
+      );
+      return response;
+    },
+
+    getById: async (id: string): Promise<import('@/types').GetPricingPlanResponse> => {
+      const response = await apiClient.get<import('@/types').GetPricingPlanResponse>(
+        API_ENDPOINTS.PRICING.GET(id)
+      );
+      return response;
+    },
+
+    create: async (
+      data: import('@/types').CreatePricingPlanRequest
+    ): Promise<import('@/types').GetPricingPlanResponse> => {
+      const response = await apiClient.post<import('@/types').GetPricingPlanResponse>(
+        API_ENDPOINTS.PRICING.CREATE,
+        data
+      );
+      return response;
+    },
+
+    update: async (
+      id: string,
+      data: import('@/types').UpdatePricingPlanRequest
+    ): Promise<import('@/types').GetPricingPlanResponse> => {
+      const response = await apiClient.put<import('@/types').GetPricingPlanResponse>(
+        API_ENDPOINTS.PRICING.UPDATE(id),
+        data
+      );
+      return response;
+    },
+
+    delete: async (id: string): Promise<import('@/types').DeletePricingPlanResponse> => {
+      const response = await apiClient.delete<import('@/types').DeletePricingPlanResponse>(
+        API_ENDPOINTS.PRICING.DELETE(id)
+      );
+      return response;
+    },
+
+    toggle: async (id: string): Promise<import('@/types').GetPricingPlanResponse> => {
+      const response = await apiClient.patch<import('@/types').GetPricingPlanResponse>(
+        API_ENDPOINTS.PRICING.TOGGLE(id)
+      );
+      return response;
+    },
+  },
+};

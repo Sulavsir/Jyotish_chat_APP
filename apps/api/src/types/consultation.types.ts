@@ -2,7 +2,7 @@
  * Consultation Type Definitions
  */
 
-import type { ConsultationType, ConsultationStatus } from '@jyotish/shared';
+import type { ConsultationType, ConsultationStatus, UserRole } from '@jyotish/shared';
 
 export interface BookConsultationData {
   clientId: string;
@@ -21,4 +21,4 @@ export interface UpdateConsultationData {
   review?: string;
 }
 
-export type ConsultationUserRole = 'CLIENT' | 'ASTROLOGER';
+export type ConsultationUserRole = UserRole.CLIENT | UserRole.ASTROLOGER;

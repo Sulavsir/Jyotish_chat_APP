@@ -1,7 +1,12 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '@jyotish/database';
-import { Prisma } from '@prisma/client';
-import { MessageType } from '@jyotish/shared';
+import {
+  ParticipantType,
+  ChatStatus,
+  MessageType as PrismaMessageType,
+  Prisma,
+} from '@prisma/client';
+import { MessageType, UserRole } from '@jyotish/shared';
 import { onlineUsers } from './index';
 
 export function chatHandlers(io: Server, socket: Socket) {
@@ -14,86 +19,290 @@ export function chatHandlers(io: Server, socket: Socket) {
       try {
         const { receiverId, content, type, metadata } = data;
 
-        // Find or create chat between users
-        const [smallerId, largerId] = [user.id, receiverId].sort();
+        // Determine client and astrologer IDs
+        // participant1 is ALWAYS client (User), participant2 is ALWAYS astrologer
+        let clientId: string;
+        let astrologerId: string;
+
+        if (user.role === UserRole.CLIENT) {
+          clientId = user.id;
+
+          // Check if receiver is in Astrologer table or User table
+          const [receiverAsAstrologer, receiverAsUser] = await Promise.all([
+            prisma.astrologer.findUnique({ where: { id: receiverId }, select: { id: true } }),
+            prisma.user.findUnique({ where: { id: receiverId }, select: { id: true, role: true } }),
+          ]);
+
+          if (receiverAsAstrologer) {
+            astrologerId = receiverId;
+          } else if (receiverAsUser) {
+            socket.emit('chat:error', {
+              message: 'Cannot chat with another client. Please select an astrologer.',
+            });
+            return;
+          } else {
+            socket.emit('chat:error', { message: 'User not found' });
+            return;
+          }
+
+          // Verify client exists
+          const client = await prisma.user.findUnique({
+            where: { id: clientId },
+            select: { id: true },
+          });
+          if (!client) {
+            socket.emit('chat:error', { message: 'Client user not found' });
+            return;
+          }
+        } else if (user.role === UserRole.ASTROLOGER) {
+          astrologerId = user.id;
+
+          // Check if receiver is in User table (client)
+          const receiverAsUser = await prisma.user.findUnique({
+            where: { id: receiverId },
+            select: { id: true, role: true },
+          });
+
+          if (receiverAsUser && receiverAsUser.role === UserRole.CLIENT) {
+            clientId = receiverId;
+          } else if (receiverAsUser) {
+            socket.emit('chat:error', {
+              message: 'Cannot chat with another astrologer. Please select a client.',
+            });
+            return;
+          } else {
+            socket.emit('chat:error', { message: 'Client not found' });
+            return;
+          }
+
+          // Verify astrologer exists
+          const astrologer = await prisma.astrologer.findUnique({
+            where: { id: astrologerId },
+            select: { id: true },
+          });
+          if (!astrologer) {
+            socket.emit('chat:error', { message: 'Astrologer not found' });
+            return;
+          }
+        } else {
+          socket.emit('chat:error', { message: 'Invalid user role for chat' });
+          return;
+        }
+
+        // Find existing chat between client and astrologer
         let chat = await prisma.chat.findUnique({
           where: {
             participant1Id_participant2Id: {
-              participant1Id: smallerId,
-              participant2Id: largerId,
+              participant1Id: clientId,
+              participant2Id: astrologerId,
             },
           },
         });
 
-        if (!chat) {
-          chat = await prisma.chat.create({
+        // Check if chat is locked
+        if (chat && chat.isLocked) {
+          // Only CLIENTS can unlock (reopen) the chat
+          if (user.role === UserRole.ASTROLOGER) {
+            socket.emit('chat:error', {
+              message: 'This chat is locked. Only the client can reopen the conversation.',
+            });
+            return;
+          }
+
+          // Client is trying to chat again - unlock the chat
+          chat = await prisma.chat.update({
+            where: { id: chat.id },
             data: {
-              participant1Id: smallerId,
-              participant2Id: largerId,
+              isLocked: false,
+              status: ChatStatus.ACTIVE,
+              endedBy: null,
+              endedAt: null,
             },
           });
         }
 
-        // Save message to database
-        const message = await prisma.message.create({
-          data: {
-            chatId: chat.id,
-            senderId: user.id,
-            receiverId,
-            content,
-            type: type || MessageType.TEXT,
-            metadata: metadata ? metadata : Prisma.JsonNull,
-          },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                profilePhoto: true,
-              },
+        // Create new chat if doesn't exist
+        if (!chat) {
+          // Only CLIENTS can create new chats
+          if (user.role === UserRole.ASTROLOGER) {
+            socket.emit('chat:error', {
+              message:
+                'Astrologers cannot initiate chats. Please wait for the client to message you.',
+            });
+            return;
+          }
+
+          chat = await prisma.chat.create({
+            data: {
+              participant1Id: clientId,
+              participant2Id: astrologerId,
+              participant1Type: ParticipantType.CLIENT,
+              participant2Type: ParticipantType.ASTROLOGER,
+              status: ChatStatus.ACTIVE,
+              isLocked: false,
             },
-          },
+          });
+        }
+
+        // Determine sender and receiver types
+        const senderType =
+          user.role === UserRole.CLIENT ? ParticipantType.CLIENT : ParticipantType.ASTROLOGER;
+        const receiverType =
+          user.role === UserRole.CLIENT ? ParticipantType.ASTROLOGER : ParticipantType.CLIENT;
+
+        // Save message to database
+        const messageData: {
+          chatId: string;
+          senderId: string;
+          receiverId: string;
+          senderType: ParticipantType;
+          receiverType: ParticipantType;
+          content: string;
+          type: PrismaMessageType;
+          metadata?: Prisma.InputJsonValue;
+        } = {
+          chatId: chat.id,
+          senderId: user.id,
+          receiverId,
+          senderType,
+          receiverType,
+          content,
+          type: (type || MessageType.TEXT) as PrismaMessageType,
+        };
+
+        if (metadata !== undefined) {
+          messageData.metadata = metadata as Prisma.InputJsonValue;
+        }
+
+        const message = await prisma.message.create({
+          data: messageData,
         });
 
+        // Fetch sender information based on role
+        let sender;
+        if (user.role === UserRole.CLIENT) {
+          sender = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: {
+              id: true,
+              name: true,
+              profilePhoto: true,
+            },
+          });
+        } else if (user.role === UserRole.ASTROLOGER) {
+          sender = await prisma.astrologer.findUnique({
+            where: { id: user.id },
+            select: {
+              id: true,
+              name: true,
+              profilePhoto: true,
+            },
+          });
+        }
+
+        // Add sender info to message - Prisma already returns metadata as plain object
+        const messageWithSender = {
+          id: message.id,
+          chatId: message.chatId,
+          senderId: message.senderId,
+          receiverId: message.receiverId,
+          senderType: message.senderType,
+          receiverType: message.receiverType,
+          content: message.content,
+          type: message.type,
+          metadata: message.metadata, // Prisma JsonValue is already a plain object
+          isRead: message.isRead,
+          isDeleted: message.isDeleted,
+          createdAt: message.createdAt.toISOString(), // Convert Date to string for socket
+          updatedAt: message.updatedAt.toISOString(), // Convert Date to string for socket
+          sender: sender || { id: user.id, name: 'Unknown User', profilePhoto: null },
+        };
+
         // Update chat with last message info
-        const lastMessageText = content.trim() 
+        const lastMessageText = content.trim()
           ? content.substring(0, 100)
-          : metadata 
+          : metadata
             ? '📎 Sent an attachment'
             : content.substring(0, 100);
-            
-        await prisma.chat.update({
+
+        const updatedChat = await prisma.chat.update({
           where: { id: chat.id },
           data: {
             lastMessageAt: new Date(),
             lastMessageText,
-            participant1Read: user.id === smallerId,
-            participant2Read: user.id === largerId,
+            participant1Read: user.id === clientId, // Client read if client is sender
+            participant2Read: user.id === astrologerId, // Astrologer read if astrologer is sender
+          },
+          include: {
+            clientParticipant: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                profilePhoto: true,
+              },
+            },
+            astrologerParticipant: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                profilePhoto: true,
+              },
+            },
+            _count: {
+              select: {
+                messages: true,
+              },
+            },
           },
         });
 
         // Send to receiver if online
         const receiverSocketId = onlineUsers.get(receiverId);
         if (receiverSocketId) {
-          io.to(receiverSocketId).emit('chat:receive', message);
+          io.to(receiverSocketId).emit('chat:receive', messageWithSender);
         }
 
         // Send confirmation to sender
-        socket.emit('chat:sent', message);
+        socket.emit('chat:sent', messageWithSender);
+
+        // Emit chat update to admin panel for real-time monitoring
+        io.to('admin').emit('chat:update', updatedChat);
+
+        // Get sender name (fetch from appropriate table based on role)
+        let senderName = 'someone';
+        if (user.role === UserRole.CLIENT) {
+          const sender = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { name: true, phone: true },
+          });
+          senderName = sender?.name || sender?.phone || 'someone';
+        } else if (user.role === UserRole.ASTROLOGER) {
+          const sender = await prisma.astrologer.findUnique({
+            where: { id: user.id },
+            select: { name: true, phone: true },
+          });
+          senderName = sender?.name || sender?.phone || 'someone';
+        }
 
         // Create or update grouped notification for receiver
         const groupKey = `chat_message_from_${user.id}`;
-        const senderName = message.sender.name || message.sender.phone || 'someone';
+
+        // Determine notification fields based on receiver type
+        const notificationWhere =
+          receiverType === ParticipantType.CLIENT
+            ? { userId: receiverId, groupKey, isRead: false }
+            : { astrologerId: receiverId, groupKey, isRead: false };
+
+        const notificationData =
+          receiverType === ParticipantType.CLIENT
+            ? { userId: receiverId, recipientType: ParticipantType.CLIENT }
+            : { astrologerId: receiverId, recipientType: ParticipantType.ASTROLOGER };
 
         // Check for existing unread notification
         const existingNotification = await prisma.notification.findFirst({
-          where: {
-            userId: receiverId,
-            groupKey,
-            isRead: false,
-          },
+          where: notificationWhere,
         });
 
         let notification;
@@ -116,7 +325,7 @@ export function chatHandlers(io: Server, socket: Socket) {
           // Create new notification
           notification = await prisma.notification.create({
             data: {
-              userId: receiverId,
+              ...notificationData,
               title: 'New Message',
               message: `You have a new message from ${senderName}`,
               type: 'CHAT_MESSAGE',

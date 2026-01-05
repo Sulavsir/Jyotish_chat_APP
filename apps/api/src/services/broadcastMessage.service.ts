@@ -4,8 +4,10 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { Prisma, MessageType } from '@prisma/client';
+import { Prisma, MessageType, AuditAction } from '@prisma/client';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '../constants';
+import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
+import { auditService } from './audit.service';
 
 export interface CreateBroadcastMessageData {
   clientId: string;
@@ -32,39 +34,35 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   const activeChat = await prisma.chat.findFirst({
     where: {
       status: 'ACTIVE',
-      OR: [
-        { participant1Id: data.clientId },
-        { participant2Id: data.clientId },
-      ],
+      participant1Id: data.clientId, // Client is always participant1
     },
     include: {
-      participant1: {
+      astrologerParticipant: {
         select: {
           id: true,
           name: true,
           phone: true,
-          role: true,
-        },
-      },
-      participant2: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          role: true,
         },
       },
     },
   });
 
   if (activeChat) {
-    const otherParticipant = activeChat.participant1.id === data.clientId 
-      ? activeChat.participant2 
-      : activeChat.participant1;
-    
     throw new Error(
-      `You already have an active chat with ${otherParticipant.name || otherParticipant.phone}. Please end that chat before starting a new one.`
+      `You already have an active chat with ${activeChat.astrologerParticipant.name || activeChat.astrologerParticipant.phone}. Please end that chat before starting a new one.`
     );
+  }
+
+  // Check if there are any online astrologers available
+  const onlineAstrologers = await prisma.astrologer.count({
+    where: {
+      isActive: true,
+      isOnline: true,
+    },
+  });
+
+  if (onlineAstrologers === 0) {
+    throw new Error('No astrologers are available at the moment. Please try again later.');
   }
 
   const message = await prisma.broadcastMessage.create({
@@ -86,6 +84,22 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       },
     },
   });
+
+  // Log audit action
+  await auditService.logAction({
+    action: AuditAction.BROADCAST_MESSAGE_CREATE,
+    resource: 'BroadcastMessage',
+    resourceId: message.id,
+    userId: data.clientId,
+    details: {
+      messageId: message.id,
+      type: data.type || 'TEXT',
+      onlineAstrologers,
+    },
+  });
+
+  // Notify admin
+  notifyBroadcastMessageSent(message);
 
   return message;
 }
@@ -238,12 +252,14 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   const activeChat = await prisma.chat.findFirst({
     where: {
       status: 'ACTIVE',
-      OR: [{ participant1Id: astrologerId }, { participant2Id: astrologerId }],
+      participant2Id: astrologerId, // Astrologer is always participant2
     },
   });
 
   if (activeChat) {
-    throw new Error('You already have an active chat. End your current chat before accepting new requests.');
+    throw new Error(
+      'You already have an active chat. End your current chat before accepting new requests.'
+    );
   }
 
   // Check if client already has an active chat
@@ -266,7 +282,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   const clientActiveChat = await prisma.chat.findFirst({
     where: {
       status: 'ACTIVE',
-      OR: [{ participant1Id: message.clientId }, { participant2Id: message.clientId }],
+      participant1Id: message.clientId, // Client is always participant1
     },
   });
 
@@ -275,27 +291,39 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   }
 
   // Create or get existing chat between client and astrologer
-  let chat = await prisma.chat.findFirst({
+  // participant1 is always client, participant2 is always astrologer
+  let chat = await prisma.chat.findUnique({
     where: {
-      OR: [
-        {
-          participant1Id: message.clientId,
-          participant2Id: astrologerId,
-        },
-        {
-          participant1Id: astrologerId,
-          participant2Id: message.clientId,
-        },
-      ],
+      participant1Id_participant2Id: {
+        participant1Id: message.clientId,
+        participant2Id: astrologerId,
+      },
     },
   });
 
+  // If chat exists and is locked, unlock it
+  if (chat && chat.isLocked) {
+    chat = await prisma.chat.update({
+      where: { id: chat.id },
+      data: {
+        isLocked: false,
+        status: 'ACTIVE',
+        endedBy: null,
+        endedAt: null,
+      },
+    });
+  }
+
   if (!chat) {
-    // Create new chat
+    // Create new chat (client=participant1, astrologer=participant2)
     chat = await prisma.chat.create({
       data: {
         participant1Id: message.clientId,
         participant2Id: astrologerId,
+        participant1Type: 'CLIENT',
+        participant2Type: 'ASTROLOGER',
+        status: 'ACTIVE',
+        isLocked: false,
       },
     });
   }
@@ -328,6 +356,23 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       },
     },
   });
+
+  // Log audit action
+  await auditService.logAction({
+    action: AuditAction.BROADCAST_MESSAGE_ACCEPT,
+    resource: 'BroadcastMessage',
+    resourceId: messageId,
+    userId: message.clientId,
+    astrologerId,
+    details: {
+      messageId,
+      clientId: message.clientId,
+      chatId: chat.id,
+    },
+  });
+
+  // Notify admin
+  notifyBroadcastMessageAccepted(messageId, message.clientId, astrologerId, chat.id);
 
   return {
     message: updatedMessage,

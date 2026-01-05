@@ -9,21 +9,21 @@ export interface Chat {
   participant2Read: boolean;
   createdAt: Date;
   updatedAt: Date;
-  participant1: {
+  clientParticipant: {
     id: string;
-    name: string;
-    email?: string;
-    phone: string;
-    profilePhoto?: string;
+    name: string | null;
+    email?: string | null;
+    phone?: string;
+    profilePhoto?: string | null;
     role: string;
   };
-  participant2: {
+  astrologerParticipant: {
     id: string;
-    name: string;
-    email?: string;
-    phone: string;
-    profilePhoto?: string;
-    role: string;
+    name: string | null;
+    email?: string | null;
+    phone?: string;
+    profilePhoto?: string | null;
+    role?: string;
   };
   unreadCount?: number;
 }
@@ -40,12 +40,12 @@ export interface Message {
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
-  sender: {
+  sender?: {
     id: string;
     name: string;
     email?: string;
     profilePhoto?: string;
-    role: string;
+    role?: string;
   };
 }
 
@@ -76,7 +76,7 @@ export interface MessageBubbleProps {
     metadata?: unknown; // JSON metadata - use unknown for type safety
     createdAt: Date;
     isRead: boolean;
-    sender: {
+    sender?: {
       id: string;
       name: string;
       profilePhoto?: string;

@@ -20,7 +20,8 @@ import spaceImage from '@/assets/images/space.jpg';
 import { authApi } from '@/lib/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import type { ApiError } from '@/types/auth';
-import { OTPInput } from '@/components/ui/OTPInput';
+import { OTPInput, Navbar } from '@/components/ui';
+import { displayError, parseApiError } from '@/utils/error-handler';
 
 export default function VerifyOTPPage() {
   const router = useRouter();
@@ -69,9 +70,9 @@ export default function VerifyOTPPage() {
       }
     },
     onError: (error: ApiError) => {
-      const message = error.message || TOAST_MESSAGES.ERROR.OTP_INVALID;
+      const { message } = parseApiError(error);
       setError(message);
-      toast.error(message);
+      displayError(error, TOAST_MESSAGES.ERROR.OTP_INVALID);
       // Clear OTP inputs on error
       setOtp(['', '', '', '', '', '']);
     },
@@ -87,7 +88,7 @@ export default function VerifyOTPPage() {
       setOtp(['', '', '', '', '', '']);
     },
     onError: (error: ApiError) => {
-      toast.error(error.message || 'Failed to resend OTP');
+      displayError(error, 'Failed to resend OTP');
     },
   });
 
@@ -135,6 +136,9 @@ export default function VerifyOTPPage() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
+      {/* Navbar */}
+      <Navbar />
+      
       {/* Full Background Image */}
       <div className="absolute inset-0">
         <Image

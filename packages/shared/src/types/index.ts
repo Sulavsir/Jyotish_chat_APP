@@ -5,6 +5,22 @@ export interface User {
   name: string;
   role: UserRole;
   phone?: string;
+  phoneNumber?: string; // Alias for phone (for compatibility)
+  profilePhoto?: string | null;
+  
+  // Birth details (flattened for easier access)
+  dateOfBirth?: string | Date;
+  timeOfBirth?: string;
+  placeOfBirth?: string;
+  
+  // Address fields
+  currentAddress?: string;
+  permanentAddress?: string;
+  
+  // Account status
+  profileCompleted?: boolean;
+  hasPassword?: boolean;
+  
   birthDetails?: BirthDetails;
   createdAt: Date;
   updatedAt: Date;

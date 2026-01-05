@@ -4,7 +4,9 @@ import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@jyotish/ui';
 import { FormPasswordInput } from '@/components/form';
 import { authApi } from '@/lib/auth-api';
+import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
+import { USER_ROLES } from '@/constants';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +20,7 @@ import {
 } from '@/lib/validations';
 
 export default function SettingsPage() {
-  const { user } = useRequireAuth();
+  const { user } = useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
 
   // Change password form (for users with existing password)
   const changePasswordForm = useForm<ChangePasswordFormData>({
@@ -42,9 +44,14 @@ export default function SettingsPage() {
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: authApi.changePassword,
-    onSuccess: () => {
+    onSuccess: (response: { message: string; user?: import('@jyotish/shared').User }) => {
       displaySuccess('Password changed successfully!');
       changePasswordForm.reset();
+
+      // Update user in store with hasPassword: true
+      if (response.user) {
+        useAuthStore.getState().setUser(response.user);
+      }
     },
     onError: (error: ApiError) => {
       displayError(error, 'Failed to change password');
@@ -54,10 +61,14 @@ export default function SettingsPage() {
   // Set password mutation
   const setPasswordMutation = useMutation({
     mutationFn: authApi.setPasswordForExistingUser,
-    onSuccess: () => {
+    onSuccess: (response: { message: string; user?: import('@jyotish/shared').User }) => {
       displaySuccess('Password set successfully!');
       setPasswordForm.reset();
-      window.location.reload();
+
+      // Update user in store with hasPassword: true
+      if (response.user) {
+        useAuthStore.getState().setUser(response.user);
+      }
     },
     onError: (error: ApiError) => {
       displayError(error, 'Failed to set password');
@@ -107,9 +118,7 @@ export default function SettingsPage() {
                   label="Current Password"
                   placeholder="Enter current password"
                   value={changePasswordForm.watch('currentPassword')}
-                  onChange={(e) =>
-                    changePasswordForm.setValue('currentPassword', e.target.value)
-                  }
+                  onChange={(e) => changePasswordForm.setValue('currentPassword', e.target.value)}
                   onBlur={() => changePasswordForm.trigger('currentPassword')}
                   error={changePasswordForm.formState.errors.currentPassword?.message}
                   disabled={changePasswordMutation.isPending}
@@ -139,9 +148,7 @@ export default function SettingsPage() {
                   label="Confirm New Password"
                   placeholder="Re-enter new password"
                   value={changePasswordForm.watch('confirmPassword')}
-                  onChange={(e) =>
-                    changePasswordForm.setValue('confirmPassword', e.target.value)
-                  }
+                  onChange={(e) => changePasswordForm.setValue('confirmPassword', e.target.value)}
                   onBlur={() => changePasswordForm.trigger('confirmPassword')}
                   error={changePasswordForm.formState.errors.confirmPassword?.message}
                   disabled={changePasswordMutation.isPending}
@@ -218,9 +225,7 @@ export default function SettingsPage() {
         {/* Other Settings Sections */}
         <Card className="bg-black/40 backdrop-blur-md border-white/10">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              🔔 Notifications
-            </CardTitle>
+            <CardTitle className="text-white flex items-center gap-2">🔔 Notifications</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-400">Notification settings coming soon...</p>

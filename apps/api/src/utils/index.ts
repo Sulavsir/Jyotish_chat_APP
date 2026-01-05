@@ -18,6 +18,12 @@ export * from './user-utils';
 // Re-export cookie utilities
 export * from './cookie-utils';
 
+// Audit Logging
+export * from './audit-logger';
+
+// Admin Monitoring
+export * from './admin-monitor';
+
 /**
  * Send success response
  */

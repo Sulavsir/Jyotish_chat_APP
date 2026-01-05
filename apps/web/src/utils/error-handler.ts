@@ -32,18 +32,45 @@ export function parseApiError(error: any): {
   let message = 'An unexpected error occurred. Please try again.';
   let fieldErrors: FieldErrors = {};
 
-  // Handle different error formats
-  if (error?.message) {
-    message = error.message;
-  }
+  // Handle axios error response
+  if (error?.response?.data) {
+    const data = error.response.data;
 
-  // Extract field-level errors
-  if (error?.fields) {
-    fieldErrors = error.fields;
-  } else if (error?.details && Array.isArray(error.details)) {
-    error.details.forEach((detail: { field: string; message: string }) => {
-      fieldErrors[detail.field] = detail.message;
-    });
+    // Check for error object in response
+    if (data?.error?.message) {
+      message = data.error.message;
+    } else if (data?.message) {
+      message = data.message;
+    }
+
+    // Extract field-level errors
+    if (data?.error?.fields) {
+      fieldErrors = data.error.fields;
+    } else if (data?.fields) {
+      fieldErrors = data.fields;
+    } else if (data?.error?.details && Array.isArray(data.error.details)) {
+      data.error.details.forEach((detail: { field: string; message: string }) => {
+        fieldErrors[detail.field] = detail.message;
+      });
+    } else if (data?.details && Array.isArray(data.details)) {
+      data.details.forEach((detail: { field: string; message: string }) => {
+        fieldErrors[detail.field] = detail.message;
+      });
+    }
+  }
+  // Handle direct error object (non-axios)
+  else if (error?.error?.message) {
+    message = error.error.message;
+    if (error.error.fields) {
+      fieldErrors = error.error.fields;
+    }
+  }
+  // Handle simple error object
+  else if (error?.message) {
+    message = error.message;
+    if (error.fields) {
+      fieldErrors = error.fields;
+    }
   }
 
   return { message, fieldErrors };
@@ -56,13 +83,22 @@ export function parseApiError(error: any): {
 export function displayError(error: any, fallbackMessage?: string): void {
   const { message } = parseApiError(error);
 
-  // Handle 401 Unauthorized errors
-  if (error?.statusCode === 401 || error?.status === 401) {
-    // Redirect to unauthorized page
-    if (typeof window !== 'undefined') {
-      window.location.href = '/unauthorized';
+  // Check various places for status code
+  const statusCode = error?.response?.status || error?.statusCode || error?.status;
+
+  // Handle 401 Unauthorized errors (but not on login pages)
+  if (statusCode === 401) {
+    const isLoginPage =
+      typeof window !== 'undefined' &&
+      (window.location.pathname.includes('/login') || window.location.pathname.includes('/auth/'));
+
+    // Don't redirect if already on a login/auth page
+    if (!isLoginPage) {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/unauthorized';
+      }
+      return;
     }
-    return;
   }
 
   toast.error(message || fallbackMessage || 'An error occurred');

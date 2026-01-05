@@ -5,7 +5,7 @@
 export const OTP_CONFIG = {
   // OTP generation
   OTP_LENGTH: 6,
-  OTP_EXPIRY_MINUTES: 10,
+  OTP_EXPIRY_MINUTES: 5, // 5 minutes for better security
   
   // Verification attempts
   MAX_ATTEMPTS: 3,

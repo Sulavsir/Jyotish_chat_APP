@@ -15,6 +15,6 @@ export const SESSION_CONFIG = {
   EXPIRATION_DAYS: 5,
   EXPIRATION_MS: 5 * 24 * 60 * 60 * 1000,
   // Token expiration times
-  ACCESS_TOKEN_EXPIRES_MS: 1 * 60 * 1000, // 1 minute
+  ACCESS_TOKEN_EXPIRES_MS: 1440 * 60 * 1000, // 1440 minutes
   REFRESH_TOKEN_EXPIRES_MS: 24 * 60 * 60 * 1000, // 1 day
 } as const;

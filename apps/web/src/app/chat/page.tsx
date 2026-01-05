@@ -11,53 +11,20 @@ import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useStore } from '@/store';
 import { useAuthStore } from '@/store/auth-store';
+import { useRequireAuth } from '@/hooks';
+import { USER_ROLES } from '@/constants';
 import { useSocket } from '@/hooks/useSocket';
 import { ChatList, ChatWindow } from '@/components/features/chat';
 import { BroadcastChatWindow } from '@/components/features/broadcast-chat/BroadcastChatWindow';
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
-import { FileAttachment } from '@/types/chat';
-
-interface Chat {
-  id: string;
-  participant1: {
-    id: string;
-    name: string | null;
-    email?: string | null;
-    phone?: string;
-    profilePhoto?: string | null;
-    role: string;
-  };
-  participant2: {
-    id: string;
-    name: string | null;
-    email?: string | null;
-    phone?: string;
-    profilePhoto?: string | null;
-    role: string;
-  };
-  lastMessageText?: string;
-  lastMessageAt?: Date;
-  unreadCount?: number;
-}
-
-interface Message {
-  id: string;
-  chatId: string;
-  senderId: string;
-  receiverId: string;
-  content: string;
-  createdAt: Date;
-  isRead: boolean;
-  sender: {
-    id: string;
-    name: string;
-    profilePhoto?: string;
-  };
-}
+import { Chat, Message, FileAttachment } from '@/types/chat';
 
 export default function ChatPage() {
+  // Require CLIENT role to access this page
+  useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
+
   const searchParams = useSearchParams();
   const chatIdFromUrl = searchParams?.get('chatId');
 
@@ -118,10 +85,10 @@ export default function ChatPage() {
         const chatIndex = prevChats.findIndex(
           (chat) =>
             chat.id === message.chatId ||
-            (chat.participant1.id === message.senderId &&
-              chat.participant2.id === message.receiverId) ||
-            (chat.participant1.id === message.receiverId &&
-              chat.participant2.id === message.senderId)
+            (chat.clientParticipant.id === message.senderId &&
+              chat.astrologerParticipant.id === message.receiverId) ||
+            (chat.clientParticipant.id === message.receiverId &&
+              chat.astrologerParticipant.id === message.senderId)
         );
 
         if (chatIndex === -1) {
@@ -164,13 +131,90 @@ export default function ChatPage() {
       });
     };
 
+    // Handle chat ended event
+    const handleChatEnded = (data: {
+      chatId: string;
+      status: string;
+      isLocked: boolean;
+      endedBy: string;
+      endedAt: string;
+    }) => {
+      console.log('🔒 Chat ended:', data);
+
+      // Update active chat if this is the current chat
+      if (activeChatId === data.chatId) {
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+              }
+            : null
+        );
+      }
+
+      // Update chat in list
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === data.chatId
+            ? {
+                ...chat,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+              }
+            : chat
+        )
+      );
+    };
+
+    // Handle chat reopened event
+    const handleChatReopened = (data: {
+      chatId: string;
+      status: string;
+      isLocked: boolean;
+      chat: Chat;
+    }) => {
+      console.log('🔓 Chat reopened:', data);
+
+      // Update active chat if this is the current chat
+      if (activeChatId === data.chatId) {
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+              }
+            : null
+        );
+      }
+
+      // Update chat in list
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === data.chatId
+            ? {
+                ...chat,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+              }
+            : chat
+        )
+      );
+    };
+
     // Listen to both receive and sent events
     socket.on('chat:receive', handleNewMessage);
     socket.on('chat:sent', handleNewMessage);
+    socket.on('chat:ended', handleChatEnded);
+    socket.on('chat:reopened', handleChatReopened);
 
     return () => {
       socket.off('chat:receive', handleNewMessage);
       socket.off('chat:sent', handleNewMessage);
+      socket.off('chat:ended', handleChatEnded);
+      socket.off('chat:reopened', handleChatReopened);
     };
   }, [socket, isConnected, user, activeChatId]);
 
@@ -223,13 +267,13 @@ export default function ChatPage() {
       }
 
       // Validate chat has required properties
-      if (!chat || !chat.participant1 || !chat.participant2) {
+      if (!chat || !chat.clientParticipant || !chat.astrologerParticipant) {
         toast.error('Invalid chat data');
         return;
       }
 
-      // Get the other user
-      const otherUser = chat.participant1.id === user.id ? chat.participant2 : chat.participant1;
+      // Get the other user (for clients, the other user is the astrologer)
+      const otherUser = chat.astrologerParticipant;
 
       if (!otherUser || !otherUser.id) {
         return;
@@ -349,10 +393,8 @@ export default function ChatPage() {
     // Select the new chat
     const selectedChat = chats.find((c) => c.id === chatId);
     if (selectedChat) {
-      const otherUser =
-        selectedChat.participant1.id === user?.id
-          ? selectedChat.participant2
-          : selectedChat.participant1;
+      // For clients, the other user is always the astrologer
+      const otherUser = selectedChat.astrologerParticipant;
       handleSelectChat(chatId, otherUser.id);
     }
   };
@@ -361,8 +403,8 @@ export default function ChatPage() {
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {
     if (!activeChat || !user) return;
 
-    const otherUser =
-      activeChat.participant1.id === user.id ? activeChat.participant2 : activeChat.participant1;
+    // For clients, the other user is always the astrologer
+    const otherUser = activeChat.astrologerParticipant;
 
     // Handle file upload if attachment exists
     if (attachment) {
@@ -410,8 +452,8 @@ export default function ChatPage() {
   const handleTyping = (isTyping: boolean) => {
     if (!activeChat || !user) return;
 
-    const otherUser =
-      activeChat.participant1.id === user.id ? activeChat.participant2 : activeChat.participant1;
+    // For clients, the other user is always the astrologer
+    const otherUser = activeChat.astrologerParticipant;
 
     sendTypingIndicator(otherUser.id, isTyping);
   };
@@ -466,7 +508,11 @@ export default function ChatPage() {
                 chatId: m.chatId || activeChatId,
                 senderId: m.senderId,
                 receiverId: m.receiverId,
+                senderType: m.senderType,
+                receiverType: m.receiverType,
                 content: m.content,
+                type: m.type, // ✅ Include message type (TEXT, IMAGE, FILE, AUDIO)
+                metadata: m.metadata, // ✅ Include attachment metadata
                 createdAt: m.createdAt,
                 isRead: m.isRead,
                 sender: m.sender || {
@@ -501,12 +547,8 @@ export default function ChatPage() {
     return <LoadingScreen />;
   }
 
-  // Check if other user is typing
-  const otherUserId = activeChat
-    ? activeChat.participant1.id === user.id
-      ? activeChat.participant2.id
-      : activeChat.participant1.id
-    : null;
+  // Check if other user is typing (for clients, it's the astrologer)
+  const otherUserId = activeChat ? activeChat.astrologerParticipant.id : null;
   const isOtherUserTyping = otherUserId ? typingUsers.has(otherUserId) : false;
 
   return (

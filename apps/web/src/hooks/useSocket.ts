@@ -82,8 +82,18 @@ export function useSocket() {
       toast.error(message || 'Failed to send message');
     });
 
-    // User status events
+    // Initial online users list when connecting
+    socket.on('user:onlineList', ({ userIds }: { userIds: string[] }) => {
+      console.log('📋 Received online users list:', userIds.length, 'users online');
+      // Add all currently online users to the store
+      userIds.forEach((userId) => {
+        addUserOnline(userId);
+      });
+    });
+
+    // User status events (for real-time updates)
     socket.on(WS_EVENTS.USER_STATUS, ({ userId, status }) => {
+      console.log('👤 User status changed:', userId, status);
       if (status === 'online') {
         addUserOnline(userId);
       } else {

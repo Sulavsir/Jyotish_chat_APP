@@ -24,12 +24,12 @@ export const AUTH_CONFIG = {
   },
 
   // Access Token Configuration (short-lived)
-  ACCESS_TOKEN_EXPIRES_IN_MINUTES: 1440, // 1 day (1440 minutes) - TODO: Change to 5 for production
-  ACCESS_TOKEN_EXPIRES_IN_MS: 24 * 60 * 60 * 1000,
+  ACCESS_TOKEN_EXPIRES_IN_MINUTES: 1440, // 5 minutes
+  ACCESS_TOKEN_EXPIRES_IN_MS: 1440 * 60 * 1000, // 5 minutes
 
   // Refresh Token Configuration (long-lived)
   REFRESH_TOKEN_EXPIRES_IN_DAYS: 1, // 1 day
-  REFRESH_TOKEN_EXPIRES_IN_MS: 24 * 60 * 60 * 1000,
+  REFRESH_TOKEN_EXPIRES_IN_MS: 24 * 60 * 60 * 1000, // 1 day
 
   JWT_ALGORITHM: 'HS256' as const,
 

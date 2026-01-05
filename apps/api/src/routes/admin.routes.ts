@@ -6,6 +6,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
 import { AuditAction } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
 import * as adminController from '../controllers/adminController';
 
 const router = Router();
@@ -16,7 +17,7 @@ router.post('/auth/login', adminController.adminLogin);
 
 // Protected admin routes
 router.use(authenticate);
-router.use(authorize('ADMIN')); // All routes below require ADMIN role
+router.use(authorize(UserRole.ADMIN));
 
 router.post('/auth/logout', adminController.adminLogout);
 router.get('/auth/me', adminController.getAdminProfile);
@@ -129,6 +130,40 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 
 router.get('/dashboard/recent-activities', adminController.getRecentActivities);
 
+// ==================== Chat Audit ====================
+router.get('/chat-audit', adminController.getChatAudit);
+
+router.get('/chat-audit/stats', adminController.getChatAuditStats);
+
+// ==================== Pricing Management ====================
+import * as pricingController from '../controllers/pricingController';
+
+router.get('/pricing', pricingController.getAllPlansAdmin);
+
+router.get('/pricing/:id', pricingController.getPlanById);
+
+router.post(
+  '/pricing',
+  auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
+  pricingController.createPlan
+);
+
+router.put(
+  '/pricing/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
+  pricingController.updatePlan
+);
+
+router.delete(
+  '/pricing/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
+  pricingController.deletePlan
+);
+
+router.patch(
+  '/pricing/:id/toggle',
+  auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
+  pricingController.togglePlanStatus
+);
+
 export default router;
-
-

@@ -50,4 +50,9 @@ export const API_ENDPOINTS = {
     READ: (id: string) => `/api/v1/notifications/${id}/read`,
     READ_ALL: '/api/v1/notifications/read-all',
   },
+  ASTROLOGER: {
+    LOGIN: '/api/v1/astrologer/auth/login',
+    LOGOUT: '/api/v1/astrologer/auth/logout',
+    ME: '/api/v1/astrologer/auth/me',
+  },
 } as const;

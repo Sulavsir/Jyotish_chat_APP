@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
 import type {
   BookConsultationData,
   UpdateConsultationData,
@@ -17,13 +18,13 @@ export class ConsultationService {
    */
   async getConsultationsByUserId(
     userId: string,
-    role: ConsultationUserRole = 'CLIENT'
+    role: ConsultationUserRole = UserRole.CLIENT
   ): Promise<ConsultationWithRelations[]> {
     const consultations = await prisma.consultation.findMany({
       where:
-        role === 'CLIENT'
+        role === UserRole.CLIENT
           ? { clientId: userId }
-          : role === 'ASTROLOGER'
+          : role === UserRole.ASTROLOGER
             ? { astrologerId: userId }
             : {
                 OR: [{ clientId: userId }, { astrologerId: userId }],
@@ -102,7 +103,7 @@ export class ConsultationService {
     const astrologer = await prisma.user.findFirst({
       where: {
         id: data.astrologerId,
-        role: 'ASTROLOGER',
+        role: UserRole.ASTROLOGER,
         isActive: true,
       },
     });
@@ -235,7 +236,7 @@ export class ConsultationService {
   ): Promise<ConsultationWithRelations[]> {
     const consultations = await prisma.consultation.findMany({
       where: {
-        ...(role === 'CLIENT' ? { clientId: userId } : { astrologerId: userId }),
+        ...(role === UserRole.CLIENT ? { clientId: userId } : { astrologerId: userId }),
         scheduledAt: {
           gte: new Date(),
         },
@@ -281,7 +282,7 @@ export class ConsultationService {
   ): Promise<ConsultationWithRelations[]> {
     const consultations = await prisma.consultation.findMany({
       where: {
-        ...(role === 'CLIENT' ? { clientId: userId } : { astrologerId: userId }),
+        ...(role === UserRole.CLIENT ? { clientId: userId } : { astrologerId: userId }),
         status: 'COMPLETED',
       },
       include: {

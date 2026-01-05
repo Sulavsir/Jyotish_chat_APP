@@ -8,6 +8,7 @@ import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types';
+import { displayError } from '@/utils/error-handler';
 
 export function useChat() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export function useChat() {
       return chat.id;
     } catch (error) {
       console.error('Error starting chat:', error);
-      toast.error('Failed to start chat. Please try again.');
+      displayError(error, 'Failed to start chat. Please try again.');
       return null;
     } finally {
       setIsStartingChat(false);

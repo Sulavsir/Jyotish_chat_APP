@@ -4,6 +4,7 @@
  */
 
 import { Response } from 'express';
+import { UserRole } from '@jyotish/shared';
 import { AuthRequest } from '@/types';
 import * as broadcastMessageService from '../services/broadcastMessage.service';
 import { sendSuccess, sendError } from '../utils';
@@ -199,7 +200,7 @@ export async function getBroadcastMessage(req: AuthRequest, res: Response) {
     }
 
     // Check permissions - clients can only see their own, astrologers can see all
-    if (req.user!.role === 'CLIENT' && message.clientId !== req.user!.id) {
+    if (req.user!.role === UserRole.CLIENT && message.clientId !== req.user!.id) {
       return sendError(res, 'Access denied', HTTP_STATUS.FORBIDDEN);
     }
 

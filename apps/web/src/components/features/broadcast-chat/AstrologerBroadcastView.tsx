@@ -323,7 +323,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                   disabled
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2 inline" />
-                  You're chatting with this client
+                  You&apos;re chatting with this client
                 </button>
               )}
             </Card>

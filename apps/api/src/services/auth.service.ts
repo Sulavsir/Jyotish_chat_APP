@@ -291,7 +291,7 @@ export class AuthService {
     await sessionService.createSession(user.id, refreshToken, metadata);
 
     // Format user response
-    const userResponse = toUserResponse(user);
+    const userResponse = toUserResponse(user as UserEntity);
 
     return {
       accessToken,
@@ -304,6 +304,7 @@ export class AuthService {
   /**
    * Login user with password (email or phone + password)
    * Creates session with hashed refresh token
+   * Note: This is for CLIENT users only. Astrologers should use astrologerService.login()
    */
   async loginWithPassword(
     identifier: string,
@@ -313,7 +314,22 @@ export class AuthService {
     // Find user by identifier
     const user = await this.findUserByIdentifier(identifier);
 
-    if (!user || !user.password) {
+    // Check if user exists
+    if (!user) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Check if user has password set
+    if (!user.password) {
+      throw new AppError(
+        'Password not set. Please use OTP login or set a password first.',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Ensure only CLIENT role users can login via this endpoint
+    if (user.role !== UserRole.CLIENT) {
       throw new Error('Invalid credentials');
     }
 
