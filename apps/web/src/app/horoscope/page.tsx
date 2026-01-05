@@ -4,23 +4,32 @@ import { useState } from 'react';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@jyotish/ui';
 
+const getTodayDate = () => {
+  const today = new Date();
+  return today.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
 const zodiacSigns = [
-  { name: 'Aries', icon: '♈', dates: 'Mar 21 - Apr 19' },
-  { name: 'Taurus', icon: '♉', dates: 'Apr 20 - May 20' },
-  { name: 'Gemini', icon: '♊', dates: 'May 21 - Jun 20' },
-  { name: 'Cancer', icon: '♋', dates: 'Jun 21 - Jul 22' },
-  { name: 'Leo', icon: '♌', dates: 'Jul 23 - Aug 22' },
-  { name: 'Virgo', icon: '♍', dates: 'Aug 23 - Sep 22' },
-  { name: 'Libra', icon: '♎', dates: 'Sep 23 - Oct 22' },
-  { name: 'Scorpio', icon: '♏', dates: 'Oct 23 - Nov 21' },
-  { name: 'Sagittarius', icon: '♐', dates: 'Nov 22 - Dec 21' },
-  { name: 'Capricorn', icon: '♑', dates: 'Dec 22 - Jan 19' },
-  { name: 'Aquarius', icon: '♒', dates: 'Jan 20 - Feb 18' },
-  { name: 'Pisces', icon: '♓', dates: 'Feb 19 - Mar 20' },
+  { name: 'Aries', icon: '♈' },
+  { name: 'Taurus', icon: '♉' },
+  { name: 'Gemini', icon: '♊' },
+  { name: 'Cancer', icon: '♋' },
+  { name: 'Leo', icon: '♌' },
+  { name: 'Virgo', icon: '♍' },
+  { name: 'Libra', icon: '♎' },
+  { name: 'Scorpio', icon: '♏' },
+  { name: 'Sagittarius', icon: '♐' },
+  { name: 'Capricorn', icon: '♑' },
+  { name: 'Aquarius', icon: '♒' },
+  { name: 'Pisces', icon: '♓' },
 ];
 
 export default function HoroscopePage() {
   const [selectedSign, setSelectedSign] = useState<string | null>(null);
+  const todayDate = getTodayDate();
 
   return (
     <DashboardLayout>
@@ -60,7 +69,7 @@ export default function HoroscopePage() {
                 >
                   <div className="text-4xl mb-2">{sign.icon}</div>
                   <p className="text-white font-medium text-sm">{sign.name}</p>
-                  <p className="text-gray-400 text-xs mt-1">{sign.dates}</p>
+                  <p className="text-gray-400 text-xs mt-1">{todayDate}</p>
                 </button>
               ))}
             </div>

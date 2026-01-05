@@ -37,8 +37,43 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
       });
 
       // Create notifications for all online astrologers
-      // Note: This could be optimized to only notify online users
-      // For now, we'll let the frontend filter for online astrologers
+      // Get all online astrologers from socket rooms
+      const io = getSocketInstance();
+      if (io) {
+        // Get all connected sockets
+        const sockets = await io.fetchSockets();
+        const onlineAstrologerIds = new Set<string>();
+        
+        // Collect unique astrologer IDs
+        sockets.forEach((s) => {
+          if (s.data.user?.role === 'ASTROLOGER' && s.data.user?.id) {
+            onlineAstrologerIds.add(s.data.user.id);
+          }
+        });
+
+        // Create notifications for online astrologers
+        for (const astrologerId of onlineAstrologerIds) {
+          try {
+            const notification = await notificationService.createNotification({
+              astrologerId, // Use astrologerId for astrologers
+              title: 'New Chat Request',
+              message: `New instant chat request from ${request.client?.name || 'a client'}`,
+              type: NotificationType.CHAT_MESSAGE,
+              metadata: {
+                requestId: request.id,
+                clientId: request.clientId,
+              },
+              groupKey: 'instant_chat_requests',
+            });
+
+            // Emit real-time notification to astrologer
+            io.to(`user_${astrologerId}`).emit('notification:new', notification);
+          } catch (error) {
+            console.error(`Failed to create notification for astrologer ${astrologerId}:`, error);
+          }
+        }
+      }
+
       console.log('New instant chat request created:', request.id);
     } catch (error: any) {
       socket.emit('instantChat:error', {

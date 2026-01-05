@@ -30,7 +30,7 @@ export function getAdminMonitor(): Server {
  */
 export function notifyConsultationRequestCreated(request: any) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('consultation:new', {
     id: request.id,
     clientId: request.clientId,
@@ -40,7 +40,7 @@ export function notifyConsultationRequestCreated(request: any) {
     createdAt: request.createdAt,
     expiresAt: request.expiresAt,
   });
-
+  
   console.log(`📢 Admin notified: Consultation request ${request.id} created`);
 }
 
@@ -53,7 +53,7 @@ export function notifyConsultationRequestAccepted(
   astrologerName: string
 ) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('consultation:update', {
     id: request.id,
     clientId: request.clientId,
@@ -62,7 +62,7 @@ export function notifyConsultationRequestAccepted(
     status: 'ACCEPTED',
     acceptedAt: new Date(),
   });
-
+  
   console.log(
     `📢 Admin notified: Consultation request ${request.id} accepted by ${astrologerName}`
   );
@@ -73,14 +73,14 @@ export function notifyConsultationRequestAccepted(
  */
 export function notifyConsultationRequestCancelled(requestId: string, clientId: string) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('consultation:update', {
     id: requestId,
     clientId,
     status: 'CANCELLED',
     cancelledAt: new Date(),
   });
-
+  
   console.log(`📢 Admin notified: Consultation request ${requestId} cancelled`);
 }
 
@@ -89,7 +89,7 @@ export function notifyConsultationRequestCancelled(requestId: string, clientId: 
  */
 export function notifyInstantChatRequestCreated(request: any) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('instantChat:new', {
     id: request.id,
     clientId: request.clientId,
@@ -98,7 +98,7 @@ export function notifyInstantChatRequestCreated(request: any) {
     createdAt: request.createdAt,
     expiresAt: request.expiresAt,
   });
-
+  
   console.log(`📢 Admin notified: Instant chat request ${request.id} created`);
 }
 
@@ -112,7 +112,7 @@ export function notifyInstantChatRequestAccepted(
   chatId: string
 ) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('instantChat:update', {
     id: requestId,
     clientId,
@@ -121,7 +121,7 @@ export function notifyInstantChatRequestAccepted(
     status: 'ACCEPTED',
     acceptedAt: new Date(),
   });
-
+  
   console.log(
     `📢 Admin notified: Instant chat request ${requestId} accepted by astrologer ${astrologerId}`
   );
@@ -132,14 +132,14 @@ export function notifyInstantChatRequestAccepted(
  */
 export function notifyInstantChatRequestCancelled(requestId: string, clientId: string) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('instantChat:update', {
     id: requestId,
     clientId,
     status: 'CANCELLED',
     cancelledAt: new Date(),
   });
-
+  
   console.log(`📢 Admin notified: Instant chat request ${requestId} cancelled`);
 }
 
@@ -148,7 +148,7 @@ export function notifyInstantChatRequestCancelled(requestId: string, clientId: s
  */
 export function notifyBroadcastMessageSent(message: any) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('broadcast:new', {
     id: message.id,
     clientId: message.clientId,
@@ -173,7 +173,7 @@ export function notifyBroadcastMessageSent(message: any) {
     createdAt: message.createdAt,
     acceptedAt: null,
   });
-
+  
   console.log(`📢 Admin notified: Broadcast message ${message.id} sent`);
 }
 
@@ -187,7 +187,7 @@ export function notifyBroadcastMessageAccepted(
   chatId: string
 ) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('broadcast:update', {
     id: messageId,
     clientId,
@@ -196,7 +196,7 @@ export function notifyBroadcastMessageAccepted(
     status: 'ACCEPTED',
     acceptedAt: new Date(),
   });
-
+  
   // Also emit to chat audit
   ioInstance.to('admin').emit('chatAudit:update', {
     id: messageId,
@@ -267,11 +267,11 @@ export function notifyAdminActivity(activity: {
   metadata?: any;
 }) {
   if (!ioInstance) return;
-
+  
   ioInstance.to('admin').emit('activity:new', {
     ...activity,
     timestamp: new Date(),
   });
-
+  
   console.log(`📢 Admin notified: ${activity.type} - ${activity.details}`);
 }

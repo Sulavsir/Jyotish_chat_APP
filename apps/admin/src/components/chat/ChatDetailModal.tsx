@@ -196,7 +196,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 z-50 animate-in fade-in duration-200"
+        className="fixed inset-0 bg-black/80 z-50 animate-in fade-in duration-200 rounded-md"
         onClick={onClose}
       />
 
@@ -208,7 +208,8 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
             <div>
               <h2 className="text-xl font-semibold text-white">Chat Conversation</h2>
               <p className="text-sm text-slate-400 mt-1">
-                {chat.clientParticipant?.name} ↔ {chat.astrologerParticipant?.name}
+                {chat.clientParticipant?.name || 'Unknown User'} ↔{' '}
+                {chat.astrologerParticipant?.name}
               </p>
             </div>
           </div>

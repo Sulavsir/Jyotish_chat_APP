@@ -341,10 +341,17 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
                           {notification.message}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {formatDistanceToNow(
-                            new Date(notification.lastUpdated || notification.createdAt),
-                            { addSuffix: true }
-                          )}
+                          {(() => {
+                            try {
+                              const dateStr = notification.lastUpdated || notification.createdAt;
+                              if (!dateStr) return 'Just now';
+                              const date = new Date(dateStr);
+                              if (isNaN(date.getTime())) return 'Just now';
+                              return formatDistanceToNow(date, { addSuffix: true });
+                            } catch {
+                              return 'Just now';
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>

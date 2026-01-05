@@ -2,7 +2,7 @@
  * Database Entity Types - Represents database records
  */
 
-import { User } from '@jyotish/database';
+import { User, Notification } from '@jyotish/database';
 
 // UserEntity is an alias for Prisma's User type
 export type UserEntity = User;
@@ -43,16 +43,8 @@ export interface ConsultationEntity {
   updatedAt: Date;
 }
 
-export interface NotificationEntity {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  type: string;
-  isRead: boolean;
-  metadata: unknown;
-  createdAt: Date;
-}
+// NotificationEntity is an alias for Prisma's Notification type
+export type NotificationEntity = Notification;
 
 export interface HoroscopeSubscriptionEntity {
   id: string;

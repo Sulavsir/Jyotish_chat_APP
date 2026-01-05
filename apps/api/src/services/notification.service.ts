@@ -15,7 +15,7 @@ import type {
 
 export class NotificationService {
   /**
-   * Get all notifications for a user
+   * Get all notifications for a user (supports both userId and astrologerId)
    */
   async getNotificationsByUserId(
     userId: string,
@@ -27,9 +27,17 @@ export class NotificationService {
       unreadOnly = false,
     } = options || {};
 
+    // Query for both userId and astrologerId to support both clients and astrologers
     const where = {
-      userId,
+      OR: [{ userId }, { astrologerId: userId }],
       ...(unreadOnly && { isRead: false }),
+    };
+
+    const unreadWhere = {
+      OR: [
+        { userId, isRead: false },
+        { astrologerId: userId, isRead: false },
+      ],
     };
 
     const [notifications, total, unreadCount] = await Promise.all([
@@ -42,12 +50,7 @@ export class NotificationService {
         skip: offset,
       }),
       prisma.notification.count({ where }),
-      prisma.notification.count({
-        where: {
-          userId,
-          isRead: false,
-        },
-      }),
+      prisma.notification.count({ where: unreadWhere }),
     ]);
 
     return {
@@ -68,18 +71,32 @@ export class NotificationService {
 
   /**
    * Create a new notification or update existing grouped notification
+   * Supports both userId (for clients) and astrologerId (for astrologers)
    */
   async createNotification(data: CreateNotificationData): Promise<NotificationEntity> {
     const groupKey = data.groupKey;
 
+    // Ensure at least one of userId or astrologerId is provided
+    if (!data.userId && !data.astrologerId) {
+      throw new Error('Either userId or astrologerId must be provided');
+    }
+
+    // Build where clause based on which ID is provided
+    const whereClause: any = {
+      groupKey,
+      isRead: false,
+    };
+
+    if (data.userId) {
+      whereClause.userId = data.userId;
+    } else if (data.astrologerId) {
+      whereClause.astrologerId = data.astrologerId;
+    }
+
     // If groupKey is provided, check for existing unread notification with same groupKey
     if (groupKey) {
       const existingNotification = await prisma.notification.findFirst({
-        where: {
-          userId: data.userId,
-          groupKey,
-          isRead: false,
-        },
+        where: whereClause,
       });
 
       if (existingNotification) {
@@ -108,16 +125,25 @@ export class NotificationService {
     }
 
     // Create new notification
+    const notificationData: any = {
+      title: data.title,
+      message: data.message,
+      type: data.type,
+      metadata: data.metadata || {},
+      groupKey: groupKey || null,
+      count: 1,
+      recipientType: data.astrologerId ? 'ASTROLOGER' : 'CLIENT',
+    };
+
+    // Add either userId or astrologerId
+    if (data.userId) {
+      notificationData.userId = data.userId;
+    } else if (data.astrologerId) {
+      notificationData.astrologerId = data.astrologerId;
+    }
+
     const notification = await prisma.notification.create({
-      data: {
-        userId: data.userId,
-        title: data.title,
-        message: data.message,
-        type: data.type,
-        metadata: data.metadata || {},
-        groupKey: groupKey || null,
-        count: 1,
-      },
+      data: notificationData,
     });
 
     return notification;
@@ -129,11 +155,14 @@ export class NotificationService {
   async createBulkNotifications(notifications: CreateNotificationData[]): Promise<number> {
     const result = await prisma.notification.createMany({
       data: notifications.map((n) => ({
-        userId: n.userId,
+        userId: n.userId || null,
+        astrologerId: n.astrologerId || null,
+        recipientType: n.astrologerId ? 'ASTROLOGER' : 'CLIENT',
         title: n.title,
         message: n.message,
         type: n.type,
         metadata: n.metadata || {},
+        groupKey: n.groupKey || null,
       })),
     });
 
@@ -141,7 +170,7 @@ export class NotificationService {
   }
 
   /**
-   * Mark notification as read
+   * Mark notification as read (supports both userId and astrologerId)
    */
   async markAsRead(notificationId: string, userId: string): Promise<NotificationEntity> {
     // Verify notification belongs to user
@@ -151,7 +180,8 @@ export class NotificationService {
       throw new Error('Notification not found');
     }
 
-    if (notification.userId !== userId) {
+    // Check if notification belongs to user (either as userId or astrologerId)
+    if (notification.userId !== userId && notification.astrologerId !== userId) {
       throw new Error('Unauthorized to modify this notification');
     }
 
@@ -165,13 +195,15 @@ export class NotificationService {
   }
 
   /**
-   * Mark all notifications as read for a user
+   * Mark all notifications as read for a user (supports both userId and astrologerId)
    */
   async markAllAsRead(userId: string): Promise<number> {
     const result = await prisma.notification.updateMany({
       where: {
-        userId,
-        isRead: false,
+        OR: [
+          { userId, isRead: false },
+          { astrologerId: userId, isRead: false },
+        ],
       },
       data: {
         isRead: true,
@@ -183,7 +215,7 @@ export class NotificationService {
   }
 
   /**
-   * Delete a notification
+   * Delete a notification (supports both userId and astrologerId)
    */
   async deleteNotification(notificationId: string, userId: string): Promise<void> {
     // Verify notification belongs to user
@@ -193,7 +225,8 @@ export class NotificationService {
       throw new Error('Notification not found');
     }
 
-    if (notification.userId !== userId) {
+    // Check if notification belongs to user (either as userId or astrologerId)
+    if (notification.userId !== userId && notification.astrologerId !== userId) {
       throw new Error('Unauthorized to delete this notification');
     }
 
@@ -203,24 +236,12 @@ export class NotificationService {
   }
 
   /**
-   * Delete all notifications for a user
+   * Delete all notifications for a user (supports both userId and astrologerId)
    */
   async deleteAllNotifications(userId: string): Promise<number> {
     const result = await prisma.notification.deleteMany({
-      where: { userId },
-    });
-
-    return result.count;
-  }
-
-  /**
-   * Delete read notifications for a user
-   */
-  async deleteReadNotifications(userId: string): Promise<number> {
-    const result = await prisma.notification.deleteMany({
       where: {
-        userId,
-        isRead: true,
+        OR: [{ userId }, { astrologerId: userId }],
       },
     });
 
@@ -228,13 +249,31 @@ export class NotificationService {
   }
 
   /**
-   * Get unread notification count for a user
+   * Delete read notifications for a user (supports both userId and astrologerId)
+   */
+  async deleteReadNotifications(userId: string): Promise<number> {
+    const result = await prisma.notification.deleteMany({
+      where: {
+        OR: [
+          { userId, isRead: true },
+          { astrologerId: userId, isRead: true },
+        ],
+      },
+    });
+
+    return result.count;
+  }
+
+  /**
+   * Get unread notification count for a user (supports both userId and astrologerId)
    */
   async getUnreadCount(userId: string): Promise<number> {
     return await prisma.notification.count({
       where: {
-        userId,
-        isRead: false,
+        OR: [
+          { userId, isRead: false },
+          { astrologerId: userId, isRead: false },
+        ],
       },
     });
   }

@@ -92,5 +92,3 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
     next(error);
   }
 }
-
-

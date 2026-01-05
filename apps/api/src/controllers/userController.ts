@@ -20,43 +20,90 @@ import * as userServiceNew from '../services/userService';
  * GET /api/v1/users/me
  */
 export async function getCurrentUser(req: AuthRequest, res: Response, next: NextFunction) {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user!.id },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      phone: true,
-      role: true,
-      profilePhoto: true,
-      dateOfBirth: true,
-      timeOfBirth: true,
-      placeOfBirth: true,
-      currentAddress: true,
-      permanentAddress: true,
-      zodiacSign: true,
-      latitude: true,
-      longitude: true,
-      password: true, // Include to check if password is set
-      profileCompleted: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  const userId = req.user!.id;
+  const userRole = req.user!.role;
 
-  if (!user) {
-    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
+  // Check if user is an astrologer or client
+  if (userRole === UserRole.ASTROLOGER) {
+    // Get astrologer profile
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        languages: true,
+        password: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!astrologer) {
+      throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    // Format response
+    const { phone, password, ...astrologerWithoutSensitiveData } = astrologer;
+    const formattedAstrologer = {
+      ...astrologerWithoutSensitiveData,
+      phoneNumber: phone,
+      role: UserRole.ASTROLOGER,
+      hasPassword: !!password,
+      profileCompleted: true, // Astrologers are always considered profile completed
+    };
+
+    return sendSuccess(res, formattedAstrologer);
+  } else {
+    // Get client profile
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        profilePhoto: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        currentAddress: true,
+        permanentAddress: true,
+        zodiacSign: true,
+        latitude: true,
+        longitude: true,
+        password: true,
+        profileCompleted: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    // Format response
+    const { phone, password, ...userWithoutSensitiveData } = user;
+    const formattedUser = {
+      ...userWithoutSensitiveData,
+      phoneNumber: phone,
+      hasPassword: !!password,
+    };
+
+    return sendSuccess(res, formattedUser);
   }
-
-  // Format response to match frontend expectations (phoneNumber instead of phone)
-  const { phone, password, ...userWithoutSensitiveData } = user;
-  const formattedUser = {
-    ...userWithoutSensitiveData,
-    phoneNumber: phone,
-    hasPassword: !!password,
-  };
-
-  return sendSuccess(res, formattedUser);
 }
 
 /**
@@ -64,54 +111,117 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
  * PATCH /api/v1/users/me
  */
 export async function updateProfile(req: AuthRequest, res: Response, next: NextFunction) {
-  const { name, email, phone, profilePhoto } = req.body;
+  const { name, email, phone, profilePhoto, bio, specialization, experience, languages } = req.body;
+  const userId = req.user!.id;
+  const userRole = req.user!.role;
 
-  const user = await prisma.user.update({
-    where: { id: req.user!.id },
-    data: {
-      ...(name && { name }),
-      ...(email !== undefined && { email: email || null }), // Convert empty string to null for unique constraint
-      ...(phone && { phone }),
-      ...(profilePhoto && { profilePhoto }),
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      phone: true,
-      role: true,
-      profilePhoto: true,
-      dateOfBirth: true,
-      timeOfBirth: true,
-      placeOfBirth: true,
-      currentAddress: true,
-      permanentAddress: true,
-      zodiacSign: true,
-      latitude: true,
-      longitude: true,
-      password: true,
-      profileCompleted: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+  // Check if user is an astrologer or client
+  if (userRole === UserRole.ASTROLOGER) {
+    // Update astrologer profile
+    const astrologer = await prisma.astrologer.update({
+      where: { id: userId },
+      data: {
+        ...(name && { name }),
+        ...(email !== undefined && { email: email || null }),
+        ...(phone && { phone }),
+        ...(profilePhoto && { profilePhoto }),
+        ...(bio !== undefined && { bio }),
+        ...(specialization && { specialization }),
+        ...(experience !== undefined && { experience }),
+        ...(languages && { languages }),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        languages: true,
+        password: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  // Format response to match frontend expectations
-  const { phone: userPhone, password, ...userWithoutSensitiveData } = user;
-  const formattedUser = {
-    ...userWithoutSensitiveData,
-    phoneNumber: userPhone,
-    hasPassword: !!password,
-  };
+    // Format response
+    const { phone: astrologerPhone, password, ...astrologerWithoutSensitiveData } = astrologer;
+    const formattedAstrologer = {
+      ...astrologerWithoutSensitiveData,
+      phoneNumber: astrologerPhone,
+      role: UserRole.ASTROLOGER,
+      hasPassword: !!password,
+    };
 
-  return sendSuccess(res, formattedUser);
+    return sendSuccess(res, formattedAstrologer);
+  } else {
+    // Update client profile
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(name && { name }),
+        ...(email !== undefined && { email: email || null }),
+        ...(phone && { phone }),
+        ...(profilePhoto && { profilePhoto }),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        profilePhoto: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        currentAddress: true,
+        permanentAddress: true,
+        zodiacSign: true,
+        latitude: true,
+        longitude: true,
+        password: true,
+        profileCompleted: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Format response
+    const { phone: userPhone, password, ...userWithoutSensitiveData } = user;
+    const formattedUser = {
+      ...userWithoutSensitiveData,
+      phoneNumber: userPhone,
+      hasPassword: !!password,
+    };
+
+    return sendSuccess(res, formattedUser);
+  }
 }
 
 /**
  * Update birth details
  * PATCH /api/v1/users/me/birth-details
+ * Note: This is only for clients, not astrologers
  */
 export async function updateBirthDetails(req: AuthRequest, res: Response, next: NextFunction) {
+  const userRole = req.user!.role;
+
+  // Birth details are only for clients
+  if (userRole === UserRole.ASTROLOGER) {
+    throw new AppError(
+      'Astrologers cannot update birth details',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
   const validatedData = birthDetailsSchema.parse(req.body);
   const dob = new Date(validatedData.dateOfBirth);
   const zodiacSign = getZodiacSign(dob);

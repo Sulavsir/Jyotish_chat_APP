@@ -6,7 +6,8 @@ import type { NotificationType } from '@jyotish/shared';
 import type { NotificationEntity } from './database.types';
 
 export interface CreateNotificationData {
-  userId: string;
+  userId?: string; // For clients
+  astrologerId?: string; // For astrologers
   title: string;
   message: string;
   type: NotificationType;

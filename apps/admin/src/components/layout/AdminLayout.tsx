@@ -5,7 +5,20 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminStore } from '@/store/admin-store';
 import { adminApi } from '@/lib/admin-api';
-import { Button, UsersIcon, StarIcon, ChatIcon, DocumentIcon, MoneyIcon } from '@jyotish/ui';
+import {
+  Button,
+  UsersIcon,
+  StarIcon,
+  ChatIcon,
+  DocumentIcon,
+  MoneyIcon,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@jyotish/ui';
 import { ADMIN_ROUTES } from '@/constants';
 import { useAdminSocket } from '@/hooks';
 
@@ -19,6 +32,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { admin, isAuthenticated, logout, setAdmin, _hasHydrated } = useAdminStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isValidatingSession, setIsValidatingSession] = useState(true);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [adminStatus, setAdminStatus] = useState<'available' | 'busy'>('available');
   const { isConnected, isConnecting, error: socketError } = useAdminSocket();
 
   // Handle authentication state after hydration
@@ -61,10 +76,23 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       });
   }, [_hasHydrated, isAuthenticated, router, setAdmin, logout]);
 
-  const handleLogout = async () => {
+  const handleLogoutClick = () => {
+    setShowLogoutDialog(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setShowLogoutDialog(false);
     await adminApi.logout();
     logout();
     router.push(ADMIN_ROUTES.LOGIN);
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutDialog(false);
+  };
+
+  const toggleAdminStatus = () => {
+    setAdminStatus((prev) => (prev === 'available' ? 'busy' : 'available'));
   };
 
   const navigation = [
@@ -170,7 +198,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer relative block ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer relative ${
                   isActive
                     ? 'bg-gradient-to-r from-cosmic-purple to-nebula-pink text-white glow'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -244,6 +272,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 )}
               </div>
 
+              {/* Admin Status Toggle */}
+              <button
+                onClick={toggleAdminStatus}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50 transition-colors cursor-pointer"
+                title={`Status: ${adminStatus === 'available' ? 'Available' : 'Busy'}`}
+              >
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    adminStatus === 'available' ? 'bg-green-500' : 'bg-orange-500'
+                  } animate-pulse`}
+                />
+                <span
+                  className={`text-xs font-medium ${
+                    adminStatus === 'available' ? 'text-green-400' : 'text-orange-400'
+                  }`}
+                >
+                  {adminStatus === 'available' ? 'Available' : 'Busy'}
+                </span>
+              </button>
+
               <div className="text-right">
                 <p className="text-sm font-medium text-white">{admin?.name}</p>
                 <p className="text-xs text-slate-400">{admin?.email}</p>
@@ -251,7 +299,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center text-white font-bold">
                 {admin?.name?.charAt(0) || 'A'}
               </div>
-              <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
+              <Button variant="ghost" size="icon" onClick={handleLogoutClick} title="Logout">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -268,6 +316,30 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Page Content */}
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">Confirm Logout</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Are you sure you want to logout? You will need to login again to access the admin
+              panel.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleLogoutCancel} className="border-slate-700">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLogoutConfirm}
+              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+            >
+              Logout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
