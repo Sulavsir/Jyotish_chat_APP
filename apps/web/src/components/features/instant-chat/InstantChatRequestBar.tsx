@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getImageUrl } from '@/utils/image.utils';
 import { LoadingButton } from '@/components/ui';
+import { ROUTE_BUILDERS } from '@/constants';
 
 interface InstantChatRequest {
   id: string;
@@ -88,7 +89,7 @@ export const InstantChatRequestBar: React.FC = () => {
         });
 
         // Navigate to chat
-        router.push(`/jyotish/chat?chatId=${data.chatId}`);
+        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(data.chatId));
       }
     });
 

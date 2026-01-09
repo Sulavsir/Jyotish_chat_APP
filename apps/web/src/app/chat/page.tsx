@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES } from '@/constants';
 import { useSocket } from '@/hooks/useSocket';
-import { ChatList, ChatWindow } from '@/components/features/chat';
+import { ChatList, ChatWindow, OnlineUsers } from '@/components/features/chat';
 import { BroadcastChatWindow } from '@/components/features/broadcast-chat/BroadcastChatWindow';
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
@@ -73,6 +73,25 @@ export default function ChatPage() {
   // Real-time conversation updates from socket
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
+
+    // Listen for broadcast acceptance (when your broadcast is accepted by an astrologer)
+    const handleYourBroadcastAccepted = async (data: any) => {
+      console.log('📢 Your broadcast accepted, opening chat:', data);
+
+      // Reload conversations to get the new chat
+      const freshConversations = await loadConversations();
+
+      // Auto-open the chat that was just created
+      if (data.chat && data.chat.id) {
+        // Close broadcast chat window
+        setIsBroadcastChatActive(false);
+
+        // Open the new chat
+        setTimeout(() => {
+          loadAndSelectChatFromUrl(data.chat.id, freshConversations);
+        }, 500);
+      }
+    };
 
     const handleNewMessage = async (message: any) => {
       // DON'T add message here - it's already added by useSocket hook to Zustand store
@@ -177,6 +196,11 @@ export default function ChatPage() {
     }) => {
       console.log('🔓 Chat reopened:', data);
 
+      // Show toast notification
+      if (activeChatId === data.chatId) {
+        toast.success('Chat session reopened! You can now send messages.');
+      }
+
       // Update active chat if this is the current chat
       if (activeChatId === data.chatId) {
         setActiveChat((prev) =>
@@ -204,18 +228,121 @@ export default function ChatPage() {
       );
     };
 
+    // Handle chat abandoned by admin
+    const handleChatAbandoned = (data: {
+      chatId: string;
+      isAbandonedByAdmin: boolean;
+      abandonedAt: Date;
+      abandonReason: string;
+      isLocked: boolean;
+      status: string;
+    }) => {
+     
+
+      // Show toast notification
+      if (activeChatId === data.chatId) {
+        toast.error('This conversation has been ended by administration.', {
+          duration: 5000,
+        });
+      }
+
+      // Update active chat
+      if (activeChatId === data.chatId) {
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+                isAbandonedByAdmin: data.isAbandonedByAdmin,
+                abandonReason: data.abandonReason,
+              } as any
+            : null
+        );
+      }
+
+      // Update chat in list - include ALL abandoned fields
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === data.chatId
+            ? {
+                ...chat,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+                isAbandonedByAdmin: data.isAbandonedByAdmin,
+                abandonReason: data.abandonReason,
+              } as any
+            : chat
+        )
+      );
+    };
+
+    // Handle chat unblocked by admin
+    const handleChatUnblocked = (data: {
+      chatId: string;
+      isAbandonedByAdmin: boolean;
+      isLocked: boolean;
+      status: string;
+    }) => {
+      console.log('✅ Chat unblocked by admin:', data);
+
+      // Show toast notification
+      if (activeChatId === data.chatId) {
+        toast.success('This conversation has been unblocked by administration. You can now send messages.', {
+          duration: 5000,
+        });
+      }
+
+      // Update active chat
+      if (activeChatId === data.chatId) {
+        setActiveChat((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+                isAbandonedByAdmin: data.isAbandonedByAdmin,
+                abandonReason: null, // Clear the abandon reason when unblocked
+              } as any
+            : null
+        );
+      }
+
+      // Update chat in list - include ALL fields
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === data.chatId
+            ? {
+                ...chat,
+                status: data.status as 'ACTIVE' | 'ENDED',
+                isLocked: data.isLocked,
+                isAbandonedByAdmin: data.isAbandonedByAdmin,
+                abandonReason: null, // Clear the abandon reason when unblocked
+              } as any
+            : chat
+        )
+      );
+    };
+
     // Listen to both receive and sent events
     socket.on('chat:receive', handleNewMessage);
     socket.on('chat:sent', handleNewMessage);
     socket.on('chat:ended', handleChatEnded);
     socket.on('chat:reopened', handleChatReopened);
+    socket.on('chat:abandoned', handleChatAbandoned);
+    socket.on('chat:unblocked', handleChatUnblocked);
+    socket.on('broadcast:yourMessageAccepted', handleYourBroadcastAccepted); // ✅ Listen for broadcast acceptance
 
     return () => {
       socket.off('chat:receive', handleNewMessage);
       socket.off('chat:sent', handleNewMessage);
       socket.off('chat:ended', handleChatEnded);
       socket.off('chat:reopened', handleChatReopened);
+      socket.off('chat:abandoned', handleChatAbandoned);
+      socket.off('chat:unblocked', handleChatUnblocked);
+      socket.off('broadcast:yourMessageAccepted', handleYourBroadcastAccepted);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, isConnected, user, activeChatId]);
 
   const loadConversations = async () => {
@@ -282,10 +409,13 @@ export default function ChatPage() {
       // Clear messages first to prevent duplicates from store merge
       setMessages([]);
 
-      // Directly set the active chat and load messages
+      // Set the active chat FIRST (this triggers ChatWindow to prepare for new chat)
       setActiveChat(chat);
       setActiveChatId(chat.id);
       setShowMobileChat(true);
+
+      // Small delay to ensure state updates propagate
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Load messages
       await loadMessages(otherUser.id);
@@ -514,7 +644,9 @@ export default function ChatPage() {
                 type: m.type, // ✅ Include message type (TEXT, IMAGE, FILE, AUDIO)
                 metadata: m.metadata, // ✅ Include attachment metadata
                 createdAt: m.createdAt,
+                updatedAt: m.updatedAt || m.createdAt, // ✅ Add updatedAt
                 isRead: m.isRead,
+                isDeleted: m.isDeleted || false, // ✅ Add isDeleted
                 sender: m.sender || {
                   id: m.senderId,
                   name: 'Unknown',
@@ -560,6 +692,9 @@ export default function ChatPage() {
           <p className="text-gray-400">Connect with astrologers in real-time</p>
         </div>
 
+        {/* Online Astrologers - Scrollable, No Limit */}
+        <OnlineUsers title="Online Astrologers - Available Now" maxHeight="300px" />
+
         {/* Chat Interface - Fixed Height */}
         <Card className="bg-black/40 backdrop-blur-md border-purple-500/30 overflow-hidden">
           <div className="flex h-[600px]">
@@ -585,6 +720,7 @@ export default function ChatPage() {
                 <BroadcastChatWindow onChatCreated={handleChatCreatedFromBroadcast} />
               ) : (
                 <ChatWindow
+                  key={activeChat?.id || 'no-chat'} // Force re-mount when chat changes
                   chat={activeChat}
                   messages={messages}
                   currentUserId={user.id}

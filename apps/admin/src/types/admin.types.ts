@@ -18,6 +18,8 @@ export interface Astrologer {
   phone: string;
   specialization: string[];
   experience: number;
+  category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM';
+  appointmentFee?: number | null;
   rating: number;
   isActive: boolean;
   isOnline: boolean;
@@ -61,6 +63,11 @@ export interface Chat {
   lastMessageText?: string | null;
   lastMessageAt?: string | null;
   status: string;
+  isLocked?: boolean;
+  isAbandonedByAdmin?: boolean;
+  abandonedBy?: string | null;
+  abandonedAt?: string | null;
+  abandonReason?: string | null;
   _count?: {
     messages: number;
   };

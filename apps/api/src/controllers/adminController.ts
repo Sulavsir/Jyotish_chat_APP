@@ -15,7 +15,7 @@ import {
 import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
-import { prisma } from '@jyotish/database';
+import { prisma, AuditAction } from '@jyotish/database';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 
 // ==================== Admin Authentication ====================
@@ -46,6 +46,38 @@ export async function adminLogin(req: AuthRequest, res: Response, next: NextFunc
     // Admin activity monitoring is handled separately
 
     return sendSuccess(res, { admin: result.admin });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Admin refresh token
+ * POST /api/v1/admin/auth/refresh
+ */
+export async function adminRefreshToken(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      throw new AppError(
+        'Refresh token not found',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+
+    // Verify the refresh token using admin service
+    const decoded = adminService.verifyRefreshToken(refreshToken);
+
+    // Generate new tokens
+    const newAccessToken = adminService.generateAccessToken(decoded.id, decoded.email);
+    const newRefreshToken = adminService.generateRefreshToken(decoded.id, decoded.email);
+
+    // Set new httpOnly cookies
+    setAuthCookies(res, newAccessToken, newRefreshToken);
+
+    return sendSuccess(res, { message: 'Token refreshed successfully' });
   } catch (error) {
     next(error);
   }
@@ -152,6 +184,10 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
       ...req.body,
       createdBy: adminId,
     });
+
+    // Emit real-time stats update to admin
+    const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+    AdminStatsEmitter.emitNewAstrologer();
 
     return sendSuccess(res, { astrologer }, HTTP_STATUS.CREATED);
   } catch (error) {
@@ -677,6 +713,215 @@ export async function addChatNote(req: AuthRequest, res: Response, next: NextFun
   }
 }
 
+/**
+ * Cleanup stuck chats - Fix chats that are ACTIVE but should be ENDED
+ * POST /api/v1/admin/chats/cleanup-stuck
+ */
+export async function cleanupStuckChats(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { cleanupStuckChats: cleanup } = require('../utils/cleanup-stuck-chats');
+    const result = await cleanup();
+
+    return sendSuccess(res, {
+      message: `Cleaned up ${result.fixed} stuck chat(s)`,
+      fixed: result.fixed,
+      chats: result.chats,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Abandon a conversation - Admin blocks both parties from continuing chat
+ * POST /api/v1/admin/chats/:chatId/abandon
+ */
+export async function abandonChat(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { chatId } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user!.id;
+
+    // Get the chat
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        clientParticipant: {
+          select: { id: true, name: true, phone: true },
+        },
+        astrologerParticipant: {
+          select: { id: true, name: true, phone: true },
+        },
+      },
+    });
+
+    if (!chat) {
+      throw new AppError('Chat not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    // Update chat to abandoned state
+    const updatedChat = await prisma.chat.update({
+      where: { id: chatId },
+      data: {
+        isAbandonedByAdmin: true,
+        abandonedBy: adminId,
+        abandonedAt: new Date(),
+        abandonReason: reason || '',
+        isLocked: true, // Also lock the chat
+        status: 'ENDED', // Set status to ENDED
+        endedBy: adminId,
+        endedAt: new Date(),
+      },
+    });
+
+    // Log audit action
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.CHAT_ABANDONED,
+      resource: 'Chat',
+      resourceId: chatId,
+      details: {
+        chatId,
+        clientId: chat.participant1Id,
+        astrologerId: chat.participant2Id,
+        reason: reason || 'No reason provided',
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    // Emit socket event to notify both parties
+    try {
+      const { getSocketInstance } = require('../utils/socket-instance');
+      const io = getSocketInstance();
+      if (io) {
+        const abandonData = {
+          chatId,
+          isAbandonedByAdmin: true,
+          abandonedAt: new Date(),
+          abandonReason: reason || 'This conversation has been ended by administration',
+          isLocked: true,
+          status: 'ENDED',
+        };
+
+        // Notify client
+        io.to(`user:${chat.participant1Id}`).emit('chat:abandoned', abandonData);
+
+        // Notify astrologer
+        io.to(`user:${chat.participant2Id}`).emit('chat:abandoned', abandonData);
+
+        console.log(`✅ Notified both parties about chat abandonment: ${chatId}`);
+      }
+    } catch (socketError) {
+      console.error('Error broadcasting chat abandonment:', socketError);
+    }
+
+    return sendSuccess(res, {
+      message: 'Chat abandoned successfully',
+      chat: updatedChat,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Unblock a conversation - Admin allows parties to resume chat
+ * POST /api/v1/admin/chats/:chatId/unblock
+ */
+export async function unblockChat(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { chatId } = req.params;
+    const adminId = req.user!.id;
+
+    // Get the chat
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        clientParticipant: {
+          select: { id: true, name: true, phone: true },
+        },
+        astrologerParticipant: {
+          select: { id: true, name: true, phone: true },
+        },
+      },
+    });
+
+    if (!chat) {
+      throw new AppError('Chat not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    if (!chat.isAbandonedByAdmin) {
+      throw new AppError(
+        'Chat is not abandoned',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Update chat to remove abandoned state
+    const updatedChat = await prisma.chat.update({
+      where: { id: chatId },
+      data: {
+        isAbandonedByAdmin: false,
+        abandonedBy: null,
+        abandonedAt: null,
+        abandonReason: null,
+        isLocked: false, // Unlock the chat
+        status: 'ACTIVE', // Reactivate
+        endedBy: null,
+        endedAt: null,
+      },
+    });
+
+    // Log audit action
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.CHAT_UNBLOCKED,
+      resource: 'Chat',
+      resourceId: chatId,
+      details: {
+        chatId,
+        clientId: chat.participant1Id,
+        astrologerId: chat.participant2Id,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    // Emit socket event to notify both parties
+    try {
+      const { getSocketInstance } = require('../utils/socket-instance');
+      const io = getSocketInstance();
+      if (io) {
+        const unblockData = {
+          chatId,
+          isAbandonedByAdmin: false,
+          isLocked: false,
+          status: 'ACTIVE',
+        };
+
+        // Notify client
+        io.to(`user:${chat.participant1Id}`).emit('chat:unblocked', unblockData);
+
+        // Notify astrologer
+        io.to(`user:${chat.participant2Id}`).emit('chat:unblocked', unblockData);
+
+        console.log(`✅ Notified both parties about chat unblock: ${chatId}`);
+      }
+    } catch (socketError) {
+      console.error('Error broadcasting chat unblock:', socketError);
+    }
+
+    return sendSuccess(res, {
+      message: 'Chat unblocked successfully',
+      chat: updatedChat,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ==================== Dashboard ====================
 
 /**
@@ -1065,6 +1310,377 @@ export async function getChatAuditStats(req: AuthRequest, res: Response, next: N
     };
 
     return sendSuccess(res, { stats });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ==================== Complaint Management ====================
+
+/**
+ * Get all complaints for admin review
+ * GET /api/v1/admin/complaints
+ */
+export async function getComplaints(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { status, category, priority, astrologerId, limit = 50, offset = 0 } = req.query;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (category) where.category = category;
+    if (priority) where.priority = priority;
+    if (astrologerId) where.astrologerId = astrologerId;
+
+    const [complaints, total] = await Promise.all([
+      prisma.complaint.findMany({
+        where,
+        include: {
+          client: {
+            select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+          },
+          astrologer: {
+            select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+          },
+          chat: {
+            select: { id: true, status: true, createdAt: true, lastMessageAt: true },
+          },
+          resolver: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+        orderBy: [
+          { priority: 'desc' }, // HIGH priority first
+          { createdAt: 'desc' }, // Newest first
+        ],
+        take: Number(limit),
+        skip: Number(offset),
+      }),
+      prisma.complaint.count({ where }),
+    ]);
+
+    return sendSuccess(res, {
+      complaints,
+      pagination: {
+        total,
+        limit: Number(limit),
+        offset: Number(offset),
+        hasMore: Number(offset) + complaints.length < total,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get complaint statistics
+ * GET /api/v1/admin/complaints/stats
+ */
+export async function getComplaintStats(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const [
+      totalComplaints,
+      pendingComplaints,
+      inReviewComplaints,
+      resolvedComplaints,
+      dismissedComplaints,
+      escalatedComplaints,
+      highPriorityComplaints,
+      complaintsByCategory,
+    ] = await Promise.all([
+      prisma.complaint.count(),
+      prisma.complaint.count({ where: { status: 'PENDING' } }),
+      prisma.complaint.count({ where: { status: 'IN_REVIEW' } }),
+      prisma.complaint.count({ where: { status: 'RESOLVED' } }),
+      prisma.complaint.count({ where: { status: 'DISMISSED' } }),
+      prisma.complaint.count({ where: { status: 'ESCALATED' } }),
+      prisma.complaint.count({ where: { priority: 'HIGH' } }),
+      prisma.complaint.groupBy({
+        by: ['category'],
+        _count: true,
+      }),
+    ]);
+
+    const stats = {
+      total: totalComplaints,
+      byStatus: {
+        pending: pendingComplaints,
+        inReview: inReviewComplaints,
+        resolved: resolvedComplaints,
+        dismissed: dismissedComplaints,
+        escalated: escalatedComplaints,
+      },
+      byPriority: {
+        high: highPriorityComplaints,
+      },
+      byCategory: complaintsByCategory.reduce((acc: any, item: any) => {
+        acc[item.category] = item._count;
+        return acc;
+      }, {}),
+    };
+
+    return sendSuccess(res, { stats });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Update complaint status
+ * PATCH /api/v1/admin/complaints/:id/status
+ */
+export async function updateComplaintStatus(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const adminId = req.user!.id;
+
+    if (!status) {
+      throw new AppError(
+        'Status is required',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    const complaint = await prisma.complaint.findUnique({
+      where: { id },
+      include: {
+        client: { select: { id: true, name: true } },
+        astrologer: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!complaint) {
+      throw new AppError('Complaint not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const updatedComplaint = await prisma.complaint.update({
+      where: { id },
+      data: { status },
+      include: {
+        client: {
+          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+        },
+        astrologer: {
+          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+        },
+        chat: {
+          select: { id: true, status: true },
+        },
+        resolver: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Log audit action
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.COMPLAINT_UPDATE,
+      resource: 'Complaint',
+      resourceId: id,
+      details: {
+        complaintId: id,
+        oldStatus: complaint.status,
+        newStatus: status,
+        clientId: complaint.clientId,
+        astrologerId: complaint.astrologerId,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    // Emit socket event
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('complaint:update', updatedComplaint);
+      }
+    } catch (socketError) {
+      console.error('Error emitting complaint:update event:', socketError);
+    }
+
+    return sendSuccess(res, {
+      message: 'Complaint status updated successfully',
+      complaint: updatedComplaint,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Resolve a complaint
+ * POST /api/v1/admin/complaints/:id/resolve
+ */
+export async function resolveComplaint(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const { resolution, adminNotes } = req.body;
+    const adminId = req.user!.id;
+
+    if (!resolution) {
+      throw new AppError(
+        'Resolution is required',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    const complaint = await prisma.complaint.findUnique({
+      where: { id },
+      include: {
+        client: { select: { id: true, name: true } },
+        astrologer: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!complaint) {
+      throw new AppError('Complaint not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const updatedComplaint = await prisma.complaint.update({
+      where: { id },
+      data: {
+        status: 'RESOLVED',
+        resolution,
+        adminNotes,
+        resolvedBy: adminId,
+        resolvedAt: new Date(),
+      },
+      include: {
+        client: {
+          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+        },
+        astrologer: {
+          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+        },
+        chat: {
+          select: { id: true, status: true },
+        },
+        resolver: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Log audit action
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.COMPLAINT_RESOLVE,
+      resource: 'Complaint',
+      resourceId: id,
+      details: {
+        complaintId: id,
+        resolution,
+        clientId: complaint.clientId,
+        astrologerId: complaint.astrologerId,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    // Emit socket event
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('complaint:resolved', updatedComplaint);
+        // Notify the client
+        io.to(`user:${complaint.clientId}`).emit('complaint:resolved', {
+          complaintId: id,
+          resolution,
+        });
+      }
+    } catch (socketError) {
+      console.error('Error emitting complaint:resolved event:', socketError);
+    }
+
+    return sendSuccess(res, {
+      message: 'Complaint resolved successfully',
+      complaint: updatedComplaint,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Dismiss a complaint
+ * POST /api/v1/admin/complaints/:id/dismiss
+ */
+export async function dismissComplaint(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user!.id;
+
+    const complaint = await prisma.complaint.findUnique({
+      where: { id },
+      include: {
+        client: { select: { id: true, name: true } },
+        astrologer: { select: { id: true, name: true } },
+      },
+    });
+
+    if (!complaint) {
+      throw new AppError('Complaint not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    const updatedComplaint = await prisma.complaint.update({
+      where: { id },
+      data: {
+        status: 'DISMISSED',
+        adminNotes: reason,
+        resolvedBy: adminId,
+        resolvedAt: new Date(),
+      },
+      include: {
+        client: {
+          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+        },
+        astrologer: {
+          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+        },
+        chat: {
+          select: { id: true, status: true },
+        },
+        resolver: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+
+    // Log audit action
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.COMPLAINT_DISMISS,
+      resource: 'Complaint',
+      resourceId: id,
+      details: {
+        complaintId: id,
+        reason,
+        clientId: complaint.clientId,
+        astrologerId: complaint.astrologerId,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    // Emit socket event
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('complaint:dismissed', updatedComplaint);
+      }
+    } catch (socketError) {
+      console.error('Error emitting complaint:dismissed event:', socketError);
+    }
+
+    return sendSuccess(res, {
+      message: 'Complaint dismissed successfully',
+      complaint: updatedComplaint,
+    });
   } catch (error) {
     next(error);
   }

@@ -162,11 +162,12 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
     // Emit real-time events
     const io = getSocketInstance();
     if (io) {
-      // Notify the client that their message was accepted
+      // Notify the client that their message was accepted (with initial messages)
       io.to(`user:${result.message.clientId}`).emit('broadcast:yourMessageAccepted', {
         message: result.message,
         chat: result.chat,
         astrologer: result.message.acceptedAstrologer,
+        initialMessages: result.initialMessages, // Include the auto-generated messages
       });
 
       // Notify all astrologers (including acceptor) about the acceptance

@@ -5,7 +5,13 @@
 
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// WebSocket connections must go directly to backend (can't use Next.js proxy)
+// Dynamically determine the socket URL based on current hostname
+// This ensures it works on localhost, network IP, and production
+const SOCKET_URL = 
+  typeof window !== 'undefined' 
+    ? `${window.location.protocol}//${window.location.hostname}:4000`
+    : 'http://localhost:4000'; // SSR fallback
 
 export interface AdminSocketEvents {
   // Dashboard events
@@ -14,6 +20,8 @@ export interface AdminSocketEvents {
   // Chat events
   'chat:new': (data: any) => void;
   'chat:update': (data: any) => void;
+  'chat:abandoned': (data: { chatId: string; reason?: string; abandonedBy: string }) => void;
+  'chat:unblocked': (data: { chatId: string }) => void;
 
   // User events
   'user:new': (data: any) => void;
@@ -23,7 +31,7 @@ export interface AdminSocketEvents {
   // Astrologer events
   'astrologer:new': (data: any) => void;
   'astrologer:update': (data: any) => void;
-  'astrologer:status': (data: { astrologerId: string; isOnline: boolean }) => void;
+  'astrologer:status_changed': (data: { astrologerId: string; isOnline: boolean }) => void;
 
   // Earning events
   'earning:new': (data: any) => void;
@@ -162,6 +170,9 @@ class AdminSocketService {
 
     if (this.socket) {
       this.socket.on(event, callback as any);
+      console.log(`📡 [AdminSocket] Attached listener for event: ${event}`);
+    } else {
+      console.log(`⏳ [AdminSocket] Queued listener for event: ${event} (socket not ready)`);
     }
   }
 
@@ -197,15 +208,22 @@ class AdminSocketService {
    * Re-attach all event listeners after reconnection
    */
   private reattachEventListeners() {
-    if (!this.socket) return;
+    if (!this.socket) {
+      console.warn('⚠️ [AdminSocket] Cannot reattach listeners: socket is null');
+      return;
+    }
+
+    const events = Array.from(this.eventListeners.keys());
+    console.log(`🔄 [AdminSocket] Reattaching ${events.length} event listener(s):`, events);
 
     this.eventListeners.forEach((listeners, event) => {
       listeners.forEach((callback) => {
         this.socket!.on(event, callback as any);
+        console.log(`  ✓ Reattached listener for: ${event}`);
       });
     });
 
-    console.log('🔄 Re-attached event listeners after reconnection');
+    console.log('✅ [AdminSocket] All event listeners re-attached after reconnection');
   }
 
   /**

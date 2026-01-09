@@ -13,6 +13,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { LoadingButton } from '@/components/ui';
+import { ROUTE_BUILDERS } from '@/constants';
 
 export const RequestInstantChatButton: React.FC = () => {
   const router = useRouter();
@@ -45,7 +46,7 @@ export const RequestInstantChatButton: React.FC = () => {
       setActiveRequest(null);
       toast.success(`${data.astrologer?.name || 'An astrologer'} accepted your request!`);
       // Navigate to chat
-      router.push(`/chat?chatId=${data.chatId}`);
+      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chatId));
     });
 
     // Error occurred

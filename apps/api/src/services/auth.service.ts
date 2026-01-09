@@ -249,7 +249,7 @@ export class AuthService {
    */
   async loginWithPhone(
     phoneNumber: string,
-    metadata?: { userAgent?: string; ipAddress?: string }
+    deviceInfo: any
   ): Promise<LoginResult> {
     const user = await prisma.user.findUnique({
       where: { phone: phoneNumber },
@@ -287,8 +287,18 @@ export class AuthService {
       role: user.role as UserRole,
     });
 
-    // Store refresh token in session (hashed)
-    await sessionService.createSession(user.id, refreshToken, metadata);
+    // Import device session service
+    const { createDeviceSession } = require('./device-session.service');
+    const { AUTH_CONFIG } = require('../constants');
+
+    // Create session with device tracking
+    await createDeviceSession({
+      userId: user.id,
+      userType: 'CLIENT' as any,
+      refreshToken,
+      deviceInfo,
+      expiresAt: new Date(Date.now() + AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN_MS),
+    });
 
     // Format user response
     const userResponse = toUserResponse(user as UserEntity);
@@ -309,7 +319,7 @@ export class AuthService {
   async loginWithPassword(
     identifier: string,
     password: string,
-    metadata?: { userAgent?: string; ipAddress?: string }
+    deviceInfo: any
   ): Promise<LoginResult> {
     // Find user by identifier
     const user = await this.findUserByIdentifier(identifier);
@@ -347,8 +357,18 @@ export class AuthService {
       role: user.role as UserRole,
     });
 
-    // Store refresh token in session (hashed)
-    await sessionService.createSession(user.id, refreshToken, metadata);
+    // Import device session service
+    const { createDeviceSession } = require('./device-session.service');
+    const { AUTH_CONFIG } = require('../constants');
+
+    // Create session with device tracking
+    await createDeviceSession({
+      userId: user.id,
+      userType: 'CLIENT' as any,
+      refreshToken,
+      deviceInfo,
+      expiresAt: new Date(Date.now() + AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN_MS),
+    });
 
     // Format user response
     const userResponse = toUserResponse(user);

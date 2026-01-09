@@ -8,6 +8,7 @@ import { setupInstantChatHandlers, expireOldInstantChatRequests } from './instan
 import { broadcastMessageHandlers } from './broadcastMessageHandlers';
 import { AUTH_CONFIG } from '../constants';
 import { initializeAdminMonitor } from '../utils/admin-monitor';
+import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import { prisma } from '@jyotish/database';
 
 interface SocketUser {
@@ -22,6 +23,9 @@ const onlineUsers = new Map<string, string>(); // userId -> socketId
 export function setupSocketHandlers(io: Server) {
   // Initialize admin monitor
   initializeAdminMonitor(io);
+  
+  // Initialize admin stats emitter for real-time dashboard updates
+  AdminStatsEmitter.initialize(io);
   
   // Authentication middleware - reads access token from httpOnly cookie
   io.use((socket: Socket, next) => {
@@ -82,11 +86,19 @@ export function setupSocketHandlers(io: Server) {
           data: { isOnline: true },
         });
       } else if (user.role === UserRole.ASTROLOGER) {
-        await prisma.astrologer.update({
+        const astrologer = await prisma.astrologer.update({
           where: { id: user.id },
           data: { isOnline: true },
+          select: { name: true },
         });
         console.log(`✅ Astrologer ${user.id} marked as online in database`);
+        
+        // Emit astrologer-specific event when connecting
+        io.emit('astrologer:status_changed', {
+          astrologerId: user.id,
+          name: astrologer.name,
+          isOnline: true,
+        });
       }
     } catch (error) {
       console.error(`Error updating online status for ${user.id}:`, error);
@@ -136,11 +148,19 @@ export function setupSocketHandlers(io: Server) {
             data: { isOnline: false },
           });
         } else if (user.role === UserRole.ASTROLOGER) {
-          await prisma.astrologer.update({
+          const astrologer = await prisma.astrologer.update({
             where: { id: user.id },
             data: { isOnline: false },
+            select: { name: true },
           });
           console.log(`✅ Astrologer ${user.id} marked as offline in database`);
+          
+          // Emit astrologer-specific event when disconnecting
+          io.emit('astrologer:status_changed', {
+            astrologerId: user.id,
+            name: astrologer.name,
+            isOnline: false,
+          });
         }
       } catch (error) {
         console.error(`Error updating offline status for ${user.id}:`, error);

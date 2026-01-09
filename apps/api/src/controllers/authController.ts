@@ -99,8 +99,12 @@ export async function verifyOTP(req: AuthRequest, res: Response, next: NextFunct
   if (phoneCheck.exists) {
     // Phone number already exists
     if (phoneCheck.role === UserRole.CLIENT) {
+      // Extract device information
+      const { extractDeviceInfo } = require('../utils/device-utils');
+      const deviceInfo = extractDeviceInfo(req);
+
       // Existing CLIENT - Log them in
-      const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber);
+      const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber, deviceInfo);
 
       // Set both tokens as httpOnly cookies
       setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);
@@ -109,6 +113,8 @@ export async function verifyOTP(req: AuthRequest, res: Response, next: NextFunct
       await logUserLogin(loginResult.user.id, req, {
         loginMethod: 'OTP',
         phoneNumber: verifyResult.phoneNumber,
+        deviceType: deviceInfo.deviceType,
+        deviceName: deviceInfo.deviceName,
       });
 
       return sendSuccess(res, {
@@ -152,6 +158,10 @@ export async function verifyOTP(req: AuthRequest, res: Response, next: NextFunct
     method: 'OTP',
     role: userRole,
   });
+
+  // Emit real-time stats update to admin
+  const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+  AdminStatsEmitter.emitNewUser();
 
   return sendSuccess(res, {
     isNewUser: true,
@@ -197,12 +207,17 @@ export async function setPassword(req: AuthRequest, res: Response, next: NextFun
  * Login user with email/phone + password
  * POST /api/v1/auth/login
  * Supports both email and phone number login
+ * Requires: deviceId in body or X-Device-Id header
  */
 export async function login(req: AuthRequest, res: Response, next: NextFunction) {
   const { identifier, password } = req.body;
 
-  // Login via service
-  const result = await authService.loginWithPassword(identifier, password);
+  // Extract device information
+  const { extractDeviceInfo } = require('../utils/device-utils');
+  const deviceInfo = extractDeviceInfo(req);
+
+  // Login via service with device tracking
+  const result = await authService.loginWithPassword(identifier, password, deviceInfo);
 
   // Set both tokens as httpOnly cookies
   setAuthCookies(res, result.accessToken, result.refreshToken);
@@ -211,6 +226,8 @@ export async function login(req: AuthRequest, res: Response, next: NextFunction)
   await logUserLogin(result.user.id, req, {
     loginMethod: 'password',
     identifier,
+    deviceType: deviceInfo.deviceType,
+    deviceName: deviceInfo.deviceName,
   });
 
   return sendSuccess(res, {
@@ -271,15 +288,20 @@ export async function requestLoginOTP(req: AuthRequest, res: Response, next: Nex
 /**
  * Verify OTP and login (passwordless)
  * POST /api/v1/auth/verify-login-otp
+ * Requires: deviceId in body or X-Device-Id header
  */
 export async function verifyLoginOTP(req: AuthRequest, res: Response, next: NextFunction) {
   const { sessionId, phoneNumber, otp } = req.body;
 
+  // Extract device information
+  const { extractDeviceInfo } = require('../utils/device-utils');
+  const deviceInfo = extractDeviceInfo(req);
+
   // Verify OTP via service
   const verifyResult = await otpService.verifyOTP(sessionId, phoneNumber, otp);
 
-  // Login user via service
-  const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber);
+  // Login user via service with device tracking
+  const loginResult = await authService.loginWithPhone(verifyResult.phoneNumber, deviceInfo);
 
   // Set both tokens as httpOnly cookies
   setAuthCookies(res, loginResult.accessToken, loginResult.refreshToken);

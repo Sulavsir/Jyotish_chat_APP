@@ -1,4 +1,9 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Use direct backend URL to avoid Next.js proxy issues with POST/credentials
+// The backend has CORS properly configured to accept requests from localhost:5000
+export const API_BASE_URL =
+  process.env.NODE_ENV === 'production'
+    ? process.env.NEXT_PUBLIC_API_URL || ''
+    : 'http://localhost:4000'; // Direct connection to backend in development
 
 export const API_ENDPOINTS = {
   ADMIN: {
@@ -44,6 +49,8 @@ export const API_ENDPOINTS = {
     LIST: '/api/v1/admin/chats',
     GET: (chatId: string) => `/api/v1/admin/chats/${chatId}`,
     MESSAGES: (chatId: string) => `/api/v1/admin/chats/${chatId}/messages`,
+    ABANDON: (chatId: string) => `/api/v1/admin/chats/${chatId}/abandon`,
+    UNBLOCK: (chatId: string) => `/api/v1/admin/chats/${chatId}/unblock`,
   },
 
   EARNINGS: {
@@ -55,7 +62,14 @@ export const API_ENDPOINTS = {
 
   DASHBOARD: {
     // Dashboard Stats
-    STATS: '/api/v1/admin/stats',
+    STATS: '/api/v1/admin/dashboard/stats',
+  },
+
+  APPOINTMENTS: {
+    // Appointments
+    LIST: '/api/v1/admin/appointments',
+    GET: (id: string) => `/api/v1/admin/appointments/${id}`,
+    STATS: '/api/v1/admin/appointments/stats',
   },
 
   PRICING: {
@@ -66,5 +80,15 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/v1/admin/pricing/${id}`,
     DELETE: (id: string) => `/api/v1/admin/pricing/${id}`,
     TOGGLE: (id: string) => `/api/v1/admin/pricing/${id}/toggle`,
+  },
+
+  COMPLAINTS: {
+    // User Complaints
+    LIST: '/api/v1/admin/complaints',
+    STATS: '/api/v1/admin/complaints/stats',
+    DETAIL: (id: string) => `/api/v1/admin/complaints/${id}`,
+    UPDATE_STATUS: (id: string) => `/api/v1/admin/complaints/${id}/status`,
+    RESOLVE: (id: string) => `/api/v1/admin/complaints/${id}/resolve`,
+    DISMISS: (id: string) => `/api/v1/admin/complaints/${id}/dismiss`,
   },
 };

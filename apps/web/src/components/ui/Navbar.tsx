@@ -22,6 +22,7 @@ export function Navbar() {
 
   const navLinks = [
     { name: 'Home', href: ROUTES.HOME },
+    { name: 'Astrologers', href: ROUTES.ASTROLOGERS },
     { name: 'Pricing', href: ROUTES.PRICING },
     { name: 'About', href: '/about' },
   ];

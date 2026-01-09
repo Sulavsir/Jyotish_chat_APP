@@ -26,25 +26,27 @@ export function useAdminSocket() {
     }
 
     // Admin is authenticated, connect if not already connected
-    if (!socketRef.current.isConnected() && !isConnecting) {
-      setIsConnecting(true);
-      setError(null);
+    const connectSocket = async () => {
+      if (!socketRef.current.isConnected() && !isConnecting) {
+        setIsConnecting(true);
+        setError(null);
 
-      socketRef.current
-        .connect()
-        .then(() => {
+        try {
+          await socketRef.current.connect();
           setIsConnected(true);
           setIsConnecting(false);
           setError(null);
           console.log('✅ Admin socket connected successfully');
-        })
-        .catch((err) => {
+        } catch (err: any) {
           setIsConnected(false);
           setIsConnecting(false);
           setError(err.message);
           console.error('❌ Failed to connect admin socket:', err);
-        });
-    }
+        }
+      }
+    };
+
+    connectSocket();
 
     // Update connection status
     const socket = socketRef.current.getSocket();
@@ -57,23 +59,28 @@ export function useAdminSocket() {
 
       const handleDisconnect = () => {
         setIsConnected(false);
+        setIsConnecting(false); // Reset connecting state on disconnect
       };
 
-      const handleError = (err: Error) => {
+      const handleConnectError = (err: Error) => {
+        setIsConnected(false);
+        setIsConnecting(false); // Reset connecting state on error
         setError(err.message);
       };
 
       socket.on('connect', handleConnect);
       socket.on('disconnect', handleDisconnect);
-      socket.on('error', handleError);
+      socket.on('connect_error', handleConnectError);
+      socket.on('error', handleConnectError);
 
       return () => {
         socket.off('connect', handleConnect);
         socket.off('disconnect', handleDisconnect);
-        socket.off('error', handleError);
+        socket.off('connect_error', handleConnectError);
+        socket.off('error', handleConnectError);
       };
     }
-  }, [admin, isConnecting]);
+  }, [admin]); // Removed isConnecting from dependencies to prevent loop
 
   // Subscribe to event
   const on = useCallback(<K extends keyof AdminSocketEvents>(

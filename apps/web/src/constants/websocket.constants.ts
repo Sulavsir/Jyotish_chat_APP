@@ -15,6 +15,7 @@ export const WS_EVENTS = {
   CHAT_TYPING_INDICATOR: 'chat:typing-indicator',
   NOTIFICATION_NEW: 'notification:new',
   USER_STATUS: 'user:status',
+  ASTROLOGER_STATUS_CHANGED: 'astrologer:status_changed',
   CONSULTATION_UPDATE: 'consultation:update',
 } as const;
 

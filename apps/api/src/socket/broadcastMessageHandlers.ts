@@ -33,6 +33,10 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
       // Send confirmation to client
       socket.emit('broadcast:messageSent', message);
 
+      // Broadcast the new message to ALL astrologers in real-time
+      io.to('astrologers').emit('broadcast:newMessage', message);
+      console.log(`📢 Broadcasting new message to all astrologers:`, message.id);
+
       // Create notifications for all astrologers (confidential - no message content shown)
       const astrologers = await prisma.user.findMany({
         where: { role: 'ASTROLOGER' },
@@ -92,11 +96,12 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
       // Notify the astrologer who accepted
       socket.emit('broadcast:messageAccepted', result);
 
-      // Notify the client
+      // Notify the client with chat details and initial messages
       io.to(`user:${result.message.clientId}`).emit('broadcast:yourMessageAccepted', {
         message: result.message,
         chat: result.chat,
         astrologer: result.message.acceptedAstrologer,
+        initialMessages: result.initialMessages, // Include the auto-generated messages
       });
 
       // Get all other astrologers (excluding the one who accepted)

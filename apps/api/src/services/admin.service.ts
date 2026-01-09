@@ -98,7 +98,7 @@ export class AdminService {
   /**
    * Generate access token for admin
    */
-  private generateAccessToken(adminId: string, email: string): string {
+  generateAccessToken(adminId: string, email: string): string {
     const payload = {
       id: adminId,
       email,
@@ -115,7 +115,7 @@ export class AdminService {
   /**
    * Generate refresh token for admin
    */
-  private generateRefreshToken(adminId: string, email: string): string {
+  generateRefreshToken(adminId: string, email: string): string {
     const payload = {
       id: adminId,
       email,

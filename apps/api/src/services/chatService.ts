@@ -14,7 +14,8 @@ import { ParticipantType, ChatStatus, MessageType, Prisma } from '@prisma/client
 export const findOrCreateChat = async (
   params: CreateChatParams & { currentUserRole: UserRole }
 ) => {
-  const { participant1Id, participant2Id, consultationId, currentUserRole } = params;
+  const { participant1Id, participant2Id, currentUserRole } = params;
+  let { consultationId } = params;
 
   // Determine who is client and who is astrologer
   // We need to check both tables to determine the correct IDs
@@ -151,6 +152,51 @@ export const findOrCreateChat = async (
       throw new Error(
         'Astrologers cannot initiate chats. Please wait for the client to message you.'
       );
+    }
+
+    // Check if astrologer is PREMIUM - they can only chat during appointments
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { category: true, name: true },
+    });
+
+    if (astrologer?.category === 'PREMIUM') {
+      // Check for active appointment
+      const now = new Date();
+      const activeAppointment = await prisma.appointment.findFirst({
+        where: {
+          clientId,
+          astrologerId,
+          scheduledAt: {
+            lte: now,
+          },
+          status: {
+            in: ['CONFIRMED', 'IN_PROGRESS'],
+          },
+        },
+        orderBy: {
+          scheduledAt: 'desc',
+        },
+      });
+
+      if (!activeAppointment) {
+        throw new Error(
+          `${astrologer.name} is a Premium astrologer and only available through scheduled appointments. Please book an appointment to chat.`
+        );
+      }
+
+      // Check if appointment time has ended
+      const appointmentEndTime = new Date(activeAppointment.scheduledAt);
+      appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + activeAppointment.duration);
+
+      if (now > appointmentEndTime) {
+        throw new Error(
+          'Your appointment time has ended. Please book another appointment to continue chatting.'
+        );
+      }
+
+      // Link chat to appointment
+      consultationId = activeAppointment.id;
     }
 
     chat = await prisma.chat.create({
@@ -614,6 +660,10 @@ export const endChat = async (chatId: string, userId: string) => {
       endedAt: new Date(),
     },
   });
+
+  // Emit chat ended event to admin for real-time stats
+  const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+  AdminStatsEmitter.emitChatEnded();
 
   // Update related broadcast message or instant chat request
   try {

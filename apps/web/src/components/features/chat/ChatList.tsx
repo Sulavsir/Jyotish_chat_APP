@@ -97,7 +97,7 @@ export const ChatList: React.FC<ChatListProps> = ({
 
       {/* Chat list */}
       <div className="flex-1 overflow-y-auto">
-        {/* Broadcast Chat - "Everyone Jyotish" (only for clients) */}
+        {/* Broadcast Chat - "Channel Jyotish" (only for clients) */}
         {showBroadcastChat && onSelectBroadcastChat && (
           <button
             onClick={onSelectBroadcastChat}
@@ -127,7 +127,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             {/* Chat info */}
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="font-semibold text-white truncate">Everyone(JYOTISH)</h3>
+                <h3 className="font-semibold text-white truncate">Channel Jyotish</h3>
               </div>
               <p className="text-sm text-gray-400 truncate">
                 Broadcast to all online astrologers

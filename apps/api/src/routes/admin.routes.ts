@@ -7,13 +7,15 @@ import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
 import { AuditAction } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
-import * as adminController from '../controllers/adminController';
+import { adminController, adminAppointmentController, pricingController } from '../controllers';
+import { asyncHandler } from '@/utils';
 
 const router = Router();
 
 // ==================== Admin Authentication ====================
 // These routes don't require authentication
 router.post('/auth/login', adminController.adminLogin);
+router.post('/auth/refresh', adminController.adminRefreshToken); // Add refresh route
 
 // Protected admin routes
 router.use(authenticate);
@@ -92,6 +94,10 @@ router.get('/chats/:id', adminController.getChat);
 
 router.get('/chats/:id/messages', adminController.getChatMessages);
 
+router.post('/chats/:chatId/abandon', adminController.abandonChat);
+
+router.post('/chats/:chatId/unblock', adminController.unblockChat);
+
 router.post(
   '/chats/messages/:messageId/flag',
   auditLogger(AuditAction.MESSAGE_FLAG, 'Message'),
@@ -102,6 +108,13 @@ router.post(
   '/chats/:id/note',
   auditLogger(AuditAction.ADMIN_ACTION, 'Chat'),
   adminController.addChatNote
+);
+
+// Cleanup stuck chats
+router.post(
+  '/chats/cleanup-stuck',
+  auditLogger(AuditAction.ADMIN_ACTION, 'Chat'),
+  adminController.cleanupStuckChats
 );
 
 // ==================== Earnings Management ====================
@@ -135,8 +148,12 @@ router.get('/chat-audit', adminController.getChatAudit);
 
 router.get('/chat-audit/stats', adminController.getChatAuditStats);
 
+// ==================== Appointment Management ====================
+
+router.get('/appointments', adminAppointmentController.getAllAppointments);
+router.get('/appointments/stats', adminAppointmentController.getAppointmentStats);
+
 // ==================== Pricing Management ====================
-import * as pricingController from '../controllers/pricingController';
 
 router.get('/pricing', pricingController.getAllPlansAdmin);
 
@@ -165,5 +182,12 @@ router.patch(
   auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
   pricingController.togglePlanStatus
 );
+
+// ==================== Complaint Management Routes ====================
+router.get('/complaints', asyncHandler(adminController.getComplaints));
+router.get('/complaints/stats', asyncHandler(adminController.getComplaintStats));
+router.patch('/complaints/:id/status', asyncHandler(adminController.updateComplaintStatus));
+router.post('/complaints/:id/resolve', asyncHandler(adminController.resolveComplaint));
+router.post('/complaints/:id/dismiss', asyncHandler(adminController.dismissComplaint));
 
 export default router;

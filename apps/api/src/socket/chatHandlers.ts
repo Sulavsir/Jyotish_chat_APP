@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { MessageType, UserRole } from '@jyotish/shared';
 import { onlineUsers } from './index';
+import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 
 export function chatHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
@@ -121,6 +122,30 @@ export function chatHandlers(io: Server, socket: Socket) {
           });
         }
 
+        // Check if chat is abandoned by admin
+        if (chat && chat.isAbandonedByAdmin) {
+          socket.emit('chat:error', {
+            message: 'This conversation has been ended by administration. Please contact support for assistance.',
+          });
+          return;
+        }
+
+        // Turn-based messaging: Check if client is waiting for astrologer reply
+        if (chat && chat.turnBasedEnabled && chat.waitingForReply && user.role === UserRole.CLIENT) {
+          // Send system message to inform client to wait
+          const systemMessage = {
+            id: `system-${Date.now()}`,
+            chatId: chat.id,
+            content: 'Please wait for the astrologer to reply before sending another message.',
+            type: 'SYSTEM',
+            isSystemMessage: true,
+            createdAt: new Date().toISOString(),
+          };
+          
+          socket.emit('chat:system_message', systemMessage);
+          return;
+        }
+
         // Create new chat if doesn't exist
         if (!chat) {
           // Only CLIENTS can create new chats
@@ -142,6 +167,9 @@ export function chatHandlers(io: Server, socket: Socket) {
               isLocked: false,
             },
           });
+
+          // Emit new chat event to admin for real-time stats
+          AdminStatsEmitter.emitNewChat();
         }
 
         // Determine sender and receiver types
@@ -225,6 +253,20 @@ export function chatHandlers(io: Server, socket: Socket) {
             ? '📎 Sent an attachment'
             : content.substring(0, 100);
 
+        // Prepare turn-based messaging updates
+        const turnBasedUpdates: any = {};
+        if (chat.turnBasedEnabled) {
+          if (user.role === UserRole.CLIENT) {
+            // Client sent message - now waiting for astrologer reply
+            turnBasedUpdates.waitingForReply = true;
+            turnBasedUpdates.lastClientMessageAt = new Date();
+          } else if (user.role === UserRole.ASTROLOGER) {
+            // Astrologer replied - client can send again
+            turnBasedUpdates.waitingForReply = false;
+            turnBasedUpdates.lastAstrologerReplyAt = new Date();
+          }
+        }
+
         const updatedChat = await prisma.chat.update({
           where: { id: chat.id },
           data: {
@@ -232,6 +274,7 @@ export function chatHandlers(io: Server, socket: Socket) {
             lastMessageText,
             participant1Read: user.id === clientId, // Client read if client is sender
             participant2Read: user.id === astrologerId, // Astrologer read if astrologer is sender
+            ...turnBasedUpdates, // Apply turn-based updates
           },
           include: {
             clientParticipant: {
@@ -258,14 +301,27 @@ export function chatHandlers(io: Server, socket: Socket) {
           },
         });
 
+        // Prepare turn state info to send with messages
+        const turnStateInfo = chat.turnBasedEnabled ? {
+          waitingForReply: updatedChat.waitingForReply,
+          lastClientMessageAt: updatedChat.lastClientMessageAt,
+          lastAstrologerReplyAt: updatedChat.lastAstrologerReplyAt,
+        } : null;
+
         // Send to receiver if online
         const receiverSocketId = onlineUsers.get(receiverId);
         if (receiverSocketId) {
-          io.to(receiverSocketId).emit('chat:receive', messageWithSender);
+          io.to(receiverSocketId).emit('chat:receive', {
+            ...messageWithSender,
+            turnState: turnStateInfo,
+          });
         }
 
         // Send confirmation to sender
-        socket.emit('chat:sent', messageWithSender);
+        socket.emit('chat:sent', {
+          ...messageWithSender,
+          turnState: turnStateInfo,
+        });
 
         // Emit chat update to admin panel for real-time monitoring
         io.to('admin').emit('chat:update', updatedChat);

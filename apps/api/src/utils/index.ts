@@ -6,6 +6,12 @@ import { Response } from 'express';
 import { ApiResponse } from '../types';
 import { HTTP_STATUS } from '../constants';
 
+// Re-export constants
+export { HTTP_STATUS, ERROR_CODES } from '../constants';
+
+// Re-export error classes
+export { AppError } from '../middleware/error-handler';
+
 // Re-export encryption utilities
 export * from './encryption';
 

@@ -1,45 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Search } from '@jyotish/ui';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableSkeleton,
-  EmptyState,
-  MoneyIcon,
-} from '@jyotish/ui';
+import { Button, Search, MoneyIcon } from '@jyotish/ui';
+import { RefreshCw } from 'lucide-react';
+import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { Earning } from '@/types';
 
 export default function EarningsPage() {
-  const [earnings, setEarnings] = useState<Earning[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadEarnings();
-  }, []);
-
-  const loadEarnings = async () => {
-    try {
+  // Fetch earnings with TanStack Query
+  const { data: rawEarnings = [], isLoading, refetch } = useQuery<Earning[]>({
+    queryKey: ADMIN_QUERY_KEYS.EARNINGS.LIST(),
+    queryFn: async () => {
       const response: any = await adminApi.earnings.list();
       if (Array.isArray(response)) {
-        setEarnings(response);
+        return response;
       } else if (response?.earnings) {
-        setEarnings(response.earnings);
+        return response.earnings;
       }
-    } catch (error) {
-      console.error('Failed to load earnings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return [];
+    },
+  });
 
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
@@ -54,19 +40,75 @@ export default function EarningsPage() {
     }
   };
 
-  const filteredEarnings = earnings.filter(
-    (earning) =>
-      earning.astrologer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      earning.status.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter earnings
+  const filteredEarnings = useMemo(() => {
+    return rawEarnings.filter(
+      (earning) =>
+        earning.astrologer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        earning.status.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [rawEarnings, searchTerm]);
+
+  const columns: AdminTableColumn<Earning>[] = [
+    {
+      header: 'Astrologer',
+      accessor: (earning) => <span className="font-medium">{earning.astrologer.name}</span>,
+    },
+    {
+      header: 'Amount',
+      accessor: (earning) => <span>₹{earning.amount.toFixed(2)}</span>,
+    },
+    {
+      header: 'Commission',
+      accessor: (earning) => (
+        <span className="text-red-400">-₹{earning.commission.toFixed(2)}</span>
+      ),
+    },
+    {
+      header: 'Net Earning',
+      accessor: (earning) => (
+        <span className="text-green-400 font-semibold">₹{earning.netEarning.toFixed(2)}</span>
+      ),
+    },
+    {
+      header: 'Status',
+      accessor: (earning) => (
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(earning.status)}`}
+        >
+          {earning.status}
+        </span>
+      ),
+    },
+    {
+      header: 'Date',
+      accessor: (earning) => (
+        <span className="text-sm text-slate-400">
+          {new Date(earning.createdAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h2 className="text-3xl font-bold text-white">Earnings Management</h2>
-          <p className="text-slate-400 mt-1">Manage astrologer earnings and payouts</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-white">Earnings Management</h2>
+            <p className="text-slate-400 mt-1">Manage astrologer earnings and payouts</p>
+          </div>
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="border-slate-700 text-white hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Search Bar */}
@@ -79,52 +121,19 @@ export default function EarningsPage() {
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
-          {loading ? (
-            <TableSkeleton rows={10} columns={6} />
-          ) : filteredEarnings.length === 0 ? (
-            <EmptyState
-              icon={<MoneyIcon className="w-20 h-20 text-slate-600" />}
-              title={searchTerm ? 'No earnings found' : 'No earnings records'}
-              description={
-                searchTerm
-                  ? 'Try adjusting your search terms'
-                  : 'Earning records will appear here as consultations are completed'
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Astrologer</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Commission</TableHead>
-                  <TableHead>Net Earning</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEarnings.map((earning) => (
-                  <TableRow key={earning.id}>
-                    <TableCell className="font-medium">{earning.astrologer.name}</TableCell>
-                    <TableCell>₹{earning.amount.toFixed(2)}</TableCell>
-                    <TableCell className="text-red-400">-₹{earning.commission.toFixed(2)}</TableCell>
-                    <TableCell className="text-green-400 font-semibold">
-                      ₹{earning.netEarning.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(earning.status)}`}>
-                        {earning.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm text-slate-400">
-                      {new Date(earning.createdAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <AdminTable
+            data={filteredEarnings}
+            columns={columns}
+            loading={isLoading}
+            keyExtractor={(earning) => earning.id}
+            emptyState={{
+              icon: <MoneyIcon className="w-20 h-20 text-slate-600" />,
+              title: searchTerm ? 'No earnings found' : 'No earnings records',
+              description: searchTerm
+                ? 'Try adjusting your search terms'
+                : 'Earning records will appear here as consultations are completed',
+            }}
+          />
         </div>
       </div>
     </AdminLayout>

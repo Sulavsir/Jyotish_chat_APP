@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types';
 import { displayError } from '@/utils/error-handler';
+import { ROUTE_BUILDERS } from '@/constants';
 
 export function useChat() {
   const router = useRouter();
@@ -49,9 +50,9 @@ export function useChat() {
 
       // Navigate to the appropriate chat page based on user role
       if (user.role === UserRole.ASTROLOGER) {
-        router.push(`/jyotish/chat?chatId=${chat.id}`);
+        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(chat.id));
       } else {
-        router.push(`/chat?chatId=${chat.id}`);
+        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
       }
 
       return chat.id;
@@ -69,9 +70,9 @@ export function useChat() {
    */
   const navigateToChat = (chatId: string) => {
     if (user?.role === UserRole.ASTROLOGER) {
-      router.push(`/jyotish/chat?chatId=${chatId}`);
+      router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(chatId));
     } else {
-      router.push(`/chat?chatId=${chatId}`);
+      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chatId));
     }
   };
 

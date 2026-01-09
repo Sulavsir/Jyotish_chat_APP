@@ -9,6 +9,8 @@ export * from '@jyotish/shared';
 export * from './user.types';
 export * from './auth';
 export * from './chat';
+export * from './complaint';
+export * from './astrologer';
 
 // Frontend-specific types
 export interface ApiResponse<T = unknown> {

@@ -21,6 +21,7 @@ interface DashboardLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: '🏠' },
+  { name: 'Astrologers', href: ROUTES.ASTROLOGERS, icon: '🔮' },
   { name: 'Chat', href: ROUTES.CHAT, icon: '💬' },
   { name: 'Consultations', href: ROUTES.CONSULTATIONS, icon: '📅' },
   { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: '⭐' },

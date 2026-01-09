@@ -17,6 +17,7 @@ import { MessageSquare, X, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { useRouter } from 'next/navigation';
+import { ROUTE_BUILDERS } from '@/constants';
 
 export function BroadcastMessageBar() {
   const { socket, isConnected } = useSocket();
@@ -60,7 +61,7 @@ export function BroadcastMessageBar() {
         setAccepting(null);
         toast.success('Chat started successfully!');
         // Navigate to the new chat
-        router.push(`/jyotish/chat?chatId=${data.chat.id}`);
+        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(data.chat.id));
       }
     });
 

@@ -61,6 +61,16 @@ export const createAstrologerSchema = z.object({
     .min(0, 'Commission rate cannot be negative')
     .max(100, 'Commission rate cannot exceed 100%'),
   
+  category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM'], {
+    required_error: 'Category is required',
+  }),
+  
+  appointmentFee: z
+    .number()
+    .min(0, 'Appointment fee cannot be negative')
+    .optional()
+    .nullable(),
+  
   languages: z
     .array(z.string())
     .optional()

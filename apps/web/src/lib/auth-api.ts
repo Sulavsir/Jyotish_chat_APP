@@ -2,6 +2,7 @@ import { API_ENDPOINTS } from '@/constants';
 import { apiClient } from './api-client';
 import { TokenManager } from '@/lib/auth';
 import { useAuthStore } from '@/store/auth-store';
+import { getDeviceInfo } from '@/utils/device.utils';
 import type {
   CheckPhoneRequest,
   CheckPhoneResponse,
@@ -32,10 +33,17 @@ export const authApi = {
   },
 
   verifyOTP: async (data: VerifyOTPRequest): Promise<VerifyOTPResponse> => {
+    // TEMPORARY: Device tracking disabled - will implement properly later
+    // const deviceInfo = getDeviceInfo();
+    // const requestData = {
+    //   ...data,
+    //   ...deviceInfo,
+    // };
+
     // Call verify OTP endpoint (tokens are set as httpOnly cookies by server)
     const response = await apiClient.post<VerifyOTPResponse>(
       API_ENDPOINTS.AUTH.VERIFY_OTP,
-      data,
+      data, // Device info temporarily disabled
       false
     );
 
@@ -60,8 +68,15 @@ export const authApi = {
   },
 
   login: async (data: LoginRequest): Promise<LoginResponse> => {
+    // TEMPORARY: Device tracking disabled - will implement properly later
+    // const deviceInfo = getDeviceInfo();
+    // const requestData = {
+    //   ...data,
+    //   ...deviceInfo,
+    // };
+
     // Call login endpoint (tokens are set as httpOnly cookies by server)
-    const response = await apiClient.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, data, false);
+    const response = await apiClient.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, data, false); // Device info temporarily disabled
 
     // Tokens are automatically stored as httpOnly cookies by server
     // No manual token management needed
@@ -184,10 +199,17 @@ export const authApi = {
     identifier: string;
     password: string;
   }): Promise<{ astrologer: User }> => {
+    // TEMPORARY: Device tracking disabled - will implement properly later
+    // const deviceInfo = getDeviceInfo();
+    // const requestData = {
+    //   ...data,
+    //   ...deviceInfo,
+    // };
+
     // Call astrologer login endpoint (tokens are set as httpOnly cookies by server)
     const response = await apiClient.post<{ astrologer: User }>(
       API_ENDPOINTS.ASTROLOGER.LOGIN,
-      data,
+      data, // Device info temporarily disabled
       false
     );
 

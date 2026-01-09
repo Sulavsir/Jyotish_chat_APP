@@ -18,6 +18,10 @@ router.use(authenticate); // All routes below require authentication
 
 router.post('/auth/logout', asyncHandler(astrologerController.astrologerLogout));
 router.get('/auth/me', asyncHandler(astrologerController.getAstrologerProfile));
+router.post('/toggle-online', asyncHandler(astrologerController.toggleOnlineStatus));
+
+// ==================== Astrologer List ====================
+router.get('/list', asyncHandler(astrologerController.listAstrologers));
 
 export default router;
 

@@ -12,7 +12,7 @@ export enum UserRole {
 // User Role Type
 export type UserRoleType = UserRole | 'CLIENT' | 'ASTROLOGER' | 'ADMIN';
 
-// User Interface
+// User Interface - extends shared User type
 export interface User {
   id: string;
   name: string | null;
@@ -32,6 +32,7 @@ export interface User {
   isActive?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  // astrologer field comes from @jyotish/shared User type
 }
 
 // User with minimal info (for lists)

@@ -12,8 +12,14 @@ import notificationSettingsRoutes from './notificationSettings.routes';
 import astrologerRoutes from './astrologer.routes';
 import adminRoutes from './admin.routes';
 import pricingRoutes from './pricing.routes';
+import appointmentRoutes from './appointment.routes';
+import complaintRoutes from './complaint.routes';
+import publicRoutes from './public.routes';
 
 const router = Router();
+
+// Public routes (no auth required)
+router.use('/public', publicRoutes);
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
@@ -22,10 +28,12 @@ router.use('/consultations', consultationRoutes);
 router.use('/consultation-requests', consultationRequestRoutes); // Future feature
 router.use('/instant-chat', instantChatRoutes); // Active instant chat feature
 router.use('/broadcast-messages', broadcastMessageRoutes); // "Everyone Jyotish" broadcast chat
+router.use('/appointments', appointmentRoutes); // Appointment booking
 router.use('/horoscopes', horoscopeRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/notification-settings', notificationSettingsRoutes);
 router.use('/pricing', pricingRoutes); // Pricing plans
+router.use('/complaints', complaintRoutes); // User complaints
 
 // Astrologer routes
 router.use('/astrologer', astrologerRoutes);

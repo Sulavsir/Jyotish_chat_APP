@@ -4,13 +4,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@/store';
 import { useAuthStore } from '@/store/auth-store';
-import { WS_BASE_URL, WS_EVENTS } from '@/constants';
+import { WS_BASE_URL, WS_EVENTS, QUERY_KEYS } from '@/constants';
 import type { ChatMessage, Notification } from '@/types';
 import { toast } from 'sonner';
 
 export function useSocket() {
+  const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -101,6 +103,49 @@ export function useSocket() {
       }
     });
 
+    // Astrologer online/offline status changes (real-time updates for all users)
+    socket.on(WS_EVENTS.ASTROLOGER_STATUS_CHANGED, ({ astrologerId, name, isOnline }) => {
+      console.log(`🔄 [SOCKET] Astrologer ${name} (${astrologerId}) is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+      
+      // Update online users store immediately
+      if (isOnline) {
+        addUserOnline(astrologerId);
+        console.log(`✅ [STORE] Added ${astrologerId} to online users`);
+      } else {
+        removeUserOnline(astrologerId);
+        console.log(`✅ [STORE] Removed ${astrologerId} from online users`);
+      }
+      
+      // IMMEDIATELY refetch chatable users query with aggressive strategy
+      // Use exact: false to refetch all queries starting with this key
+      console.log(`🔄 [REFETCH] Triggering refetch for CHATABLE users...`);
+      queryClient.refetchQueries({ 
+        queryKey: QUERY_KEYS.USERS.CHATABLE,
+        exact: true, // Match exact key
+      }).then((results) => {
+        console.log(`✅ [REFETCH] Chatable users refetched! Results:`, results);
+      }).catch((error) => {
+        console.error(`❌ [REFETCH] Error refetching:`, error);
+      });
+      
+      // Also invalidate to force refetch on next access
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.USERS.CHATABLE,
+        refetchType: 'active', // Refetch if query is currently active
+      });
+      
+      // Also invalidate astrologer lists
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ASTROLOGERS.LIST() });
+      
+      // Show toast notification
+      const user = useAuthStore.getState().user;
+      if (user?.role === 'ADMIN') {
+        toast.info(`${name} is now ${isOnline ? 'online' : 'offline'}`, {
+          duration: 3000,
+        });
+      }
+    });
+
     // Notification events
     socket.on(WS_EVENTS.NOTIFICATION_NEW, (notification: Notification) => {
       addNotification(notification);
@@ -115,6 +160,7 @@ export function useSocket() {
     };
   }, [
     isAuthenticated,
+    queryClient,
     addMessage,
     setUserTyping,
     addUserOnline,

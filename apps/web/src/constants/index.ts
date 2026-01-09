@@ -13,3 +13,5 @@ export * from './message.constants';
 export * from './consultation.constants';
 export * from './zodiac.constants';
 export * from './file-upload.constants';
+export * from './appointment.constants';
+export * from './query-keys.constants';

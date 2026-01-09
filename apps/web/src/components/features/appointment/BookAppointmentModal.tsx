@@ -1,0 +1,604 @@
+/**
+ * Book Appointment Modal
+ * Allows clients to book appointments with professional/premium astrologers
+ */
+
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import Image from 'next/image';
+import { Calendar, Clock, DollarSign, Loader2, CalendarDays } from 'lucide-react';
+import { Button, Dialog, DialogContent, Search, Input, Textarea } from '@jyotish/ui';
+import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import appointmentService from '@/services/appointment.service';
+import type { Astrologer, TimeSlot } from '@/types/appointment.types';
+import { AstrologerCategory } from '@/types/appointment.types';
+import { DEFAULT_APPOINTMENT_DURATION, ASTROLOGER_CATEGORY, QUERY_KEYS } from '@/constants';
+import { getImageUrl } from '@/utils/image.utils';
+import { showErrorToast, getSuccessMessage } from '@/lib/error-handler';
+
+interface BookAppointmentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+}) => {
+  const queryClient = useQueryClient();
+  const [selectedAstrologer, setSelectedAstrologer] = useState<Astrologer | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
+  const [step, setStep] = useState<'select-astrologer' | 'select-datetime' | 'confirm'>(
+    'select-astrologer'
+  );
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Fetch astrologers with TanStack Query
+  const { data: rawAstrologers = [], isLoading: isLoadingAstrologers } = useQuery({
+    queryKey: QUERY_KEYS.APPOINTMENTS.ASTROLOGERS_FOR_APPOINTMENT,
+    queryFn: appointmentService.getAstrologersForAppointment,
+    enabled: isOpen,
+  });
+
+  // Process astrologers: filter and sort
+  const astrologers = useMemo(() => {
+    const eligible = rawAstrologers.filter(
+      (a) =>
+        a.category === ASTROLOGER_CATEGORY.PROFESSIONAL ||
+        a.category === ASTROLOGER_CATEGORY.PREMIUM
+    );
+
+    // Sort: Online first, then by rank (Premium > Professional)
+    return eligible.sort((a, b) => {
+      // 1. Online status (online first)
+      if (a.isOnline !== b.isOnline) {
+        return a.isOnline ? -1 : 1;
+      }
+
+      // 2. Category rank (Premium > Professional)
+      const rankOrder = {
+        [ASTROLOGER_CATEGORY.PREMIUM]: 1,
+        [ASTROLOGER_CATEGORY.PROFESSIONAL]: 2,
+      };
+      const rankA = rankOrder[a.category as keyof typeof rankOrder] || 999;
+      const rankB = rankOrder[b.category as keyof typeof rankOrder] || 999;
+
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+
+      // 3. Name alphabetically
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [rawAstrologers]);
+
+  // Fetch time slots with TanStack Query
+  const { data: timeSlots = [], isLoading: isLoadingSlots } = useQuery({
+    queryKey: QUERY_KEYS.APPOINTMENTS.AVAILABILITY(selectedAstrologer?.id || '', selectedDate),
+    queryFn: () => appointmentService.checkAvailability(selectedAstrologer!.id, selectedDate),
+    enabled: !!selectedAstrologer && !!selectedDate,
+  });
+
+  // Filter astrologers based on search query
+  const filteredAstrologers = useMemo(() => {
+    if (!searchQuery.trim()) return astrologers;
+
+    const query = searchQuery.toLowerCase();
+    return astrologers.filter(
+      (a) =>
+        a.name?.toLowerCase().includes(query) ||
+        a.specialization?.some((s: string) => s.toLowerCase().includes(query))
+    );
+  }, [astrologers, searchQuery]);
+
+  const handleSelectAstrologer = (astrologer: Astrologer) => {
+    setSelectedAstrologer(astrologer);
+    setSearchQuery(''); // Clear search when astrologer is selected
+  };
+
+  // Book appointment mutation
+  const bookAppointmentMutation = useMutation({
+    mutationFn: (data: {
+      astrologerId: string;
+      scheduledAt: string;
+      duration: number;
+      notes?: string;
+    }) => appointmentService.createAppointment(data),
+    onSuccess: (response) => {
+      const message = getSuccessMessage(response) || 'Appointment booked successfully!';
+      toast.success(message);
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.LIST() });
+      onSuccess?.();
+      handleClose();
+    },
+    onError: (error) => {
+      showErrorToast(error, 'Failed to book appointment');
+    },
+  });
+
+  const handleBookAppointment = () => {
+    if (!selectedAstrologer || !selectedDate || !selectedTime) {
+      toast.error('Please select all required fields');
+      return;
+    }
+
+    // Combine date and time into ISO string
+    const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+
+    bookAppointmentMutation.mutate({
+      astrologerId: selectedAstrologer.id,
+      scheduledAt,
+      duration: DEFAULT_APPOINTMENT_DURATION,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  const handleClose = () => {
+    setSelectedAstrologer(null);
+    setSelectedDate('');
+    setSelectedTime('');
+    setNotes('');
+    setSearchQuery('');
+    setStep('select-astrologer');
+    onClose();
+  };
+
+  // Get minimum date (today)
+  const getMinDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  // Get maximum date (30 days from now)
+  const getMaxDate = () => {
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 30);
+    return maxDate.toISOString().split('T')[0];
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] p-0 bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 border border-purple-500/30 shadow-2xl shadow-purple-900/50 overflow-hidden rounded-2xl flex flex-col">
+        {/* Animated background effect */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden rounded-2xl">
+          <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse" />
+          <div
+            className="absolute top-0 -right-4 w-72 h-72 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"
+            style={{ animationDelay: '2s' }}
+          />
+          <div
+            className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"
+            style={{ animationDelay: '4s' }}
+          />
+        </div>
+
+        {/* Content wrapper */}
+        <div className="relative flex flex-col h-full min-h-0">
+          {/* Header */}
+          <div className="flex-shrink-0 p-6 border-b border-purple-500 bg-gradient-to-r from-purple-900/40 to-indigo-900 backdrop-blur-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-1">
+                  <CalendarDays className="h-6 w-6 text-purple-400" />
+                  Book an Appointment
+                </h2>
+                <p className="text-sm text-purple-200/90">
+                  Schedule a cosmic consultation with our expert astrologers
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Banner */}
+          {step === 'select-astrologer' && (
+            <div className="flex-shrink-0 border-b border-purple-500/30 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 backdrop-blur-sm p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <svg className="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-purple-100 mb-1">
+                    ✨ About Appointment Bookings
+                  </h3>
+                  <p className="text-sm text-purple-200/90 leading-relaxed">
+                    <span className="text-purple-300 font-semibold">Professional</span> and{' '}
+                    <span className="text-indigo-300 font-semibold">Premium</span> astrologers are
+                    available for scheduled appointments. Professional astrologers offer competitive
+                    rates with chat + appointments, while Premium astrologers provide exclusive
+                    appointment-only consultations with time-limited chat during your session.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Content */}
+          <div
+            className="flex-1 min-h-0 p-6 bg-gradient-to-br from-slate-900 via-purple-900 to-indigo-900 border border-purple-500/30 shadow-2xl shadow-purple-900/50 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-800/50 [&::-webkit-scrollbar-thumb]:bg-purple-500/50 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-purple-500/70"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#a855f7 #1e293b',
+            }}
+          >
+            {/* Step 1: Select Astrologer */}
+            {step === 'select-astrologer' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4">Select an Astrologer</h3>
+
+                  {isLoadingAstrologers ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
+                    </div>
+                  ) : astrologers.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 mb-4">
+                        <CalendarDays className="h-10 w-10 text-purple-400" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-white mb-2">
+                        No Astrologers Available
+                      </h3>
+                      <p className="text-purple-200/80 max-w-md mx-auto mb-6 leading-relaxed">
+                        Currently, there are no professional or premium astrologers available for
+                        appointments. Please check back later or try our instant chat feature
+                        instead.
+                      </p>
+                      <Button onClick={handleClose} variant="ghost" className="border">
+                        Close
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Search Input */}
+                      <Search
+                        placeholder="Search astrologers..."
+                        value={searchQuery}
+                        onSearch={setSearchQuery}
+                        containerClassName="p-0 bg-transparent border-0 rounded-none"
+                      />
+
+                      {/* Selected Astrologer Display or Dropdown Trigger */}
+                      {selectedAstrologer ? (
+                        <div className="p-3 bg-gradient-to-br from-slate-800/80 to-purple-900/40 border border-purple-400 rounded-xl">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0 relative">
+                              {selectedAstrologer.profilePhoto ? (
+                                <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-400">
+                                  <Image
+                                    src={getImageUrl(selectedAstrologer.profilePhoto)!}
+                                    alt={selectedAstrologer.name || 'Astrologer'}
+                                    width={48}
+                                    height={48}
+                                    className="object-cover w-full h-full"
+                                  />
+                                  {selectedAstrologer.isOnline && (
+                                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full" />
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold ring-2 ring-purple-400">
+                                  {selectedAstrologer.name?.charAt(0) || 'A'}
+                                  {selectedAstrologer.isOnline && (
+                                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-semibold text-white truncate">
+                                  {selectedAstrologer.name}
+                                </h4>
+                                <span
+                                  className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                                    selectedAstrologer.category === AstrologerCategory.PREMIUM
+                                      ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/30'
+                                      : 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border border-blue-500/30'
+                                  }`}
+                                >
+                                  {selectedAstrologer.category === AstrologerCategory.PREMIUM
+                                    ? '👑 Premium'
+                                    : '💎 Professional'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <p className="text-purple-300/80">
+                                  {selectedAstrologer.experience
+                                    ? `⭐ ${selectedAstrologer.experience} years`
+                                    : '⭐ Experienced'}
+                                </p>
+                                {selectedAstrologer.appointmentFee && (
+                                  <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
+                                    Rs. {selectedAstrologer.appointmentFee}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedAstrologer(null)}
+                              className="text-purple-300 hover:text-white hover:bg-purple-500/20 flex-shrink-0"
+                            >
+                              Change
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Astrologer List */}
+                          <div className="space-y-2">
+                            {filteredAstrologers.length === 0 ? (
+                              <div className="text-center py-8">
+                                <p className="text-purple-300/80">
+                                  No astrologers found matching your search.
+                                </p>
+                              </div>
+                            ) : (
+                              filteredAstrologers.map((astrologer) => (
+                                <button
+                                  key={astrologer.id}
+                                  onClick={() => handleSelectAstrologer(astrologer)}
+                                  className="w-full flex items-center gap-3 p-3 bg-gradient-to-br from-slate-800/50 to-purple-900/20 border border-purple-500/30 rounded-lg hover:border-purple-400 hover:from-slate-800/80 hover:to-purple-900/40 transition-all text-left group backdrop-blur-sm"
+                                >
+                                  <div className="flex-shrink-0 relative">
+                                    {astrologer.profilePhoto ? (
+                                      <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-500/50 group-hover:ring-purple-400 transition-all">
+                                        <Image
+                                          src={getImageUrl(astrologer.profilePhoto)!}
+                                          alt={astrologer.name || 'Astrologer'}
+                                          width={48}
+                                          height={48}
+                                          className="object-cover w-full h-full"
+                                        />
+                                        {astrologer.isOnline && (
+                                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full" />
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-base font-bold ring-2 ring-purple-500/50 group-hover:ring-purple-400 transition-all">
+                                        {astrologer.name?.charAt(0) || 'A'}
+                                        {astrologer.isOnline && (
+                                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-slate-800 rounded-full" />
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <h4 className="font-semibold text-white group-hover:text-purple-200 transition-colors truncate">
+                                          {astrologer.name}
+                                        </h4>
+                                        <span
+                                          className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                                            astrologer.category === AstrologerCategory.PREMIUM
+                                              ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/30'
+                                              : 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border border-blue-500/30'
+                                          }`}
+                                        >
+                                          {astrologer.category === AstrologerCategory.PREMIUM
+                                            ? '👑 Premium'
+                                            : '💎 Professional'}
+                                        </span>
+                                      </div>
+                                      {astrologer.isOnline && (
+                                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0" />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm">
+                                      <p className="text-purple-300/80">
+                                        {astrologer.experience
+                                          ? `⭐ ${astrologer.experience} years`
+                                          : '⭐ Experienced'}
+                                      </p>
+                                      {astrologer.appointmentFee && (
+                                        <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
+                                          Rs. {astrologer.appointmentFee}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Continue Button */}
+                {selectedAstrologer && (
+                  <div className="flex justify-end pt-4 border-t border-purple-500/20">
+                    <Button
+                      onClick={() => setStep('select-datetime')}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8"
+                    >
+                      Continue to Date & Time
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2: Select Date & Time */}
+            {step === 'select-datetime' && selectedAstrologer && (
+              <div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setStep('select-astrologer')}
+                  className="mb-4 text-purple-400 hover:text-purple-300 transition-colors"
+                >
+                  ← Back to astrologers
+                </Button>
+
+                <div className="mb-6 p-4 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 rounded-xl backdrop-blur-sm">
+                  <div className="flex items-center gap-4">
+                    {selectedAstrologer.profilePhoto ? (
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-500/50">
+                        <Image
+                          src={selectedAstrologer.profilePhoto}
+                          alt={selectedAstrologer.name || 'Astrologer'}
+                          width={48}
+                          height={48}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold ring-2 ring-purple-500/50">
+                        {selectedAstrologer.name?.charAt(0) || 'A'}
+                      </div>
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold text-white">{selectedAstrologer.name}</h4>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            selectedAstrologer.category === AstrologerCategory.PREMIUM
+                              ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-300 border border-purple-500/30'
+                              : 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 text-blue-300 border border-blue-500/30'
+                          }`}
+                        >
+                          {selectedAstrologer.category === AstrologerCategory.PREMIUM
+                            ? '👑 Premium'
+                            : '💎 Professional'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-purple-300">
+                        Rs. {selectedAstrologer.appointmentFee} / session
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <h3 className="text-lg font-semibold text-white mb-4">Select Date & Time</h3>
+
+                {/* Date Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-purple-200 mb-2">
+                    <Calendar className="inline h-4 w-4 mr-2" />
+                    Select Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setSelectedTime('');
+                    }}
+                    min={getMinDate()}
+                    max={getMaxDate()}
+                    className="w-full bg-slate-800/50 text-white border-purple-500/30"
+                  />
+                </div>
+
+                {/* Time Slots */}
+                {selectedDate && (
+                  <div>
+                    <label className="block text-sm font-medium text-purple-200 mb-2">
+                      <Clock className="inline h-4 w-4 mr-2" />
+                      Select Time Slot
+                    </label>
+
+                    {isLoadingSlots ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2">
+                        {timeSlots.map((slot) => (
+                          <button
+                            key={slot.time}
+                            onClick={() => setSelectedTime(slot.time)}
+                            disabled={!slot.available}
+                            title={!slot.available ? `Booked by ${slot.bookedBy}` : ''}
+                            className={`
+                              px-3 py-2 rounded-lg text-sm font-medium transition-all
+                              ${
+                                selectedTime === slot.time
+                                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
+                                  : slot.available
+                                    ? 'bg-slate-800/50 border border-purple-500/30 text-purple-200 hover:border-purple-500'
+                                    : 'bg-slate-800/30 border border-slate-700 text-slate-600 cursor-not-allowed'
+                              }
+                            `}
+                          >
+                            {slot.time}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-purple-200 mb-2">
+                    Notes (Optional)
+                  </label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Any specific concerns or questions you'd like to discuss..."
+                    className="w-full bg-slate-800/50 text-white border-purple-500/30 resize-none placeholder:text-purple-400/50"
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-purple-300/70 mt-1">{notes.length}/500 characters</p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    onClick={handleClose}
+                    variant="outline"
+                    className="flex-1 border-purple-500/30 text-purple-200 hover:bg-purple-900/30"
+                    disabled={bookAppointmentMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleBookAppointment}
+                    disabled={!selectedTime || bookAppointmentMutation.isPending}
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0"
+                  >
+                    {bookAppointmentMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Booking...
+                      </>
+                    ) : (
+                      <>
+                        <DollarSign className="mr-2 h-4 w-4" />
+                        Book Appointment
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};

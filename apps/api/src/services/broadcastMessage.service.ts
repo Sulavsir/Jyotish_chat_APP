@@ -30,10 +30,11 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     throw new Error('BroadcastMessage table not found. Please run: prisma db push');
   }
 
-  // Check if client already has an active chat
+  // Check if client already has an active chat (not locked)
   const activeChat = await prisma.chat.findFirst({
     where: {
       status: 'ACTIVE',
+      isLocked: false, // Only check unlocked chats
       participant1Id: data.clientId, // Client is always participant1
     },
     include: {
@@ -48,8 +49,30 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   });
 
   if (activeChat) {
+    console.log('❌ Client has active chat:', {
+      chatId: activeChat.id,
+      astrologer: activeChat.astrologerParticipant.name,
+      status: activeChat.status,
+      isLocked: activeChat.isLocked,
+    });
+    throw new Error(`You have an active chat. End your current chat before starting a new one.`);
+  }
+
+  // Check if client has a pending broadcast message
+  const pendingBroadcast = await prisma.instantChatRequest.findFirst({
+    where: {
+      clientId: data.clientId,
+      status: 'PENDING',
+      expiresAt: {
+        gt: new Date(), // Not expired yet
+      },
+    },
+  });
+
+  if (pendingBroadcast) {
+    const timeLeft = Math.ceil((pendingBroadcast.expiresAt.getTime() - Date.now()) / 1000);
     throw new Error(
-      `You already have an active chat with ${activeChat.astrologerParticipant.name || activeChat.astrologerParticipant.phone}. Please end that chat before starting a new one.`
+      `You already have a pending broadcast message. Please wait ${timeLeft} seconds for it to be accepted or expire before sending another one.`
     );
   }
 
@@ -248,21 +271,7 @@ export async function getClientBroadcastMessages(clientId: string) {
 export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   const { messageId, astrologerId } = data;
 
-  // Check if astrologer already has an active chat
-  const activeChat = await prisma.chat.findFirst({
-    where: {
-      status: 'ACTIVE',
-      participant2Id: astrologerId, // Astrologer is always participant2
-    },
-  });
-
-  if (activeChat) {
-    throw new Error(
-      'You already have an active chat. End your current chat before accepting new requests.'
-    );
-  }
-
-  // Check if client already has an active chat
+  // Get the broadcast message
   const message = await prisma.broadcastMessage.findUnique({
     where: { id: messageId },
     include: {
@@ -278,15 +287,21 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     throw new Error('This message has already been accepted or expired');
   }
 
-  // Check if client has active chat
+  // Check if client has active chat (not locked)
   const clientActiveChat = await prisma.chat.findFirst({
     where: {
       status: 'ACTIVE',
+      isLocked: false, // Only check unlocked chats
       participant1Id: message.clientId, // Client is always participant1
     },
   });
 
   if (clientActiveChat) {
+    console.log('❌ Client already in active chat:', {
+      chatId: clientActiveChat.id,
+      status: clientActiveChat.status,
+      isLocked: clientActiveChat.isLocked,
+    });
     throw new Error('This client is already in an active chat with another astrologer');
   }
 
@@ -301,8 +316,12 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     },
   });
 
-  // If chat exists and is locked, unlock it
-  if (chat && chat.isLocked) {
+  // If chat exists (locked OR ended), reactivate it
+  if (chat && (chat.isLocked || chat.status === 'ENDED')) {
+    console.log(
+      `🔄 Reactivating chat ${chat.id} - Status: ${chat.status}, Locked: ${chat.isLocked}`
+    );
+
     chat = await prisma.chat.update({
       where: { id: chat.id },
       data: {
@@ -312,6 +331,36 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         endedAt: null,
       },
     });
+    console.log(`✅ Chat ${chat.id} reactivated successfully`);
+
+    // Emit socket event to notify both participants that chat was reopened
+    try {
+      const { getSocketInstance } = require('../utils/socket-instance');
+      const io = getSocketInstance();
+      if (io) {
+        console.log(`📡 Emitting chat:reopened for chat ${chat.id}`);
+
+        // Notify both participants
+        io.to(`user:${message.clientId}`).emit('chat:reopened', {
+          chatId: chat.id,
+          status: 'ACTIVE',
+          isLocked: false,
+          chat: chat,
+        });
+
+        io.to(`user:${astrologerId}`).emit('chat:reopened', {
+          chatId: chat.id,
+          status: 'ACTIVE',
+          isLocked: false,
+          chat: chat,
+        });
+
+        console.log(`✅ Notified both participants about chat reopen`);
+      }
+    } catch (socketError) {
+      console.error('Error broadcasting chat reopen:', socketError);
+      // Don't fail the request if socket fails
+    }
   }
 
   if (!chat) {
@@ -326,6 +375,10 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         isLocked: false,
       },
     });
+
+    // Emit new chat event to admin for real-time stats
+    const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+    AdminStatsEmitter.emitNewChat();
   }
 
   // Update broadcast message status
@@ -371,12 +424,60 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     },
   });
 
+  // Create automatic messages in the chat
+  // 1. User's original broadcast message
+  const originalMessage = await prisma.message.create({
+    data: {
+      chatId: chat.id,
+      senderId: message.clientId,
+      senderType: 'CLIENT',
+      receiverId: astrologerId,
+      receiverType: 'ASTROLOGER',
+      content: message.content,
+      type: 'TEXT',
+      metadata: {
+        originalBroadcast: true,
+        broadcastMessageId: messageId,
+      },
+    },
+  });
+
+  // 2. Astrologer's welcome message
+  const astrologerName = updatedMessage.acceptedAstrologer?.name || 'The astrologer';
+  const welcomeMessageContent = `Thank you for sending request. I (${astrologerName}) have accepted your request. I am currently analysing your profile and will get back to you soon...`;
+
+  const welcomeMessage = await prisma.message.create({
+    data: {
+      chatId: chat.id,
+      senderId: astrologerId,
+      senderType: 'ASTROLOGER',
+      receiverId: message.clientId,
+      receiverType: 'CLIENT',
+      content: welcomeMessageContent,
+      type: 'TEXT',
+      metadata: {
+        autoReply: true,
+        broadcastAcceptance: true,
+      },
+    },
+  });
+
+  // Update chat with last message info so it shows in conversation list
+  await prisma.chat.update({
+    where: { id: chat.id },
+    data: {
+      lastMessageText: welcomeMessageContent,
+      lastMessageAt: new Date(),
+    },
+  });
+
   // Notify admin
   notifyBroadcastMessageAccepted(messageId, message.clientId, astrologerId, chat.id);
 
   return {
     message: updatedMessage,
     chat,
+    initialMessages: [originalMessage, welcomeMessage],
   };
 }
 

@@ -19,6 +19,7 @@ import { USER_ROLES } from '@/constants';
 import { LoadingScreenWithBackground } from '@/components/ui';
 import { OnlineUsers } from '@/components/features/chat';
 import { RequestInstantChatButton } from '@/components/features/instant-chat/RequestInstantChatButton';
+import { BookAppointmentButton } from '@/components/features/appointment';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -46,7 +47,10 @@ export default function DashboardPage() {
               a consultation.
             </p>
           </div>
-          <RequestInstantChatButton />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <RequestInstantChatButton />
+            <BookAppointmentButton />
+          </div>
         </div>
 
         {/* Welcome Alert - Dismissible Example */}
@@ -156,7 +160,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Online Astrologers - Who's Active Now */}
-        <OnlineUsers title="Online Astrologers - Start Chatting Now!" maxUsers={10} />
+        <OnlineUsers title="Online Astrologers - Start Chatting Now!" maxHeight="400px" />
 
         {/* Recent Activity */}
         <Card className="bg-black/40 backdrop-blur-md border-white/10">

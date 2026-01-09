@@ -13,6 +13,7 @@ import {
   MoneyIcon,
   DocumentIcon,
 } from '@jyotish/ui';
+import { RefreshCw } from 'lucide-react';
 import { ADMIN_ROUTES } from '@/constants';
 import type { DashboardStats } from '@/types';
 import { useAdminSocket } from '@/hooks';
@@ -49,12 +50,21 @@ export default function DashboardPage() {
     };
 
     const handleNewChat = () => {
+      console.log('📊 New chat created');
       setStats((prev) =>
         prev ? { ...prev, activeChats: (prev.activeChats || 0) + 1 } : prev
       );
     };
 
+    const handleChatEnded = () => {
+      console.log('📊 Chat ended');
+      setStats((prev) =>
+        prev ? { ...prev, activeChats: Math.max((prev.activeChats || 0) - 1, 0) } : prev
+      );
+    };
+
     const handleNewEarning = (data: { amount: number }) => {
+      console.log('📊 New earning:', data.amount);
       setStats((prev) =>
         prev
           ? { ...prev, totalEarnings: (prev.totalEarnings || 0) + data.amount }
@@ -62,25 +72,38 @@ export default function DashboardPage() {
       );
     };
 
+    const handleNewConsultation = () => {
+      console.log('📊 New consultation created');
+      setStats((prev) =>
+        prev ? { ...prev, todayConsultations: (prev.todayConsultations || 0) + 1 } : prev
+      );
+    };
+
     on('stats:update', handleStatsUpdate);
     on('user:new', handleNewUser);
     on('astrologer:new', handleNewAstrologer);
     on('chat:new', handleNewChat);
+    on('chat:ended', handleChatEnded);
     on('earning:new', handleNewEarning);
+    on('consultation:new', handleNewConsultation);
 
     return () => {
       off('stats:update', handleStatsUpdate);
       off('user:new', handleNewUser);
       off('astrologer:new', handleNewAstrologer);
       off('chat:new', handleNewChat);
+      off('chat:ended', handleChatEnded);
       off('earning:new', handleNewEarning);
+      off('consultation:new', handleNewConsultation);
     };
   }, [isConnected, on, off]);
 
   const loadStats = async () => {
     try {
       const response = await adminApi.dashboard.stats();
-      setStats(response as DashboardStats);
+      console.log('📊 Dashboard stats response:', response);
+      // API returns { stats: { totalUsers, totalAstrologers, ... } }
+      setStats((response as any).stats as DashboardStats);
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
@@ -93,13 +116,13 @@ export default function DashboardPage() {
       title: 'Total Users',
       value: stats?.totalUsers || 0,
       icon: <UsersIcon className="w-8 h-8 text-red-400" />,
-      color: 'from-cosmic-purple to-nebula-pink',
+      color: 'from-purple-500 to-pink-500',
     },
     {
       title: 'Total Astrologers',
       value: stats?.totalAstrologers || 0,
       icon: <StarIcon className="w-8 h-8 text-purple-400" />,
-      color: 'from-nebula-pink to-cosmic-purple',
+      color: 'from-pink-500 to-purple-500',
     },
     {
       title: 'Active Chats',
@@ -181,11 +204,23 @@ export default function DashboardPage() {
     <AdminLayout>
       <div className="space-y-8">
         {/* Welcome Section */}
-        <div>
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-red-400">
-            Dashboard Overview
-          </h2>
-          <p className="text-slate-400 mt-2">Welcome back! Here's what's happening today.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-red-400">
+              Dashboard Overview
+            </h2>
+            <p className="text-slate-400 mt-2">Welcome back! Here's what's happening today.</p>
+          </div>
+          <Button
+            onClick={() => loadStats()}
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            className="border-slate-700 text-white hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Stats Grid */}

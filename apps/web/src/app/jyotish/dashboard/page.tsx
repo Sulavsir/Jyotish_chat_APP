@@ -6,7 +6,7 @@
 
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
-import { USER_ROLES } from '@/constants';
+import { USER_ROLES, ROUTES } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useRouter } from 'next/navigation';
 import { LoadingScreenWithBackground } from '@/components/ui';
@@ -84,7 +84,7 @@ export default function JyotishDashboardPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
-                onClick={() => router.push('/jyotish/chat')}
+                onClick={() => router.push(ROUTES.JYOTISH_CHAT)}
                 className="p-6 rounded-lg bg-gradient-to-br from-orange-600/30 to-amber-600/30 border border-orange-500/30 hover:from-orange-600/40 hover:to-amber-600/40 transition-all group"
               >
                 <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💬</div>
@@ -93,7 +93,7 @@ export default function JyotishDashboardPage() {
               </button>
 
               <button
-                onClick={() => router.push('/jyotish/consultations')}
+                onClick={() => router.push(ROUTES.JYOTISH_CONSULTATIONS)}
                 className="p-6 rounded-lg bg-gradient-to-br from-yellow-600/30 to-orange-600/30 border border-yellow-500/30 hover:from-yellow-600/40 hover:to-orange-600/40 transition-all group"
               >
                 <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">📅</div>
@@ -102,7 +102,7 @@ export default function JyotishDashboardPage() {
               </button>
 
               <button
-                onClick={() => router.push('/jyotish/profile')}
+                onClick={() => router.push(ROUTES.JYOTISH_PROFILE)}
                 className="p-6 rounded-lg bg-gradient-to-br from-amber-600/30 to-yellow-600/30 border border-amber-500/30 hover:from-amber-600/40 hover:to-yellow-600/40 transition-all group"
               >
                 <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">⚙️</div>

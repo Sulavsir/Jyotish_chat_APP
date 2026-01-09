@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { Input } from './input';
-import { SearchIcon } from './icons';
+import { SearchIcon } from 'lucide-react';
 import { cn } from './utils';
 
 export interface SearchProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -22,7 +22,12 @@ const Search = React.forwardRef<HTMLInputElement, SearchProps>(
     return (
       <div className={cn('cosmic-card rounded-xl p-4', containerClassName)}>
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white pointer-events-none" />
+          <SearchIcon
+            size={20}
+            strokeWidth={2}
+            absoluteStrokeWidth
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+          />
           <Input
             ref={ref}
             type="text"

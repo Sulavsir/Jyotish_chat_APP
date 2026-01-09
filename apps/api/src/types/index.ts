@@ -15,3 +15,4 @@ export * from './notification.types';
 export * from './database.types';
 export * from './service.types';
 export * from './common.types';
+export * from './appointment.types';

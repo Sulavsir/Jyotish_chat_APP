@@ -11,6 +11,7 @@ export interface UserPayload {
   phone?: string;
   email?: string;
   role: UserRole;
+  category?: string; // For astrologers: ORDINARY, PROFESSIONAL, PREMIUM
   type?: typeof TOKEN_TYPES.ACCESS | typeof TOKEN_TYPES.REFRESH;
 }
 

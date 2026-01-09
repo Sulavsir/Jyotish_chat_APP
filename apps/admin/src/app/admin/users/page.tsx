@@ -1,68 +1,151 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Search } from '@jyotish/ui';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableSkeleton,
-  EmptyState,
-  UsersIcon,
-} from '@jyotish/ui';
+import { Button, Search, UsersIcon } from '@jyotish/ui';
+import { RefreshCw } from 'lucide-react';
+import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { User } from '@/types';
 
+const ITEMS_PER_PAGE = 10;
+
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    try {
+  // Fetch users with TanStack Query
+  const {
+    data: rawUsers = [],
+    isLoading,
+    refetch,
+  } = useQuery<User[]>({
+    queryKey: ADMIN_QUERY_KEYS.USERS.LIST(),
+    queryFn: async () => {
       const response: any = await adminApi.users.list();
       if (Array.isArray(response)) {
-        setUsers(response);
+        return response;
       } else if (response?.users) {
-        setUsers(response.users);
+        return response.users;
       }
-    } catch (error) {
-      console.error('Failed to load users:', error);
-    } finally {
-      setLoading(false);
-    }
+      return [];
+    },
+  });
+
+  // Toggle status mutation
+  const toggleStatusMutation = useMutation({
+    mutationFn: (id: string) => adminApi.users.toggleStatus(id),
+    onSuccess: () => {
+      toast.success('User status updated successfully');
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.USERS.ALL });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.error?.message || 'Failed to toggle status';
+      toast.error(message);
+    },
+  });
+
+  const toggleStatus = (id: string) => {
+    toggleStatusMutation.mutate(id);
   };
 
-  const toggleStatus = async (id: string) => {
-    try {
-      await adminApi.users.toggleStatus(id);
-      loadUsers();
-    } catch (error) {
-      console.error('Failed to toggle status:', error);
-    }
-  };
+  // Filter users
+  const filteredUsers = useMemo(() => {
+    return rawUsers.filter(
+      (user) =>
+        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.phone?.includes(searchTerm)
+    );
+  }, [rawUsers, searchTerm]);
 
-  const filteredUsers = users.filter((user) =>
-    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone?.includes(searchTerm)
-  );
+  // Paginate users
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredUsers.slice(startIndex, endIndex);
+  }, [filteredUsers, currentPage]);
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+
+  // Reset to page 1 when search term changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const columns: AdminTableColumn<User>[] = [
+    {
+      header: 'Name',
+      accessor: (user) => <span className="font-medium">{user.name || 'N/A'}</span>,
+    },
+    {
+      header: 'Email',
+      accessor: (user) => user.email || 'N/A',
+    },
+    {
+      header: 'Phone',
+      accessor: (user) => user.phone,
+    },
+    {
+      header: 'Profile',
+      accessor: (user) => (
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            user.profileCompleted
+              ? 'bg-blue-500/20 text-blue-400'
+              : 'bg-yellow-500/20 text-yellow-400'
+          }`}
+        >
+          {user.profileCompleted ? 'Complete' : 'Incomplete'}
+        </span>
+      ),
+    },
+    {
+      header: 'Status',
+      accessor: (user) => (
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            user.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+          }`}
+        >
+          {user.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      header: 'Actions',
+      accessor: (user) => (
+        <Button variant="outline" size="sm" onClick={() => toggleStatus(user.id)}>
+          Toggle Status
+        </Button>
+      ),
+      className: 'text-center',
+    },
+  ];
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h2 className="text-3xl font-bold text-white">Users</h2>
-          <p className="text-slate-400 mt-1">Manage your platform users</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-white">Users</h2>
+            <p className="text-slate-400 mt-1">Manage your platform users</p>
+          </div>
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            className="border-slate-700 text-white hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {/* Search Bar */}
@@ -75,72 +158,24 @@ export default function UsersPage() {
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
-          {loading ? (
-            <TableSkeleton rows={10} columns={6} />
-          ) : filteredUsers.length === 0 ? (
-            <EmptyState
-              icon={<UsersIcon className="w-20 h-20 text-slate-600" />}
-              title={searchTerm ? 'No users found' : 'No users yet'}
-              description={
-                searchTerm
-                  ? 'Try adjusting your search terms'
-                  : 'Users will appear here once they sign up on your platform'
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Profile</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name || 'N/A'}</TableCell>
-                    <TableCell>{user.email || 'N/A'}</TableCell>
-                    <TableCell>{user.phone}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.profileCompleted
-                            ? 'bg-blue-500/20 text-blue-400'
-                            : 'bg-yellow-500/20 text-yellow-400'
-                        }`}
-                      >
-                        {user.profileCompleted ? 'Complete' : 'Incomplete'}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          user.isActive
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-red-500/20 text-red-400'
-                        }`}
-                      >
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleStatus(user.id)}
-                      >
-                        Toggle Status
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <AdminTable
+            data={paginatedUsers}
+            columns={columns}
+            loading={isLoading}
+            keyExtractor={(user) => user.id}
+            currentPage={currentPage}
+            itemsPerPage={ITEMS_PER_PAGE}
+            totalItems={filteredUsers.length}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            emptyState={{
+              icon: <UsersIcon className="w-20 h-20 text-slate-600" />,
+              title: searchTerm ? 'No users found' : 'No users yet',
+              description: searchTerm
+                ? 'Try adjusting your search terms'
+                : 'Users will appear here once they sign up on your platform',
+            }}
+          />
         </div>
       </div>
     </AdminLayout>

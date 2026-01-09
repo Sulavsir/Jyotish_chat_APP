@@ -39,20 +39,53 @@ const app = express();
 const httpServer = createServer(app);
 
 // Initialize Socket.io with network access
-const allowedOrigins: string[] = [
-  'http://localhost:3000',    // Web app
-  'http://localhost:3001',    // Web app alternative
-  'http://localhost:3002',    // Admin panel
-  'http://192.168.0.206:3000',
-  'http://192.168.0.206:3001',
-  'http://192.168.0.206:3002',
-  process.env.CORS_ORIGIN || '',
-  process.env.FRONTEND_URL || '',
-].filter((origin): origin is string => Boolean(origin) && origin !== '');
+// Function to check if origin is allowed
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  if (!origin) {
+    console.log('✅ CORS: Allowing request with no origin');
+    return true; // Allow requests with no origin (like mobile apps)
+  }
+
+  console.log('🔍 CORS: Checking origin:', origin);
+
+  // In development, allow all localhost and local network origins
+  if (process.env.NODE_ENV !== 'production') {
+    // Allow localhost on any port
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      console.log('✅ CORS: Allowed localhost origin');
+      return true;
+    }
+
+    // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+    if (
+      origin.match(/^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}/) ||
+      origin.match(/^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}/) ||
+      origin.match(/^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}/)
+    ) {
+      console.log('✅ CORS: Allowed local network origin');
+      return true;
+    }
+  }
+
+  // Production: only allow specific origins
+  const allowedOrigins = [process.env.CORS_ORIGIN || '', process.env.FRONTEND_URL || ''].filter(
+    Boolean
+  );
+
+  const isAllowed = allowedOrigins.includes(origin);
+  console.log(isAllowed ? '✅ CORS: Allowed by whitelist' : '❌ CORS: Origin not allowed');
+  return isAllowed;
+};
 
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -67,7 +100,13 @@ app.use(
 app.use(compression());
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );
@@ -93,6 +132,10 @@ setupSwagger(app);
 // Socket.io setup
 setupSocketHandlers(io);
 setSocketInstance(io); // Make io accessible to controllers
+
+// Start appointment chat ender worker
+import { startAppointmentChatEnderWorker } from './workers/appointmentChatEnder';
+startAppointmentChatEnderWorker();
 
 // Error handler (must be last)
 app.use(errorHandler);

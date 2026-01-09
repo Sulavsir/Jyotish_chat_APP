@@ -26,6 +26,12 @@ export function CountdownTimer({
 }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isExpired, setIsExpired] = useState(false);
+  const onExpireRef = React.useRef(onExpire);
+
+  // Update ref when onExpire changes
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -37,8 +43,9 @@ export function CountdownTimer({
       if (remaining <= 0) {
         setIsExpired(true);
         setTimeLeft(0);
-        if (onExpire) {
-          onExpire();
+        // Use ref to avoid infinite loop
+        if (onExpireRef.current) {
+          onExpireRef.current();
         }
         return 0;
       }
@@ -59,7 +66,7 @@ export function CountdownTimer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [createdAt, expiryMs, onExpire]);
+  }, [createdAt, expiryMs]); // ✅ Removed onExpire from dependencies
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);

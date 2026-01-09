@@ -1,5 +1,5 @@
 /**
- * Astrologer Broadcast View ("Everyone" view for astrologers)
+ * Astrologer Broadcast View ("Channel Jyotish" view for astrologers)
  * Shows all broadcast messages from clients with their status
  */
 
@@ -18,6 +18,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { ROUTE_BUILDERS } from '@/constants';
+import { useRouter } from 'next/navigation';
 
 interface AstrologerBroadcastViewProps {
   onChatCreated?: (chatId: string) => void;
@@ -26,29 +28,21 @@ interface AstrologerBroadcastViewProps {
 export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastViewProps) {
   const { socket, isConnected } = useSocket();
   const user = useAuthStore((state) => state.user);
+  const router = useRouter();
   const [messages, setMessages] = useState<BroadcastMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState<string | null>(null);
-  const [hasActiveChat, setHasActiveChat] = useState(false);
+  // ✅ REMOVED: hasActiveChat state - astrologers can handle multiple chats
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load all broadcast messages on mount and check for active chat
+  // Load all broadcast messages on mount
   useEffect(() => {
     if (user?.role === 'ASTROLOGER') {
       loadMessages();
-      checkActiveChat();
     }
   }, [user]);
 
-  // Check if astrologer has an active chat
-  async function checkActiveChat() {
-    try {
-      const activeChat = await chatService.getActiveChat();
-      setHasActiveChat(!!activeChat);
-    } catch (error) {
-      console.error('Error checking active chat:', error);
-    }
-  }
+  // ✅ REMOVED: checkActiveChat function - no longer needed
 
   // Setup socket listeners
   useEffect(() => {
@@ -95,8 +89,23 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
     // My acceptance was successful
     socket.on('broadcast:messageAccepted', (result: any) => {
       setAccepting(null);
-      if (result.chat && onChatCreated) {
-        onChatCreated(result.chat.id);
+      
+      // Update message status
+      setMessages((prev) =>
+        prev.map((m) => (m.id === result.message?.id ? { ...m, status: 'ACCEPTED' } : m))
+      );
+      
+      // Navigate to chat immediately
+      if (result.chat) {
+        toast.success('Chat opened! Redirecting...', { duration: 1500 });
+        
+        // Navigate to the chat page
+        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));
+        
+        // Also notify parent callback if provided
+        if (onChatCreated) {
+          onChatCreated(result.chat.id);
+        }
       }
     });
 
@@ -134,14 +143,8 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       return;
     }
 
-    // Check if astrologer has active chat
-    if (hasActiveChat) {
-      toast.error('You already have an active chat', {
-        description: 'End your current chat before accepting new requests.',
-        duration: 5000,
-      });
-      return;
-    }
+    // ✅ REMOVED: Astrologers can now accept multiple chats at once
+    // No need to check for active chat
 
     // Check if already accepted
     const message = messages.find((m) => m.id === messageId);
@@ -193,10 +196,9 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
     return null;
   }
 
-  // Filter messages based on active chat status and expiry
-  const visibleMessages = hasActiveChat
-    ? messages.filter((m) => m.status === 'ACCEPTED' && m.acceptedAstrologer?.id === user?.id)
-    : messages.filter((m) => m.status !== 'EXPIRED'); // Hide expired messages from astrologers
+  // Filter messages - only hide expired ones
+  // ✅ Astrologers can now see all messages even with active chats
+  const visibleMessages = messages.filter((m) => m.status !== 'EXPIRED'); // Hide expired messages from astrologers
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-indigo-50">
@@ -207,26 +209,13 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
             <MessageSquare className="h-6 w-6 text-white" />
           </div>
           <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900">Everyone (All Clients)</h2>
+            <h2 className="text-xl font-bold text-gray-900">Channel Jyotish (All Clients)</h2>
             <p className="text-sm text-gray-600">
               {messages.filter((m) => m.status === 'PENDING').length} pending requests
             </p>
           </div>
-          {hasActiveChat && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-              <Lock className="h-3.5 w-3.5" />
-              <span>Active Chat</span>
-            </div>
-          )}
+          {/* ✅ REMOVED: Active chat warning - astrologers can handle multiple chats */}
         </div>
-        {hasActiveChat && (
-          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
-            <Lock className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-yellow-800">
-              You have an active chat. End your current chat to see and accept new broadcast requests.
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Messages List */}
@@ -241,12 +230,10 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
               <MessageSquare className="h-12 w-12 text-purple-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {hasActiveChat ? 'Focus on Your Active Chat' : 'No Broadcast Messages'}
+              No Broadcast Messages
             </h3>
             <p className="text-gray-600 max-w-md">
-              {hasActiveChat
-                ? 'Complete your current chat to see new broadcast requests from clients.'
-                : 'When clients send broadcast messages, they will appear here for you to accept.'}
+              When clients send broadcast messages, they will appear here for you to accept.
             </p>
           </div>
         ) : (

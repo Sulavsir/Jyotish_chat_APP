@@ -9,10 +9,11 @@ import { prisma } from '@jyotish/database';
  * Get all astrologers (for clients)
  * NOTE: Includes isOnline field - clients CAN see which astrologers are online
  */
-export const getAstrologers = async (limit = 10) => {
+export const getAstrologers = async (limit = 10, onlineOnly = true) => {
   const astrologers = await prisma.astrologer.findMany({
     where: {
       isActive: true,
+      ...(onlineOnly ? { isOnline: true } : {}), // Filter by online status
     },
     select: {
       id: true,
@@ -24,9 +25,10 @@ export const getAstrologers = async (limit = 10) => {
       createdAt: true,
     },
     take: limit,
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy: [
+      { isOnline: 'desc' }, // Online astrologers first
+      { createdAt: 'desc' },
+    ],
   });
 
   // Map to match the expected format (add role field for consistency)

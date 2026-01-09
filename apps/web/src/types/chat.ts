@@ -3,10 +3,25 @@ export interface Chat {
   participant1Id: string;
   participant2Id: string;
   consultationId?: string;
+  status: 'ACTIVE' | 'ENDED';
+  isLocked: boolean;
+  endedBy?: string | null;
+  endedAt?: Date | null;
   lastMessageAt?: Date;
   lastMessageText?: string;
   participant1Read: boolean;
   participant2Read: boolean;
+  isMonitoredByAdmin?: boolean;
+  adminNotes?: string | null;
+  isAbandonedByAdmin?: boolean;
+  abandonedBy?: string | null;
+  abandonedAt?: Date | null;
+  abandonReason?: string | null;
+  // Turn-based messaging fields
+  waitingForReply?: boolean;
+  lastClientMessageAt?: Date | null;
+  lastAstrologerReplyAt?: Date | null;
+  turnBasedEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
   clientParticipant: {

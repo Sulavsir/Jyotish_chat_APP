@@ -29,6 +29,13 @@ export const ADMIN_ROUTES = {
   // Chat Audit
   CHAT_AUDIT: '/admin/chat-audit',
   
+  // Complaints
+  COMPLAINTS: '/admin/complaints',
+  COMPLAINTS_VIEW: (id: string) => `/admin/complaints/${id}`,
+  
+  // Appointments
+  APPOINTMENTS: '/admin/appointments',
+  
   // Earnings
   EARNINGS: '/admin/earnings',
   

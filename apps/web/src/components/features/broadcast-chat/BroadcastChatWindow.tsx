@@ -1,6 +1,6 @@
 /**
  * Broadcast Chat Window
- * Special chat window for "Everyone Jyotish" broadcast messaging
+ * Special chat window for "Channel Jyotish" broadcast messaging
  */
 
 'use client';
@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { ROUTE_BUILDERS } from '@/constants';
 
 interface BroadcastChatWindowProps {
   onChatCreated?: (chatId: string) => void;
@@ -42,6 +43,15 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     checkActiveChat();
   }, []);
 
+  // Auto-scroll to bottom when messages load
+  useEffect(() => {
+    if (messages.length > 0 && !isLoading) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [messages.length, isLoading]);
+
   // Check if user has an active chat
   async function checkActiveChat() {
     try {
@@ -58,13 +68,17 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
 
     // Listen for confirmation that message was sent
     socket.on('broadcast:messageSent', (message: BroadcastMessage) => {
-      setMessages((prev) => [message, ...prev]);
+      setMessages((prev) => [...prev, message]); // Add new message at the end (bottom)
       setIsSending(false);
+      // Auto-scroll to bottom to show new message
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     });
 
     // Listen for message acceptance
     socket.on('broadcast:yourMessageAccepted', (data: any) => {
-      const { message, chat, astrologer } = data;
+      const { message, chat, astrologer, initialMessages } = data;
 
       // Update the message status
       setMessages((prev) =>
@@ -76,13 +90,18 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       );
 
       toast.success(
-        `${astrologer.name || 'An astrologer'} accepted your request! Redirecting to chat...`
+        `${astrologer.name || 'An astrologer'} accepted your request! Opening chat...`,
+        {
+          description: 'You can now start chatting with your astrologer',
+          duration: 3000,
+        }
       );
 
-      // Navigate to the chat
+      // Navigate to the chat immediately
+      // The chat will already have the initial messages (user's broadcast + astrologer's welcome)
       setTimeout(() => {
-        router.push(`/chat?chatId=${chat.id}`);
-      }, 1000);
+        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
+      }, 1500);
 
       // Notify parent callback
       if (onChatCreated && chat.id) {
@@ -118,7 +137,11 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     try {
       setIsLoading(true);
       const msgs = await broadcastMessageService.getMyMessages();
-      setMessages(msgs || []); // Ensure we always have an array
+      // Sort messages oldest-first (ascending by createdAt) for chat-like experience
+      const sortedMessages = (msgs || []).sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('Error loading broadcast messages:', error);
       // Don't show error toast on initial load - table might not exist yet
@@ -256,7 +279,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
             <Users className="h-6 w-6 text-white" />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold text-white dark:text-white">Everyone(JYOTISH)</h2>
+            <h2 className="text-lg font-semibold text-white dark:text-white">Channel Jyotish</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Broadcast to all online astrologers
             </p>

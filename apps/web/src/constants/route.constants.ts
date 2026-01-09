@@ -1,5 +1,6 @@
 /**
  * Route Constants
+ * Centralized route definitions for the application
  */
 
 export const ROUTES = {
@@ -27,11 +28,14 @@ export const ROUTES = {
   PROFILE: '/profile',
   SETTINGS: '/settings',
   PRICING: '/pricing',
+  ASTROLOGERS: '/astrologers',
+  ASTROLOGER_PROFILE: '/astrologers/[id]',
 
   // Jyotish (Astrologer) Routes
   JYOTISH_DASHBOARD: '/jyotish/dashboard',
   JYOTISH_CHAT: '/jyotish/chat',
   JYOTISH_CONSULTATIONS: '/jyotish/consultations',
+  JYOTISH_APPOINTMENTS: '/jyotish/appointments',
   JYOTISH_PROFILE: '/jyotish/profile',
   JYOTISH_SETTINGS: '/jyotish/settings',
   JYOTISH_CLIENTS: '/jyotish/clients',
@@ -46,4 +50,27 @@ export const ROUTES = {
   // Error Pages
   UNAUTHORIZED: '/unauthorized',
   NOT_FOUND: '/not-found',
+} as const;
+
+/**
+ * Helper function to build routes with query parameters
+ */
+export const buildRoute = (path: string, params?: Record<string, string | number | boolean>) => {
+  if (!params) return path;
+
+  const queryString = Object.entries(params)
+    .filter(([_, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    .join('&');
+
+  return queryString ? `${path}?${queryString}` : path;
+};
+
+/**
+ * Route builders with parameters
+ */
+export const ROUTE_BUILDERS = {
+  CHAT_WITH_ID: (chatId: string) => buildRoute(ROUTES.CHAT, { chatId }),
+  JYOTISH_CHAT_WITH_ID: (chatId: string) => buildRoute(ROUTES.JYOTISH_CHAT, { chatId }),
+  ASTROLOGER_PROFILE: (id: string) => `/astrologers/${id}`,
 } as const;

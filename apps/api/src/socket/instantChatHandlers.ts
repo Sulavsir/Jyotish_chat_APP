@@ -5,9 +5,11 @@
 
 import { Server, Socket } from 'socket.io';
 import { NotificationType } from '@jyotish/shared';
+import { AstrologerCategory } from '@prisma/client';
 import * as instantChatService from '../services/instantChat.service';
 import { notificationService } from '../services/notification.service';
 import { getSocketInstance } from '../utils/socket-instance';
+import { prisma } from '@jyotish/database';
 
 export function setupInstantChatHandlers(io: Server, socket: Socket) {
   const userId = socket.data.user?.id;
@@ -31,31 +33,45 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
         request,
       });
 
-      // Broadcast to all online astrologers
-      io.emit('instantChat:newRequest', {
-        request,
+      // Get eligible astrologers (ORDINARY and PROFESSIONAL only, exclude PREMIUM)
+      const eligibleAstrologers = await prisma.astrologer.findMany({
+        where: {
+          isActive: true,
+          isOnline: true,
+          category: {
+            in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
       });
 
-      // Create notifications for all online astrologers
-      // Get all online astrologers from socket rooms
+      const eligibleAstrologerIds = new Set(eligibleAstrologers.map((a) => a.id));
+
+      // Broadcast to eligible online astrologers only
       const io = getSocketInstance();
       if (io) {
         // Get all connected sockets
         const sockets = await io.fetchSockets();
-        const onlineAstrologerIds = new Set<string>();
-        
-        // Collect unique astrologer IDs
+
+        // Emit to eligible astrologers only
         sockets.forEach((s) => {
-          if (s.data.user?.role === 'ASTROLOGER' && s.data.user?.id) {
-            onlineAstrologerIds.add(s.data.user.id);
+          if (
+            s.data.user?.role === 'ASTROLOGER' &&
+            s.data.user?.id &&
+            eligibleAstrologerIds.has(s.data.user.id)
+          ) {
+            s.emit('instantChat:newRequest', { request });
           }
         });
 
-        // Create notifications for online astrologers
-        for (const astrologerId of onlineAstrologerIds) {
+        // Create notifications for eligible online astrologers
+        for (const astrologer of eligibleAstrologers) {
           try {
             const notification = await notificationService.createNotification({
-              astrologerId, // Use astrologerId for astrologers
+              astrologerId: astrologer.id,
               title: 'New Chat Request',
               message: `New instant chat request from ${request.client?.name || 'a client'}`,
               type: NotificationType.CHAT_MESSAGE,
@@ -67,9 +83,9 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
             });
 
             // Emit real-time notification to astrologer
-            io.to(`user_${astrologerId}`).emit('notification:new', notification);
+            io.to(`user_${astrologer.id}`).emit('notification:new', notification);
           } catch (error) {
-            console.error(`Failed to create notification for astrologer ${astrologerId}:`, error);
+            console.error(`Failed to create notification for astrologer ${astrologer.id}:`, error);
           }
         }
       }
@@ -89,6 +105,28 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
    */
   socket.on('instantChat:accept', async (data: { requestId: string }) => {
     try {
+      // Check if astrologer is eligible to accept instant chat
+      const astrologer = await prisma.astrologer.findUnique({
+        where: { id: userId },
+        select: { category: true, isActive: true },
+      });
+
+      if (!astrologer || !astrologer.isActive) {
+        socket.emit('instantChat:error', {
+          success: false,
+          message: 'Astrologer account is not active',
+        });
+        return;
+      }
+
+      if (astrologer.category === AstrologerCategory.PREMIUM) {
+        socket.emit('instantChat:error', {
+          success: false,
+          message: 'Premium astrologers can only accept appointments, not instant chats',
+        });
+        return;
+      }
+
       const result = await instantChatService.acceptInstantChatRequest(data.requestId, userId);
 
       // Send confirmation to astrologer

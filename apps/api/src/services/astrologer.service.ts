@@ -27,6 +27,8 @@ export class AstrologerService {
         bio: true,
         specialization: true,
         experience: true,
+        category: true,
+        appointmentFee: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -83,6 +85,29 @@ export class AstrologerService {
   async findByEmail(email: string) {
     return await prisma.astrologer.findUnique({
       where: { email },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        password: true,
+        name: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        category: true,
+        appointmentFee: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        commissionRate: true,
+        languages: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -97,6 +122,8 @@ export class AstrologerService {
     bio?: string;
     specialization: string[];
     experience?: number;
+    category?: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM'; // AstrologerCategory enum
+    appointmentFee?: number;
     commissionRate: number;
     languages: string[];
     createdBy: string; // Admin ID
@@ -154,6 +181,8 @@ export class AstrologerService {
         bio: data.bio,
         specialization: data.specialization,
         experience: data.experience,
+        category: data.category, // ORDINARY, PROFESSIONAL, PREMIUM
+        appointmentFee: data.appointmentFee,
         commissionRate: data.commissionRate,
         languages: data.languages,
         createdBy: data.createdBy,
@@ -169,6 +198,8 @@ export class AstrologerService {
         bio: true,
         specialization: true,
         experience: true,
+        category: true,
+        appointmentFee: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -188,35 +219,83 @@ export class AstrologerService {
   /**
    * Astrologer login with phone/email and password
    */
-  async login(identifier: string, password: string) {
+  async login(identifier: string, password: string, deviceInfo: any) {
     // Find astrologer by phone or email
     let astrologer = await prisma.astrologer.findFirst({
       where: {
         OR: [{ phone: identifier }, { email: identifier }],
       },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        password: true,
+        name: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        category: true,
+        appointmentFee: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        commissionRate: true,
+        languages: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!astrologer) {
+      console.log('❌ Astrologer not found for identifier:', identifier);
       throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
+
+    console.log('✅ Astrologer found:', astrologer.email, 'Active:', astrologer.isActive);
 
     if (!astrologer.isActive) {
       throw new AppError('Account is deactivated', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
 
     // Verify password
+    console.log('🔐 Verifying password for:', astrologer.email);
     const isPasswordValid = await bcrypt.compare(password, astrologer.password);
-    
+    console.log('🔐 Password valid:', isPasswordValid);
+
     if (!isPasswordValid) {
+      console.log('❌ Invalid password for:', astrologer.email);
       throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    // Generate tokens
-    const accessToken = this.generateAccessToken(astrologer.id, astrologer.phone);
-    const refreshToken = this.generateRefreshToken(astrologer.id, astrologer.phone);
+    console.log('✅ Login successful for:', astrologer.email, 'Category:', astrologer.category);
 
-    // Store refresh token in session (using astrologerId)
-    await sessionService.createSessionForAstrologer(astrologer.id, refreshToken);
+    // Generate tokens with category
+    const accessToken = this.generateAccessToken(
+      astrologer.id,
+      astrologer.phone,
+      astrologer.category
+    );
+    const refreshToken = this.generateRefreshToken(
+      astrologer.id,
+      astrologer.phone,
+      astrologer.category
+    );
+
+    // Import device session service
+    const { createDeviceSession } = require('./device-session.service');
+
+    // Create session with device tracking
+    await createDeviceSession({
+      astrologerId: astrologer.id,
+      userType: 'ASTROLOGER' as any,
+      refreshToken,
+      deviceInfo,
+      expiresAt: new Date(Date.now() + AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN_MS),
+    });
 
     return {
       astrologer: {
@@ -229,6 +308,7 @@ export class AstrologerService {
         specialization: astrologer.specialization,
         experience: astrologer.experience,
         rating: astrologer.rating,
+        category: astrologer.category, // Include category in response
         isActive: astrologer.isActive,
         isOnline: astrologer.isOnline,
         isVerified: astrologer.isVerified,
@@ -239,13 +319,14 @@ export class AstrologerService {
   }
 
   /**
-   * Generate access token for astrologer
+   * Generate access token for astrologer (with category encoded)
    */
-  private generateAccessToken(astrologerId: string, phone: string): string {
+  private generateAccessToken(astrologerId: string, phone: string, category: string): string {
     const payload = {
       id: astrologerId,
       phone,
       role: 'ASTROLOGER',
+      category, // Encode category in token
       type: 'access', // Fixed: lowercase to match auth middleware
     };
 
@@ -256,13 +337,14 @@ export class AstrologerService {
   }
 
   /**
-   * Generate refresh token for astrologer
+   * Generate refresh token for astrologer (with category encoded)
    */
-  private generateRefreshToken(astrologerId: string, phone: string): string {
+  private generateRefreshToken(astrologerId: string, phone: string, category: string): string {
     const payload = {
       id: astrologerId,
       phone,
       role: 'ASTROLOGER',
+      category, // Encode category in token
       type: 'refresh', // Fixed: lowercase to match auth middleware
     };
 
@@ -410,6 +492,8 @@ export class AstrologerService {
           bio: true,
           specialization: true,
           experience: true,
+          category: true,
+          appointmentFee: true,
           rating: true,
           totalConsultations: true,
           isActive: true,

@@ -1,0 +1,75 @@
+/**
+ * TanStack Query Keys Constants for Admin Panel
+ * Centralized query keys for React Query
+ */
+
+export const ADMIN_QUERY_KEYS = {
+  // Astrologers
+  ASTROLOGERS: {
+    ALL: ['admin', 'astrologers'] as const,
+    LIST: () => ['admin', 'astrologers', 'list'] as const,
+    DETAIL: (id: string) => ['admin', 'astrologers', 'detail', id] as const,
+  },
+
+  // Users
+  USERS: {
+    ALL: ['admin', 'users'] as const,
+    LIST: () => ['admin', 'users', 'list'] as const,
+    DETAIL: (id: string) => ['admin', 'users', 'detail', id] as const,
+  },
+
+  // Appointments
+  APPOINTMENTS: {
+    ALL: ['admin', 'appointments'] as const,
+    LIST: () => ['admin', 'appointments', 'list'] as const,
+    DETAIL: (id: string) => ['admin', 'appointments', 'detail', id] as const,
+  },
+
+  // Chats
+  CHATS: {
+    ALL: ['admin', 'chats'] as const,
+    LIST: () => ['admin', 'chats', 'list'] as const,
+    DETAIL: (id: string) => ['admin', 'chats', 'detail', id] as const,
+  },
+
+  // Chat Audit
+  CHAT_AUDIT: {
+    ALL: ['admin', 'chat-audit'] as const,
+    LIST: () => ['admin', 'chat-audit', 'list'] as const,
+  },
+
+  // Audit Logs
+  AUDIT_LOGS: {
+    ALL: ['admin', 'audit-logs'] as const,
+    LIST: () => ['admin', 'audit-logs', 'list'] as const,
+  },
+
+  // Earnings
+  EARNINGS: {
+    ALL: ['admin', 'earnings'] as const,
+    LIST: () => ['admin', 'earnings', 'list'] as const,
+  },
+
+  // Pricing
+  PRICING: {
+    ALL: ['admin', 'pricing'] as const,
+    LIST: () => ['admin', 'pricing', 'list'] as const,
+    DETAIL: (id: string) => ['admin', 'pricing', 'detail', id] as const,
+  },
+
+  // Dashboard Stats
+  DASHBOARD: {
+    STATS: () => ['admin', 'dashboard', 'stats'] as const,
+  },
+
+  // Complaints
+  COMPLAINTS: {
+    ALL: ['admin', 'complaints'] as const,
+    LIST: (filters?: { status?: string; category?: string; priority?: string }) => 
+      filters 
+        ? ['admin', 'complaints', 'list', filters] as const
+        : ['admin', 'complaints', 'list'] as const,
+    STATS: () => ['admin', 'complaints', 'stats'] as const,
+  },
+} as const;
+

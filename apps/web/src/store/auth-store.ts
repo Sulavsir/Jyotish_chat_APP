@@ -17,6 +17,7 @@ interface AuthState {
   // Actions
   setUser: (user: User) => void;
   setAuth: (user: User) => void; // Tokens are in httpOnly cookies
+  refreshUser: () => Promise<void>; // Refresh user data from server
   logout: () => Promise<void>; // Async to call backend
 
   // OTP Flow Actions
@@ -85,6 +86,27 @@ export const useAuthStore = create<AuthState>()(
         // Tokens are automatically stored as httpOnly cookies by server
         // Just update store state with user
         set({ user, isAuthenticated: true });
+      },
+
+      refreshUser: async () => {
+        try {
+          // Dynamically import to avoid circular dependency
+          const { authApi } = await import('@/lib/auth-api');
+          const { get } = await import('zustand');
+          const state = get(useAuthStore);
+          
+          // Determine which endpoint to call based on current user role
+          if (state.user?.role === 'ASTROLOGER') {
+            const astrologer = await authApi.getAstrologerProfile();
+            set({ user: astrologer });
+          } else {
+            const user = await authApi.getProfile();
+            set({ user });
+          }
+        } catch (error) {
+          console.error('Failed to refresh user data:', error);
+          // Don't throw - just log the error
+        }
       },
 
       logout: async () => {

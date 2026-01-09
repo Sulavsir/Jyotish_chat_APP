@@ -3,16 +3,9 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Search } from '@jyotish/ui';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableSkeleton,
-  EmptyState,
+  Button,
+  Search,
   DocumentIcon,
   Pagination,
   PaginationContent,
@@ -22,6 +15,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
+import { RefreshCw } from 'lucide-react';
+import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { useAdminSocket } from '@/hooks';
 import { toast } from 'sonner';
 
@@ -187,6 +182,47 @@ export default function AuditLogsPage() {
     return pages;
   };
 
+  const columns: AdminTableColumn<AuditLog>[] = [
+    {
+      header: 'Action',
+      accessor: (log) => (
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(log.action)}`}
+        >
+          {formatAction(log.action)}
+        </span>
+      ),
+    },
+    {
+      header: 'Resource',
+      accessor: (log) => <span className="font-medium text-white">{log.resource}</span>,
+    },
+    {
+      header: 'Actor',
+      accessor: (log) => <span className="text-slate-300">{getActorName(log)}</span>,
+    },
+    {
+      header: 'IP Address',
+      accessor: (log) => (
+        <span className="text-sm text-slate-400 font-mono">{log.ipAddress || 'N/A'}</span>
+      ),
+    },
+    {
+      header: 'Time',
+      accessor: (log) => (
+        <span className="text-sm text-slate-400">{new Date(log.createdAt).toLocaleString()}</span>
+      ),
+    },
+    {
+      header: 'Resource ID',
+      accessor: (log) => (
+        <span className="font-mono text-xs text-slate-500">
+          {log.resourceId ? `${log.resourceId.substring(0, 8)}...` : 'N/A'}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -199,12 +235,16 @@ export default function AuditLogsPage() {
               {isConnected && <span className="ml-2 text-green-400">• Live</span>}
             </p>
           </div>
-          <button
+          <Button
             onClick={loadLogs}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            className="border-slate-700 text-white hover:bg-slate-800"
           >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
         </div>
 
         {/* Search Bar */}
@@ -217,56 +257,21 @@ export default function AuditLogsPage() {
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
-          {loading ? (
-            <TableSkeleton rows={15} columns={6} />
-          ) : filteredLogs.length === 0 ? (
-            <EmptyState
-              icon={<DocumentIcon className="w-20 h-20 text-slate-600" />}
-              title={searchTerm ? 'No logs found' : 'No audit logs'}
-              description={
-                searchTerm
-                  ? 'Try adjusting your search terms'
-                  : 'Activity logs will appear here as actions are performed on the platform'
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>IP Address</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Resource ID</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getActionColor(log.action)}`}
-                      >
-                        {formatAction(log.action)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-medium text-white">{log.resource}</TableCell>
-                    <TableCell className="text-slate-300">{getActorName(log)}</TableCell>
-                    <TableCell className="text-sm text-slate-400 font-mono">
-                      {log.ipAddress || 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-sm text-slate-400">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-500">
-                      {log.resourceId ? `${log.resourceId.substring(0, 8)}...` : 'N/A'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <AdminTable
+            data={paginatedLogs}
+            columns={columns}
+            loading={loading}
+            keyExtractor={(log) => log.id}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            emptyState={{
+              icon: <DocumentIcon className="w-20 h-20 text-slate-600" />,
+              title: searchTerm ? 'No logs found' : 'No audit logs',
+              description: searchTerm
+                ? 'Try adjusting your search terms'
+                : 'Activity logs will appear here as actions are performed on the platform',
+            }}
+          />
         </div>
 
         {/* Pagination */}

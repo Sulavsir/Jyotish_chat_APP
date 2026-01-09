@@ -41,6 +41,8 @@ model User {
   sessions                     Session[]
   chatsAsClient                Chat[]                 @relation("ChatParticipant1")
   auditLogs                    AuditLog[]
+  appointments                 Appointment[]          @relation("ClientAppointments")
+  complaintsAsClient           Complaint[]            @relation("ClientComplaints")
 
   @@index([phone])
   @@index([email])
@@ -62,6 +64,8 @@ model Astrologer {
   experience                   Int? // Years of experience
   rating                       Float?                @default(0.0)
   totalConsultations           Int                   @default(0)
+  category                     AstrologerCategory    @default(ORDINARY) // Astrologer tier
+  appointmentFee               Float? // Fee for appointments (applicable for PROFESSIONAL and PREMIUM)
   isActive                     Boolean               @default(true)
   isOnline                     Boolean               @default(false)
   isVerified                   Boolean               @default(false)
@@ -82,24 +86,28 @@ model Astrologer {
   chatsAsAstrologer            Chat[]                @relation("ChatAstrologerParticipant2")
   auditLogs                    AuditLog[]            @relation("AstrologerAuditLogs")
   earnings                     AstrologerEarnings[]
+  appointments                 Appointment[]         @relation("AstrologerAppointments")
+  complaintsReceived           Complaint[]           @relation("AstrologerComplaints")
 
   @@index([phone])
   @@index([email])
   @@index([isActive])
   @@index([isOnline])
   @@index([rating])
+  @@index([category])
 }
 
 // Admin users for managing the platform
 model Admin {
-  id        String     @id @default(uuid())
-  email     String     @unique
-  password  String
-  name      String
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  auditLogs AuditLog[]
+  id                 String      @id @default(uuid())
+  email              String      @unique
+  password           String
+  name               String
+  isActive           Boolean     @default(true)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  auditLogs          AuditLog[]
+  resolvedComplaints Complaint[] @relation("ResolvedComplaints")
 
   @@index([email])
   @@index([isActive])
@@ -168,6 +176,12 @@ model Session {
   ipAddress        String?
   lastUsedAt       DateTime        @default(now()) // Track last refresh
   createdAt        DateTime        @default(now())
+  
+  // Device tracking for session management
+  deviceId         String? // Unique device identifier from client
+  deviceType       DeviceType? // MOBILE or DESKTOP
+  deviceName       String? // e.g., "iPhone 15", "Chrome on Windows"
+  
   user             User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
   astrologer       Astrologer?     @relation("AstrologerSessions", fields: [astrologerId], references: [id], onDelete: Cascade)
 
@@ -180,6 +194,8 @@ model Session {
   @@index([userId, isRevoked])
   @@index([astrologerId, isRevoked])
   @@index([expiresAt])
+  @@index([userId, deviceType, isRevoked])
+  @@index([astrologerId, deviceType, isRevoked])
 }
 
 model OTPSession {
@@ -213,11 +229,21 @@ model Chat {
   participant2Read      Boolean         @default(true)
   isMonitoredByAdmin    Boolean         @default(false) // Flag for admin monitoring
   adminNotes            String? // Admin notes about this chat
+  isAbandonedByAdmin    Boolean         @default(false) // When true, chat is abandoned by admin (both parties blocked)
+  abandonedBy           String? // Admin ID who abandoned the chat
+  abandonedAt           DateTime? // When the chat was abandoned
+  abandonReason         String? // Admin's reason for abandoning
+  // Turn-based messaging fields
+  waitingForReply       Boolean         @default(false) // True when client sent message and waiting for astrologer reply
+  lastClientMessageAt   DateTime? // When client last sent a message
+  lastAstrologerReplyAt DateTime? // When astrologer last replied
+  turnBasedEnabled      Boolean         @default(true) // Enable/disable turn-based messaging for this chat
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   clientParticipant     User            @relation("ChatParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
   astrologerParticipant Astrologer      @relation("ChatAstrologerParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
   messages              Message[]
+  complaints            Complaint[]
 
   @@unique([participant1Id, participant2Id]) // Keep unique - same chat is reused
   @@index([participant1Id])
@@ -227,6 +253,8 @@ model Chat {
   @@index([status])
   @@index([isLocked])
   @@index([isMonitoredByAdmin])
+  @@index([isAbandonedByAdmin])
+  @@index([waitingForReply])
 }
 
 model Message {
@@ -328,6 +356,39 @@ model BroadcastMessage {
   @@index([status, createdAt])
 }
 
+// User complaints about astrologers
+model Complaint {
+  id             String          @id @default(uuid())
+  clientId       String
+  astrologerId   String
+  chatId         String?
+  subject        String
+  description    String
+  category       ComplaintCategory
+  status         ComplaintStatus @default(PENDING)
+  priority       ComplaintPriority @default(MEDIUM)
+  attachmentUrl  String? // URL to uploaded screenshot/evidence image
+  resolvedBy     String? // Admin ID who resolved the complaint
+  resolvedAt     DateTime?
+  resolution     String? // Admin's resolution notes
+  adminNotes     String? // Internal admin notes
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  client         User            @relation("ClientComplaints", fields: [clientId], references: [id], onDelete: Cascade)
+  astrologer     Astrologer      @relation("AstrologerComplaints", fields: [astrologerId], references: [id], onDelete: Cascade)
+  chat           Chat?           @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  resolver       Admin?          @relation("ResolvedComplaints", fields: [resolvedBy], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([astrologerId])
+  @@index([chatId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
 // Future consultation booking system (not implemented yet)
 model ConsultationRequest {
   id                 String                    @id @default(uuid())
@@ -350,6 +411,31 @@ model ConsultationRequest {
   @@index([acceptedBy])
   @@index([createdAt])
   @@index([expiresAt])
+}
+
+// Appointment booking system
+model Appointment {
+  id               String            @id @default(uuid())
+  clientId         String
+  astrologerId     String
+  scheduledAt      DateTime
+  duration         Int               @default(30) // Duration in minutes
+  status           AppointmentStatus @default(PENDING)
+  amount           Float
+  notes            String?
+  rating           Int?
+  review           String?
+  cancellationNote String? // Reason for cancellation
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  client           User              @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+  astrologer       Astrologer        @relation("AstrologerAppointments", fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([astrologerId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([astrologerId, scheduledAt])
 }
 
 model Horoscope {
@@ -458,13 +544,13 @@ model Settings {
 
 model PricingPlan {
   id              String   @id @default(uuid())
-  name            String   // e.g., "1 Day Unlimited", "50 Chats Pack"
-  description     String?  // Detailed description
-  priceInNrs      Int      // Price in Nepali Rupees
-  coins           Int      // Number of coins (100 Rs = 1 coin = 1 chat)
-  validityInDays  Int?     // Validity period in days (null for permanent)
+  name            String // e.g., "1 Day Unlimited", "50 Chats Pack"
+  description     String? // Detailed description
+  priceInNrs      Int // Price in Nepali Rupees
+  coins           Int // Number of coins (100 Rs = 1 coin = 1 chat)
+  validityInDays  Int? // Validity period in days (null for permanent)
   isUnlimited     Boolean  @default(false) // Unlimited chats for validity period
-  discountPercent Int?     // Discount percentage
+  discountPercent Int? // Discount percentage
   isActive        Boolean  @default(true) // Can be enabled/disabled by admin
   isFeatured      Boolean  @default(false) // Show as featured offer
   displayOrder    Int      @default(0) // Order in which to display
@@ -531,6 +617,31 @@ enum BroadcastMessageStatus {
   EXPIRED // Message expired (no response in reasonable time)
 }
 
+enum ComplaintStatus {
+  PENDING // Complaint submitted, awaiting review
+  IN_REVIEW // Admin is reviewing the complaint
+  RESOLVED // Complaint resolved
+  DISMISSED // Complaint dismissed as invalid
+  ESCALATED // Complaint escalated to higher authority
+}
+
+enum ComplaintCategory {
+  NO_RESPONSE // Astrologer not responding
+  SLOW_RESPONSE // Astrologer responding too slowly
+  INAPPROPRIATE_BEHAVIOR // Inappropriate messages or behavior
+  POOR_SERVICE_QUALITY // Service quality issues
+  TECHNICAL_ISSUE // Technical problems during consultation
+  BILLING_ISSUE // Payment or billing related
+  OTHER // Other issues
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 enum ConsultationRequestStatus {
   PENDING // Request created, waiting for astrologer
   ACCEPTED // Astrologer accepted, consultation being created
@@ -576,6 +687,11 @@ enum SessionUserType {
   ADMIN
 }
 
+enum DeviceType {
+  MOBILE
+  DESKTOP
+}
+
 enum ParticipantType {
   CLIENT
   ASTROLOGER
@@ -597,6 +713,8 @@ enum AuditAction {
   ADMIN_ACTION
   CHAT_START
   CHAT_END
+  CHAT_ABANDONED
+  CHAT_UNBLOCKED
   MESSAGE_SEND
   MESSAGE_DELETE
   MESSAGE_FLAG
@@ -617,6 +735,11 @@ enum AuditAction {
   PAYMENT_CREATE
   PAYMENT_SUCCESS
   PAYMENT_FAIL
+  COMPLAINT_CREATE
+  COMPLAINT_UPDATE
+  COMPLAINT_RESOLVE
+  COMPLAINT_DISMISS
+  COMPLAINT_ESCALATE
   SYSTEM_ACTION
 }
 
@@ -625,4 +748,19 @@ enum EarningStatus {
   APPROVED
   PAID
   REJECTED
+}
+
+enum AstrologerCategory {
+  ORDINARY // Can receive chat requests, no appointments
+  PROFESSIONAL // Can receive chat requests and appointments, lower fee
+  PREMIUM // Only appointments, no direct chat (higher fee)
+}
+
+enum AppointmentStatus {
+  PENDING // Appointment requested
+  CONFIRMED // Astrologer confirmed
+  IN_PROGRESS // Appointment is ongoing
+  COMPLETED // Appointment finished
+  CANCELLED // Cancelled by client or astrologer
+  NO_SHOW // Client didn't show up
 }

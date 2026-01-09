@@ -15,19 +15,14 @@ import { cn } from '@/lib/utils';
 import spaceImage from '@/assets/images/space.jpg';
 import { LogoutModal } from '@/components/modals';
 import { ProfileDropdown, NotificationBell } from '@/components/ui';
+import { OnlineStatusToggle } from '@/components/ui/OnlineStatusToggle';
 import { InstantChatRequestBar } from '@/components/features/instant-chat/InstantChatRequestBar';
 import { BroadcastMessageBar } from '@/components/features/broadcast-chat/BroadcastMessageBar';
+import { getAstrologerCategoryFromToken } from '@/lib/jwt-utils';
 
 interface JyotishLayoutProps {
   children: ReactNode;
 }
-
-const navigation = [
-  { name: 'Dashboard', href: ROUTES.JYOTISH_DASHBOARD, icon: '📊' },
-  { name: 'Chats', href: ROUTES.JYOTISH_CHAT, icon: '💬' },
-  { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS, icon: '📅' },
-  { name: 'Profile', href: ROUTES.JYOTISH_PROFILE, icon: '👤' },
-];
 
 export function JyotishLayout({ children }: JyotishLayoutProps) {
   const pathname = usePathname();
@@ -35,6 +30,20 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const { handleLogout } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Check if astrologer has access to appointments (Professional or Premium only)
+  // Read category from JWT token instead of user state
+  const astrologerCategory = getAstrologerCategoryFromToken();
+  const hasAppointmentAccess = astrologerCategory === 'PROFESSIONAL' || astrologerCategory === 'PREMIUM';
+
+  // Build navigation based on user's category
+  const navigation = [
+    { name: 'Dashboard', href: ROUTES.JYOTISH_DASHBOARD, icon: '📊' },
+    { name: 'Chats', href: ROUTES.JYOTISH_CHAT, icon: '💬' },
+    { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS, icon: '📅' },
+    ...(hasAppointmentAccess ? [{ name: 'Appointments', href: ROUTES.JYOTISH_APPOINTMENTS, icon: '📆' }] : []),
+    { name: 'Profile', href: ROUTES.JYOTISH_PROFILE, icon: '👤' },
+  ];
 
   const handleLogoutClick = () => {
     setIsLogoutModalOpen(true);
@@ -79,9 +88,10 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
               </Link>
             </div>
 
-            {/* Right Side - Notifications & User Menu */}
+            {/* Right Side - Online Status, Notifications & User Menu */}
             <div className="flex-1 flex justify-end pr-4 sm:pr-6 lg:pr-8">
               <div className="flex items-center gap-2">
+                <OnlineStatusToggle />
                 <NotificationBell themeColor="orange" />
                 <ProfileDropdown
                   user={user}

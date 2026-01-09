@@ -39,6 +39,8 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
         experience: true,
         rating: true,
         totalConsultations: true,
+        category: true,
+        appointmentFee: true,
         isActive: true,
         isOnline: true,
         isVerified: true,
@@ -54,13 +56,18 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
     }
 
     // Format response
-    const { phone, password, ...astrologerWithoutSensitiveData } = astrologer;
+    const { phone, password, category, appointmentFee, ...astrologerWithoutSensitiveData } = astrologer;
     const formattedAstrologer = {
       ...astrologerWithoutSensitiveData,
       phoneNumber: phone,
       role: UserRole.ASTROLOGER,
       hasPassword: !!password,
       profileCompleted: true, // Astrologers are always considered profile completed
+      astrologer: {
+        id: astrologer.id,
+        category,
+        appointmentFee,
+      },
     };
 
     return sendSuccess(res, formattedAstrologer);

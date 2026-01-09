@@ -1,10 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
+import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { Chat, Message } from '@/types';
 import { Button, Avatar, AvatarImage, AvatarFallback, Spinner } from '@jyotish/ui';
-import { X, Download, FileText, Image as ImageIcon, Mic } from 'lucide-react';
+import { LoadingButton, ConfirmDialog } from '@/components/ui';
+import { X, Download, FileText, Image as ImageIcon, Mic, Ban, Unlock } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ChatDetailModalProps {
   chat: Chat | null;
@@ -13,12 +17,55 @@ interface ChatDetailModalProps {
 }
 
 export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailModalProps) {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
+  const [abandonReason, setAbandonReason] = useState('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // TanStack Query mutation for abandoning chat
+  const abandonChatMutation = useMutation({
+    mutationFn: async (data: { chatId: string; reason?: string }) => {
+      return await adminApi.chats.abandon(data.chatId, data.reason);
+    },
+    onSuccess: () => {
+      toast.success('Chat abandoned successfully. Both parties have been notified.');
+      // Invalidate and refetch chat list
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      setShowAbandonConfirm(false);
+      setAbandonReason('');
+      onClose(); // Close modal after abandoning
+    },
+    onError: (error: any) => {
+      console.error('Failed to abandon chat:', error);
+      toast.error(error?.response?.data?.error?.message || 'Failed to abandon chat');
+    },
+  });
+
+  // TanStack Query mutation for unblocking chat
+  const unblockChatMutation = useMutation({
+    mutationFn: async (chatId: string) => {
+      return await adminApi.chats.unblock(chatId);
+    },
+    onSuccess: () => {
+      toast.success('Chat unblocked successfully. Both parties can now resume conversation.');
+      // Invalidate and refetch chat list
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      setShowUnblockConfirm(false);
+      onClose(); // Close modal after unblocking
+    },
+    onError: (error: any) => {
+      console.error('Failed to unblock chat:', error);
+      toast.error(error?.response?.data?.error?.message || 'Failed to unblock chat');
+    },
+  });
 
   useEffect(() => {
     if (isOpen && chat) {
@@ -74,6 +121,16 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
     if (hasMore && !loadingMore) {
       loadMessages(page + 1);
     }
+  };
+
+  const handleAbandonChat = () => {
+    if (!chat || abandonChatMutation.isPending) return;
+    abandonChatMutation.mutate({ chatId: chat.id, reason: abandonReason || undefined });
+  };
+
+  const handleUnblockChat = () => {
+    if (!chat || unblockChatMutation.isPending) return;
+    unblockChatMutation.mutate(chat.id);
   };
 
   const getImageUrl = (url?: string) => {
@@ -204,16 +261,54 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
       <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl max-h-[85vh] bg-slate-900 border border-slate-800 rounded-lg shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
-          <div className="flex items-center gap-4">
-            <div>
+          <div className="flex items-center gap-4 flex-1">
+            <div className="flex-1">
               <h2 className="text-xl font-semibold text-white">Chat Conversation</h2>
               <p className="text-sm text-slate-400 mt-1">
                 {chat.clientParticipant?.name || 'Unknown User'} ↔{' '}
                 {chat.astrologerParticipant?.name}
               </p>
+              {chat.isAbandonedByAdmin && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                    <Ban className="h-3 w-3" />
+                    Abandoned by Admin
+                  </span>
+                  {chat.abandonReason && (
+                    <span className="text-xs text-slate-400">Reason: {chat.abandonReason}</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              {chat.isAbandonedByAdmin ? (
+                <LoadingButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowUnblockConfirm(true)}
+                  className="flex items-center gap-2 text-white"
+                >
+                  <Unlock className="h-4 w-4" />
+                  Unblock Chat
+                </LoadingButton>
+              ) : (
+                <LoadingButton
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAbandonConfirm(true)}
+                  isLoading={abandonChatMutation.isPending}
+                  className="flex items-center gap-2  text-red-200 border-red-500/30"
+                >
+                  <Ban className="h-4 w-4" />
+                  Abandon Conversation
+                </LoadingButton>
+              )}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0 ml-4">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -304,21 +399,15 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
 
               {hasMore && (
                 <div className="flex justify-center py-4">
-                  <Button
+                  <LoadingButton
                     variant="outline"
                     onClick={handleLoadMore}
-                    disabled={loadingMore}
+                    isLoading={loadingMore}
+                    loadingText="Loading..."
                     className="border-slate-700 hover:bg-slate-800"
                   >
-                    {loadingMore ? (
-                      <>
-                        <Spinner className="w-4 h-4 mr-2" />
-                        Loading...
-                      </>
-                    ) : (
-                      'Load More Messages'
-                    )}
-                  </Button>
+                    Load More Messages
+                  </LoadingButton>
                 </div>
               )}
             </>
@@ -346,6 +435,89 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
           </div>
         </div>
       </div>
+
+      {/* Abandon Confirmation Dialog */}
+      {showAbandonConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/90 z-[60] animate-in fade-in duration-200"
+            onClick={() => setShowAbandonConfirm(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] w-full max-w-md bg-slate-900 border border-slate-800 rounded-lg shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-500/20">
+                  <Ban className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Abandon Conversation</h3>
+                  <p className="text-sm text-slate-400">This action will block both parties</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-300 mb-4">
+                Both the client and astrologer will be unable to send messages. They will see a
+                message stating they don't have authority to continue the conversation.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Reason (optional)
+                </label>
+                <textarea
+                  value={abandonReason}
+                  onChange={(e) => setAbandonReason(e.target.value)}
+                  placeholder="Enter reason for abandoning this conversation..."
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <LoadingButton
+                  variant="outline"
+                  onClick={() => {
+                    setShowAbandonConfirm(false);
+                    setAbandonReason('');
+                  }}
+                  className="flex-1"
+                  isLoading={abandonChatMutation.isPending}
+                >
+                  Cancel
+                </LoadingButton>
+                <LoadingButton
+                  onClick={handleAbandonChat}
+                  isLoading={abandonChatMutation.isPending}
+                  loadingText="Abandoning..."
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Ban className="h-4 w-4 mr-2" />
+                  Abandon Chat
+                </LoadingButton>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Unblock Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showUnblockConfirm}
+        onClose={() => setShowUnblockConfirm(false)}
+        onConfirm={handleUnblockChat}
+        title="Unblock Conversation"
+        description="Are you sure you want to unblock this conversation?"
+        confirmText="Yes, Unblock"
+        cancelText="Cancel"
+        isDestructive={false}
+        isLoading={unblockChatMutation.isPending}
+        icon={<Unlock className="w-6 h-6 text-green-400" />}
+      >
+        <p className="text-sm text-slate-300 mb-2">
+          Both the client and astrologer will be able to send messages again. They will be notified
+          that the conversation has been reopened.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

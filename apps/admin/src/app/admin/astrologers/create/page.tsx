@@ -24,6 +24,7 @@ import {
   parseCommaSeparatedToArray,
   type CreateAstrologerFormData,
 } from '@/constants/validators.constants';
+import { toast } from 'sonner';
 
 export default function CreateAstrologerPage() {
   const router = useRouter();
@@ -39,6 +40,8 @@ export default function CreateAstrologerPage() {
       specialization: [],
       experience: 5,
       commissionRate: 15,
+      category: 'ORDINARY',
+      appointmentFee: null,
       languages: [],
       bio: '',
     },
@@ -46,7 +49,6 @@ export default function CreateAstrologerPage() {
 
   const onSubmit = async (data: CreateAstrologerFormData) => {
     setIsSubmitting(true);
-    console.log('📝 Form Data:', data);
 
     try {
       // Transform data to match backend expectations
@@ -58,17 +60,17 @@ export default function CreateAstrologerPage() {
         specialization: Array.isArray(data.specialization) ? data.specialization : [],
         experience: Number(data.experience) || 0,
         commissionRate: Number(data.commissionRate) || 10,
+        category: data.category,
+        appointmentFee: data.appointmentFee ? Number(data.appointmentFee) : null,
         languages: Array.isArray(data.languages) ? data.languages : [],
         bio: data.bio?.trim() || '',
       };
 
-      console.log('🔄 Transformed Data:', transformedData);
-      console.log('🚀 Sending request to create astrologer...');
+      
 
       const response = await adminApi.astrologers.create(transformedData);
-      console.log('✅ Astrologer created successfully:', response);
 
-      alert('✅ Astrologer created successfully!');
+      toast.success('✅ Astrologer created successfully!');
       router.push(ADMIN_ROUTES.ASTROLOGERS);
     } catch (error: any) {
       console.error('❌ Failed to create astrologer:', error);
@@ -82,7 +84,7 @@ export default function CreateAstrologerPage() {
         error?.message ||
         'Failed to create astrologer. Please try again.';
 
-      alert(`❌ Error: ${errorMessage}`);
+      toast.error(`❌ Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -244,6 +246,64 @@ export default function CreateAstrologerPage() {
                           />
                         </FormControl>
                         <FormDescription>Platform commission percentage (0-100%)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category *</FormLabel>
+                        <FormControl>
+                          <select
+                            {...field}
+                            className="w-full px-3 py-2 bg-slate-800 text-white border border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          >
+                            <option value="ORDINARY">Ordinary - Chat only</option>
+                            <option value="PROFESSIONAL">Professional - Chat & Appointments</option>
+                            <option value="PREMIUM">Premium - Appointments only</option>
+                          </select>
+                        </FormControl>
+                        <FormDescription>
+                          Determines service availability and features
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="appointmentFee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Appointment Fee (Rs)
+                          {(form.watch('category') === 'PROFESSIONAL' ||
+                            form.watch('category') === 'PREMIUM') &&
+                            ' *'}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="500"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) =>
+                              field.onChange(e.target.value ? parseInt(e.target.value) : null)
+                            }
+                            disabled={form.watch('category') === 'ORDINARY'}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {form.watch('category') === 'ORDINARY'
+                            ? 'Not applicable for ordinary astrologers'
+                            : 'Fee charged per appointment session'}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -18,6 +18,29 @@ export interface LoginResponse {
   };
 }
 
+export interface AppointmentResponse {
+  id: string;
+  scheduledAt: string;
+  duration: number;
+  status: string;
+  amount: number;
+  notes: string | null;
+  createdAt: string;
+  client: {
+    id: string;
+    name: string | null;
+    phone: string;
+    email: string | null;
+  };
+  astrologer: {
+    id: string;
+    name: string;
+    phone: string;
+    category: string;
+    appointmentFee: number | null;
+  };
+}
+
 export const adminApi = {
   /**
    * Admin login
@@ -98,6 +121,14 @@ export const adminApi = {
   },
 
   /**
+   * Generic GET request helper
+   */
+  get: async (path: string, config?: any) => {
+    const response = await apiClient.get(`/admin${path}`, config);
+    return response;
+  },
+
+  /**
    * Audit Logs
    */
   auditLogs: {
@@ -150,6 +181,56 @@ export const adminApi = {
       const response = await apiClient.get(API_ENDPOINTS.CHATS.MESSAGES(id), { params });
       return response;
     },
+
+    abandon: async (chatId: string, reason?: string) => {
+      const response = await apiClient.post(API_ENDPOINTS.CHATS.ABANDON(chatId), { reason });
+      return response;
+    },
+
+    unblock: async (chatId: string) => {
+      const response = await apiClient.post(API_ENDPOINTS.CHATS.UNBLOCK(chatId));
+      return response;
+    },
+  },
+
+  /**
+   * Complaints
+   */
+  complaints: {
+    getComplaints: async (params?: { limit?: number; offset?: number; status?: string }) => {
+      const response = await apiClient.get(API_ENDPOINTS.COMPLAINTS.LIST, { params });
+      return response;
+    },
+
+    getComplaintStats: async () => {
+      const response = await apiClient.get(API_ENDPOINTS.COMPLAINTS.STATS);
+      return response;
+    },
+
+    getComplaintById: async (id: string) => {
+      const response = await apiClient.get(API_ENDPOINTS.COMPLAINTS.DETAIL(id));
+      return response;
+    },
+
+    updateComplaintStatus: async (
+      id: string,
+      data: { status: string; adminNotes?: string; priority?: string }
+    ) => {
+      const response = await apiClient.patch(API_ENDPOINTS.COMPLAINTS.UPDATE_STATUS(id), data);
+      return response;
+    },
+
+    resolveComplaint: async (id: string, data: { resolution: string; adminNotes?: string }) => {
+      const response = await apiClient.post(API_ENDPOINTS.COMPLAINTS.RESOLVE(id), data);
+      return response;
+    },
+
+    dismissComplaint: async (id: string, adminNotes: string) => {
+      const response = await apiClient.post(API_ENDPOINTS.COMPLAINTS.DISMISS(id), {
+        reason: adminNotes,
+      });
+      return response;
+    },
   },
 
   /**
@@ -168,6 +249,18 @@ export const adminApi = {
   dashboard: {
     stats: async () => {
       const response = await apiClient.get(API_ENDPOINTS.DASHBOARD.STATS);
+      return response;
+    },
+  },
+
+  /**
+   * Appointments
+   */
+  appointments: {
+    list: async (): Promise<{ data: AppointmentResponse[] }> => {
+      const response = await apiClient.get<{ data: AppointmentResponse[] }>(
+        API_ENDPOINTS.APPOINTMENTS.LIST
+      );
       return response;
     },
   },

@@ -23,7 +23,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
  * Default dashboard routes for each role
  */
 export const ROLE_DASHBOARDS: Record<UserRole, string> = {
-  [USER_ROLES.CLIENT]: '/chat', // Clients go directly to chat with "Everyone Jyotish"
+  [USER_ROLES.CLIENT]: '/chat', // Clients go directly to chat with "Channel Jyotish"
   [USER_ROLES.ASTROLOGER]: '/jyotish/dashboard',
   [USER_ROLES.ADMIN]: '/admin/dashboard',
 };

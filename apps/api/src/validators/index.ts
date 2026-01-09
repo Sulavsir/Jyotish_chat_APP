@@ -31,3 +31,4 @@ export {
 export * from './query.validators';
 export * from './horoscope.validators';
 export * from './notification.validators';
+export * from './appointment.validators';

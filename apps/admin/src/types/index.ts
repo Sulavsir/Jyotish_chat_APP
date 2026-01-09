@@ -4,6 +4,7 @@
 
 export * from './admin.types';
 export * from './pricing.types';
+export * from './complaint.types';
 
 // Re-export commonly used types for convenience
 export type {

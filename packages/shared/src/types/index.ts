@@ -7,23 +7,36 @@ export interface User {
   phone?: string;
   phoneNumber?: string; // Alias for phone (for compatibility)
   profilePhoto?: string | null;
-  
+
   // Birth details (flattened for easier access)
   dateOfBirth?: string | Date;
   timeOfBirth?: string;
   placeOfBirth?: string;
-  
+
   // Address fields
   currentAddress?: string;
   permanentAddress?: string;
-  
+
   // Account status
   profileCompleted?: boolean;
   hasPassword?: boolean;
-  
+
+  // Astrologer-specific data (when role is ASTROLOGER)
+  astrologer?: {
+    id: string;
+    category: AstrologerCategory;
+    appointmentFee?: number | null;
+  };
+
   birthDetails?: BirthDetails;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export enum AstrologerCategory {
+  ORDINARY = 'ORDINARY',
+  PROFESSIONAL = 'PROFESSIONAL',
+  PREMIUM = 'PREMIUM',
 }
 
 export enum UserRole {
@@ -195,4 +208,3 @@ export interface ApiResponse<T = any> {
     totalPages: number;
   };
 }
-

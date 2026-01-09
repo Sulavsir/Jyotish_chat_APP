@@ -9,7 +9,7 @@
  */
 
 import crypto from 'crypto';
-import { prisma } from '@jyotish/database';
+import { prisma, DeviceType } from '@jyotish/database';
 import { AUTH_CONFIG } from '../constants';
 
 export class SessionService {
@@ -30,6 +30,9 @@ export class SessionService {
     metadata?: {
       userAgent?: string;
       ipAddress?: string;
+      deviceId?: string;
+      deviceType?: DeviceType;
+      deviceName?: string;
     }
   ): Promise<void> {
     const refreshTokenHash = this.hashToken(refreshToken);
@@ -43,6 +46,9 @@ export class SessionService {
         expiresAt,
         userAgent: metadata?.userAgent,
         ipAddress: metadata?.ipAddress,
+        deviceId: metadata?.deviceId,
+        deviceType: metadata?.deviceType,
+        deviceName: metadata?.deviceName,
         isRevoked: false,
       },
     });
@@ -57,6 +63,9 @@ export class SessionService {
     metadata?: {
       userAgent?: string;
       ipAddress?: string;
+      deviceId?: string;
+      deviceType?: DeviceType;
+      deviceName?: string;
     }
   ): Promise<void> {
     const refreshTokenHash = this.hashToken(refreshToken);
@@ -70,6 +79,9 @@ export class SessionService {
         expiresAt,
         userAgent: metadata?.userAgent,
         ipAddress: metadata?.ipAddress,
+        deviceId: metadata?.deviceId,
+        deviceType: metadata?.deviceType,
+        deviceName: metadata?.deviceName,
         isRevoked: false,
       },
     });
@@ -119,7 +131,7 @@ export class SessionService {
     });
 
     return {
-      userId: session.userId,
+      userId: session.userId!,
       sessionId: session.id,
     };
   }
@@ -152,7 +164,7 @@ export class SessionService {
     await this.revokeSession(oldSession.id);
 
     // Create new session
-    await this.createSession(oldSession.userId, newRefreshToken, metadata);
+    await this.createSession(oldSession.userId!, newRefreshToken, metadata);
 
     return true;
   }
@@ -254,6 +266,3 @@ export class SessionService {
 }
 
 export const sessionService = new SessionService();
-
-
-

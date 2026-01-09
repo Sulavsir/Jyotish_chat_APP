@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/lib/api-client';
+import { API_ENDPOINTS } from '@/constants';
 
 export interface NotificationSettings {
   id: string;
@@ -36,21 +37,21 @@ class NotificationSettingsService {
    * Get current user's notification settings
    */
   async getSettings(): Promise<NotificationSettings> {
-    return await apiClient.get<NotificationSettings>('/api/v1/notification-settings');
+    return await apiClient.get<NotificationSettings>(API_ENDPOINTS.NOTIFICATION_SETTINGS.GET);
   }
 
   /**
    * Update notification settings
    */
   async updateSettings(settings: UpdateNotificationSettingsDto): Promise<NotificationSettings> {
-    return await apiClient.put<NotificationSettings>('/api/v1/notification-settings', settings);
+    return await apiClient.put<NotificationSettings>(API_ENDPOINTS.NOTIFICATION_SETTINGS.UPDATE, settings);
   }
 
   /**
    * Toggle all notifications on or off
    */
   async toggleAllNotifications(enable: boolean): Promise<NotificationSettings> {
-    return await apiClient.post<NotificationSettings>('/api/v1/notification-settings/toggle', {
+    return await apiClient.post<NotificationSettings>(API_ENDPOINTS.NOTIFICATION_SETTINGS.TOGGLE, {
       enable,
     });
   }

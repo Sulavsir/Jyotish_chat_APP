@@ -5,20 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Button,
-  Search,
-  EmptyState,
-} from '@jyotish/ui';
-import { ADMIN_ROUTES } from '@/constants';
+import { Button, Search, EmptyState } from '@jyotish/ui';
+import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { PricingPlan } from '@/types';
 import { toast } from 'sonner';
+
+import { RefreshCw } from 'lucide-react';
 
 // Inline icon components to avoid import issues
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -49,41 +42,14 @@ const TrashIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const TableSkeleton = ({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) => (
-  <div className="cosmic-card overflow-hidden">
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {Array.from({ length: columns }).map((_, i) => (
-            <TableHead key={i}>
-              <div className="h-4 w-full animate-pulse rounded-md bg-slate-700/50" />
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {Array.from({ length: rows }).map((_, rowIndex) => (
-          <TableRow key={rowIndex}>
-            {Array.from({ length: columns }).map((_, colIndex) => (
-              <TableCell key={colIndex}>
-                <div className="h-4 w-full animate-pulse rounded-md bg-slate-700/50" />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  </div>
-);
-
 export default function PricingManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch all pricing plans with TanStack Query
-  const { data: plansData, isLoading } = useQuery({
-    queryKey: ['pricing-plans'],
+  const { data: plansData, isLoading, refetch } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.PRICING.LIST(),
     queryFn: () => adminApi.pricing.getAll(),
   });
 
@@ -103,7 +69,7 @@ export default function PricingManagementPage() {
   const toggleStatusMutation = useMutation({
     mutationFn: (id: string) => adminApi.pricing.toggle(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pricing-plans'] });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.PRICING.ALL });
       toast.success('Plan status updated successfully');
     },
     onError: (error: Error) => {
@@ -116,7 +82,7 @@ export default function PricingManagementPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => adminApi.pricing.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pricing-plans'] });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.PRICING.ALL });
       toast.success('Plan deleted successfully');
     },
     onError: (error: Error) => {
@@ -136,6 +102,131 @@ export default function PricingManagementPage() {
     deleteMutation.mutate(id);
   };
 
+  const columns: AdminTableColumn<PricingPlan>[] = [
+    {
+      header: 'Plan Name',
+      accessor: (plan) => (
+        <div>
+          <div className="font-medium text-white">{plan.name}</div>
+          {plan.description && (
+            <div className="text-sm text-slate-400 mt-1 max-w-xs truncate">{plan.description}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: 'Price (NPR)',
+      accessor: (plan) => (
+        <span className="font-semibold text-purple-400">
+          NPR {plan.priceInNrs.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      header: 'Coins/Unlimited',
+      accessor: (plan) =>
+        plan.isUnlimited ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
+            ∞ Unlimited
+          </span>
+        ) : (
+          <span className="text-white">{plan.coins} coins</span>
+        ),
+    },
+    {
+      header: 'Validity',
+      accessor: (plan) =>
+        plan.validityInDays ? (
+          <span className="text-slate-300">{plan.validityInDays} days</span>
+        ) : (
+          <span className="text-slate-400">Lifetime</span>
+        ),
+    },
+    {
+      header: 'Discount',
+      accessor: (plan) =>
+        plan.discountPercent ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+            {plan.discountPercent}% OFF
+          </span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
+    },
+    {
+      header: 'Status',
+      accessor: (plan) => (
+        <button
+          onClick={() => handleToggleStatus(plan.id)}
+          disabled={toggleStatusMutation.isPending}
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+            plan.isActive
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+          }`}
+        >
+          {plan.isActive ? 'Active' : 'Inactive'}
+        </button>
+      ),
+    },
+    {
+      header: 'Featured',
+      accessor: (plan) =>
+        plan.isFeatured ? (
+          <svg
+            className="w-5 h-5 text-purple-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        ) : (
+          <svg
+            className="w-5 h-5 text-slate-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        ),
+    },
+    {
+      header: 'Actions',
+      accessor: (plan) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => router.push(ADMIN_ROUTES.PRICING_EDIT(plan.id))}
+            className="p-2 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
+            title="Edit"
+          >
+            <PencilIcon className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleDelete(plan.id, plan.name)}
+            disabled={deleteMutation.isPending}
+            className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            title="Delete"
+          >
+            <TrashIcon className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      className: 'text-right',
+    },
+  ];
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -145,10 +236,22 @@ export default function PricingManagementPage() {
             <h1 className="text-3xl font-bold cosmic-text">Pricing Management</h1>
             <p className="text-slate-400 mt-1">Manage pricing plans and offers</p>
           </div>
-          <Button onClick={() => router.push(ADMIN_ROUTES.PRICING_CREATE)} className="gap-2">
-            <PlusIcon className="w-4 h-4" />
-            Create Plan
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={() => router.push(ADMIN_ROUTES.PRICING_CREATE)} className="gap-2">
+              <PlusIcon className="w-4 h-4" />
+              Create Plan
+            </Button>
+          </div>
         </div>
 
         {/* Search */}
@@ -159,132 +262,27 @@ export default function PricingManagementPage() {
         />
 
         {/* Table */}
-        {isLoading ? (
-          <TableSkeleton rows={5} columns={8} />
-        ) : filteredPlans.length === 0 ? (
-          <EmptyState
-            title="No pricing plans found"
-            description={
-              searchQuery
+        <div className="cosmic-card overflow-hidden">
+          <AdminTable
+            data={filteredPlans}
+            columns={columns}
+            loading={isLoading}
+            keyExtractor={(plan) => plan.id}
+            emptyState={{
+              title: 'No pricing plans found',
+              description: searchQuery
                 ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first pricing plan'
-            }
-            action={
-              !searchQuery
+                : 'Get started by creating your first pricing plan',
+              action: !searchQuery
                 ? {
                     label: 'Create First Plan',
                     onClick: () => router.push(ADMIN_ROUTES.PRICING_CREATE),
                   }
-                : undefined
-            }
+                : undefined,
+              icon: <></>,
+            }}
           />
-        ) : (
-          <div className="cosmic-card overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Plan Name</TableHead>
-                  <TableHead>Price (NPR)</TableHead>
-                  <TableHead>Coins/Unlimited</TableHead>
-                  <TableHead>Validity</TableHead>
-                  <TableHead>Discount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Featured</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPlans.map((plan) => (
-                  <TableRow key={plan.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-white">{plan.name}</div>
-                        {plan.description && (
-                          <div className="text-sm text-slate-400 mt-1 max-w-xs truncate">
-                            {plan.description}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-purple-400">
-                        NPR {plan.priceInNrs.toLocaleString()}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {plan.isUnlimited ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                          ∞ Unlimited
-                        </span>
-                      ) : (
-                        <span className="text-white">{plan.coins} coins</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {plan.validityInDays ? (
-                        <span className="text-slate-300">{plan.validityInDays} days</span>
-                      ) : (
-                        <span className="text-slate-400">Lifetime</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {plan.discountPercent ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
-                          {plan.discountPercent}% OFF
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <button
-                        onClick={() => handleToggleStatus(plan.id)}
-                        disabled={toggleStatusMutation.isPending}
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
-                          plan.isActive
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30'
-                            : 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
-                        }`}
-                      >
-                        {plan.isActive ? 'Active' : 'Inactive'}
-                      </button>
-                    </TableCell>
-                    <TableCell>
-                      {plan.isFeatured ? (
-                        <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => router.push(ADMIN_ROUTES.PRICING_EDIT(plan.id))}
-                          className="p-2 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
-                          title="Edit"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(plan.id, plan.name)}
-                          disabled={deleteMutation.isPending}
-                          className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+        </div>
 
         {/* Stats */}
         {!isLoading && filteredPlans.length > 0 && (

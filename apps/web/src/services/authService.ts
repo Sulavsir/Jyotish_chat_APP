@@ -76,7 +76,7 @@ export const authService = {
 
     // If user is in store and is an astrologer, use astrologer endpoint
     if (user?.role === 'ASTROLOGER') {
-      const response = await apiClient.get<{ astrologer: User }>('/api/v1/astrologer/auth/me');
+      const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
       return response.astrologer;
     }
 
@@ -85,7 +85,7 @@ export const authService = {
       typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish');
 
     if (isAstrologerRoute) {
-      const response = await apiClient.get<{ astrologer: User }>('/api/v1/astrologer/auth/me');
+      const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
       return response.astrologer;
     }
 

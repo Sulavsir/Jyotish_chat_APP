@@ -3,25 +3,9 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Search } from '@jyotish/ui';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableSkeleton,
-  EmptyState,
-  ChatIcon,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@jyotish/ui';
+import { Button, Search, ChatIcon, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@jyotish/ui';
+import { RefreshCw } from 'lucide-react';
+import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { useAdminSocket } from '@/hooks';
 import { toast } from 'sonner';
 import {
@@ -180,6 +164,100 @@ export default function ChatAuditPage() {
     PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
   );
 
+  const columns: AdminTableColumn<ChatAuditLog>[] = [
+    {
+      header: 'Status',
+      accessor: (log) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(log.status)}`}>
+          {formatAction(log.status)}
+        </span>
+      ),
+    },
+    {
+      header: 'Client',
+      accessor: (log) => (
+        <div className="flex items-center gap-2">
+          {getImageUrl(log.client?.profilePhoto) ? (
+            <img
+              src={getImageUrl(log.client.profilePhoto)!}
+              alt={log.client.name || log.client.phone}
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${AVATAR_GRADIENTS.CLIENT} flex items-center justify-center text-white text-xs font-bold`}>
+              {getInitials(log.client?.name, log.client?.phone, 'U')}
+            </div>
+          )}
+          <div>
+            <div className="font-medium text-white">{log.client?.name || 'Unknown'}</div>
+            <div className="text-xs text-slate-400">{log.client?.phone}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Astrologer',
+      accessor: (log) =>
+        log.astrologer ? (
+          <div className="flex items-center gap-2">
+            {getImageUrl(log.astrologer?.profilePhoto) ? (
+              <img
+                src={getImageUrl(log.astrologer.profilePhoto)!}
+                alt={log.astrologer.name || log.astrologer.phone}
+                className="w-8 h-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${AVATAR_GRADIENTS.ASTROLOGER} flex items-center justify-center text-white text-xs font-bold`}>
+                {getInitials(log.astrologer?.name, log.astrologer?.phone, 'A')}
+              </div>
+            )}
+            <div>
+              <div className="font-medium text-white">{log.astrologer?.name || 'Unknown'}</div>
+              <div className="text-xs text-slate-400">{log.astrologer?.phone}</div>
+            </div>
+          </div>
+        ) : (
+          <span className="text-slate-500 text-sm">No astrologer yet</span>
+        ),
+    },
+    {
+      header: 'Type',
+      accessor: (log) => <span className="text-sm text-slate-300">{formatAction(log.type)}</span>,
+    },
+    {
+      header: 'Chat Status',
+      accessor: (log) =>
+        log.metadata?.chatStatus === 'ENDED' ? (
+          <div className="flex flex-col gap-1">
+            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400 w-fit">
+              ENDED
+            </span>
+            {log.metadata?.chatEndedAt && (
+              <span className="text-xs text-slate-500">{formatDate(log.metadata.chatEndedAt)}</span>
+            )}
+          </div>
+        ) : log.status === 'ACCEPTED' ? (
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-400">
+            ACTIVE
+          </span>
+        ) : (
+          <span className="text-slate-500 text-sm">-</span>
+        ),
+    },
+    {
+      header: 'Created',
+      accessor: (log) => <span className="text-sm text-slate-400">{formatDate(log.createdAt)}</span>,
+    },
+    {
+      header: 'Accepted',
+      accessor: (log) => (
+        <span className="text-sm text-slate-400">
+          {log.acceptedAt ? formatDate(log.acceptedAt) : '-'}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -192,12 +270,16 @@ export default function ChatAuditPage() {
               {isConnected && <span className="ml-2 text-green-400">• Live</span>}
             </p>
           </div>
-          <button
+          <Button
             onClick={loadLogs}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            className="border-slate-700 text-white hover:bg-slate-800"
           >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
         </div>
 
         {/* Filters */}
@@ -238,125 +320,21 @@ export default function ChatAuditPage() {
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
-          {loading ? (
-            <TableSkeleton rows={PAGINATION_DEFAULTS.LIMIT} columns={6} />
-          ) : filteredLogs.length === 0 ? (
-            <EmptyState
-              icon={<ChatIcon className="w-20 h-20 text-slate-600" />}
-              title={searchTerm ? 'No logs found' : 'No chat audit logs'}
-              description={
-                searchTerm
-                  ? 'Try adjusting your search terms'
-                  : 'Chat activity logs will appear here as broadcast messages are sent'
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Astrologer</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Chat Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Accepted</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedLogs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(log.status)}`}
-                      >
-                        {formatAction(log.status)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getImageUrl(log.client?.profilePhoto) ? (
-                          <img
-                            src={getImageUrl(log.client.profilePhoto)!}
-                            alt={log.client.name || log.client.phone}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className={`w-8 h-8 rounded-full bg-gradient-to-br ${AVATAR_GRADIENTS.CLIENT} flex items-center justify-center text-white text-xs font-bold`}
-                          >
-                            {getInitials(log.client?.name, log.client?.phone, 'U')}
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium text-white">
-                            {log.client?.name || 'Unknown'}
-                          </div>
-                          <div className="text-xs text-slate-400">{log.client?.phone}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {log.astrologer ? (
-                        <div className="flex items-center gap-2">
-                          {getImageUrl(log.astrologer?.profilePhoto) ? (
-                            <img
-                              src={getImageUrl(log.astrologer.profilePhoto)!}
-                              alt={log.astrologer.name || log.astrologer.phone}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div
-                              className={`w-8 h-8 rounded-full bg-gradient-to-br ${AVATAR_GRADIENTS.ASTROLOGER} flex items-center justify-center text-white text-xs font-bold`}
-                            >
-                              {getInitials(log.astrologer?.name, log.astrologer?.phone, 'A')}
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-medium text-white">
-                              {log.astrologer?.name || 'Unknown'}
-                            </div>
-                            <div className="text-xs text-slate-400">{log.astrologer?.phone}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-slate-500 text-sm">No astrologer yet</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-slate-300">{formatAction(log.type)}</span>
-                    </TableCell>
-                    <TableCell>
-                      {log.metadata?.chatStatus === 'ENDED' ? (
-                        <div className="flex flex-col gap-1">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400 w-fit">
-                            ENDED
-                          </span>
-                          {log.metadata?.chatEndedAt && (
-                            <span className="text-xs text-slate-500">
-                              {formatDate(log.metadata.chatEndedAt)}
-                            </span>
-                          )}
-                        </div>
-                      ) : log.status === 'ACCEPTED' ? (
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-400">
-                          ACTIVE
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-slate-400">
-                      {formatDate(log.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-sm text-slate-400">
-                      {log.acceptedAt ? formatDate(log.acceptedAt) : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <AdminTable
+            data={paginatedLogs}
+            columns={columns}
+            loading={loading}
+            keyExtractor={(log) => log.id}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            emptyState={{
+              icon: <ChatIcon className="w-20 h-20 text-slate-600" />,
+              title: searchTerm ? 'No logs found' : 'No chat audit logs',
+              description: searchTerm
+                ? 'Try adjusting your search terms'
+                : 'Chat activity logs will appear here as broadcast messages are sent',
+            }}
+          />
         </div>
 
         {/* Pagination */}

@@ -28,7 +28,7 @@ export const getConversations = async (): Promise<Chat[]> => {
  * Get or create a chat with another user
  */
 export const getOrCreateChat = async (params: CreateChatParams): Promise<Chat> => {
-  const response = await apiClient.post<Chat>('/api/v1/chat/chats', params);
+  const response = await apiClient.post<Chat>(API_ENDPOINTS.CHAT.CHATS, params);
   return response;
 };
 
@@ -36,7 +36,7 @@ export const getOrCreateChat = async (params: CreateChatParams): Promise<Chat> =
  * Get chat by ID
  */
 export const getChatById = async (chatId: string): Promise<Chat> => {
-  const response = await apiClient.get<Chat>(`/api/v1/chat/chats/${chatId}`);
+  const response = await apiClient.get<Chat>(API_ENDPOINTS.CHAT.CHAT_BY_ID(chatId));
   return response;
 };
 
@@ -63,7 +63,7 @@ export const getChatHistory = async (
  * Send a message (HTTP fallback)
  */
 export const sendMessage = async (params: SendMessageParams): Promise<Message> => {
-  const response = await apiClient.post<Message>('/api/v1/chat/messages', params);
+  const response = await apiClient.post<Message>(API_ENDPOINTS.CHAT.MESSAGES, params);
   return response;
 };
 
@@ -71,7 +71,7 @@ export const sendMessage = async (params: SendMessageParams): Promise<Message> =
  * Mark messages as read
  */
 export const markMessagesAsRead = async (chatId: string, messageIds?: string[]): Promise<void> => {
-  await apiClient.put(`/api/v1/chat/chats/${chatId}/read`, {
+  await apiClient.put(API_ENDPOINTS.CHAT.MARK_READ(chatId), {
     messageIds,
   });
 };
@@ -80,14 +80,14 @@ export const markMessagesAsRead = async (chatId: string, messageIds?: string[]):
  * Delete a message
  */
 export const deleteMessage = async (messageId: string): Promise<void> => {
-  await apiClient.delete(`/api/v1/chat/messages/${messageId}`);
+  await apiClient.delete(API_ENDPOINTS.CHAT.MESSAGE_BY_ID(messageId));
 };
 
 /**
  * Get unread message count
  */
 export const getUnreadCount = async (): Promise<number> => {
-  const response = await apiClient.get<{ count: number }>('/api/v1/chat/unread-count');
+  const response = await apiClient.get<{ count: number }>(API_ENDPOINTS.CHAT.UNREAD_COUNT);
   return response?.count || 0;
 };
 
@@ -95,7 +95,7 @@ export const getUnreadCount = async (): Promise<number> => {
  * Search messages
  */
 export const searchMessages = async (searchTerm: string, limit = 20): Promise<Message[]> => {
-  const url = `/api/v1/chat/search?q=${encodeURIComponent(searchTerm)}&limit=${limit}`;
+  const url = `${API_ENDPOINTS.CHAT.SEARCH}?q=${encodeURIComponent(searchTerm)}&limit=${limit}`;
   const response = await apiClient.get<Message[]>(url);
   return response || [];
 };
@@ -122,7 +122,7 @@ export const uploadChatFile = async (file: File): Promise<{
       size: number;
       type: 'IMAGE' | 'FILE' | 'AUDIO';
     };
-  }>('/api/v1/chat/upload-file', formData);
+  }>(API_ENDPOINTS.CHAT.UPLOAD_FILE, formData);
 
   return response.file;
 };
@@ -131,7 +131,7 @@ export const uploadChatFile = async (file: File): Promise<{
  * End an active chat
  */
 export const endChat = async (chatId: string): Promise<Chat> => {
-  const response = await apiClient.put<Chat>(`/api/v1/chat/chats/${chatId}/end`);
+  const response = await apiClient.put<Chat>(API_ENDPOINTS.CHAT.END_CHAT(chatId));
   return response;
 };
 
@@ -139,7 +139,7 @@ export const endChat = async (chatId: string): Promise<Chat> => {
  * Get active chat for current user
  */
 export const getActiveChat = async (): Promise<Chat | null> => {
-  const response = await apiClient.get<Chat | null>('/api/v1/chat/active-chat');
+  const response = await apiClient.get<Chat | null>(API_ENDPOINTS.CHAT.ACTIVE_CHAT);
   return response;
 };
 

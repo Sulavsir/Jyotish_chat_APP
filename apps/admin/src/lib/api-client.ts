@@ -4,8 +4,7 @@
  */
 
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { API_BASE_URL } from '@/constants/api.constants';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -18,7 +17,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: API_BASE_URL, // Uses Next.js proxy in development (empty string)
       headers: {
         'Content-Type': 'application/json',
       },
