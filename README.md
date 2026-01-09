@@ -34,6 +34,7 @@ jyotish-app/
 ├── apps/
 │   ├── web/              # Next.js frontend application
 │   └── api/              # Node.js/Express backend API
+│   └── admin/            # Admin featuresI
 ├── packages/
 │   ├── shared/           # Shared types, utilities, and constants
 │   ├── ui/               # Shared React components
