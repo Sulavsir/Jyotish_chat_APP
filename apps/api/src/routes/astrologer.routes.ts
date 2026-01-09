@@ -4,6 +4,8 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { validateBody } from '@/middleware/validate';
+import { changePasswordSchema } from '@jyotish/shared';
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
 
@@ -18,6 +20,11 @@ router.use(authenticate); // All routes below require authentication
 
 router.post('/auth/logout', asyncHandler(astrologerController.astrologerLogout));
 router.get('/auth/me', asyncHandler(astrologerController.getAstrologerProfile));
+router.post(
+  '/auth/change-password',
+  validateBody(changePasswordSchema),
+  asyncHandler(astrologerController.changeAstrologerPassword)
+);
 router.post('/toggle-online', asyncHandler(astrologerController.toggleOnlineStatus));
 
 // ==================== Astrologer List ====================

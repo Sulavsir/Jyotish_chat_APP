@@ -562,6 +562,44 @@ export class AstrologerService {
   async verifyPassword(astrologer: any, password: string): Promise<boolean> {
     return await bcrypt.compare(password, astrologer.password);
   }
+
+  /**
+   * Change astrologer password
+   */
+  async changePassword(
+    astrologerId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    // Get astrologer with password
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { id: true, password: true },
+    });
+
+    if (!astrologer) {
+      throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, astrologer.password);
+    if (!isPasswordValid) {
+      throw new AppError(
+        'Current password is incorrect',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await prisma.astrologer.update({
+      where: { id: astrologerId },
+      data: { password: hashedPassword },
+    });
+  }
 }
 
 export const astrologerService = new AstrologerService();

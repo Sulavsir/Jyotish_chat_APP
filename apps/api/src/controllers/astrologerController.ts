@@ -237,3 +237,69 @@ export async function listAstrologers(req: AuthRequest, res: Response, next: Nex
     next(error);
   }
 }
+
+/**
+ * Change astrologer password
+ * POST /api/v1/astrologer/auth/change-password
+ */
+export async function changeAstrologerPassword(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const astrologerId = req.user?.id;
+
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    // Change password via service
+    await astrologerService.changePassword(astrologerId, currentPassword, newPassword);
+
+    // Fetch updated astrologer to return
+    const updatedAstrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        name: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        category: true,
+        appointmentFee: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        commissionRate: true,
+        languages: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Log audit event
+    await auditService.logAction({
+      astrologerId,
+      action: 'ASTROLOGER_UPDATE',
+      resource: 'Astrologer',
+      resourceId: astrologerId,
+      details: { action: 'change_password' },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    return sendSuccess(res, {
+      message: 'Password changed successfully',
+      astrologer: updatedAstrologer,
+    });
+  } catch (error) {
+    next(error);
+  }
+}

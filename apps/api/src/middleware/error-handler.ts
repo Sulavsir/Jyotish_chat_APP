@@ -50,7 +50,7 @@ export const errorHandler = (
     error.errors.forEach((err) => {
       const field = err.path.join('.');
       fieldErrors[field] = err.message;
-      messages.push(`${field}: ${err.message}`);
+      messages.push(err.message);
     });
 
     return res.status(HTTP_STATUS.BAD_REQUEST).json({

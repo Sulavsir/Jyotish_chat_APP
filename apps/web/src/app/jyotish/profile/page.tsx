@@ -5,8 +5,8 @@
 'use client';
 
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
-import { useRequireAuth } from '@/hooks';
-import { USER_ROLES } from '@/constants';
+import { useAuth, useRequireAuth } from '@/hooks';
+import { ROUTES, USER_ROLES } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle, Button, Label, Input } from '@jyotish/ui';
 import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -21,8 +21,11 @@ import type { ApiError } from '@/types/auth';
 import { ProfileImageUpload } from '@/components/profile/ProfileImageUpload';
 import { RemoveProfileModal } from '@/components/modals/RemoveProfileModal';
 import { LoadingScreenWithBackground } from '@/components/ui';
+import { useRouter } from 'next/navigation';
 
 export default function JyotishProfilePage() {
+  const router = useRouter();
+  const { handleLogout } = useAuth();
   const { user, isCheckingAccess } = useRequireAuth({
     requiredRole: USER_ROLES.ASTROLOGER,
   });
@@ -332,7 +335,11 @@ export default function JyotishProfilePage() {
               <CardTitle className="text-white">Account Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button variant="outline" className="w-full justify-start">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => router.push(ROUTES.JYOTISH_SETTINGS)}
+              >
                 🔒 Change Password
               </Button>
               <Button variant="outline" className="w-full justify-start">
@@ -344,6 +351,7 @@ export default function JyotishProfilePage() {
               <Button
                 variant="outline"
                 className="w-full justify-start text-red-400 hover:text-red-300"
+                onClick={() => handleLogout()}
               >
                 🚪 Logout
               </Button>
