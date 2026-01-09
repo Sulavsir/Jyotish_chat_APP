@@ -2,11 +2,10 @@
  * Astrologer Types
  */
 
-export enum AstrologerCategory {
-  ORDINARY = 'ORDINARY',
-  PROFESSIONAL = 'PROFESSIONAL',
-  PREMIUM = 'PREMIUM',
-}
+import { AstrologerCategory } from '@jyotish/shared';
+
+// Re-export AstrologerCategory for convenience
+export { AstrologerCategory };
 
 export interface PublicAstrologerProfile {
   id: string;
@@ -27,7 +26,7 @@ export interface PublicAstrologerProfile {
   createdAt: Date | string;
 }
 
-export interface AstrologerListParams {
+export interface AstrologerListParams extends Record<string, unknown> {
   category?: AstrologerCategory;
   minRating?: number;
   maxAppointmentFee?: number;
@@ -62,4 +61,3 @@ export const ASTROLOGER_CATEGORY_LABELS: Record<AstrologerCategory, string> = {
   [AstrologerCategory.PROFESSIONAL]: 'Professional',
   [AstrologerCategory.PREMIUM]: 'Premium',
 };
-

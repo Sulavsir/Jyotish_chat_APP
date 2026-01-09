@@ -15,6 +15,7 @@ import pricingRoutes from './pricing.routes';
 import appointmentRoutes from './appointment.routes';
 import complaintRoutes from './complaint.routes';
 import publicRoutes from './public.routes';
+import ratingRoutes from './rating.routes';
 
 const router = Router();
 
@@ -34,6 +35,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/notification-settings', notificationSettingsRoutes);
 router.use('/pricing', pricingRoutes); // Pricing plans
 router.use('/complaints', complaintRoutes); // User complaints
+router.use('/ratings', ratingRoutes); // Astrologer ratings
 
 // Astrologer routes
 router.use('/astrologer', astrologerRoutes);

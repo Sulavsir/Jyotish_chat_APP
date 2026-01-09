@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Complaint,
@@ -19,34 +19,53 @@ import {
 import { adminApi } from '@/lib/admin-api';
 import { formatDistanceToNow } from 'date-fns';
 import { LoadingButton } from '@/components/ui';
-import { Button, Badge, Avatar, AvatarImage, AvatarFallback, Textarea, Label } from '@jyotish/ui';
+import {
+  Button,
+  Badge,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  Textarea,
+  Label,
+  ImagePreview,
+} from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_QUERY_KEYS } from '@/constants/query-keys.constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { AlertTriangle, Eye, CheckCircle, X, Clock, RefreshCw, MessageSquare } from 'lucide-react';
+import {
+  AlertTriangle,
+  Eye,
+  CheckCircle,
+  X,
+  Clock,
+  RefreshCw,
+  MessageSquare,
+  Paperclip,
+} from 'lucide-react';
+import { getImageUrl } from '@/utils/helpers';
 
-const STATUS_COLORS = {
-  PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  IN_REVIEW: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  RESOLVED: 'bg-green-500/10 text-green-500 border-green-500/20',
-  DISMISSED: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-  ESCALATED: 'bg-red-500/10 text-red-500 border-red-500/20',
+const STATUS_COLORS: Record<ComplaintStatus, string> = {
+  [ComplaintStatus.PENDING]: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+  [ComplaintStatus.IN_REVIEW]: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  [ComplaintStatus.RESOLVED]: 'bg-green-500/10 text-green-500 border-green-500/20',
+  [ComplaintStatus.DISMISSED]: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  [ComplaintStatus.ESCALATED]: 'bg-red-500/10 text-red-500 border-red-500/20',
 };
 
-const STATUS_ICONS = {
-  PENDING: Clock,
-  IN_REVIEW: Eye,
-  RESOLVED: CheckCircle,
-  DISMISSED: X,
-  ESCALATED: AlertTriangle,
+const STATUS_ICONS: Record<ComplaintStatus, React.ComponentType<{ className?: string }>> = {
+  [ComplaintStatus.PENDING]: Clock,
+  [ComplaintStatus.IN_REVIEW]: Eye,
+  [ComplaintStatus.RESOLVED]: CheckCircle,
+  [ComplaintStatus.DISMISSED]: X,
+  [ComplaintStatus.ESCALATED]: AlertTriangle,
 };
 
-const PRIORITY_COLORS = {
-  LOW: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
-  MEDIUM: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  HIGH: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  URGENT: 'bg-red-500/10 text-red-400 border-red-500/20',
+const PRIORITY_COLORS: Record<ComplaintPriority, string> = {
+  [ComplaintPriority.LOW]: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  [ComplaintPriority.MEDIUM]: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  [ComplaintPriority.HIGH]: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  [ComplaintPriority.URGENT]: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
 export default function ComplaintsPage() {
@@ -59,6 +78,7 @@ export default function ComplaintsPage() {
   const [selectedPriority, setSelectedPriority] = useState<ComplaintPriority>(
     ComplaintPriority.MEDIUM
   );
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Fetch complaints
   const {
@@ -74,15 +94,15 @@ export default function ComplaintsPage() {
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
-  const complaints = (complaintsData as { complaints?: Complaint[] })?.complaints || [];
+  const complaints = complaintsData?.complaints || [];
 
   // Calculate stats using useMemo
   const stats = useMemo(() => {
     return {
       total: complaints.length,
-      inReview: complaints.filter((c: Complaint) => c.status === 'IN_REVIEW').length,
-      resolved: complaints.filter((c: Complaint) => c.status === 'RESOLVED').length,
-      dismissed: complaints.filter((c: Complaint) => c.status === 'DISMISSED').length,
+      inReview: complaints.filter((c) => c.status === ComplaintStatus.IN_REVIEW).length,
+      resolved: complaints.filter((c) => c.status === ComplaintStatus.RESOLVED).length,
+      dismissed: complaints.filter((c) => c.status === ComplaintStatus.DISMISSED).length,
     };
   }, [complaints]);
 
@@ -192,6 +212,14 @@ export default function ComplaintsPage() {
     });
   };
 
+  const handleOpenImagePreview = (imageUrl: string) => {
+    setPreviewImageUrl(imageUrl);
+  };
+
+  const handleCloseImagePreview = () => {
+    setPreviewImageUrl(null);
+  };
+
   const formatDate = (dateString: string | Date) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -208,7 +236,7 @@ export default function ComplaintsPage() {
       accessor: (complaint) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={complaint.client?.profilePhoto || ''} />
+            <AvatarImage src={getImageUrl(complaint.client?.profilePhoto) || undefined} />
             <AvatarFallback className="text-xs">
               {complaint.client?.name?.[0] || '?'}
             </AvatarFallback>
@@ -227,7 +255,7 @@ export default function ComplaintsPage() {
       accessor: (complaint) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={complaint.astrologer?.profilePhoto || ''} />
+            <AvatarImage src={getImageUrl(complaint.astrologer?.profilePhoto) || undefined} />
             <AvatarFallback className="text-xs">
               {complaint.astrologer?.name?.[0] || '?'}
             </AvatarFallback>
@@ -253,23 +281,36 @@ export default function ComplaintsPage() {
       ),
     },
     {
+      header: 'Attachment',
+      accessor: (complaint) => {
+        if (!complaint.attachmentUrl) {
+          return <span className="text-xs text-slate-500">N/A</span>;
+        }
+        const imageUrl = getImageUrl(complaint.attachmentUrl);
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenImagePreview(imageUrl || '');
+            }}
+            className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors text-xs"
+          >
+            <Paperclip className="w-3 h-3" />
+            Preview
+          </button>
+        );
+      },
+    },
+    {
       header: 'Priority',
       accessor: (complaint) => {
-        const priorityLabel =
-          complaint.priority === 'LOW'
-            ? 'Low'
-            : complaint.priority === 'MEDIUM'
-              ? 'Medium'
-              : complaint.priority === 'HIGH'
-                ? 'High'
-                : 'Urgent';
         return (
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-              PRIORITY_COLORS[complaint.priority as keyof typeof PRIORITY_COLORS]
+              PRIORITY_COLORS[complaint.priority]
             }`}
           >
-            {priorityLabel}
+            {COMPLAINT_PRIORITY_LABELS[complaint.priority]}
           </span>
         );
       },
@@ -277,12 +318,11 @@ export default function ComplaintsPage() {
     {
       header: 'Status',
       accessor: (complaint) => {
-        const StatusIcon =
-          STATUS_ICONS[complaint.status as keyof typeof STATUS_ICONS] || AlertTriangle;
+        const StatusIcon = STATUS_ICONS[complaint.status];
         return (
           <span
             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-              STATUS_COLORS[complaint.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.PENDING
+              STATUS_COLORS[complaint.status]
             }`}
           >
             <StatusIcon className="w-3 h-3" />
@@ -655,6 +695,13 @@ export default function ComplaintsPage() {
           </div>
         </div>
       )}
+
+      {/* Image Preview Modal */}
+      <ImagePreview
+        imageUrl={previewImageUrl}
+        alt="Complaint attachment"
+        onClose={handleCloseImagePreview}
+      />
     </AdminLayout>
   );
 }

@@ -36,11 +36,25 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   const [isLoading, setIsLoading] = useState(true);
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false); // ✅ Prevent duplicate loads
 
   // Load broadcast messages and check for active chat
   useEffect(() => {
+    console.log('🔄 [BroadcastChatWindow] Component mounted');
+    
+    // Prevent duplicate initialization
+    if (loadingRef.current) {
+      console.log('⚠️ [BroadcastChatWindow] Already loading, skipping...');
+      return;
+    }
+    loadingRef.current = true;
+    
     loadMessages();
     checkActiveChat();
+    
+    return () => {
+      console.log('🔄 [BroadcastChatWindow] Component unmounted');
+    };
   }, []);
 
   // Auto-scroll to bottom when messages load
@@ -52,13 +66,15 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     }
   }, [messages.length, isLoading]);
 
-  // Check if user has an active chat
+  // Check if user has an active chat (with messages)
   async function checkActiveChat() {
     try {
+      console.log('🔍 [BroadcastChatWindow] Checking for active chat...');
       const activeChat = await chatService.getActiveChat();
       setHasActiveChat(!!activeChat);
+      console.log(`✅ [BroadcastChatWindow] Active chat status: ${!!activeChat ? 'HAS ACTIVE CHAT' : 'NO ACTIVE CHAT'}`);
     } catch (error) {
-      console.error('Error checking active chat:', error);
+      console.error('❌ [BroadcastChatWindow] Error checking active chat:', error);
     }
   }
 
@@ -68,8 +84,13 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
 
     // Listen for confirmation that message was sent
     socket.on('broadcast:messageSent', (message: BroadcastMessage) => {
+      console.log('✅ [BroadcastChatWindow] Broadcast message sent successfully');
       setMessages((prev) => [...prev, message]); // Add new message at the end (bottom)
       setIsSending(false);
+      
+      // Re-check active chat status after sending (in case this creates an active conversation)
+      checkActiveChat();
+      
       // Auto-scroll to bottom to show new message
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,6 +156,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
 
   async function loadMessages() {
     try {
+      console.log('📡 [BroadcastChatWindow] Loading messages...');
       setIsLoading(true);
       const msgs = await broadcastMessageService.getMyMessages();
       // Sort messages oldest-first (ascending by createdAt) for chat-like experience
@@ -142,8 +164,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
       setMessages(sortedMessages);
+      console.log(`✅ [BroadcastChatWindow] Loaded ${sortedMessages.length} messages`);
     } catch (error) {
-      console.error('Error loading broadcast messages:', error);
+      console.error('❌ [BroadcastChatWindow] Error loading broadcast messages:', error);
       // Don't show error toast on initial load - table might not exist yet
       // Just set empty array
       setMessages([]);
@@ -151,6 +174,12 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       setIsLoading(false);
     }
   }
+
+  // Memoize the onExpire callback to prevent unnecessary re-creations
+  const handleMessageExpire = React.useCallback(() => {
+    console.log('⏰ [BroadcastChatWindow] Message expired, reloading...');
+    loadMessages();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSendMessage() {
     if (!inputText.trim() || isSending || !socket || !isConnected) return;
@@ -201,10 +230,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                   expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
                   className="text-white"
                   showIcon={true}
-                  onExpire={() => {
-                    // Reload messages to show expired status
-                    loadMessages();
-                  }}
+                  onExpire={handleMessageExpire}
                 />
               )}
             </div>

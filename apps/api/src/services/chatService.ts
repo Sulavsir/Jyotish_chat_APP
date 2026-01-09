@@ -206,7 +206,8 @@ export const findOrCreateChat = async (
         participant1Type: ParticipantType.CLIENT,
         participant2Type: ParticipantType.ASTROLOGER,
         consultationId,
-        status: ChatStatus.ACTIVE,
+        // ✅ Start as PENDING - will become ACTIVE when first message is sent
+        status: ChatStatus.PENDING,
         isLocked: false,
       },
       include: {
@@ -495,7 +496,7 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
   // Get the chat to determine who is client and astrologer
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
-    select: { participant1Id: true, participant2Id: true },
+    select: { participant1Id: true, participant2Id: true, status: true },
   });
 
   if (!chat) {
@@ -511,6 +512,8 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
       lastMessageText: content.substring(0, 100),
       participant1Read: senderId === chat.participant1Id, // Client read if client sent
       participant2Read: senderId === chat.participant2Id, // Astrologer read if astrologer sent
+      // ✅ Activate chat on first message if it's PENDING
+      ...(chat.status === 'PENDING' && { status: ChatStatus.ACTIVE }),
     },
   });
 
@@ -712,12 +715,17 @@ export const endChat = async (chatId: string, userId: string) => {
 
 /**
  * Get active chat for a user (for clients in broadcast chat context)
+ * Only returns chats that have messages (actual conversations, not just created chats)
  */
 export const getActiveChat = async (userId: string) => {
   const activeChat = await prisma.chat.findFirst({
     where: {
       status: 'ACTIVE',
       OR: [{ participant1Id: userId }, { participant2Id: userId }],
+      // ✅ Only return chats that have at least one message (actual conversation started)
+      lastMessageAt: {
+        not: null,
+      },
     },
     include: {
       clientParticipant: {

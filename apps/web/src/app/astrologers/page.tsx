@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Star, Filter, Search, Users, TrendingUp, RefreshCw } from 'lucide-react';
+import { Filter, Search, Users, TrendingUp, RefreshCw, Star } from 'lucide-react';
 import { astrologerService } from '@/services/astrologer.service';
 import { QUERY_KEYS } from '@/constants/query-keys.constants';
 import { ROUTE_BUILDERS } from '@/constants/route.constants';
@@ -31,6 +31,8 @@ import {
 } from '@jyotish/ui';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { getImageUrl } from '@/utils/image.utils';
+import { StarRating } from '@/components/features/ratings';
+import { AstrologerGridSkeleton } from '@/components/ui/AstrologerCardSkeleton';
 
 export default function AstrologersPage() {
   const router = useRouter();
@@ -111,7 +113,7 @@ export default function AstrologersPage() {
                     <p className="text-gray-400 text-sm">Online Now</p>
                     <p className="text-3xl font-bold text-white">{stats.online}</p>
                   </div>
-                  <div className="h-10 w-10 rounded-full bg-green-500 animate-pulse" />
+                  <div className="h-5 w-5 rounded-full bg-green-500 animate-pulse" />
                 </div>
               </CardContent>
             </Card>
@@ -277,11 +279,8 @@ export default function AstrologersPage() {
 
         {/* Astrologers Grid */}
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
-            <p className="text-gray-300 mt-4">Loading astrologers...</p>
-          </div>
-        ) : astrologersData?.astrologers.length === 0 ? (
+          <AstrologerGridSkeleton count={9} />
+        ) : astrologersData?.astrologers?.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-300 text-lg">No astrologers found matching your criteria.</p>
             <Button onClick={handleClearFilters} className="mt-4 bg-purple-600 hover:bg-purple-700">
@@ -291,7 +290,7 @@ export default function AstrologersPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {astrologersData?.astrologers.map((astrologer) => (
+              {(astrologersData?.astrologers || []).map((astrologer) => (
                 <Card
                   key={astrologer.id}
                   className="bg-black/40 backdrop-blur-md border-white/10 hover:border-purple-500/50 transition-all cursor-pointer"
@@ -331,18 +330,18 @@ export default function AstrologersPage() {
                         </div>
 
                         {astrologer.bio && (
-                          <p className="text-gray-400 text-sm mt-2 line-clamp-2">{astrologer.bio}</p>
+                          <p className="text-gray-400 text-sm mt-2 line-clamp-2">
+                            {astrologer.bio}
+                          </p>
                         )}
 
                         <div className="mt-3 space-y-2">
-                          {astrologer.rating !== null && (
-                            <div className="flex items-center gap-2">
-                              <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                              <span className="text-white font-semibold">
-                                {astrologer.rating.toFixed(1)}
-                              </span>
-                            </div>
-                          )}
+                          <StarRating
+                            rating={astrologer.rating ?? 0}
+                            totalRatings={astrologer.totalConsultations}
+                            size="sm"
+                            showCount={true}
+                          />
 
                           {astrologer.experience && (
                             <p className="text-gray-400 text-sm">
@@ -390,7 +389,7 @@ export default function AstrologersPage() {
             </div>
 
             {/* Pagination */}
-            {astrologersData && astrologersData.pagination.totalPages > 1 && (
+            {astrologersData?.pagination && astrologersData.pagination.totalPages > 1 && (
               <div className="flex items-center justify-center gap-2">
                 <Button
                   onClick={() => handleFilterChange('page', (filters.page || 1) - 1)}

@@ -32,6 +32,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useMutation } from '@tanstack/react-query';
 import complaintService from '@/services/complaint.service';
 import { ComplaintCategory, COMPLAINT_CATEGORY_LABELS } from '@/types/complaint';
+import { InlineChatRating } from '@/components/features/ratings';
 
 interface SystemMessage {
   id: string;
@@ -344,6 +345,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       await endChatService(chat.id);
       setShowEndChatConfirm(false);
       toast.success('Chat ended successfully');
+
       if (onChatEnded) {
         onChatEnded();
       }
@@ -596,6 +598,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Inline Rating Component - Show after chat ends for clients */}
+            {user?.role === UserRole.CLIENT &&
+              chat?.isLocked &&
+              !isLoading &&
+              uniqueMessages.length > 0 && (
+                <InlineChatRating
+                  chatId={chat.id}
+                  astrologerId={chat.astrologerParticipant.id}
+                  astrologerName={chat.astrologerParticipant.name}
+                  clientId={currentUserId}
+                />
+              )}
 
             <div ref={messagesEndRef} />
           </>

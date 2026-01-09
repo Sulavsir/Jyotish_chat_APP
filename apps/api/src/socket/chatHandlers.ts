@@ -163,13 +163,26 @@ export function chatHandlers(io: Server, socket: Socket) {
               participant2Id: astrologerId,
               participant1Type: ParticipantType.CLIENT,
               participant2Type: ParticipantType.ASTROLOGER,
-              status: ChatStatus.ACTIVE,
+              // ✅ Start as PENDING - will become ACTIVE when first message is sent
+              status: ChatStatus.PENDING,
               isLocked: false,
             },
           });
 
           // Emit new chat event to admin for real-time stats
           AdminStatsEmitter.emitNewChat();
+        }
+        
+        // ✅ If chat is PENDING, activate it on first message
+        if (chat.status === ChatStatus.PENDING) {
+          console.log(`🔄 Activating chat ${chat.id} on first message`);
+          chat = await prisma.chat.update({
+            where: { id: chat.id },
+            data: {
+              status: ChatStatus.ACTIVE,
+            },
+          });
+          console.log(`✅ Chat ${chat.id} activated`);
         }
 
         // Determine sender and receiver types

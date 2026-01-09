@@ -39,16 +39,16 @@ class ApiClient {
         // If error is 401 and we haven't retried yet
         if (error.response?.status === 401 && !originalRequest._retry) {
           const requestUrl = originalRequest.url || '';
-          
+
           // Don't try to refresh for login/auth endpoints
-          const isAuthEndpoint = requestUrl.includes('/auth/login') || 
-                                requestUrl.includes('/auth/refresh');
-          
+          const isAuthEndpoint =
+            requestUrl.includes('/auth/login') || requestUrl.includes('/auth/refresh');
+
           // Don't refresh if we're on login page
-          const isLoginPage = typeof window !== 'undefined' && 
-                             (window.location.pathname === '/admin/login' ||
-                              window.location.pathname === '/login');
-          
+          const isLoginPage =
+            typeof window !== 'undefined' &&
+            (window.location.pathname === '/admin/login' || window.location.pathname === '/login');
+
           if (isAuthEndpoint || isLoginPage) {
             return Promise.reject(error);
           }
@@ -92,7 +92,10 @@ class ApiClient {
             // Mark session as expired to prevent further attempts
             this.isSessionExpired = true;
 
-            console.log('❌ Admin token refresh failed:', refreshError?.response?.data?.error || refreshError?.message);
+            console.log(
+              '❌ Admin token refresh failed:',
+              refreshError?.response?.data?.error || refreshError?.message
+            );
 
             // Refresh failed, reject all queued requests
             this.failedQueue.forEach(({ reject }) => reject(new Error('Session expired')));
@@ -125,32 +128,87 @@ class ApiClient {
     );
   }
 
+  /**
+   * Extract user-friendly error message from axios error
+   */
+  private getErrorMessage(error: any): string {
+    // If it's an axios error with a response from our backend
+    if (error.response?.data) {
+      const data = error.response.data;
+
+      // Our standard error format: { success: false, error: { message, code } }
+      if (data.error?.message) {
+        return data.error.message;
+      }
+
+      // Legacy format: { message }
+      if (data.message) {
+        return data.message;
+      }
+
+      // Validation errors with details
+      if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+        return data.errors.map((e: any) => e.message || e).join(', ');
+      }
+    }
+
+    // Network or timeout errors
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      return 'Request timed out. Please try again.';
+    }
+
+    if (error.message === 'Network Error') {
+      return 'Network error. Please check your connection.';
+    }
+
+    // Fallback to error message or generic message
+    return error.message || 'An unexpected error occurred. Please try again.';
+  }
+
   async get<T>(url: string, config?: any): Promise<T> {
-    const response = await this.client.get(url, config);
-    return response.data.data || response.data;
+    try {
+      const response = await this.client.get(url, config);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      throw new Error(this.getErrorMessage(error));
+    }
   }
 
   async post<T>(url: string, data?: any, config?: any): Promise<T> {
-    const response = await this.client.post(url, data, config);
-    return response.data.data || response.data;
+    try {
+      const response = await this.client.post(url, data, config);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      throw new Error(this.getErrorMessage(error));
+    }
   }
 
   async put<T>(url: string, data?: any, config?: any): Promise<T> {
-    const response = await this.client.put(url, data, config);
-    return response.data.data || response.data;
+    try {
+      const response = await this.client.put(url, data, config);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      throw new Error(this.getErrorMessage(error));
+    }
   }
 
   async patch<T>(url: string, data?: any, config?: any): Promise<T> {
-    const response = await this.client.patch(url, data, config);
-    return response.data.data || response.data;
+    try {
+      const response = await this.client.patch(url, data, config);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      throw new Error(this.getErrorMessage(error));
+    }
   }
 
   async delete<T>(url: string, config?: any): Promise<T> {
-    const response = await this.client.delete(url, config);
-    return response.data.data || response.data;
+    try {
+      const response = await this.client.delete(url, config);
+      return response.data.data || response.data;
+    } catch (error: any) {
+      throw new Error(this.getErrorMessage(error));
+    }
   }
 }
 
 export const apiClient = new ApiClient();
-
-

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
 import { AppointmentStatus, AstrologerCategory } from '../types/appointment.types';
 import type {
   BookAppointmentData,
@@ -104,11 +105,11 @@ export const createAppointment = async (
  */
 export const getAppointments = async (
   userId: string,
-  role: 'CLIENT' | 'ASTROLOGER',
+  role: UserRole.CLIENT | UserRole.ASTROLOGER,
   status?: AppointmentStatus
 ): Promise<AppointmentWithRelations[]> => {
   const where: any = {
-    ...(role === 'CLIENT' ? { clientId: userId } : { astrologerId: userId }),
+    ...(role === UserRole.CLIENT ? { clientId: userId } : { astrologerId: userId }),
     ...(status && { status }),
   };
 

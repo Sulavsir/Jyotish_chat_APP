@@ -28,6 +28,9 @@ router.get('/my-messages', asyncHandler(broadcastMessageController.getMyMessages
 // Accept a broadcast message (astrologer only)
 router.post('/:messageId/accept', asyncHandler(broadcastMessageController.acceptMessage));
 
+// Dismiss/Reject a broadcast message (astrologer only)
+router.post('/:messageId/dismiss', asyncHandler(broadcastMessageController.dismissBroadcastMessage));
+
 // Get specific broadcast message
 router.get('/:messageId', asyncHandler(broadcastMessageController.getBroadcastMessage));
 

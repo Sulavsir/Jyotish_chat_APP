@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useStore } from '@/store';
@@ -26,6 +26,7 @@ export default function ChatPage() {
   useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const chatIdFromUrl = searchParams?.get('chatId');
 
   const user = useAuthStore((state) => state.user);
@@ -47,7 +48,7 @@ export default function ChatPage() {
   const typingUsers = useStore((state) => state.typingUsers);
   const chatMessages = useStore((state) => state.messages);
 
-  // Load conversations and auto-select chat from URL
+  // Load conversations on initial mount
   useEffect(() => {
     // Prevent double initialization in React Strict Mode
     if (initializedRef.current) return;
@@ -68,7 +69,40 @@ export default function ChatPage() {
 
     initializeChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatIdFromUrl, user?.id]);
+  }, [user?.id]);
+
+  // Handle URL changes after initial mount (when chatId query param changes)
+  useEffect(() => {
+    // Only run after initial mount
+    if (!initializedRef.current || !user) return;
+
+    // If chatId is removed from URL (navigating to broadcast), skip
+    if (!chatIdFromUrl) {
+      console.log('📍 [ChatPage] No chatId in URL, staying in current mode');
+      return;
+    }
+
+    console.log('📍 [ChatPage] URL changed, loading chat:', chatIdFromUrl);
+    
+    // If this chat is already active, don't reload
+    if (activeChatId === chatIdFromUrl && !isBroadcastChatActive) {
+      console.log('✅ [ChatPage] Chat already active, skipping');
+      return;
+    }
+
+    // ✅ Clear broadcast mode if switching from broadcast to regular chat
+    if (isBroadcastChatActive) {
+      console.log('🔄 [ChatPage] Switching from broadcast to regular chat');
+      setIsBroadcastChatActive(false);
+      // ✅ Skip mobile toggle to preserve scroll position
+      loadAndSelectChatFromUrl(chatIdFromUrl, chats, true);
+      return;
+    }
+
+    // Load the chat from URL (normal flow)
+    loadAndSelectChatFromUrl(chatIdFromUrl, chats);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatIdFromUrl]);
 
   // Real-time conversation updates from socket
   useEffect(() => {
@@ -374,7 +408,7 @@ export default function ChatPage() {
   };
 
   // Load and select a specific chat from URL
-  const loadAndSelectChatFromUrl = async (chatId: string, loadedChats?: any[]) => {
+  const loadAndSelectChatFromUrl = async (chatId: string, loadedChats?: any[], skipMobileToggle = false) => {
     if (!chatId || !user) return;
 
     try {
@@ -412,7 +446,11 @@ export default function ChatPage() {
       // Set the active chat FIRST (this triggers ChatWindow to prepare for new chat)
       setActiveChat(chat);
       setActiveChatId(chat.id);
-      setShowMobileChat(true);
+      
+      // ✅ Only toggle mobile chat if not skipping (prevents layout shift)
+      if (!skipMobileToggle) {
+        setShowMobileChat(true);
+      }
 
       // Small delay to ensure state updates propagate
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -483,11 +521,15 @@ export default function ChatPage() {
 
   // Handle broadcast chat selection
   const handleSelectBroadcastChat = () => {
+    console.log('📢 [ChatPage] Selecting broadcast chat');
     setIsBroadcastChatActive(true);
     setActiveChat(null);
     setActiveChatId(null);
     setMessages([]);
     setShowMobileChat(true);
+    
+    // ✅ Change URL to just /chat (remove chatId query param)
+    router.replace('/chat');
   };
 
   // Handle chat selection
@@ -516,18 +558,19 @@ export default function ChatPage() {
     }
   };
 
-  // Handle chat created from broadcast
-  const handleChatCreatedFromBroadcast = async (chatId: string) => {
+  // Handle chat created from broadcast (memoized to prevent unnecessary re-renders)
+  const handleChatCreatedFromBroadcast = React.useCallback(async (chatId: string) => {
     // Reload conversations to get the new chat
     await loadConversations();
-    // Select the new chat
-    const selectedChat = chats.find((c) => c.id === chatId);
+    // Select the new chat - use fresh chats from loadConversations
+    const freshChats = await loadConversations();
+    const selectedChat = freshChats.find((c: Chat) => c.id === chatId);
     if (selectedChat) {
       // For clients, the other user is always the astrologer
       const otherUser = selectedChat.astrologerParticipant;
       handleSelectChat(chatId, otherUser.id);
     }
-  };
+  }, []); // Empty dependencies - uses fresh data from loadConversations
 
   // Handle sending message
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {

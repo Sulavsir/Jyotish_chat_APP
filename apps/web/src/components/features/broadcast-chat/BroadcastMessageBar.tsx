@@ -108,8 +108,22 @@ export function BroadcastMessageBar() {
     }
   }
 
-  function handleDismiss(messageId: string) {
-    setPendingMessages((prev) => prev.filter((m) => m.id !== messageId));
+  async function handleDismiss(messageId: string) {
+    try {
+      // Optimistically remove from UI
+      setPendingMessages((prev) => prev.filter((m) => m.id !== messageId));
+      
+      // Call API to persist the dismissal
+      await broadcastMessageService.dismissMessage(messageId);
+      
+      toast.success('Request declined successfully');
+    } catch (error: any) {
+      console.error('Error dismissing broadcast message:', error);
+      toast.error(error.message || 'Failed to dismiss request');
+      
+      // Reload messages on error to restore state
+      loadPendingMessages();
+    }
   }
 
   function getTimeRemaining(createdAt: string): string {

@@ -4,7 +4,14 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { Prisma, MessageType, AuditAction } from '@prisma/client';
+import {
+  Prisma,
+  MessageType,
+  AuditAction,
+  BroadcastMessageStatus,
+  InstantChatRequestStatus,
+  ChatStatus,
+} from '@prisma/client';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '../constants';
 import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
 import { auditService } from './audit.service';
@@ -59,21 +66,55 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   }
 
   // Check if client has a pending broadcast message
-  const pendingBroadcast = await prisma.instantChatRequest.findFirst({
+  const pendingBroadcast = await prisma.broadcastMessage.findFirst({
     where: {
       clientId: data.clientId,
-      status: 'PENDING',
-      expiresAt: {
-        gt: new Date(), // Not expired yet
-      },
+      status: BroadcastMessageStatus.PENDING,
+    },
+    orderBy: {
+      createdAt: 'desc',
     },
   });
 
   if (pendingBroadcast) {
-    const timeLeft = Math.ceil((pendingBroadcast.expiresAt.getTime() - Date.now()) / 1000);
-    throw new Error(
-      `You already have a pending broadcast message. Please wait ${timeLeft} seconds for it to be accepted or expire before sending another one.`
+    // Calculate time since last broadcast was sent
+    const timeSinceLastBroadcast = Date.now() - pendingBroadcast.createdAt.getTime();
+    const timeLeftSeconds = Math.max(
+      0,
+      Math.ceil((BROADCAST_MESSAGE_EXPIRY_MS - timeSinceLastBroadcast) / 1000)
     );
+
+    throw new Error(
+      `You already have a pending broadcast message. Please wait ${timeLeftSeconds} seconds for it to be accepted or expire before sending another one.`
+    );
+  }
+
+  // Check if client has an accepted broadcast message without an active chat
+  // This means the astrologer accepted but the chat was ended
+  const acceptedBroadcast = await prisma.broadcastMessage.findFirst({
+    where: {
+      clientId: data.clientId,
+      status: BroadcastMessageStatus.ACCEPTED,
+      chatId: {
+        not: null,
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  if (acceptedBroadcast && acceptedBroadcast.chatId) {
+    // Check if the chat from the accepted broadcast is still active
+    const acceptedChat = await prisma.chat.findUnique({
+      where: { id: acceptedBroadcast.chatId },
+    });
+
+    if (acceptedChat && acceptedChat.status === ChatStatus.ACTIVE && !acceptedChat.isLocked) {
+      throw new Error(
+        'Your previous broadcast message was accepted. Please complete or end your current chat before sending a new broadcast message.'
+      );
+    }
   }
 
   // Check if there are any online astrologers available
@@ -92,9 +133,9 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     data: {
       clientId: data.clientId,
       content: data.content,
-      type: data.type || 'TEXT',
+      type: data.type || MessageType.TEXT,
       metadata: data.metadata,
-      status: 'PENDING',
+      status: BroadcastMessageStatus.PENDING,
     },
     include: {
       client: {
@@ -142,13 +183,13 @@ export async function expireOldMessages() {
 
     const result = await prisma.broadcastMessage.updateMany({
       where: {
-        status: 'PENDING',
+        status: BroadcastMessageStatus.PENDING,
         createdAt: {
           lt: expiryTime,
         },
       },
       data: {
-        status: 'EXPIRED',
+        status: BroadcastMessageStatus.EXPIRED,
       },
     });
 
@@ -164,8 +205,9 @@ export async function expireOldMessages() {
 /**
  * Get all pending broadcast messages (for astrologers)
  * Automatically expires old messages before returning
+ * Filters out messages dismissed by the requesting astrologer
  */
-export async function getPendingBroadcastMessages() {
+export async function getPendingBroadcastMessages(astrologerId?: string) {
   // Graceful handling if table doesn't exist yet
   if (!(prisma as any).broadcastMessage) {
     return [];
@@ -174,9 +216,28 @@ export async function getPendingBroadcastMessages() {
   // First, expire old messages
   await expireOldMessages();
 
+  // If astrologer ID is provided, get their dismissed message IDs
+  let dismissedMessageIds: string[] = [];
+  if (astrologerId) {
+    const dismissals = await prisma.broadcastMessageDismissal.findMany({
+      where: {
+        astrologerId,
+      },
+      select: {
+        broadcastMessageId: true,
+      },
+    });
+    dismissedMessageIds = dismissals.map((d) => d.broadcastMessageId);
+  }
+
   const messages = await prisma.broadcastMessage.findMany({
     where: {
-      status: 'PENDING',
+      status: BroadcastMessageStatus.PENDING,
+      ...(dismissedMessageIds.length > 0 && {
+        id: {
+          notIn: dismissedMessageIds,
+        },
+      }),
     },
     include: {
       client: {
@@ -283,7 +344,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     throw new Error('Broadcast message not found');
   }
 
-  if (message.status !== 'PENDING') {
+  if (message.status !== BroadcastMessageStatus.PENDING) {
     throw new Error('This message has already been accepted or expired');
   }
 
@@ -385,7 +446,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   const updatedMessage = await prisma.broadcastMessage.update({
     where: { id: messageId },
     data: {
-      status: 'ACCEPTED',
+      status: BroadcastMessageStatus.ACCEPTED,
       acceptedBy: astrologerId,
       chatId: chat.id,
       acceptedAt: new Date(),
@@ -519,15 +580,66 @@ export async function expireOldBroadcastMessages(olderThanMinutes: number = 30) 
 
   const result = await prisma.broadcastMessage.updateMany({
     where: {
-      status: 'PENDING',
+      status: BroadcastMessageStatus.PENDING,
       createdAt: {
         lt: expiryTime,
       },
     },
     data: {
-      status: 'EXPIRED',
+      status: BroadcastMessageStatus.EXPIRED,
     },
   });
 
   return result;
+}
+
+/**
+ * Dismiss/Reject a broadcast message for a specific astrologer
+ * The message won't be shown to this astrologer again
+ */
+export async function dismissBroadcastMessage(messageId: string, astrologerId: string) {
+  // Check if message exists and is still pending
+  const message = await prisma.broadcastMessage.findUnique({
+    where: { id: messageId },
+  });
+
+  if (!message) {
+    throw new Error('Broadcast message not found');
+  }
+
+  if (message.status !== BroadcastMessageStatus.PENDING) {
+    throw new Error('This message has already been accepted or expired');
+  }
+
+  // Create or update dismissal record (upsert to handle duplicates gracefully)
+  const dismissal = await prisma.broadcastMessageDismissal.upsert({
+    where: {
+      broadcastMessageId_astrologerId: {
+        broadcastMessageId: messageId,
+        astrologerId,
+      },
+    },
+    create: {
+      broadcastMessageId: messageId,
+      astrologerId,
+    },
+    update: {
+      dismissedAt: new Date(),
+    },
+  });
+
+  // Log audit action
+  await auditService.logAction({
+    action: AuditAction.BROADCAST_MESSAGE_DISMISS,
+    resource: 'BroadcastMessage',
+    resourceId: messageId,
+    userId: message.clientId,
+    astrologerId,
+    details: {
+      messageId,
+      clientId: message.clientId,
+    },
+  });
+
+  return dismissal;
 }

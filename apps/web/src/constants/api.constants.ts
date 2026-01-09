@@ -65,6 +65,7 @@ export const API_ENDPOINTS = {
     ALL: '/api/v1/broadcast-messages/all',
     MY_MESSAGES: '/api/v1/broadcast-messages/my-messages',
     ACCEPT: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/accept`,
+    DISMISS: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/dismiss`,
     MESSAGE_BY_ID: (messageId: string) => `/api/v1/broadcast-messages/${messageId}`,
   },
   CONSULTATIONS: {
@@ -87,8 +88,11 @@ export const API_ENDPOINTS = {
     LOGIN: '/api/v1/astrologer/auth/login',
     LOGOUT: '/api/v1/astrologer/auth/logout',
     ME: '/api/v1/astrologer/auth/me',
-    LIST: '/api/v1/astrologer/list',
+    LIST: '/api/v1/public/astrologers',
     TOGGLE_ONLINE: '/api/v1/astrologer/toggle-online',
+    AUTH_ME: '/api/v1/astrologer/auth/me',
+    PROFILE: (id: string) => `/api/v1/public/astrologers/${id}`,
+    STATS: '/api/v1/public/astrologers/stats',
   },
   NOTIFICATION_SETTINGS: {
     GET: '/api/v1/notification-settings',
@@ -109,11 +113,12 @@ export const API_ENDPOINTS = {
     LIST: '/api/v1/complaints',
     DETAIL: (id: string) => `/api/v1/complaints/${id}`,
   },
-  ASTROLOGER: {
-    AUTH_ME: '/api/v1/astrologer/auth/me',
-    TOGGLE_ONLINE: '/api/v1/astrologer/toggle-online',
-    LIST: '/api/v1/public/astrologers',
-    PROFILE: (id: string) => `/api/v1/public/astrologers/${id}`,
-    STATS: '/api/v1/public/astrologers/stats',
+  RATINGS: {
+    CREATE: '/api/v1/ratings',
+    MY_RATINGS: '/api/v1/ratings/my-ratings',
+    CAN_RATE: (chatId: string) => `/api/v1/ratings/can-rate/${chatId}`,
+    CHAT: (chatId: string) => `/api/v1/ratings/chat/${chatId}`,
+    ASTROLOGER: (astrologerId: string) => `/api/v1/ratings/astrologer/${astrologerId}`,
+    ASTROLOGER_STATS: (astrologerId: string) => `/api/v1/ratings/astrologer/${astrologerId}/stats`,
   },
 } as const;

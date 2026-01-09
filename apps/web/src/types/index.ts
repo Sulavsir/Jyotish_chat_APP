@@ -11,6 +11,8 @@ export * from './auth';
 export * from './chat';
 export * from './complaint';
 export * from './astrologer';
+export * from './broadcast';
+export * from './rating';
 
 // Frontend-specific types
 export interface ApiResponse<T = unknown> {

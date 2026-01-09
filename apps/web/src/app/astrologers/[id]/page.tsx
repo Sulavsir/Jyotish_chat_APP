@@ -137,25 +137,23 @@ export default function AstrologerProfilePage() {
                 </div>
 
                 {/* Rating */}
-                {astrologer.rating !== null && (
-                  <div className="flex items-center gap-2 mt-4">
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-5 w-5 ${
-                            i < Math.floor(astrologer.rating || 0)
-                              ? 'text-yellow-500 fill-yellow-500'
-                              : 'text-gray-500'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-white font-semibold text-lg">
-                      {astrologer.rating?.toFixed(1)}
-                    </span>
+                <div className="flex items-center gap-2 mt-4">
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-5 w-5 ${
+                          i < Math.floor(astrologer.rating || 0)
+                            ? 'text-yellow-500 fill-yellow-500'
+                            : 'text-gray-500'
+                        }`}
+                      />
+                    ))}
                   </div>
-                )}
+                  <span className="text-white font-semibold text-lg">
+                    {(astrologer.rating ?? 0).toFixed(1)}
+                  </span>
+                </div>
 
                 {/* Bio */}
                 {astrologer.bio && (
@@ -207,7 +205,7 @@ export default function AstrologerProfilePage() {
                 <div>
                   <p className="text-gray-400 text-sm">Rating</p>
                   <p className="text-2xl font-bold text-white">
-                    {astrologer.rating?.toFixed(1) || 'N/A'}
+                    {(astrologer.rating ?? 0).toFixed(1)}
                   </p>
                 </div>
               </div>

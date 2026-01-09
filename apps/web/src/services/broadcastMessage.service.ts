@@ -5,47 +5,29 @@
 
 import { apiClient } from '@/lib/api-client';
 import { API_ENDPOINTS } from '@/constants';
-
-export interface BroadcastMessage {
-  id: string;
-  clientId: string;
-  content: string;
-  type: string;
-  status: 'PENDING' | 'ACCEPTED' | 'EXPIRED';
-  acceptedBy?: string;
-  chatId?: string;
-  acceptedAt?: string;
-  metadata?: any;
-  createdAt: string;
-  updatedAt: string;
-  client: {
-    id: string;
-    name: string | null;
-    phone: string;
-    profilePhoto: string | null;
-  };
-  acceptedAstrologer?: {
-    id: string;
-    name: string | null;
-    phone: string;
-    profilePhoto: string | null;
-  };
-}
+import type {
+  BroadcastMessage,
+  CreateBroadcastMessageRequest,
+  AcceptBroadcastMessageResponse,
+  DismissBroadcastMessageResponse,
+  MessageType,
+} from '@/types';
 
 const broadcastMessageService = {
   /**
    * Send a broadcast message to all astrologers (client only)
    */
-  async sendMessage(content: string, type: string = 'TEXT'): Promise<BroadcastMessage> {
-    const response = await apiClient.post<BroadcastMessage>(API_ENDPOINTS.BROADCAST.MESSAGES, {
-      content,
-      type,
-    });
+  async sendMessage(data: CreateBroadcastMessageRequest): Promise<BroadcastMessage> {
+    const response = await apiClient.post<BroadcastMessage>(
+      API_ENDPOINTS.BROADCAST.MESSAGES,
+      data
+    );
     return response;
   },
 
   /**
    * Get pending broadcast messages (astrologer only)
+   * Automatically filters out messages dismissed by the requesting astrologer
    */
   async getPendingMessages(): Promise<BroadcastMessage[]> {
     const response = await apiClient.get<BroadcastMessage[]>(API_ENDPOINTS.BROADCAST.PENDING);
@@ -73,9 +55,20 @@ const broadcastMessageService = {
   /**
    * Accept a broadcast message (astrologer only)
    */
-  async acceptMessage(messageId: string): Promise<{ message: BroadcastMessage; chat: any }> {
-    const response = await apiClient.post<{ message: BroadcastMessage; chat: any }>(
+  async acceptMessage(messageId: string): Promise<AcceptBroadcastMessageResponse> {
+    const response = await apiClient.post<AcceptBroadcastMessageResponse>(
       API_ENDPOINTS.BROADCAST.ACCEPT(messageId)
+    );
+    return response;
+  },
+
+  /**
+   * Dismiss/Reject a broadcast message (astrologer only)
+   * The message won't be shown to this astrologer again
+   */
+  async dismissMessage(messageId: string): Promise<DismissBroadcastMessageResponse> {
+    const response = await apiClient.post<DismissBroadcastMessageResponse>(
+      API_ENDPOINTS.BROADCAST.DISMISS(messageId)
     );
     return response;
   },

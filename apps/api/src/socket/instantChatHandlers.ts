@@ -4,7 +4,7 @@
  */
 
 import { Server, Socket } from 'socket.io';
-import { NotificationType } from '@jyotish/shared';
+import { NotificationType, UserRole } from '@jyotish/shared';
 import { AstrologerCategory } from '@prisma/client';
 import * as instantChatService from '../services/instantChat.service';
 import { notificationService } from '../services/notification.service';
@@ -59,7 +59,7 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
         // Emit to eligible astrologers only
         sockets.forEach((s) => {
           if (
-            s.data.user?.role === 'ASTROLOGER' &&
+            s.data.user?.role === UserRole.ASTROLOGER &&
             s.data.user?.id &&
             eligibleAstrologerIds.has(s.data.user.id)
           ) {

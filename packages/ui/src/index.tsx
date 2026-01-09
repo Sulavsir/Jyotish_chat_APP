@@ -11,6 +11,7 @@ export * from './popover';
 export * from './dialog';
 export * from './spinner';
 export * from './pagination';
+export * from './image-preview';
 export * from './utils';
 
 // Shadcn components

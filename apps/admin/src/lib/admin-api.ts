@@ -4,6 +4,7 @@
 
 import { apiClient } from './api-client';
 import { API_ENDPOINTS } from '@/constants/api.constants';
+import type { Complaint, ComplaintStats } from '@/types';
 
 export interface LoginRequest {
   email: string;
@@ -16,6 +17,11 @@ export interface LoginResponse {
     email: string;
     name: string;
   };
+}
+
+export interface ComplaintsListResponse {
+  complaints: Complaint[];
+  total: number;
 }
 
 export interface AppointmentResponse {
@@ -197,13 +203,18 @@ export const adminApi = {
    * Complaints
    */
   complaints: {
-    getComplaints: async (params?: { limit?: number; offset?: number; status?: string }) => {
-      const response = await apiClient.get(API_ENDPOINTS.COMPLAINTS.LIST, { params });
+    getComplaints: async (
+      params?: { limit?: number; offset?: number; status?: string }
+    ): Promise<ComplaintsListResponse> => {
+      const response = await apiClient.get<ComplaintsListResponse>(
+        API_ENDPOINTS.COMPLAINTS.LIST,
+        { params }
+      );
       return response;
     },
 
-    getComplaintStats: async () => {
-      const response = await apiClient.get(API_ENDPOINTS.COMPLAINTS.STATS);
+    getComplaintStats: async (): Promise<ComplaintStats> => {
+      const response = await apiClient.get<ComplaintStats>(API_ENDPOINTS.COMPLAINTS.STATS);
       return response;
     },
 

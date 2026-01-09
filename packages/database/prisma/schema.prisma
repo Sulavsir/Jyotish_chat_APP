@@ -43,6 +43,7 @@ model User {
   auditLogs                    AuditLog[]
   appointments                 Appointment[]          @relation("ClientAppointments")
   complaintsAsClient           Complaint[]            @relation("ClientComplaints")
+  ratingsGiven                 Rating[]               @relation("ClientRatings")
 
   @@index([phone])
   @@index([email])
@@ -86,8 +87,10 @@ model Astrologer {
   chatsAsAstrologer            Chat[]                @relation("ChatAstrologerParticipant2")
   auditLogs                    AuditLog[]            @relation("AstrologerAuditLogs")
   earnings                     AstrologerEarnings[]
-  appointments                 Appointment[]         @relation("AstrologerAppointments")
-  complaintsReceived           Complaint[]           @relation("AstrologerComplaints")
+  appointments                 Appointment[]                @relation("AstrologerAppointments")
+  complaintsReceived           Complaint[]                  @relation("AstrologerComplaints")
+  dismissedBroadcastMessages   BroadcastMessageDismissal[]  @relation("DismissedBroadcastMessages")
+  ratingsReceived              Rating[]                     @relation("AstrologerRatings")
 
   @@index([phone])
   @@index([email])
@@ -243,6 +246,7 @@ model Chat {
   clientParticipant     User            @relation("ChatParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
   astrologerParticipant Astrologer      @relation("ChatAstrologerParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
   messages              Message[]
+  rating                Rating?
   complaints            Complaint[]
 
   @@unique([participant1Id, participant2Id]) // Keep unique - same chat is reused
@@ -335,25 +339,41 @@ model InstantChatRequest {
 
 // Broadcast Chat - Clients send messages to "Everyone Jyotish", astrologers see and can accept
 model BroadcastMessage {
-  id                 String                 @id @default(uuid())
-  clientId           String
-  content            String
-  type               MessageType            @default(TEXT)
-  status             BroadcastMessageStatus @default(PENDING)
-  acceptedBy         String? // Astrologer ID who accepted this message
-  chatId             String? // Chat created after acceptance
-  acceptedAt         DateTime? // When astrologer accepted
-  metadata           Json?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  client             User                   @relation("ClientBroadcastMessages", fields: [clientId], references: [id], onDelete: Cascade)
-  acceptedAstrologer Astrologer?            @relation("AcceptedBroadcastMessages", fields: [acceptedBy], references: [id], onDelete: SetNull)
+  id                     String                       @id @default(uuid())
+  clientId               String
+  content                String
+  type                   MessageType                  @default(TEXT)
+  status                 BroadcastMessageStatus       @default(PENDING)
+  acceptedBy             String? // Astrologer ID who accepted this message
+  chatId                 String? // Chat created after acceptance
+  acceptedAt             DateTime? // When astrologer accepted
+  metadata               Json?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+  client                 User                         @relation("ClientBroadcastMessages", fields: [clientId], references: [id], onDelete: Cascade)
+  acceptedAstrologer     Astrologer?                  @relation("AcceptedBroadcastMessages", fields: [acceptedBy], references: [id], onDelete: SetNull)
+  dismissedByAstrologers BroadcastMessageDismissal[]
 
   @@index([clientId])
   @@index([status])
   @@index([acceptedBy])
   @@index([createdAt])
   @@index([status, createdAt])
+}
+
+// Track which astrologers have dismissed/rejected broadcast messages
+model BroadcastMessageDismissal {
+  id                 String           @id @default(uuid())
+  broadcastMessageId String
+  astrologerId       String
+  dismissedAt        DateTime         @default(now())
+  broadcastMessage   BroadcastMessage @relation(fields: [broadcastMessageId], references: [id], onDelete: Cascade)
+  astrologer         Astrologer       @relation("DismissedBroadcastMessages", fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  @@unique([broadcastMessageId, astrologerId]) // Each astrologer can dismiss a message only once
+  @@index([broadcastMessageId])
+  @@index([astrologerId])
+  @@index([dismissedAt])
 }
 
 // User complaints about astrologers
@@ -681,6 +701,24 @@ enum PaymentStatus {
   REFUNDED
 }
 
+model Rating {
+  id           String     @id @default(uuid())
+  chatId       String     @unique // One rating per chat session
+  clientId     String // User who gave the rating
+  astrologerId String // Astrologer who received the rating
+  rating       Int // Rating value (1-5 stars)
+  feedback     String? // Optional text feedback
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  chat         Chat       @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  client       User       @relation("ClientRatings", fields: [clientId], references: [id], onDelete: Cascade)
+  astrologer   Astrologer @relation("AstrologerRatings", fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([astrologerId])
+  @@index([rating])
+}
+
 enum SessionUserType {
   CLIENT
   ASTROLOGER
@@ -732,6 +770,7 @@ enum AuditAction {
   BROADCAST_MESSAGE_CREATE
   BROADCAST_MESSAGE_ACCEPT
   BROADCAST_MESSAGE_EXPIRE
+  BROADCAST_MESSAGE_DISMISS
   PAYMENT_CREATE
   PAYMENT_SUCCESS
   PAYMENT_FAIL
@@ -740,6 +779,7 @@ enum AuditAction {
   COMPLAINT_RESOLVE
   COMPLAINT_DISMISS
   COMPLAINT_ESCALATE
+  RATING_CREATE
   SYSTEM_ACTION
 }
 
