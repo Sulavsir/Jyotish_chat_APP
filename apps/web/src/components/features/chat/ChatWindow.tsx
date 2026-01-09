@@ -607,7 +607,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <InlineChatRating
                   chatId={chat.id}
                   astrologerId={chat.astrologerParticipant.id}
-                  astrologerName={chat.astrologerParticipant.name}
+                  astrologerName={chat.astrologerParticipant.name!}
                   clientId={currentUserId}
                 />
               )}
