@@ -79,13 +79,26 @@ const isOriginAllowed = (origin: string | undefined): boolean => {
     }
   }
 
-  // Production: only allow specific origins
-  const allowedOrigins = [process.env.CORS_ORIGIN || '', process.env.FRONTEND_URL || ''].filter(
-    Boolean
-  );
+  // Production: only allow specific origins from CORS_ORIGIN env variable
+  // CORS_ORIGIN can be comma-separated: "https://domain1.com,https://domain2.com"
+  const corsOrigin = process.env.CORS_ORIGIN || '';
+  const allowedOrigins = corsOrigin
+    .split(',')
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  // Also add FRONTEND_URL if set (for backward compatibility)
+  if (process.env.FRONTEND_URL) {
+    allowedOrigins.push(process.env.FRONTEND_URL.trim());
+  }
 
   const isAllowed = allowedOrigins.includes(origin);
-  console.log(isAllowed ? '✅ CORS: Allowed by whitelist' : '❌ CORS: Origin not allowed');
+  if (isAllowed) {
+    console.log(`✅ CORS: Allowed origin: ${origin}`);
+  } else {
+    console.log(`❌ CORS: Origin not allowed: ${origin}`);
+    console.log(`   Allowed origins: ${allowedOrigins.join(', ') || 'none'}`);
+  }
   return isAllowed;
 };
 
