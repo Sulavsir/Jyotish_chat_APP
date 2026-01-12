@@ -19,6 +19,7 @@ import {
 import { adminApi } from '@/lib/admin-api';
 import { formatDistanceToNow } from 'date-fns';
 import { LoadingButton } from '@/components/ui';
+import { getImageUrl } from '@/utils/helpers';
 import {
   Button,
   Badge,
@@ -43,7 +44,6 @@ import {
   MessageSquare,
   Paperclip,
 } from 'lucide-react';
-import { getImageUrl } from '@/utils/helpers';
 
 const STATUS_COLORS: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -574,7 +574,7 @@ export default function ComplaintsPage() {
                   <Label className="text-sm font-medium text-slate-300">Attachment</Label>
                   <div className="mt-2 bg-slate-800/30 p-3 rounded-lg border border-slate-700">
                     <a
-                      href={`http://localhost:4000${selectedComplaint.attachmentUrl}`}
+                      href={getImageUrl(selectedComplaint.attachmentUrl) || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors"
@@ -595,7 +595,7 @@ export default function ComplaintsPage() {
                       View Attachment
                     </a>
                     <img
-                      src={`http://localhost:4000${selectedComplaint.attachmentUrl}`}
+                      src={getImageUrl(selectedComplaint.attachmentUrl) || ''}
                       alt="Complaint evidence"
                       className="mt-3 max-w-full h-auto rounded-lg border border-slate-600"
                       style={{ maxHeight: '300px' }}

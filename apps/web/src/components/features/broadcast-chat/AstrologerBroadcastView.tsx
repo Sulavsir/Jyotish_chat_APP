@@ -10,7 +10,9 @@ import { Card, Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore } from '@/store/auth-store';
-import broadcastMessageService, { BroadcastMessage } from '@/services/broadcastMessage.service';
+import type { BroadcastMessage } from '@/types';
+import { BroadcastMessageStatus } from '@/types';
+import broadcastMessageService from '@/services/broadcastMessage.service';
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
 import { MessageSquare, Clock, CheckCircle2, Send, Lock } from 'lucide-react';
@@ -57,51 +59,51 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
         }
         return [message, ...prev];
       });
-      toast.info(`New broadcast from ${message.client.name || message.client.phone}`);
+      toast.info(`New broadcast from ${message.client?.name || message.client?.phone || 'Client'}`);
     });
 
     // Message was accepted by an astrologer
-    socket.on('broadcast:messageAcceptedByAstrologer', (data: {
-      messageId: string;
-      acceptedBy: any;
-      acceptedAt: string;
-      clientName: string;
-    }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === data.messageId
-            ? {
-                ...m,
-                status: 'ACCEPTED' as const,
-                acceptedAstrologer: data.acceptedBy,
-                acceptedAt: data.acceptedAt,
-              }
-            : m
-        )
-      );
+    socket.on(
+      'broadcast:messageAcceptedByAstrologer',
+      (data: { messageId: string; acceptedBy: any; acceptedAt: string; clientName: string }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === data.messageId
+              ? {
+                  ...m,
+                  status: BroadcastMessageStatus.ACCEPTED,
+                  acceptedAstrologer: data.acceptedBy,
+                  acceptedAt: data.acceptedAt,
+                }
+              : m
+          )
+        );
 
-      // Show toast if it was me who accepted
-      if (data.acceptedBy.id === user?.id) {
-        toast.success('Chat started successfully!');
+        // Show toast if it was me who accepted
+        if (data.acceptedBy.id === user?.id) {
+          toast.success('Chat started successfully!');
+        }
       }
-    });
+    );
 
     // My acceptance was successful
     socket.on('broadcast:messageAccepted', (result: any) => {
       setAccepting(null);
-      
+
       // Update message status
       setMessages((prev) =>
-        prev.map((m) => (m.id === result.message?.id ? { ...m, status: 'ACCEPTED' } : m))
+        prev.map((m) =>
+          m.id === result.message?.id ? { ...m, status: BroadcastMessageStatus.ACCEPTED } : m
+        )
       );
-      
+
       // Navigate to chat immediately
       if (result.chat) {
         toast.success('Chat opened! Redirecting...', { duration: 1500 });
-        
+
         // Navigate to the chat page
         router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));
-        
+
         // Also notify parent callback if provided
         if (onChatCreated) {
           onChatCreated(result.chat.id);
@@ -148,7 +150,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
 
     // Check if already accepted
     const message = messages.find((m) => m.id === messageId);
-    if (message?.status === 'ACCEPTED') {
+    if (message?.status === BroadcastMessageStatus.ACCEPTED) {
       toast.error('This message has already been accepted');
       return;
     }
@@ -166,14 +168,14 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
   }
 
   function getStatusBadge(message: BroadcastMessage) {
-    if (message.status === 'ACCEPTED' && message.acceptedAstrologer) {
+    if (message.status === BroadcastMessageStatus.ACCEPTED && message.acceptedAstrologer) {
       const isMe = message.acceptedAstrologer.id === user?.id;
       return (
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-          isMe
-            ? 'bg-green-100 text-green-700'
-            : 'bg-gray-100 text-gray-700'
-        }`}>
+        <div
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+            isMe ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+          }`}
+        >
           <CheckCircle2 className="h-3.5 w-3.5" />
           <span>
             {isMe
@@ -229,9 +231,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
             <div className="p-4 bg-purple-100 rounded-full mb-4">
               <MessageSquare className="h-12 w-12 text-purple-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No Broadcast Messages
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Broadcast Messages</h3>
             <p className="text-gray-600 max-w-md">
               When clients send broadcast messages, they will appear here for you to accept.
             </p>
@@ -241,7 +241,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
             <Card
               key={message.id}
               className={`p-5 transition-all duration-200 hover:shadow-lg ${
-                message.status === 'ACCEPTED'
+                message.status === BroadcastMessageStatus.ACCEPTED
                   ? 'bg-white opacity-75'
                   : 'bg-white border-2 border-purple-200'
               }`}
@@ -251,22 +251,24 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                 <div className="flex items-start gap-3">
                   <Avatar className="h-12 w-12 ring-2 ring-purple-100">
                     <AvatarImage
-                      src={getImageUrl(message.client.profilePhoto) || undefined}
-                      alt={message.client.name || 'Client'}
+                      src={getImageUrl(message.client?.profilePhoto) || undefined}
+                      alt={message.client?.name || 'Client'}
                     />
                     <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold">
-                      {(message.client.name || message.client.phone || 'C')
+                      {(message.client?.name || message.client?.phone || 'C')
                         .charAt(0)
                         .toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900 text-lg">
-                      {message.client.name || message.client.phone}
+                      {message.client?.name || message.client?.phone}
                     </p>
                     <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
                       <Clock className="h-4 w-4" />
-                      <span>{formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}</span>
+                      <span>
+                        {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -304,15 +306,16 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                 </LoadingButton>
               )}
 
-              {message.status === 'ACCEPTED' && message.acceptedAstrologer?.id === user?.id && (
-                <button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-                  disabled
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-2 inline" />
-                  You&apos;re chatting with this client
-                </button>
-              )}
+              {message.status === BroadcastMessageStatus.ACCEPTED &&
+                message.acceptedAstrologer?.id === user?.id && (
+                  <button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                    disabled
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2 inline" />
+                    You&apos;re chatting with this client
+                  </button>
+                )}
             </Card>
           ))
         )}
@@ -322,15 +325,9 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       {/* Connection Status */}
       {!isConnected && (
         <div className="flex-shrink-0 bg-yellow-50 border-t border-yellow-200 px-6 py-3">
-          <p className="text-sm text-yellow-800 text-center">
-            Reconnecting to server...
-          </p>
+          <p className="text-sm text-yellow-800 text-center">Reconnecting to server...</p>
         </div>
       )}
     </div>
   );
 }
-
-
-
-

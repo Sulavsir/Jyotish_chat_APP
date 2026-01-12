@@ -46,6 +46,15 @@ jyotish-app/
 
 ## 📚 Documentation
 
+### Deployment & Setup
+
+- **[🎯 Production Configuration](./PRODUCTION_CONFIG.md)** - **YOUR EXACT PRODUCTION SETUP** (autonomoustechnology.net)
+- **[🚀 Server Quick Start](./SERVER_QUICKSTART.md)** - **Fast server setup with all commands** (Copy-paste ready!)
+- **[📖 Complete Deployment Guide](./DEPLOYMENT.md)** - Full production deployment guide (Setup, Build, Deploy)
+- **[⚙️ Next.js Configuration Guide](./NEXTJS_CONFIG_GUIDE.md)** - Configure images and API proxy for production
+
+### Development
+
 - **[Quick Start Guide](./QUICK_START.md)** - Get up and running in 3 steps
 - **[Database Setup](./DATABASE_SETUP.md)** - Comprehensive database setup guide
 - **[Prisma Migration Guide](./PRISMA_MIGRATION_GUIDE.md)** - How to manage database schema changes

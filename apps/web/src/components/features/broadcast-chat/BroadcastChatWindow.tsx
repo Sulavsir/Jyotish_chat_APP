@@ -9,7 +9,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader } from '@jyotish/ui';
 import { useAuthStore } from '@/store/auth-store';
 import { useSocket } from '@/hooks/useSocket';
-import { BroadcastMessage } from '@/services/broadcastMessage.service';
+import type { BroadcastMessage } from '@/types';
+import { BroadcastMessageStatus } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import chatService from '@/services/chat.service';
 import { Send, Users, Check, Lock, XCircle } from 'lucide-react';
@@ -21,6 +22,8 @@ import { useRouter } from 'next/navigation';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { ROUTE_BUILDERS } from '@/constants';
+import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
+import { checkClientProfileCompletion } from '@/utils/profile-completion';
 
 interface BroadcastChatWindowProps {
   onChatCreated?: (chatId: string) => void;
@@ -35,23 +38,25 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   const [isSending, setIsSending] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasActiveChat, setHasActiveChat] = useState(false);
+  const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
+  const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false); // ✅ Prevent duplicate loads
 
   // Load broadcast messages and check for active chat
   useEffect(() => {
     console.log('🔄 [BroadcastChatWindow] Component mounted');
-    
+
     // Prevent duplicate initialization
     if (loadingRef.current) {
       console.log('⚠️ [BroadcastChatWindow] Already loading, skipping...');
       return;
     }
     loadingRef.current = true;
-    
+
     loadMessages();
     checkActiveChat();
-    
+
     return () => {
       console.log('🔄 [BroadcastChatWindow] Component unmounted');
     };
@@ -72,7 +77,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       console.log('🔍 [BroadcastChatWindow] Checking for active chat...');
       const activeChat = await chatService.getActiveChat();
       setHasActiveChat(!!activeChat);
-      console.log(`✅ [BroadcastChatWindow] Active chat status: ${!!activeChat ? 'HAS ACTIVE CHAT' : 'NO ACTIVE CHAT'}`);
+      console.log(
+        `✅ [BroadcastChatWindow] Active chat status: ${!!activeChat ? 'HAS ACTIVE CHAT' : 'NO ACTIVE CHAT'}`
+      );
     } catch (error) {
       console.error('❌ [BroadcastChatWindow] Error checking active chat:', error);
     }
@@ -87,10 +94,10 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       console.log('✅ [BroadcastChatWindow] Broadcast message sent successfully');
       setMessages((prev) => [...prev, message]); // Add new message at the end (bottom)
       setIsSending(false);
-      
+
       // Re-check active chat status after sending (in case this creates an active conversation)
       checkActiveChat();
-      
+
       // Auto-scroll to bottom to show new message
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -105,7 +112,12 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === message.id
-            ? { ...msg, status: 'ACCEPTED', acceptedAstrologer: astrologer, chatId: chat.id }
+            ? {
+                ...msg,
+                status: BroadcastMessageStatus.ACCEPTED,
+                acceptedAstrologer: astrologer,
+                chatId: chat.id,
+              }
             : msg
         )
       );
@@ -184,6 +196,14 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   async function handleSendMessage() {
     if (!inputText.trim() || isSending || !socket || !isConnected) return;
 
+    // Check if client profile is complete before sending message
+    const profileCheck = checkClientProfileCompletion(user);
+    if (!profileCheck.isComplete) {
+      setMissingProfileFields(profileCheck.missingFields);
+      setShowProfileIncompleteDialog(true);
+      return;
+    }
+
     // Check if user has active chat before sending
     if (hasActiveChat) {
       toast.error('You already have an active chat', {
@@ -211,8 +231,8 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   }
 
   function renderMessage(message: BroadcastMessage) {
-    const isAccepted = message.status === 'ACCEPTED';
-    const isExpired = message.status === 'EXPIRED';
+    const isAccepted = message.status === BroadcastMessageStatus.ACCEPTED;
+    const isExpired = message.status === BroadcastMessageStatus.EXPIRED;
 
     return (
       <div key={message.id} className="mb-6">
@@ -224,7 +244,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
               <p className="text-xs text-purple-200">
                 {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
               </p>
-              {message.status === 'PENDING' && (
+              {message.status === BroadcastMessageStatus.PENDING && (
                 <CountdownTimer
                   createdAt={message.createdAt}
                   expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
@@ -283,7 +303,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         )}
 
         {/* Pending status */}
-        {message.status === 'PENDING' && (
+        {message.status === BroadcastMessageStatus.PENDING && (
           <div className="flex justify-start">
             <div className="max-w-[75%] bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg px-4 py-2 shadow-sm">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -389,6 +409,13 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           </p>
         )}
       </div>
+
+      {/* Profile Incomplete Dialog */}
+      <ProfileIncompleteDialog
+        isOpen={showProfileIncompleteDialog}
+        onClose={() => setShowProfileIncompleteDialog(false)}
+        missingFields={missingProfileFields}
+      />
     </div>
   );
 }

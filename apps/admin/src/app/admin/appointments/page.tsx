@@ -41,7 +41,7 @@ interface Appointment {
   };
 }
 
-export const STATUS_COLORS = {
+const STATUS_COLORS = {
   PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
   CONFIRMED: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   IN_PROGRESS: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
@@ -50,7 +50,7 @@ export const STATUS_COLORS = {
   NO_SHOW: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
 };
 
-export const STATUS_ICONS = {
+const STATUS_ICONS = {
   PENDING: AlertCircle,
   CONFIRMED: CheckCircle2,
   IN_PROGRESS: Clock,

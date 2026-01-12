@@ -3,6 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@jyotish/shared', '@jyotish/ui'],
 
+  // Standalone output for production deployment
+  // Creates a minimal standalone build in .next/standalone
+  output: 'standalone',
+
   // Image optimization configuration
   images: {
     // For Next.js 13+ use remotePatterns instead of domains

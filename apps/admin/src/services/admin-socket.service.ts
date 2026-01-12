@@ -5,13 +5,15 @@
 
 import { io, Socket } from 'socket.io-client';
 
-// WebSocket connections must go directly to backend (can't use Next.js proxy)
-// Dynamically determine the socket URL based on current hostname
-// This ensures it works on localhost, network IP, and production
-const SOCKET_URL = 
-  typeof window !== 'undefined' 
-    ? `${window.location.protocol}//${window.location.hostname}:4000`
-    : 'http://localhost:4000'; // SSR fallback
+// WebSocket URL configuration
+// Production: Use environment variable (points to API server)
+// Development: Use current hostname with port 4000 (supports localhost and network IP)
+const SOCKET_URL =
+  process.env.NODE_ENV === 'production'
+    ? process.env.NEXT_PUBLIC_WS_URL || 'https://jotishapi.autonomoustechnology.net'
+    : typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:4000`
+      : 'http://localhost:4000'; // SSR fallback
 
 export interface AdminSocketEvents {
   // Dashboard events
@@ -20,6 +22,7 @@ export interface AdminSocketEvents {
   // Chat events
   'chat:new': (data: any) => void;
   'chat:update': (data: any) => void;
+  'chat:ended': (data: any) => void;
   'chat:abandoned': (data: { chatId: string; reason?: string; abandonedBy: string }) => void;
   'chat:unblocked': (data: { chatId: string }) => void;
 

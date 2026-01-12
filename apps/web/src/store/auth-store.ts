@@ -92,9 +92,8 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Dynamically import to avoid circular dependency
           const { authApi } = await import('@/lib/auth-api');
-          const { get } = await import('zustand');
-          const state = get(useAuthStore);
-          
+          const state = useAuthStore.getState();
+
           // Determine which endpoint to call based on current user role
           if (state.user?.role === 'ASTROLOGER') {
             const astrologer = await authApi.getAstrologerProfile();
@@ -117,7 +116,7 @@ export const useAuthStore = create<AuthState>()(
           console.error('Logout error:', error);
           // Continue with local logout even if backend call fails
         }
-        
+
         // Clear local state
         TokenManager.clearTokens();
         set({

@@ -27,7 +27,7 @@ export const createInstantChatRequest = async (message?: string) => {
   const response = await apiClient.post<InstantChatRequest>('/instant-chat/request', {
     message,
   });
-  return response.data;
+  return response;
 };
 
 /**
@@ -35,7 +35,7 @@ export const createInstantChatRequest = async (message?: string) => {
  */
 export const getPendingRequests = async () => {
   const response = await apiClient.get<InstantChatRequest[]>('/instant-chat/pending');
-  return response.data;
+  return response;
 };
 
 /**
@@ -45,17 +45,15 @@ export const acceptRequest = async (requestId: string) => {
   const response = await apiClient.post<{ request: InstantChatRequest; chatId: string }>(
     `/instant-chat/accept/${requestId}`
   );
-  return response.data;
+  return response;
 };
 
 /**
  * Cancel an instant chat request
  */
 export const cancelRequest = async (requestId: string) => {
-  const response = await apiClient.delete<InstantChatRequest>(
-    `/instant-chat/cancel/${requestId}`
-  );
-  return response.data;
+  const response = await apiClient.delete<InstantChatRequest>(`/instant-chat/cancel/${requestId}`);
+  return response;
 };
 
 /**
@@ -63,7 +61,7 @@ export const cancelRequest = async (requestId: string) => {
  */
 export const getMyActiveRequest = async () => {
   const response = await apiClient.get<InstantChatRequest | null>('/instant-chat/my-request');
-  return response.data;
+  return response;
 };
 
 /**
@@ -71,7 +69,7 @@ export const getMyActiveRequest = async () => {
  */
 export const checkAstrologerStatus = async () => {
   const response = await apiClient.get<{ isBusy: boolean }>('/instant-chat/status');
-  return response.data;
+  return response;
 };
 
 const instantChatService = {
@@ -84,5 +82,3 @@ const instantChatService = {
 };
 
 export default instantChatService;
-
-

@@ -11,7 +11,8 @@ import { Card, Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore } from '@/store/auth-store';
-import broadcastMessageService, { BroadcastMessage } from '@/services/broadcastMessage.service';
+import type { BroadcastMessage } from '@/types';
+import broadcastMessageService from '@/services/broadcastMessage.service';
 import { toast } from 'sonner';
 import { MessageSquare, X, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -46,7 +47,7 @@ export function BroadcastMessageBar() {
         }
         return [message, ...prev];
       });
-      toast.info(`New broadcast from ${message.client.name || message.client.phone}`);
+      toast.info(`New broadcast from ${message.client?.name || message.client?.phone || 'Client'}`);
     });
 
     // Message was accepted (by someone)
@@ -112,22 +113,22 @@ export function BroadcastMessageBar() {
     try {
       // Optimistically remove from UI
       setPendingMessages((prev) => prev.filter((m) => m.id !== messageId));
-      
+
       // Call API to persist the dismissal
       await broadcastMessageService.dismissMessage(messageId);
-      
+
       toast.success('Request declined successfully');
     } catch (error: any) {
       console.error('Error dismissing broadcast message:', error);
       toast.error(error.message || 'Failed to dismiss request');
-      
+
       // Reload messages on error to restore state
       loadPendingMessages();
     }
   }
 
-  function getTimeRemaining(createdAt: string): string {
-    const created = new Date(createdAt);
+  function getTimeRemaining(createdAt: string | Date): string {
+    const created = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
     const now = new Date();
     const diffMs = now.getTime() - created.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -149,7 +150,7 @@ export function BroadcastMessageBar() {
       <Card className="w-[420px] bg-white border-0 shadow-2xl ring-4 ring-purple-500/20 overflow-hidden">
         {/* Animated gradient header */}
         <div className="h-2 bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-600 animate-gradient-x"></div>
-        
+
         <div className="p-6">
           {/* Header */}
           <div className="flex items-start justify-between mb-4">
@@ -180,18 +181,18 @@ export function BroadcastMessageBar() {
             <div className="flex items-start gap-3">
               <Avatar className="h-14 w-14 ring-2 ring-purple-200 ring-offset-2">
                 <AvatarImage
-                  src={getImageUrl(currentMessage.client.profilePhoto) || undefined}
-                  alt={currentMessage.client.name || 'Client'}
+                  src={getImageUrl(currentMessage.client?.profilePhoto) || undefined}
+                  alt={currentMessage.client?.name || 'Client'}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold text-xl">
-                  {(currentMessage.client.name || currentMessage.client.phone || 'C')
+                  {(currentMessage.client?.name || currentMessage.client?.phone || 'C')
                     .charAt(0)
                     .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <p className="text-gray-900 font-bold text-lg mb-1">
-                  {currentMessage.client.name || currentMessage.client.phone}
+                  {currentMessage.client?.name || currentMessage.client?.phone}
                 </p>
                 <div className="flex items-center gap-2 text-gray-600 text-sm">
                   <Clock className="h-4 w-4" />
@@ -240,4 +241,3 @@ export function BroadcastMessageBar() {
     </div>
   );
 }
-

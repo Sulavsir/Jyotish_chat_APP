@@ -9,7 +9,7 @@ import { ROUTES, USER_ROLES, getDashboardRoute } from '@/constants';
 
 export function useAuth() {
   const router = useRouter();
-  const { user, token, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
 
   const handleLogout = () => {
     try {
@@ -58,7 +58,6 @@ export function useAuth() {
 
   return {
     user,
-    token,
     isAuthenticated,
     handleLogout,
     getDashboard,
@@ -68,4 +67,3 @@ export function useAuth() {
     isAdmin,
   };
 }
-

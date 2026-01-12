@@ -19,6 +19,8 @@ import { BroadcastChatWindow } from '@/components/features/broadcast-chat/Broadc
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
+import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
+import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 
 export default function ChatPage() {
@@ -41,6 +43,8 @@ export default function ChatPage() {
   const [messageOffset, setMessageOffset] = useState(0);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [isBroadcastChatActive, setIsBroadcastChatActive] = useState(false);
+  const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
+  const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const initializedRef = useRef(false);
   const currentOtherUserId = useRef<string | null>(null);
 
@@ -576,6 +580,14 @@ export default function ChatPage() {
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {
     if (!activeChat || !user) return;
 
+    // Check if client profile is complete before sending message
+    const profileCheck = checkClientProfileCompletion(user);
+    if (!profileCheck.isComplete) {
+      setMissingProfileFields(profileCheck.missingFields);
+      setShowProfileIncompleteDialog(true);
+      return;
+    }
+
     // For clients, the other user is always the astrologer
     const otherUser = activeChat.astrologerParticipant;
 
@@ -784,6 +796,13 @@ export default function ChatPage() {
           </div>
         </Card>
       </div>
+
+      {/* Profile Incomplete Dialog */}
+      <ProfileIncompleteDialog
+        isOpen={showProfileIncompleteDialog}
+        onClose={() => setShowProfileIncompleteDialog(false)}
+        missingFields={missingProfileFields}
+      />
     </DashboardLayout>
   );
 }

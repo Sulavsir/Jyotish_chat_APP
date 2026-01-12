@@ -19,16 +19,16 @@ export function extractTokens(response: AuthResponse): {
   // New format - prefer accessToken and refreshToken
   if ('accessToken' in response && 'refreshToken' in response) {
     return {
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
+      accessToken: response.accessToken as string,
+      refreshToken: response.refreshToken as string,
     };
   }
 
   // Legacy format - use token as both access and refresh
   if ('token' in response && response.token) {
     return {
-      accessToken: response.token,
-      refreshToken: response.token,
+      accessToken: response.token as string,
+      refreshToken: response.token as string,
     };
   }
 
