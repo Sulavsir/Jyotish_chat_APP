@@ -50,6 +50,7 @@ export interface VerifyOTPRequest {
 export interface VerifyOTPResponse {
   isNewUser: boolean;
   message: string;
+  tempToken: string;
 }
 
 // Set Password
