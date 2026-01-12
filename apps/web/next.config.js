@@ -2,27 +2,52 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@jyotish/shared', '@jyotish/ui'],
+
+  // Image optimization configuration
   images: {
-    domains: ['localhost', '192.168.0.206'],
+    // For Next.js 13+ use remotePatterns instead of domains
     remotePatterns: [
+      // Development - localhost
       {
         protocol: 'http',
         hostname: 'localhost',
+        port: '4000',
+        pathname: '/uploads/**',
       },
       {
         protocol: 'http',
-        hostname: '192.168.0.206',
+        hostname: 'localhost',
+        pathname: '/uploads/**',
       },
+      // Development - Local network IPs (for testing on mobile devices)
       {
         protocol: 'http',
         hostname: '**.local',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '192.168.*.*',
+        pathname: '/uploads/**',
+      },
+      // Production - Your actual domains
+      {
+        protocol: 'https',
+        hostname: 'jotishapi.autonomoustechnology.net',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'jotish.autonomoustechnology.net',
+        pathname: '/uploads/**',
       },
     ],
   },
+
   // Proxy API requests to backend to avoid CORS/cookie issues in development
   async rewrites() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-    
+
     return [
       {
         source: '/api/:path*',
@@ -37,4 +62,3 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-

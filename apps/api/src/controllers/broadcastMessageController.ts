@@ -6,7 +6,7 @@
 import { Response } from 'express';
 import { UserRole } from '@jyotish/shared';
 import { AuthRequest } from '@/types';
-import * as broadcastMessageService from '../services/broadcastMessage.service';
+import { broadcastMessageService } from '../services';
 import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import { getSocketInstance } from '../utils/socket-instance';

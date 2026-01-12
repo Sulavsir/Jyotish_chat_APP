@@ -14,3 +14,4 @@ export { consultationService } from './consultation.service';
 export { horoscopeService } from './horoscope.service';
 export { notificationService } from './notification.service';
 export { pricingService } from './pricing.service';
+export * as broadcastMessageService from './broadcastMessage.service';
