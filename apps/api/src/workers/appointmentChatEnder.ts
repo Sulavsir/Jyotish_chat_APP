@@ -73,7 +73,7 @@ export async function endExpiredAppointmentChats() {
         const io = getSocketInstance();
         if (io) {
           const message = `Your appointment time with ${chat.astrologerParticipant.name} has ended. Please book another appointment to continue chatting.`;
-          
+
           io.to(`user_${chat.participant1Id}`).emit('chat:ended', {
             chatId: chat.id,
             reason: 'APPOINTMENT_EXPIRED',
@@ -90,7 +90,12 @@ export async function endExpiredAppointmentChats() {
         console.log(`✅ Auto-ended chat ${chat.id} - Appointment expired`);
       }
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Only log non-connection errors to avoid spam when DB is not ready
+    if (error?.code === 'P1001' || error?.message?.includes("Can't reach database server")) {
+      // Database connection error - silently skip, will retry on next interval
+      return;
+    }
     console.error('❌ Error ending expired appointment chats:', error);
   }
 }
@@ -110,4 +115,3 @@ export function startAppointmentChatEnderWorker() {
     console.log('🛑 Appointment chat ender worker stopped');
   };
 }
-

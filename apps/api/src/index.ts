@@ -18,6 +18,18 @@ import routes from './routes';
 const envPath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envPath });
 
+// Construct DATABASE_URL from individual DB variables if not set
+if (!process.env.DATABASE_URL && process.env.DB_HOST) {
+  const dbUser = process.env.DB_USER || 'postgres';
+  const dbPassword = process.env.DB_PASSWORD || '';
+  const dbHost = process.env.DB_HOST || 'localhost';
+  const dbPort = process.env.DB_PORT || '5432';
+  const dbName = process.env.DB_NAME || 'jyotish';
+
+  process.env.DATABASE_URL = `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?schema=public`;
+  console.log('🔧 DATABASE_URL constructed from individual DB variables');
+}
+
 // Validate required environment variables
 if (!process.env.JWT_SECRET) {
   console.error('❌ ERROR: JWT_SECRET environment variable is not set in .env file');
