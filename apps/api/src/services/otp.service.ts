@@ -93,12 +93,16 @@ export class OTPService {
       },
     });
 
-    // Send OTP via SMS
-    try {
-      await smsService.sendOTP(phoneNumber, otp);
-    } catch (error) {
-      console.error('Failed to send SMS:', error);
-      // Don't throw error - OTP session is created, user can still verify
+    // Send OTP via SMS (only in production)
+    // In development, SMS is skipped and OTP is returned in response for testing
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        await smsService.sendOTP(phoneNumber, otp);
+      } catch (error) {
+        // Don't throw error - OTP session is created, user can still verify
+        // Log error for monitoring but don't fail the request
+        console.error('⚠️ Failed to send SMS, but OTP session created:', error);
+      }
     }
 
     return {

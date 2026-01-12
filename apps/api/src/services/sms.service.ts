@@ -4,7 +4,6 @@
  */
 
 import axios from 'axios';
-import { encrypt, maskPhone } from '../utils';
 
 interface SendSMSRequest {
   auth_token: string;
@@ -30,9 +29,7 @@ class SMSService {
 
   // Lazy-load auth token at runtime instead of constructor
   private getAuthToken(): string {
-    //to do change this to the actual auth token
-    // return process.env.SMS_AUTH_TOKEN || '';
-    return '';
+    return process.env.SMS_AUTH_TOKEN || '';
   }
 
   private formatPhoneNumber(phone: string): string {
@@ -53,25 +50,24 @@ class SMSService {
 
   /**
    * Send SMS via Aakash SMS API
+   * Only sends SMS in production
+   * In development, SMS is skipped and OTP is returned in API response for testing
    */
   async sendSMS(phoneNumber: string, message: string): Promise<boolean> {
+    // In development, skip SMS sending - OTP will be returned in API response
+    if (!this.isProduction) {
+      return true; // Return success so OTP flow continues
+    }
+
+    // Production: Send actual SMS via Aakash SMS API
     try {
       // Format phone number
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
 
-      // Log in development for debugging
-      if (!this.isProduction) {
-        console.log('\n📱 ===== SMS (Development Mode) =====');
-        console.log(`To: ${formattedPhone}`);
-        console.log(`Message: ${message}`);
-        console.log('=====================================\n');
-      }
-
       // Validate auth token
       const authToken = this.getAuthToken();
       if (!authToken) {
-        console.warn('⚠️  SMS_AUTH_TOKEN not configured - SMS not sent');
-        return !this.isProduction; // Return true in dev (logged only), false in prod
+        throw new Error('SMS_AUTH_TOKEN is not configured');
       }
 
       // Prepare request
@@ -81,13 +77,13 @@ class SMSService {
         text: message,
       };
 
-      // Send SMS via Aakash SMS API
-      console.log('Sending SMS to Aakash API:', {
+      console.log('📱 Sending SMS to Aakash API:', {
         url: this.apiUrl,
         to: formattedPhone,
         messageLength: message.length,
       });
 
+      // Send SMS via Aakash SMS API
       const response = await axios.post<SendSMSResponse>(this.apiUrl, requestData, {
         headers: {
           'Content-Type': 'application/json',
@@ -95,31 +91,34 @@ class SMSService {
         timeout: 10000, // 10 seconds timeout
       });
 
-      console.log('Aakash SMS Response:', response.data);
+      console.log('📱 Aakash SMS Response:', {
+        error: response.data.error,
+        success: response.data.success,
+        message: response.data.message,
+      });
 
       // Aakash SMS returns { error: false } on success, { error: true } on failure
       if (!response.data.error) {
-        console.log(`✅ SMS sent successfully to ${maskPhone(formattedPhone)}`);
+        console.log(`✅ SMS sent successfully to ${formattedPhone}`);
         return true;
       } else {
-        console.error(`❌ SMS failed: ${response.data.message}`);
-        return false;
+        const errorMsg = `❌ SMS failed: ${response.data.message || 'Unknown error'}`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error('SMS API Error:', {
+        const errorDetails = {
           status: error.response?.status,
+          statusText: error.response?.statusText,
           message: error.response?.data?.message || error.message,
-        });
-      } else {
-        console.error('SMS Error:', error);
+          url: error.config?.url,
+        };
+        console.error('❌ SMS API Error:', errorDetails);
+        throw new Error(`Failed to send SMS: ${errorDetails.message || 'Network error'}`);
       }
-
-      // In production, throw error; in development, just log
-      if (this.isProduction) {
-        throw new Error('Failed to send SMS');
-      }
-      return false;
+      console.error('❌ SMS Error:', error);
+      throw error instanceof Error ? error : new Error('Failed to send SMS');
     }
   }
 

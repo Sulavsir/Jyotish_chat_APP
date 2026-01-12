@@ -41,12 +41,6 @@ if (!process.env.ENCRYPTION_KEY) {
   process.exit(1);
 }
 
-// Log to verify env is loaded (remove in production)
-console.log('🔧 Environment loaded from:', envPath);
-console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET ? '✓ Set' : '✗ Not set');
-console.log('🔑 ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? '✓ Set' : '✗ Not set');
-console.log('📱 SMS_AUTH_TOKEN:', process.env.SMS_AUTH_TOKEN ? '✓ Set' : '✗ Not set');
-
 const app = express();
 const httpServer = createServer(app);
 
