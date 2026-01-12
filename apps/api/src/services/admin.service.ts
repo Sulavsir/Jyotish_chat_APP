@@ -134,7 +134,9 @@ export class AdminService {
    */
   verifyAccessToken(token: string) {
     try {
-      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET!) as {
+      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET!, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as {
         id: string;
         email: string;
         role: string;
@@ -156,7 +158,9 @@ export class AdminService {
    */
   verifyRefreshToken(token: string) {
     try {
-      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET!) as {
+      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET!, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as {
         id: string;
         email: string;
         role: string;

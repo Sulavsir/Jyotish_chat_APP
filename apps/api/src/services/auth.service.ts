@@ -33,6 +33,7 @@ export class AuthService {
     }
     return jwt.sign({ ...payload, type: TOKEN_TYPES.ACCESS }, secret, {
       expiresIn: `${AUTH_CONFIG.ACCESS_TOKEN_EXPIRES_IN_MINUTES}m`,
+      algorithm: AUTH_CONFIG.JWT_ALGORITHM,
     });
   }
 
@@ -50,6 +51,7 @@ export class AuthService {
     }
     return jwt.sign({ ...payload, type: TOKEN_TYPES.REFRESH }, secret, {
       expiresIn: `${AUTH_CONFIG.REFRESH_TOKEN_EXPIRES_IN_DAYS}d`,
+      algorithm: AUTH_CONFIG.JWT_ALGORITHM,
     });
   }
 
@@ -84,6 +86,7 @@ export class AuthService {
     }
     return jwt.sign({ phoneNumber, type: TOKEN_TYPES.TEMP } as TempTokenPayload, secret, {
       expiresIn: `${AUTH_CONFIG.TEMP_TOKEN_EXPIRES_IN_MINUTES}m`,
+      algorithm: AUTH_CONFIG.JWT_ALGORITHM,
     });
   }
 
@@ -100,7 +103,9 @@ export class AuthService {
           ERROR_CODES.SERVER_ERROR
         );
       }
-      const decoded = jwt.verify(tempToken, secret) as TempTokenPayload;
+      const decoded = jwt.verify(tempToken, secret, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as TempTokenPayload;
 
       if (decoded.type !== 'temp') {
         throw new Error('Invalid token type');
@@ -125,7 +130,9 @@ export class AuthService {
           ERROR_CODES.SERVER_ERROR
         );
       }
-      const decoded = jwt.verify(refreshToken, secret) as UserPayload;
+      const decoded = jwt.verify(refreshToken, secret, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as UserPayload;
 
       if (decoded.type !== 'refresh') {
         throw new AppError(
@@ -165,7 +172,9 @@ export class AuthService {
           ERROR_CODES.SERVER_ERROR
         );
       }
-      const decoded = jwt.verify(accessToken, secret) as UserPayload;
+      const decoded = jwt.verify(accessToken, secret, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as UserPayload;
 
       // Access tokens should have type 'access' or no type (for backward compatibility)
       if (decoded.type && decoded.type !== 'access') {

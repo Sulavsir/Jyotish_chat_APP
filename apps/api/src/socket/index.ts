@@ -57,7 +57,9 @@ export function setupSocketHandlers(io: Server) {
         return next(new Error('Server configuration error'));
       }
 
-      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET) as SocketUser;
+      const decoded = jwt.verify(token, AUTH_CONFIG.JWT_SECRET, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as SocketUser;
       socket.data.user = decoded;
       console.log('✅ Socket authenticated for user:', decoded.id);
       next();
