@@ -5,7 +5,7 @@ const nextConfig = {
 
   // Standalone output for production deployment
   // Creates a minimal standalone build in .next/standalone
-  output: 'standalone',
+  output: 'export',
 
   // Image optimization configuration
   images: {
