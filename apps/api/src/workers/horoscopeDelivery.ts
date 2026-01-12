@@ -1,5 +1,6 @@
 import { Job } from 'bullmq';
 import { prisma } from '@jyotish/database';
+import { ParticipantType } from '@prisma/client';
 import { formatDate, ZodiacSign } from '@jyotish/shared';
 import { notificationQueue } from './index';
 
@@ -55,6 +56,7 @@ export async function horoscopeDeliveryProcessor(job: Job) {
         await prisma.notification.create({
           data: {
             userId: subscription.user.id,
+            recipientType: ParticipantType.CLIENT,
             title: `Your Daily Horoscope - ${subscription.user.zodiacSign}`,
             message: horoscope.content.substring(0, 200) + '...', // Preview
             type: 'HOROSCOPE',

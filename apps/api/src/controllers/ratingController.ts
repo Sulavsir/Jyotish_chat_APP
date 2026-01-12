@@ -6,12 +6,13 @@
 import { Request, Response } from 'express';
 import { HTTP_STATUS } from '../constants';
 import * as ratingService from '../services/rating.service';
+import { AuthRequest } from '../types/common.types';
 
 /**
  * POST /api/v1/ratings
  * Create a new rating
  */
-export const createRating = async (req: Request, res: Response) => {
+export const createRating = async (req: AuthRequest, res: Response) => {
   const { chatId, astrologerId, rating, feedback } = req.body;
   const clientId = req.user!.id;
 
@@ -65,7 +66,7 @@ export const getChatRating = async (req: Request, res: Response) => {
  * GET /api/v1/ratings/my-ratings
  * Get ratings given by the current client
  */
-export const getMyRatings = async (req: Request, res: Response) => {
+export const getMyRatings = async (req: AuthRequest, res: Response) => {
   const clientId = req.user!.id;
 
   const ratings = await ratingService.getClientRatings(clientId);
@@ -80,7 +81,7 @@ export const getMyRatings = async (req: Request, res: Response) => {
  * GET /api/v1/ratings/can-rate/:chatId
  * Check if a chat can be rated
  */
-export const canRateChat = async (req: Request, res: Response) => {
+export const canRateChat = async (req: AuthRequest, res: Response) => {
   const { chatId } = req.params;
   const clientId = req.user!.id;
 

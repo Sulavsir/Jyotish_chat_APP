@@ -8,6 +8,7 @@ import * as appointmentService from '../services/appointment.service';
 import { AuthRequest } from '../types/common.types';
 import { HTTP_STATUS } from '../constants';
 import { AppointmentStatus } from '../types/appointment.types';
+import { UserRole } from '@jyotish/shared';
 
 /**
  * Create a new appointment
@@ -82,7 +83,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
 
     const appointments = await appointmentService.getAppointments(
       userId,
-      userRole === 'CLIENT' ? 'CLIENT' : 'ASTROLOGER',
+      userRole === UserRole.CLIENT ? UserRole.CLIENT : UserRole.ASTROLOGER,
       status
     );
 

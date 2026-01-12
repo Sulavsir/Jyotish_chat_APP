@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueScheduler } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { QUEUE_NAMES } from '@jyotish/shared';
 import { horoscopeDeliveryProcessor } from './horoscopeDelivery';
@@ -22,19 +22,6 @@ export const notificationQueue = new Queue(QUEUE_NAMES.NOTIFICATION, {
 });
 
 export const consultationReminderQueue = new Queue(QUEUE_NAMES.CONSULTATION_REMINDER, {
-  connection: redisConnection,
-});
-
-// Queue schedulers (for delayed/repeated jobs)
-const horoscopeScheduler = new QueueScheduler(QUEUE_NAMES.HOROSCOPE_DELIVERY, {
-  connection: redisConnection,
-});
-
-const notificationScheduler = new QueueScheduler(QUEUE_NAMES.NOTIFICATION, {
-  connection: redisConnection,
-});
-
-const consultationReminderScheduler = new QueueScheduler(QUEUE_NAMES.CONSULTATION_REMINDER, {
   connection: redisConnection,
 });
 

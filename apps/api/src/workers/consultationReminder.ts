@@ -1,5 +1,6 @@
 import { Job } from 'bullmq';
 import { prisma } from '@jyotish/database';
+import { ParticipantType } from '@prisma/client';
 import { notificationQueue } from './index';
 
 export async function consultationReminderProcessor(job: Job) {
@@ -68,6 +69,7 @@ async function sendConsultationReminder(consultation: any, timeframe: string) {
   await prisma.notification.create({
     data: {
       userId: consultation.client.id,
+      recipientType: ParticipantType.CLIENT,
       title: 'Consultation Reminder',
       message: `Your consultation with ${consultation.astrologer.name} is scheduled in ${timeframe} (${scheduledTime})`,
       type: 'CONSULTATION_REMINDER',
@@ -81,7 +83,8 @@ async function sendConsultationReminder(consultation: any, timeframe: string) {
   // Notify astrologer
   await prisma.notification.create({
     data: {
-      userId: consultation.astrologer.id,
+      astrologerId: consultation.astrologer.id,
+      recipientType: ParticipantType.ASTROLOGER,
       title: 'Consultation Reminder',
       message: `You have a consultation with ${consultation.client.name} scheduled in ${timeframe} (${scheduledTime})`,
       type: 'CONSULTATION_REMINDER',

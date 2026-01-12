@@ -199,6 +199,7 @@ export class UserService {
         longitude: true,
         zodiacSign: true,
         profileCompleted: true,
+        isOnline: true,
         createdAt: true,
         updatedAt: true,
       },

@@ -206,8 +206,8 @@ export const findOrCreateChat = async (
         participant1Type: ParticipantType.CLIENT,
         participant2Type: ParticipantType.ASTROLOGER,
         consultationId,
-        // ✅ Start as PENDING - will become ACTIVE when first message is sent
-        status: ChatStatus.PENDING,
+        // ✅ Start as ACTIVE - chat is active when created
+        status: ChatStatus.ACTIVE,
         isLocked: false,
       },
       include: {
@@ -512,8 +512,6 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
       lastMessageText: content.substring(0, 100),
       participant1Read: senderId === chat.participant1Id, // Client read if client sent
       participant2Read: senderId === chat.participant2Id, // Astrologer read if astrologer sent
-      // ✅ Activate chat on first message if it's PENDING
-      ...(chat.status === 'PENDING' && { status: ChatStatus.ACTIVE }),
     },
   });
 
