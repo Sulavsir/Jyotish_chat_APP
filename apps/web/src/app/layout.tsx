@@ -8,9 +8,54 @@ import { AuthProvider } from '@/providers/auth-provider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Chat Jyotish - Astrology Consultation Platform',
+  title: {
+    default: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
+    template: '%s | Chat Jyotish',
+  },
   description:
-    'Connect with professional astrologers for real-time consultations and daily horoscopes',
+    'Chat Jyotish (CJ) lets you connect with professional astrologers for real-time consultations, instant chat, and personalized horoscopes.',
+  keywords: [
+    'Chat Jyotish',
+    'CJ',
+    'online astrology',
+    'astrologer chat',
+    'horoscope',
+    'kundli',
+    'jyotish consultation',
+    'chat jyotish',
+    'jyotish chat',
+    'jyotish consultation',
+    'jyotish chat',
+    'chat jyotish autonomous technology',
+    'autonomous technology',
+    'Autonomous Technology',
+  ],
+  applicationName: 'Chat Jyotish',
+  metadataBase:
+    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_WEB_URL
+      ? new URL(process.env.NEXT_PUBLIC_WEB_URL)
+      : undefined,
+  openGraph: {
+    title: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
+    description:
+      'Talk to verified astrologers in real-time, get instant guidance, and manage your consultations in one place.',
+    url: '/',
+    siteName: 'Chat Jyotish',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
+    description:
+      'Talk to verified astrologers in real-time, get instant guidance, and manage your consultations in one place.',
+  },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    shortcut: ['/favicon.ico'],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
