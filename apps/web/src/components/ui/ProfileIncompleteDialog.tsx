@@ -56,7 +56,7 @@ export function ProfileIncompleteDialog({
             ))}
           </ul>
         </div>
-        <p className="text-xs text-gray-400 mt-3">
+        <p className="text-xs text-gray-400 m-3">
           This information helps astrologers provide you with accurate readings and guidance.
         </p>
       </div>

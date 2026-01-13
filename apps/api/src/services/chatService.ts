@@ -160,6 +160,45 @@ export const findOrCreateChat = async (
       );
     }
 
+    // Check if client profile is completed before creating chat
+    const clientProfile = await prisma.user.findUnique({
+      where: { id: clientId },
+      select: {
+        name: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        profileCompleted: true,
+      },
+    });
+
+    if (!clientProfile) {
+      throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    // Check if all required fields are present (same logic as frontend)
+    const missingFields: string[] = [];
+    if (!clientProfile.name || clientProfile.name.trim() === '') {
+      missingFields.push('Name');
+    }
+    if (!clientProfile.dateOfBirth) {
+      missingFields.push('Date of Birth');
+    }
+    if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
+      missingFields.push('Time of Birth');
+    }
+    if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
+      missingFields.push('Place of Birth');
+    }
+
+    if (missingFields.length > 0) {
+      throw new AppError(
+        `Please complete your profile before starting a chat. Missing: ${missingFields.join(', ')}`,
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
     // Check if astrologer is PREMIUM - they can only chat during appointments
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },

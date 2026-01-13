@@ -163,6 +163,45 @@ export function chatHandlers(io: Server, socket: Socket) {
             return;
           }
 
+          // Check if client profile is completed before creating chat
+          const clientProfile = await prisma.user.findUnique({
+            where: { id: clientId },
+            select: {
+              name: true,
+              dateOfBirth: true,
+              timeOfBirth: true,
+              placeOfBirth: true,
+              profileCompleted: true,
+            },
+          });
+
+          if (!clientProfile) {
+            socket.emit('chat:error', { message: 'User not found' });
+            return;
+          }
+
+          // Check if all required fields are present (same logic as frontend)
+          const missingFields: string[] = [];
+          if (!clientProfile.name || clientProfile.name.trim() === '') {
+            missingFields.push('Name');
+          }
+          if (!clientProfile.dateOfBirth) {
+            missingFields.push('Date of Birth');
+          }
+          if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
+            missingFields.push('Time of Birth');
+          }
+          if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
+            missingFields.push('Place of Birth');
+          }
+
+          if (missingFields.length > 0) {
+            socket.emit('chat:error', {
+              message: `Please complete your profile before sending messages. Missing: ${missingFields.join(', ')}`,
+            });
+            return;
+          }
+
           chat = await prisma.chat.create({
             data: {
               participant1Id: clientId,

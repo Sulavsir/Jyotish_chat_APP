@@ -3,7 +3,7 @@
  * Shows users who are currently online with quick message buttons
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Card,
@@ -25,6 +25,8 @@ import { QUERY_KEYS, ROUTES } from '@/constants';
 import { getImageUrl } from '@/utils/image.utils';
 import { UserRole } from '@/types/user.types';
 import userService, { type ChatableUser } from '@/services/user.service';
+import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
+import { checkClientProfileCompletion } from '@/utils/profile-completion';
 
 interface OnlineUsersProps {
   title?: string;
@@ -37,6 +39,8 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   const currentUser = useAuthStore((state) => state.user);
   const router = useRouter();
   const { startChat, isStartingChat } = useChat();
+  const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
+  const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
 
   // Fetch chatable users with TanStack Query
   const {
@@ -65,6 +69,16 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   }, [dataUpdatedAt, users.length, onlineUsersFiltered.length]);
 
   const handleChatNow = async (userId: string) => {
+    // Check if client profile is complete before starting chat
+    if (currentUser?.role === UserRole.CLIENT) {
+      const profileCheck = checkClientProfileCompletion(currentUser);
+      if (!profileCheck.isComplete) {
+        setMissingProfileFields(profileCheck.missingFields);
+        setShowProfileIncompleteDialog(true);
+        return;
+      }
+    }
+
     await startChat(userId);
   };
 
@@ -277,6 +291,13 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
           }
         `}</style>
       </CardContent>
+
+      {/* Profile Incomplete Dialog */}
+      <ProfileIncompleteDialog
+        isOpen={showProfileIncompleteDialog}
+        onClose={() => setShowProfileIncompleteDialog(false)}
+        missingFields={missingProfileFields}
+      />
     </Card>
   );
 };

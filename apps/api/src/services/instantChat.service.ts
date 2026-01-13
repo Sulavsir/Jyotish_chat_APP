@@ -6,7 +6,11 @@
 
 import { prisma } from '@jyotish/database';
 import { InstantChatRequestStatus, AuditAction } from '@prisma/client';
-import { notifyInstantChatRequestCreated, notifyInstantChatRequestAccepted, notifyInstantChatRequestCancelled } from '../utils';
+import {
+  notifyInstantChatRequestCreated,
+  notifyInstantChatRequestAccepted,
+  notifyInstantChatRequestCancelled,
+} from '../utils';
 import { auditService } from './audit.service';
 
 /**
@@ -15,10 +19,7 @@ import { auditService } from './audit.service';
  * @param message - Optional message from client
  * @returns Created instant chat request
  */
-export const createInstantChatRequest = async (
-  clientId: string,
-  message?: string
-) => {
+export const createInstantChatRequest = async (clientId: string, message?: string) => {
   // Check if client already has an active request
   const existingRequest = await prisma.instantChatRequest.findFirst({
     where: {
@@ -124,10 +125,7 @@ export const getPendingInstantChatRequests = async () => {
  * @param astrologerId - ID of the astrologer accepting
  * @returns Updated request with chat ID
  */
-export const acceptInstantChatRequest = async (
-  requestId: string,
-  astrologerId: string
-) => {
+export const acceptInstantChatRequest = async (requestId: string, astrologerId: string) => {
   // Get the request
   const request = await prisma.instantChatRequest.findUnique({
     where: { id: requestId },
@@ -193,6 +191,44 @@ export const acceptInstantChatRequest = async (
   }
 
   if (!chat) {
+    // Check if client profile is completed before creating chat
+    // Check actual required fields instead of just profileCompleted flag
+    const clientProfile = await prisma.user.findUnique({
+      where: { id: request.clientId },
+      select: {
+        name: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        profileCompleted: true,
+      },
+    });
+
+    if (!clientProfile) {
+      throw new Error('User not found');
+    }
+
+    // Check if all required fields are present (same logic as frontend)
+    const missingFields: string[] = [];
+    if (!clientProfile.name || clientProfile.name.trim() === '') {
+      missingFields.push('Name');
+    }
+    if (!clientProfile.dateOfBirth) {
+      missingFields.push('Date of Birth');
+    }
+    if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
+      missingFields.push('Time of Birth');
+    }
+    if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
+      missingFields.push('Place of Birth');
+    }
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Please complete your profile before starting a chat. Missing: ${missingFields.join(', ')}`
+      );
+    }
+
     // Create new chat (client=participant1, astrologer=participant2)
     chat = await prisma.chat.create({
       data: {
@@ -259,10 +295,7 @@ export const acceptInstantChatRequest = async (
  * @param clientId - ID of the client (for authorization)
  * @returns Updated request
  */
-export const cancelInstantChatRequest = async (
-  requestId: string,
-  clientId: string
-) => {
+export const cancelInstantChatRequest = async (requestId: string, clientId: string) => {
   const request = await prisma.instantChatRequest.findUnique({
     where: { id: requestId },
   });
@@ -365,5 +398,3 @@ export const isAstrologerBusy = async (astrologerId: string) => {
 
   return !!recentAcceptedRequest;
 };
-
-

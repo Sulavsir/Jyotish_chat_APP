@@ -425,6 +425,44 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   }
 
   if (!chat) {
+    // Check if client profile is completed before creating chat
+    // Check actual required fields instead of just profileCompleted flag
+    const clientProfile = await prisma.user.findUnique({
+      where: { id: message.clientId },
+      select: {
+        name: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        profileCompleted: true,
+      },
+    });
+
+    if (!clientProfile) {
+      throw new Error('User not found');
+    }
+
+    // Check if all required fields are present (same logic as frontend)
+    const missingFields: string[] = [];
+    if (!clientProfile.name || clientProfile.name.trim() === '') {
+      missingFields.push('Name');
+    }
+    if (!clientProfile.dateOfBirth) {
+      missingFields.push('Date of Birth');
+    }
+    if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
+      missingFields.push('Time of Birth');
+    }
+    if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
+      missingFields.push('Place of Birth');
+    }
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Please complete your profile before starting a chat. Missing: ${missingFields.join(', ')}`
+      );
+    }
+
     // Create new chat (client=participant1, astrologer=participant2)
     chat = await prisma.chat.create({
       data: {
