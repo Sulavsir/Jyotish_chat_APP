@@ -50,4 +50,3 @@ router.put('/chats/:chatId/end', chatController.endChat);
 router.get('/active-chat', chatController.getActiveChat);
 
 export default router;
-

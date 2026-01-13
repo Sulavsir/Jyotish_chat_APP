@@ -125,13 +125,19 @@ export function chatHandlers(io: Server, socket: Socket) {
         // Check if chat is abandoned by admin
         if (chat && chat.isAbandonedByAdmin) {
           socket.emit('chat:error', {
-            message: 'This conversation has been ended by administration. Please contact support for assistance.',
+            message:
+              'This conversation has been ended by administration. Please contact support for assistance.',
           });
           return;
         }
 
         // Turn-based messaging: Check if client is waiting for astrologer reply
-        if (chat && chat.turnBasedEnabled && chat.waitingForReply && user.role === UserRole.CLIENT) {
+        if (
+          chat &&
+          chat.turnBasedEnabled &&
+          chat.waitingForReply &&
+          user.role === UserRole.CLIENT
+        ) {
           // Send system message to inform client to wait
           const systemMessage = {
             id: `system-${Date.now()}`,
@@ -141,7 +147,7 @@ export function chatHandlers(io: Server, socket: Socket) {
             isSystemMessage: true,
             createdAt: new Date().toISOString(),
           };
-          
+
           socket.emit('chat:system_message', systemMessage);
           return;
         }
@@ -303,11 +309,13 @@ export function chatHandlers(io: Server, socket: Socket) {
         });
 
         // Prepare turn state info to send with messages
-        const turnStateInfo = chat.turnBasedEnabled ? {
-          waitingForReply: updatedChat.waitingForReply,
-          lastClientMessageAt: updatedChat.lastClientMessageAt,
-          lastAstrologerReplyAt: updatedChat.lastAstrologerReplyAt,
-        } : null;
+        const turnStateInfo = chat.turnBasedEnabled
+          ? {
+              waitingForReply: updatedChat.waitingForReply,
+              lastClientMessageAt: updatedChat.lastClientMessageAt,
+              lastAstrologerReplyAt: updatedChat.lastAstrologerReplyAt,
+            }
+          : null;
 
         // Send to receiver if online
         const receiverSocketId = onlineUsers.get(receiverId);

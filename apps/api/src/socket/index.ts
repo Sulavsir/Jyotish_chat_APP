@@ -23,10 +23,10 @@ const onlineUsers = new Map<string, string>(); // userId -> socketId
 export function setupSocketHandlers(io: Server) {
   // Initialize admin monitor
   initializeAdminMonitor(io);
-  
+
   // Initialize admin stats emitter for real-time dashboard updates
   AdminStatsEmitter.initialize(io);
-  
+
   // Authentication middleware - reads access token from httpOnly cookie
   io.use((socket: Socket, next) => {
     try {
@@ -94,7 +94,7 @@ export function setupSocketHandlers(io: Server) {
           select: { name: true },
         });
         console.log(`✅ Astrologer ${user.id} marked as online in database`);
-        
+
         // Emit astrologer-specific event when connecting
         io.emit('astrologer:status_changed', {
           astrologerId: user.id,
@@ -109,7 +109,9 @@ export function setupSocketHandlers(io: Server) {
     // Send list of currently online users to the newly connected user
     const currentlyOnlineUserIds = Array.from(onlineUsers.keys());
     socket.emit('user:onlineList', { userIds: currentlyOnlineUserIds });
-    console.log(`✅ Sent online users list to ${user.id}: ${currentlyOnlineUserIds.length} users online`);
+    console.log(
+      `✅ Sent online users list to ${user.id}: ${currentlyOnlineUserIds.length} users online`
+    );
 
     // Broadcast user online status to all clients
     io.emit('user:status', { userId: user.id, status: 'online' });
@@ -156,7 +158,7 @@ export function setupSocketHandlers(io: Server) {
             select: { name: true },
           });
           console.log(`✅ Astrologer ${user.id} marked as offline in database`);
-          
+
           // Emit astrologer-specific event when disconnecting
           io.emit('astrologer:status_changed', {
             astrologerId: user.id,

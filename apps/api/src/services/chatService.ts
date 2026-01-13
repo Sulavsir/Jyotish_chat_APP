@@ -7,6 +7,8 @@ import { CreateChatParams, GetChatHistoryParams, SendMessageParams } from '@/typ
 import { prisma } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
 import { ParticipantType, ChatStatus, MessageType, Prisma } from '@prisma/client';
+import { AppError } from '../middleware/error-handler';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
 /**
  * Find or create a chat between client and astrologer
@@ -72,7 +74,11 @@ export const findOrCreateChat = async (
       throw new Error('Astrologer not found');
     }
   } else {
-    throw new Error('Invalid user role for chat. Only CLIENT and ASTROLOGER can chat.');
+    throw new AppError(
+      `Invalid user role for chat. Only CLIENT and ASTROLOGER can chat. Current role: ${currentUserRole}`,
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODES.FORBIDDEN
+    );
   }
 
   // participant1 is ALWAYS client, participant2 is ALWAYS astrologer
@@ -207,7 +213,7 @@ export const findOrCreateChat = async (
         participant2Type: ParticipantType.ASTROLOGER,
         consultationId,
         // ✅ Start as ACTIVE - chat is active when created
-        status: ChatStatus.ACTIVE,
+        status: ChatStatus.PENDING,
         isLocked: false,
       },
       include: {
@@ -361,7 +367,11 @@ export const getChatHistory = async (
     clientId = otherUserId;
     astrologerId = userId;
   } else {
-    throw new Error('Invalid user role for chat. Only CLIENT and ASTROLOGER can chat.');
+    throw new AppError(
+      `Invalid user role for chat history. Only CLIENT and ASTROLOGER can chat. Current role: ${currentUserRole}`,
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODES.FORBIDDEN
+    );
   }
 
   // Find the chat (participant1 is always client, participant2 is always astrologer)
