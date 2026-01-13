@@ -7,6 +7,18 @@ import { AuthProvider } from '@/providers/auth-provider';
 
 const inter = Inter({ subsets: ['latin'] });
 
+// Define metadataBase as a constant to ensure it's always available
+const getMetadataBase = (): URL => {
+  if (process.env.NEXT_PUBLIC_WEB_URL) {
+    return new URL(process.env.NEXT_PUBLIC_WEB_URL);
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL.replace('/api', '');
+    return new URL(baseUrl);
+  }
+  return new URL('http://localhost:3000');
+};
+
 export const metadata: Metadata = {
   title: {
     default: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
@@ -31,10 +43,7 @@ export const metadata: Metadata = {
     'Autonomous Technology',
   ],
   applicationName: 'Chat Jyotish',
-  metadataBase:
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_WEB_URL
-      ? new URL(process.env.NEXT_PUBLIC_WEB_URL)
-      : undefined,
+  metadataBase: getMetadataBase(),
   openGraph: {
     title: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
     description:

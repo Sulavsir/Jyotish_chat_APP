@@ -6,6 +6,14 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
 
+// Define metadataBase as a constant to ensure it's always available
+const getMetadataBase = (): URL => {
+  if (process.env.NEXT_PUBLIC_ADMIN_URL) {
+    return new URL(process.env.NEXT_PUBLIC_ADMIN_URL);
+  }
+  return new URL('http://localhost:3002');
+};
+
 export const metadata: Metadata = {
   title: {
     default: 'CJ Admin - Jyotish Control Panel',
@@ -14,10 +22,7 @@ export const metadata: Metadata = {
   description:
     'CJ Admin is the control panel for managing astrologers, clients, chats, earnings, pricing, and platform configuration for Chat Jyotish.',
   applicationName: 'CJ Admin',
-  metadataBase:
-    typeof process !== 'undefined' && process.env.NEXT_PUBLIC_ADMIN_URL
-      ? new URL(process.env.NEXT_PUBLIC_ADMIN_URL)
-      : undefined,
+  metadataBase: getMetadataBase(),
   openGraph: {
     title: 'CJ Admin - Jyotish Control Panel',
     description:
