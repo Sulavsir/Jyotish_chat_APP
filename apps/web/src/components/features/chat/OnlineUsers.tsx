@@ -24,9 +24,11 @@ import { useChat } from '@/hooks/useChat';
 import { QUERY_KEYS, ROUTES } from '@/constants';
 import { getImageUrl } from '@/utils/image.utils';
 import { UserRole } from '@/types/user.types';
+import { USER_ROLES } from '@/constants/role.constants';
 import userService, { type ChatableUser } from '@/services/user.service';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
+import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
 
 interface OnlineUsersProps {
   title?: string;
@@ -58,8 +60,16 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   });
 
   // Filter to show ONLY online users - NO LIMIT
+  // Exclude PROFESSIONAL astrologers from chat now (they only accept appointments)
   // This will re-compute whenever onlineUsers Set changes (Zustand will trigger re-render)
-  const onlineUsersFiltered = users.filter((user: ChatableUser) => onlineUsers.has(user.id));
+  const onlineUsersFiltered = users.filter(
+    (user: ChatableUser) =>
+      onlineUsers.has(user.id) &&
+      // For clients viewing astrologers: exclude PROFESSIONAL category (they only accept appointments)
+      (currentUser?.role !== UserRole.CLIENT ||
+        user.role !== USER_ROLES.ASTROLOGER ||
+        user.category !== ASTROLOGER_CATEGORY.PROFESSIONAL)
+  );
 
   // Debug: Log when data updates
   React.useEffect(() => {

@@ -12,52 +12,18 @@ import {
   RefreshCw,
   Clock,
   User,
-  DollarSign,
   CheckCircle2,
   XCircle,
   AlertCircle,
 } from 'lucide-react';
-
-interface Appointment {
-  id: string;
-  scheduledAt: string;
-  duration: number;
-  status: string;
-  amount: number;
-  notes: string | null;
-  createdAt: string;
-  client: {
-    id: string;
-    name: string | null;
-    phone: string;
-    email: string | null;
-  };
-  astrologer: {
-    id: string;
-    name: string;
-    phone: string;
-    category: string;
-    appointmentFee: number | null;
-  };
-}
-
-const STATUS_COLORS = {
-  PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  CONFIRMED: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  IN_PROGRESS: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  COMPLETED: 'bg-green-500/10 text-green-500 border-green-500/20',
-  CANCELLED: 'bg-red-500/10 text-red-500 border-red-500/20',
-  NO_SHOW: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
-};
-
-const STATUS_ICONS = {
-  PENDING: AlertCircle,
-  CONFIRMED: CheckCircle2,
-  IN_PROGRESS: Clock,
-  COMPLETED: CheckCircle2,
-  CANCELLED: XCircle,
-  NO_SHOW: XCircle,
-};
+import type { Appointment } from '@/types/appointment.types';
+import { AstrologerCategory } from '@/types/appointment.types';
+import {
+  APPOINTMENT_STATUS,
+  APPOINTMENT_STATUS_COLORS,
+  APPOINTMENT_STATUS_ICONS,
+  ASTROLOGER_CATEGORY_COLORS,
+} from '@/constants/appointment.constants';
 
 export default function AppointmentsPage() {
   // Fetch appointments with TanStack Query - auto-refresh every 30 seconds
@@ -68,11 +34,8 @@ export default function AppointmentsPage() {
     refetch,
   } = useQuery<Appointment[]>({
     queryKey: ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(),
-    queryFn: async () => {
-      const response = await adminApi.appointments.list();
-      return response.data || [];
-    },
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    queryFn: () => adminApi.appointments.list(),
+    refetchInterval: 20000,
   });
 
   const formatDate = (dateString: string) => {
@@ -92,24 +55,20 @@ export default function AppointmentsPage() {
     });
   };
 
-  const getCategoryBadgeColor = (category: string) => {
-    switch (category) {
-      case 'PREMIUM':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
-      case 'PROFESSIONAL':
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-      default:
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-    }
+  const getCategoryBadgeColor = (category: AstrologerCategory): string => {
+    return (
+      ASTROLOGER_CATEGORY_COLORS[category] ||
+      ASTROLOGER_CATEGORY_COLORS[AstrologerCategory.ORDINARY]
+    );
   };
 
   // Calculate stats using useMemo
   const stats = useMemo(() => {
     return {
       total: appointments.length,
-      pending: appointments.filter((a) => a.status === 'PENDING').length,
-      confirmed: appointments.filter((a) => a.status === 'CONFIRMED').length,
-      completed: appointments.filter((a) => a.status === 'COMPLETED').length,
+      pending: appointments.filter((a) => a.status === APPOINTMENT_STATUS.PENDING).length,
+      confirmed: appointments.filter((a) => a.status === APPOINTMENT_STATUS.CONFIRMED).length,
+      completed: appointments.filter((a) => a.status === APPOINTMENT_STATUS.COMPLETED).length,
     };
   }, [appointments]);
 
@@ -166,7 +125,6 @@ export default function AppointmentsPage() {
       header: 'Amount',
       accessor: (appointment) => (
         <div className="flex items-center gap-1 text-sm font-medium text-green-400">
-          <DollarSign className="w-4 h-4" />
           Rs. {appointment.amount}
         </div>
       ),
@@ -174,14 +132,13 @@ export default function AppointmentsPage() {
     {
       header: 'Status',
       accessor: (appointment) => {
-        const StatusIcon =
-          STATUS_ICONS[appointment.status as keyof typeof STATUS_ICONS] || AlertCircle;
+        const StatusIcon = APPOINTMENT_STATUS_ICONS[appointment.status];
         return (
           <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[appointment.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.PENDING}`}
+            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${APPOINTMENT_STATUS_COLORS[appointment.status]}`}
           >
             <StatusIcon className="w-3 h-3" />
-            {appointment.status}
+            {appointment.status.replace('_', ' ')}
           </span>
         );
       },

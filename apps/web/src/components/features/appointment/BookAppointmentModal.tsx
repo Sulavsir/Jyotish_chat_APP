@@ -15,6 +15,11 @@ import appointmentService from '@/services/appointment.service';
 import type { Astrologer, TimeSlot } from '@/types/appointment.types';
 import { AstrologerCategory } from '@/types/appointment.types';
 import { DEFAULT_APPOINTMENT_DURATION, ASTROLOGER_CATEGORY, QUERY_KEYS } from '@/constants';
+
+interface AstrologerListResponse {
+  data?: Astrologer[];
+  astrologers?: Astrologer[];
+}
 import { getImageUrl } from '@/utils/image.utils';
 import { showErrorToast, getSuccessMessage } from '@/lib/error-handler';
 
@@ -40,7 +45,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Fetch astrologers with TanStack Query
-  const { data: rawAstrologers = [], isLoading: isLoadingAstrologers } = useQuery({
+  const { data: rawAstrologers, isLoading: isLoadingAstrologers } = useQuery({
     queryKey: QUERY_KEYS.APPOINTMENTS.ASTROLOGERS_FOR_APPOINTMENT,
     queryFn: appointmentService.getAstrologersForAppointment,
     enabled: isOpen,
@@ -48,7 +53,18 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
 
   // Process astrologers: filter and sort
   const astrologers = useMemo(() => {
-    const eligible = rawAstrologers.filter(
+    // Handle different response formats - ensure we have an array
+    let astrologersArray: Astrologer[] = [];
+    if (Array.isArray(rawAstrologers)) {
+      astrologersArray = rawAstrologers;
+    } else if (rawAstrologers && typeof rawAstrologers === 'object') {
+      // Handle wrapped responses like { data: [...] } or { astrologers: [...] }
+      const wrappedResponse = rawAstrologers as AstrologerListResponse;
+      astrologersArray = wrappedResponse.data || wrappedResponse.astrologers || [];
+    }
+
+    // Filter to only PROFESSIONAL and PREMIUM (ORDINARY should not appear here)
+    const eligible = astrologersArray.filter(
       (a) =>
         a.category === ASTROLOGER_CATEGORY.PROFESSIONAL ||
         a.category === ASTROLOGER_CATEGORY.PREMIUM

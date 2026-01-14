@@ -15,6 +15,7 @@ export interface ChatableUser {
   role: string;
   zodiacSign?: string;
   isOnline?: boolean;
+  category?: string; // For astrologers: ORDINARY, PROFESSIONAL, PREMIUM
 }
 
 class UserService {
@@ -30,4 +31,3 @@ class UserService {
 
 export const userService = new UserService();
 export default userService;
-

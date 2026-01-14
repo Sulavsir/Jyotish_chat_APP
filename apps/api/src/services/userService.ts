@@ -22,6 +22,7 @@ export const getAstrologers = async (limit = 10, onlineOnly = true) => {
       phone: true,
       profilePhoto: true,
       isOnline: true, // ✅ Clients CAN see astrologer online status
+      category: true,
       createdAt: true,
     },
     take: limit,

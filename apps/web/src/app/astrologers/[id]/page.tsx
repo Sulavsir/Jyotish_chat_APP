@@ -26,6 +26,7 @@ import {
 import { RequestInstantChatButton } from '@/components/features/instant-chat/RequestInstantChatButton';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { getImageUrl } from '@/utils/image.utils';
+import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
 
 export default function AstrologerProfilePage() {
   const params = useParams();
@@ -124,15 +125,22 @@ export default function AstrologerProfilePage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-3">
-                    <RequestInstantChatButton />
-                    <Button
-                      onClick={() => router.push(ROUTES.PRICING)}
-                      variant="outline"
-                      className="border-white/20 text-white hover:bg-white/10"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Book Appointment
-                    </Button>
+                    {/* Show Request Instant Chat only for ORDINARY astrologers (not PROFESSIONAL) */}
+                    {astrologer.category !== ASTROLOGER_CATEGORY.PROFESSIONAL && (
+                      <RequestInstantChatButton />
+                    )}
+                    {/* Show Book Appointment only for PROFESSIONAL and PREMIUM astrologers (not ORDINARY) */}
+                    {(astrologer.category === ASTROLOGER_CATEGORY.PROFESSIONAL ||
+                      astrologer.category === ASTROLOGER_CATEGORY.PREMIUM) && (
+                      <Button
+                        onClick={() => router.push(ROUTES.PRICING)}
+                        variant="outline"
+                        className="border-white/20 text-white hover:bg-white/10"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Book Appointment
+                      </Button>
+                    )}
                   </div>
                 </div>
 

@@ -5,6 +5,7 @@
 import { apiClient } from './api-client';
 import { API_ENDPOINTS } from '@/constants/api.constants';
 import type { Complaint, ComplaintStats } from '@/types';
+import type { Appointment } from '@/types/appointment.types';
 
 export interface LoginRequest {
   email: string;
@@ -24,28 +25,8 @@ export interface ComplaintsListResponse {
   total: number;
 }
 
-export interface AppointmentResponse {
-  id: string;
-  scheduledAt: string;
-  duration: number;
-  status: string;
-  amount: number;
-  notes: string | null;
-  createdAt: string;
-  client: {
-    id: string;
-    name: string | null;
-    phone: string;
-    email: string | null;
-  };
-  astrologer: {
-    id: string;
-    name: string;
-    phone: string;
-    category: string;
-    appointmentFee: number | null;
-  };
-}
+// Re-export for backward compatibility
+export type AppointmentResponse = Appointment;
 
 export const adminApi = {
   /**
@@ -203,13 +184,14 @@ export const adminApi = {
    * Complaints
    */
   complaints: {
-    getComplaints: async (
-      params?: { limit?: number; offset?: number; status?: string }
-    ): Promise<ComplaintsListResponse> => {
-      const response = await apiClient.get<ComplaintsListResponse>(
-        API_ENDPOINTS.COMPLAINTS.LIST,
-        { params }
-      );
+    getComplaints: async (params?: {
+      limit?: number;
+      offset?: number;
+      status?: string;
+    }): Promise<ComplaintsListResponse> => {
+      const response = await apiClient.get<ComplaintsListResponse>(API_ENDPOINTS.COMPLAINTS.LIST, {
+        params,
+      });
       return response;
     },
 
@@ -268,11 +250,10 @@ export const adminApi = {
    * Appointments
    */
   appointments: {
-    list: async (): Promise<{ data: AppointmentResponse[] }> => {
-      const response = await apiClient.get<{ data: AppointmentResponse[] }>(
-        API_ENDPOINTS.APPOINTMENTS.LIST
-      );
-      return response;
+    list: async (): Promise<AppointmentResponse[]> => {
+      const response = await apiClient.get<AppointmentResponse[]>(API_ENDPOINTS.APPOINTMENTS.LIST);
+      // API client already extracts data, so return directly
+      return Array.isArray(response) ? response : [];
     },
   },
 
