@@ -28,6 +28,8 @@ export const ROUTES = {
   PROFILE: '/profile',
   SETTINGS: '/settings',
   PRICING: '/pricing',
+  PAYMENT: '/payment',
+  COIN_TRANSACTIONS: '/coins/transactions',
   ASTROLOGERS: '/astrologers',
   ASTROLOGER_PROFILE: '/astrologers/[id]',
 

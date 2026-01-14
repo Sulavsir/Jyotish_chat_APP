@@ -12,6 +12,11 @@ import {
   notifyInstantChatRequestCancelled,
 } from '../utils';
 import { auditService } from './audit.service';
+import { AstrologerCategory } from '../types/appointment.types';
+import { AppError } from '../middleware/error-handler';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { deductCoinsForChat } from './coin.service';
+import { requiresCoinsForChat } from '../constants/coin.constants';
 
 /**
  * Create an instant chat request
@@ -151,6 +156,24 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
     throw new Error('Request has expired');
   }
 
+  // Check if astrologer is PROFESSIONAL - they cannot accept instant chat requests
+  const astrologer = await prisma.astrologer.findUnique({
+    where: { id: astrologerId },
+    select: { category: true, name: true },
+  });
+
+  if (!astrologer) {
+    throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.ASTROLOGER_NOT_FOUND);
+  }
+
+  if (astrologer.category === AstrologerCategory.PROFESSIONAL) {
+    throw new AppError(
+      `${astrologer.name} is a Professional astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
   // Check if astrologer already has an active accepted request
   const activeRequest = await prisma.instantChatRequest.findFirst({
     where: {
@@ -227,6 +250,14 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
       throw new Error(
         `Please complete your profile before starting a chat. Missing: ${missingFields.join(', ')}`
       );
+    }
+
+    // Deduct coins if required for this astrologer category
+    if (requiresCoinsForChat(astrologer.category)) {
+      await deductCoinsForChat({
+        userId: request.clientId,
+        astrologerCategory: astrologer.category,
+      });
     }
 
     // Create new chat (client=participant1, astrologer=participant2)

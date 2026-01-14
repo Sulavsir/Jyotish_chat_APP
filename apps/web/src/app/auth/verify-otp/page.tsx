@@ -7,14 +7,15 @@ import Image from 'next/image';
 import { useMutation } from '@tanstack/react-query';
 import { ROUTES, TOAST_MESSAGES } from '@/constants';
 import {
-  Button,
   Label,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  Button,
 } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 import { toast } from 'sonner';
 import spaceImage from '@/assets/images/space.jpg';
 import { authApi } from '@/lib/auth-api';
@@ -138,7 +139,7 @@ export default function VerifyOTPPage() {
     <div className="min-h-screen flex relative overflow-hidden">
       {/* Navbar */}
       <Navbar />
-      
+
       {/* Full Background Image */}
       <div className="absolute inset-0">
         <Image
@@ -226,13 +227,16 @@ export default function VerifyOTPPage() {
                 {/* Resend OTP */}
                 <div className="text-center text-sm mt-4">
                   {canResend ? (
-                    <button
+                    <LoadingButton
                       onClick={handleResend}
-                      disabled={sendOTPMutation.isPending}
+                      isLoading={sendOTPMutation.isPending}
+                      loadingText="Resending..."
+                      variant="ghost"
+                      size="sm"
                       className="text-purple-400 hover:text-purple-300 font-semibold transition-colors disabled:opacity-50"
                     >
-                      {sendOTPMutation.isPending ? 'Resending...' : 'Resend OTP'}
-                    </button>
+                      Resend OTP
+                    </LoadingButton>
                   ) : (
                     <span className="text-gray-400">
                       Resend OTP in <span className="font-semibold text-white">{resendTimer}s</span>

@@ -200,6 +200,7 @@ export class UserService {
         zodiacSign: true,
         profileCompleted: true,
         isOnline: true,
+        coins: true,
         createdAt: true,
         updatedAt: true,
       },

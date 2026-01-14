@@ -17,6 +17,7 @@ export * from './FormPasswordInput';
 export * from './OTPInput';
 export * from './ProfileDropdown';
 export * from './NotificationBell';
+export * from './CoinDisplay';
 export * from './Tooltip';
 export * from './DropdownMenu';
 export * from './EmojiPicker';

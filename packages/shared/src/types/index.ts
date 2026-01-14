@@ -45,6 +45,16 @@ export enum UserRole {
   ADMIN = 'ADMIN',
 }
 
+export type AstrologersType = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  profilePhoto: string | null;
+  isOnline: boolean;
+  category: AstrologerCategory;
+  createdAt: Date;
+};
 export interface BirthDetails {
   dateOfBirth: Date;
   timeOfBirth: string;

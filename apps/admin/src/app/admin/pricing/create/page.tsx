@@ -7,7 +7,8 @@ import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Input, Label, Textarea, ArrowLeftIcon } from '@jyotish/ui';
+import { Input, Label, Textarea, ArrowLeftIcon, Button } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 import { ADMIN_ROUTES } from '@/constants';
 import type { CreatePricingPlanRequest } from '@/types';
 import { toast } from 'sonner';
@@ -259,9 +260,13 @@ export default function CreatePricingPlanPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Creating...' : 'Create Plan'}
-            </Button>
+            <LoadingButton
+              type="submit"
+              isLoading={createMutation.isPending}
+              loadingText="Creating..."
+            >
+              Create Plan
+            </LoadingButton>
           </div>
         </form>
       </div>

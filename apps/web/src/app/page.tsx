@@ -8,17 +8,9 @@ import {
   CTASection,
   Footer,
 } from '@/components/home';
-import { useRedirectIfAuthenticated } from '@/hooks';
-import { LoadingScreenWithBackground, Navbar } from '@/components/ui';
+import { Navbar } from '@/components/ui';
 
 export default function Home() {
-  const { isCheckingAuth } = useRedirectIfAuthenticated();
-
-  // Show loading state briefly while checking auth
-  if (isCheckingAuth) {
-    return <LoadingScreenWithBackground message="Loading..." />;
-  }
-
   return (
     <div className="min-h-screen bg-black">
       <Navbar />

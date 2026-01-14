@@ -105,6 +105,11 @@ export const adminApi = {
       const response = await apiClient.post(API_ENDPOINTS.USERS.TOGGLE_STATUS(id));
       return response;
     },
+
+    addCoins: async (id: string, data: { amount: number; reason?: string }) => {
+      const response = await apiClient.post(API_ENDPOINTS.USERS.ADD_COINS(id), data);
+      return response;
+    },
   },
 
   /**
@@ -250,10 +255,9 @@ export const adminApi = {
    * Appointments
    */
   appointments: {
-    list: async (): Promise<AppointmentResponse[]> => {
-      const response = await apiClient.get<AppointmentResponse[]>(API_ENDPOINTS.APPOINTMENTS.LIST);
-      // API client already extracts data, so return directly
-      return Array.isArray(response) ? response : [];
+    list: async (params?: { page?: number; limit?: number }): Promise<any> => {
+      const response = await apiClient.get(API_ENDPOINTS.APPOINTMENTS.LIST, { params });
+      return response;
     },
   },
 

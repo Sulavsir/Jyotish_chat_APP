@@ -4,12 +4,37 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { UserRole } from '@jyotish/shared';
+
+/**
+ * Type for astrologer select result
+ */
+type AstrologerSelectResult = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string;
+  profilePhoto: string | null;
+  isOnline: boolean;
+  category: string;
+  createdAt: Date;
+};
+
+/**
+ * Type for astrologer with role
+ */
+export type AstrologerWithRole = AstrologerSelectResult & {
+  role: UserRole;
+};
 
 /**
  * Get all astrologers (for clients)
  * NOTE: Includes isOnline field - clients CAN see which astrologers are online
  */
-export const getAstrologers = async (limit = 10, onlineOnly = true) => {
+export const getAstrologers = async (
+  limit = 10,
+  onlineOnly = true
+): Promise<AstrologerWithRole[]> => {
   const astrologers = await prisma.astrologer.findMany({
     where: {
       isActive: true,
@@ -32,11 +57,12 @@ export const getAstrologers = async (limit = 10, onlineOnly = true) => {
     ],
   });
 
-  // Map to match the expected format (add role field for consistency)
-  return astrologers.map((astrologer) => ({
-    ...astrologer,
-    role: 'ASTROLOGER',
-  }));
+  return astrologers.map(
+    (astrologer: AstrologerSelectResult): AstrologerWithRole => ({
+      ...astrologer,
+      role: UserRole.ASTROLOGER,
+    })
+  );
 };
 
 /**

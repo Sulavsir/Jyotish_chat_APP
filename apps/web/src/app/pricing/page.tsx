@@ -1,46 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api-client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@jyotish/ui';
 import { Check, Sparkles, Zap, Clock, Infinity as InfinityIcon } from 'lucide-react';
-import Link from 'next/link';
-import { ROUTES } from '@/constants';
+import { ROUTES, QUERY_KEYS } from '@/constants';
 import { Navbar } from '@/components/ui';
+import { pricingService } from '@/services/pricing.service';
+import type { PricingPlan } from '@/types/pricing.types';
+import { useAuthStore } from '@/store/auth-store';
+import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 
-interface PricingPlan {
-  id: string;
-  name: string;
-  description: string | null;
-  priceInNrs: number;
-  coins: number;
-  validityInDays: number | null;
-  isUnlimited: boolean;
-  discountPercent: number | null;
-  isFeatured: boolean;
-  isActive: boolean;
-  displayOrder: number;
-}
+type TabFilter = 'all' | 'packs' | 'unlimited';
 
-export default function PricingPage() {
-  const [plans, setPlans] = useState<PricingPlan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<'all' | 'packs' | 'unlimited'>('all');
+function PricingContent() {
+  const router = useRouter();
+  const [selectedTab, setSelectedTab] = useState<TabFilter>('all');
 
-  useEffect(() => {
-    fetchPlans();
-  }, []);
+  const { data, isLoading } = useQuery({
+    queryKey: QUERY_KEYS.PRICING.PLANS,
+    queryFn: () => pricingService.getPlans(),
+  });
 
-  const fetchPlans = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get<{ plans: PricingPlan[] }>('/api/v1/pricing');
-      setPlans(response.plans || []);
-    } catch (error) {
-      console.error('Error fetching pricing plans:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const plans = data?.plans || [];
+  const loading = isLoading;
 
   const filteredPlans = plans.filter((plan) => {
     if (selectedTab === 'packs') return !plan.isUnlimited;
@@ -118,9 +102,6 @@ export default function PricingPage() {
         </div>
       </div>
 
-      {/* Navbar */}
-      <Navbar />
-
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         {/* Content wrapper */}
@@ -159,9 +140,10 @@ export default function PricingPage() {
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
-                  <button
+                  <Button
                     key={tab.id}
-                    onClick={() => setSelectedTab(tab.id as any)}
+                    onClick={() => setSelectedTab(tab.id as TabFilter)}
+                    variant={selectedTab === tab.id ? 'default' : 'ghost'}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-md font-medium transition-all ${
                       selectedTab === tab.id
                         ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/50'
@@ -170,7 +152,7 @@ export default function PricingPage() {
                   >
                     <Icon className="w-4 h-4" />
                     {tab.label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -317,16 +299,20 @@ export default function PricingPage() {
                       </div>
 
                       {/* CTA Button */}
-                      <Link
-                        href={ROUTES.CHAT}
-                        className={`block w-full py-3.5 rounded-xl font-semibold text-center transition-all ${
+                      <Button
+                        onClick={() => {
+                          router.push(
+                            `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`
+                          );
+                        }}
+                        className={`w-full py-3.5 rounded-xl font-semibold ${
                           plan.isFeatured
                             ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-lg shadow-purple-500/30'
                             : 'bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/30'
                         }`}
                       >
-                        Get Started
-                      </Link>
+                        Buy Now
+                      </Button>
                     </div>
                   </div>
                 );
@@ -383,5 +369,26 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Public view: show standalone pricing page with public navbar
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden">
+        <Navbar />
+        <PricingContent />
+      </div>
+    );
+  }
+
+  // Authenticated clients: render pricing inside the dashboard layout (no extra navbar)
+  return (
+    <DashboardLayout>
+      <PricingContent />
+    </DashboardLayout>
   );
 }

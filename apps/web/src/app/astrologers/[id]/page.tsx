@@ -5,6 +5,7 @@
  * View detailed astrologer profile
  */
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Star, Calendar, Award, Languages, Clock, TrendingUp, ArrowLeft } from 'lucide-react';
@@ -27,11 +28,16 @@ import { RequestInstantChatButton } from '@/components/features/instant-chat/Req
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { getImageUrl } from '@/utils/image.utils';
 import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
+import { useAuthStore } from '@/store/auth-store';
+import { Navbar } from '@/components/ui';
+import { BookAppointmentModal } from '@/components/features/appointment';
 
-export default function AstrologerProfilePage() {
+function AstrologerProfileContent() {
   const params = useParams();
   const router = useRouter();
   const astrologerId = params.id as string;
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const [isBookAppointmentOpen, setIsBookAppointmentOpen] = useState(false);
 
   const {
     data: profileData,
@@ -45,36 +51,40 @@ export default function AstrologerProfilePage() {
 
   const astrologer = profileData?.astrologer;
 
+  const handleBookAppointment = () => {
+    if (!isAuthenticated) {
+      router.push(ROUTES.LOGIN);
+      return;
+    }
+    setIsBookAppointmentOpen(true);
+  };
+
   if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
-            <p className="text-gray-300 mt-4">Loading profile...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+          <p className="text-gray-300 mt-4">Loading profile...</p>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   if (error || !astrologer) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <p className="text-red-400 text-lg mb-4">Failed to load astrologer profile</p>
-            <Button onClick={() => router.push(ROUTES.ASTROLOGERS)} className="bg-purple-600">
-              Back to Astrologers
-            </Button>
-          </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-red-400 text-lg mb-4">Failed to load astrologer profile</p>
+          <Button onClick={() => router.push(ROUTES.ASTROLOGERS)} className="bg-purple-600">
+            Back to Astrologers
+          </Button>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="space-y-6">
         {/* Back Button */}
         <Button
@@ -125,8 +135,8 @@ export default function AstrologerProfilePage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-3">
-                    {/* Show Request Instant Chat only for ORDINARY astrologers (not PROFESSIONAL) */}
-                    {astrologer.category !== ASTROLOGER_CATEGORY.PROFESSIONAL && (
+                    {/* Show Request Instant Chat for ORDINARY and PROFESSIONAL astrologers (not PREMIUM) */}
+                    {astrologer.category !== ASTROLOGER_CATEGORY.PREMIUM && (
                       <RequestInstantChatButton />
                     )}
                     {/* Show Book Appointment only for PROFESSIONAL and PREMIUM astrologers (not ORDINARY) */}
@@ -312,6 +322,38 @@ export default function AstrologerProfilePage() {
           </Card>
         </div>
       </div>
+
+      {/* Book Appointment Modal */}
+      {isAuthenticated && (
+        <BookAppointmentModal
+          isOpen={isBookAppointmentOpen}
+          onClose={() => setIsBookAppointmentOpen(false)}
+          onSuccess={() => setIsBookAppointmentOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+export default function AstrologerProfilePage() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Public view: standalone page with navbar
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black relative">
+        <Navbar />
+        <main className="max-w-7xl mx-auto px-4 py-24">
+          <AstrologerProfileContent />
+        </main>
+      </div>
+    );
+  }
+
+  // Authenticated clients: render inside dashboard layout
+  return (
+    <DashboardLayout>
+      <AstrologerProfileContent />
     </DashboardLayout>
   );
 }

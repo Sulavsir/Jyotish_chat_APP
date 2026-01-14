@@ -1,41 +1,90 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Search, ChatIcon } from '@jyotish/ui';
+import {
+  Button,
+  Search,
+  ChatIcon,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { Chat } from '@/types';
 import ChatDetailModal from '@/components/chat/ChatDetailModal';
 import { useAdminSocket } from '@/hooks';
 import { Ban, RefreshCw } from 'lucide-react';
+import { generatePageNumbers } from '@/utils/helpers';
+
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+interface ChatsResponse {
+  chats: Chat[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 export default function ChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { on, off, isConnected } = useAdminSocket();
 
-  // Fetch chats with TanStack Query
+  // Fetch chats with TanStack Query (server-side pagination)
   const {
-    data: chats = [],
+    data: chatsResponse,
     isLoading,
     refetch,
-  } = useQuery<Chat[]>({
-    queryKey: ADMIN_QUERY_KEYS.CHATS.LIST(),
+  } = useQuery<ChatsResponse>({
+    queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, searchTerm],
     queryFn: async () => {
-      const response: any = await adminApi.chats.list({ limit: 1000 });
-      if (Array.isArray(response)) {
+      const response: any = await adminApi.chats.list({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      });
+      // Handle both response formats
+      if (response?.chats && response?.pagination) {
         return response;
-      } else if (response?.chats) {
-        return response.chats;
+      } else if (Array.isArray(response)) {
+        // Fallback for old format
+        return {
+          chats: response,
+          pagination: {
+            page: 1,
+            limit: ITEMS_PER_PAGE,
+            total: response.length,
+            totalPages: 1,
+          },
+        };
       }
-      return [];
+      return {
+        chats: [],
+        pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 },
+      };
     },
   });
+
+  const chats = chatsResponse?.chats || [];
+  const pagination = chatsResponse?.pagination || {
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 0,
+  };
 
   // Listen for real-time chat updates via socket
   useEffect(() => {
@@ -43,17 +92,12 @@ export default function ChatsPage() {
 
     const handleNewChat = (newChat: Chat) => {
       console.log('💬 New chat created:', newChat);
-      queryClient.setQueryData<Chat[]>(ADMIN_QUERY_KEYS.CHATS.LIST(), (old = []) => [
-        newChat,
-        ...old,
-      ]);
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
     };
 
     const handleChatUpdate = (updatedChat: Chat) => {
       console.log('💬 Chat updated:', updatedChat);
-      queryClient.setQueryData<Chat[]>(ADMIN_QUERY_KEYS.CHATS.LIST(), (old = []) =>
-        old.map((chat) => (chat.id === updatedChat.id ? { ...chat, ...updatedChat } : chat))
-      );
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
     };
 
     const handleChatAbandoned = (data: {
@@ -62,37 +106,12 @@ export default function ChatsPage() {
       abandonedBy: string;
     }) => {
       console.log('🚫 Chat abandoned:', data);
-      queryClient.setQueryData<Chat[]>(ADMIN_QUERY_KEYS.CHATS.LIST(), (old = []) =>
-        old.map((chat) =>
-          chat.id === data.chatId
-            ? {
-                ...chat,
-                isAbandonedByAdmin: true,
-                abandonedBy: data.abandonedBy,
-                abandonReason: data.reason,
-                isLocked: true,
-                status: 'ENDED',
-              }
-            : chat
-        )
-      );
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
     };
 
     const handleChatUnblocked = (data: { chatId: string }) => {
       console.log('🔓 Chat unblocked:', data);
-      queryClient.setQueryData<Chat[]>(ADMIN_QUERY_KEYS.CHATS.LIST(), (old = []) =>
-        old.map((chat) =>
-          chat.id === data.chatId
-            ? {
-                ...chat,
-                isAbandonedByAdmin: false,
-                abandonedBy: null,
-                abandonReason: null,
-                isLocked: false,
-              }
-            : chat
-        )
-      );
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
     };
 
     on('chat:new', handleNewChat);
@@ -108,6 +127,11 @@ export default function ChatsPage() {
     };
   }, [isConnected, on, off, queryClient]);
 
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [searchTerm]);
+
   const isImageUrl = (text: string) => {
     if (!text) return false;
     const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i;
@@ -121,21 +145,20 @@ export default function ChatsPage() {
     return text;
   };
 
-  // Filter chats using useMemo
-  const filteredChats = useMemo(() => {
-    return chats.filter((chat) => {
-      const clientName = chat.clientParticipant?.name?.toLowerCase() || '';
-      const astrologerName = chat.astrologerParticipant?.name?.toLowerCase() || '';
-      const lastMessage = chat.lastMessageText?.toLowerCase() || '';
-      const search = searchTerm.toLowerCase();
+  // Filter chats client-side (since backend may not support search)
+  const filteredChats = chats.filter((chat) => {
+    if (!searchTerm) return true;
+    const clientName = chat.clientParticipant?.name?.toLowerCase() || '';
+    const astrologerName = chat.astrologerParticipant?.name?.toLowerCase() || '';
+    const lastMessage = chat.lastMessageText?.toLowerCase() || '';
+    const search = searchTerm.toLowerCase();
 
-      return (
-        clientName.includes(search) ||
-        astrologerName.includes(search) ||
-        lastMessage.includes(search)
-      );
-    });
-  }, [chats, searchTerm]);
+    return (
+      clientName.includes(search) ||
+      astrologerName.includes(search) ||
+      lastMessage.includes(search)
+    );
+  });
 
   const handleChatClick = (chat: Chat) => {
     setSelectedChat(chat);
@@ -245,6 +268,60 @@ export default function ChatsPage() {
             }}
           />
         </div>
+
+        {/* Pagination */}
+        {!isLoading && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                </span> to{' '}
+                <span className="text-purple-400">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of{' '}
+                <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chat Detail Modal */}

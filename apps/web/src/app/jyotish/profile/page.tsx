@@ -8,6 +8,7 @@ import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useAuth, useRequireAuth } from '@/hooks';
 import { ROUTES, USER_ROLES } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle, Button, Label, Input } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -278,15 +279,16 @@ export default function JyotishProfilePage() {
 
                 {isEditing && (
                   <div className="flex gap-4 pt-4">
-                    <Button
+                    <LoadingButton
                       type="submit"
                       color="primary"
                       size="lg"
                       className="flex-1"
-                      disabled={updateProfileMutation.isPending}
+                      isLoading={updateProfileMutation.isPending}
+                      loadingText="Saving..."
                     >
-                      {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
-                    </Button>
+                      Save Changes
+                    </LoadingButton>
                     <Button
                       type="button"
                       variant="outline"

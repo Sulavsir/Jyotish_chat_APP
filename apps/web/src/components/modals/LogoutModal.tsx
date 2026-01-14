@@ -14,6 +14,7 @@ import {
   DialogFooter,
   LoadingButton,
 } from '@/components/ui';
+import { Button } from '@jyotish/ui';
 
 interface LogoutModalProps {
   isOpen: boolean;
@@ -37,9 +38,9 @@ export function LogoutModal({ isOpen, onClose, onConfirm, isLoading }: LogoutMod
       </DialogBody>
 
       <DialogFooter>
-        <LoadingButton onClick={onClose} disabled={isLoading} variant="outline" color="neutral">
+        <Button onClick={onClose} disabled={isLoading} variant="outline" color="neutral">
           Cancel
-        </LoadingButton>
+        </Button>
         <LoadingButton
           onClick={onConfirm}
           isLoading={isLoading}

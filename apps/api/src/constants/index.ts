@@ -9,3 +9,4 @@ export * from './notification.constants';
 export * from './http.constants';
 export * from './app.constants';
 export * from './broadcastMessage.constants';
+export * from './coin.constants';

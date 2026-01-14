@@ -12,6 +12,7 @@ import {
   DialogDescription,
   DialogBody,
   DialogFooter,
+  LoadingButton,
 } from '@/components/ui';
 import { Button } from '@jyotish/ui';
 
@@ -32,9 +33,7 @@ export function RemoveProfileModal({
     <Dialog isOpen={isOpen} onClose={onClose}>
       <DialogHeader>
         <DialogTitle>Remove Profile Photo</DialogTitle>
-        <DialogDescription>
-          Are you sure you want to remove your profile photo?
-        </DialogDescription>
+        <DialogDescription>Are you sure you want to remove your profile photo?</DialogDescription>
       </DialogHeader>
 
       <DialogBody>
@@ -48,15 +47,15 @@ export function RemoveProfileModal({
         <Button onClick={onClose} disabled={isLoading} variant="outline" color="neutral">
           Cancel
         </Button>
-        <Button
+        <LoadingButton
           onClick={onConfirm}
-          disabled={isLoading}
+          isLoading={isLoading}
+          loadingText="Removing..."
           className="bg-red-600 hover:bg-red-700 text-white"
         >
-          {isLoading ? 'Removing...' : 'Remove Photo'}
-        </Button>
+          Remove Photo
+        </LoadingButton>
       </DialogFooter>
     </Dialog>
   );
 }
-

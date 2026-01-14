@@ -16,11 +16,17 @@ const PUBLIC_ROUTES = [
   ROUTES.SET_PASSWORD,
   ROUTES.FORGOT_PASSWORD,
   ROUTES.PRICING,
+  ROUTES.ASTROLOGERS, // listing is public
   ROUTES.JYOTISH_LOGIN,
   ROUTES.JYOTISH_VERIFY_OTP,
   ROUTES.JYOTISH_SET_PASSWORD,
   ROUTES.JYOTISH_PROFILE_SETUP,
 ];
+
+const isPublicRoutePath = (pathname: string | null) => {
+  if (!pathname) return false;
+  return PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -33,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { setAuth, logout, user: currentUser } = useAuthStore.getState();
 
       // Skip auth check for public routes to avoid unnecessary 401 errors
-      const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route);
+      const isPublicRoute = isPublicRoutePath(pathname);
 
       if (isPublicRoute) {
         // For public routes, just mark as initialized without checking auth
@@ -133,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]); // Re-run when pathname changes
 
   // Show loading only for protected routes
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route);
+  const isPublicRoute = isPublicRoutePath(pathname);
   if (!isInitialized && !isPublicRoute) {
     return <LoadingScreen message="Loading your session" />;
   }

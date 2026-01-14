@@ -1,8 +1,9 @@
 'use client';
 
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@jyotish/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { FormPasswordInput } from '@/components/form';
+import { LoadingButton } from '@/components/ui';
 import { astrologerApi } from '@/lib/astrologer-api';
 import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
@@ -115,13 +116,14 @@ export default function JyotishSettingsPage() {
                 required
               />
 
-              <Button
+              <LoadingButton
                 type="submit"
-                disabled={changePasswordMutation.isPending}
+                isLoading={changePasswordMutation.isPending}
+                loadingText="Changing Password..."
                 className="w-full bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-semibold"
               >
-                {changePasswordMutation.isPending ? 'Changing Password...' : 'Change Password'}
-              </Button>
+                Change Password
+              </LoadingButton>
             </form>
           </CardContent>
         </Card>

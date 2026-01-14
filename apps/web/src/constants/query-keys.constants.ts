@@ -87,4 +87,16 @@ export const QUERY_KEYS = {
     ASTROLOGER_STATS: (astrologerId: string) =>
       ['ratings', 'astrologer-stats', astrologerId] as const,
   },
+
+  // Coins
+  COINS: {
+    BALANCE: ['coins', 'balance'] as const,
+    TRANSACTIONS: (params?: { limit?: number; offset?: number }) =>
+      params ? (['coins', 'transactions', params] as const) : (['coins', 'transactions'] as const),
+  },
+
+  // Pricing
+  PRICING: {
+    PLANS: ['pricing', 'plans'] as const,
+  },
 } as const;

@@ -40,6 +40,7 @@ export interface User {
   profileCompleted: boolean;
   profilePhoto?: string;
   dateOfBirth?: string;
+  coins?: number;
   createdAt: string;
   updatedAt: string;
 }

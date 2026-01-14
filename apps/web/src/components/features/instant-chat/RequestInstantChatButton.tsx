@@ -13,11 +13,13 @@ import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { LoadingButton } from '@/components/ui';
-import { ROUTE_BUILDERS } from '@/constants';
+import { ROUTE_BUILDERS, ROUTES } from '@/constants';
+import { useAuthStore } from '@/store/auth-store';
 
 export const RequestInstantChatButton: React.FC = () => {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [isRequesting, setIsRequesting] = useState(false);
@@ -150,11 +152,19 @@ export const RequestInstantChatButton: React.FC = () => {
     );
   }
 
+  const handleButtonClick = () => {
+    if (!isAuthenticated) {
+      router.push(ROUTES.LOGIN);
+      return;
+    }
+    setIsModalOpen(true);
+  };
+
   return (
     <>
       {/* Main Button */}
       <Button
-        onClick={() => setIsModalOpen(true)}
+        onClick={handleButtonClick}
         className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg"
         size="lg"
       >

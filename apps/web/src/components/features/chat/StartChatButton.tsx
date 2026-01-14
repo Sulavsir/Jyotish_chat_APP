@@ -3,9 +3,9 @@
  */
 
 import React, { useState } from 'react';
-import { Button } from '@jyotish/ui';
 import { MessageCircle } from 'lucide-react';
-import { useChat } from '@/hooks/useChat';
+import { LoadingButton } from '@/components/ui';
+import { useChat, CoinPurchaseModalWrapper } from '@/hooks/useChat';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types/user.types';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
@@ -32,7 +32,14 @@ export const StartChatButton: React.FC<StartChatButtonProps> = ({
   showIcon = true,
   children,
 }) => {
-  const { startChat, isStartingChat } = useChat();
+  const {
+    startChat,
+    isStartingChat,
+    showCoinPurchaseModal,
+    requiredCoins,
+    retryChat,
+    setShowCoinPurchaseModal,
+  } = useChat();
   const user = useAuthStore((state) => state.user);
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
@@ -56,22 +63,29 @@ export const StartChatButton: React.FC<StartChatButtonProps> = ({
 
   return (
     <>
-      <Button
+      <LoadingButton
         onClick={handleClick}
-        disabled={isStartingChat}
+        isLoading={isStartingChat}
+        loadingText="Starting..."
         variant={variant}
         size={size}
         className={fullWidth ? 'w-full' : ''}
       >
         {showIcon && <MessageCircle className="h-4 w-4 mr-2" />}
-        {children || (isStartingChat ? 'Starting...' : `Message${userName ? ` ${userName}` : ''}`)}
-      </Button>
+        {children || `Message${userName ? ` ${userName}` : ''}`}
+      </LoadingButton>
 
       {/* Profile Incomplete Dialog */}
       <ProfileIncompleteDialog
         isOpen={showProfileIncompleteDialog}
         onClose={() => setShowProfileIncompleteDialog(false)}
         missingFields={missingProfileFields}
+      />
+      <CoinPurchaseModalWrapper
+        isOpen={showCoinPurchaseModal}
+        onClose={() => setShowCoinPurchaseModal(false)}
+        requiredCoins={requiredCoins}
+        onPurchaseSuccess={retryChat}
       />
     </>
   );

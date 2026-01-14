@@ -321,6 +321,7 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
           profilePhoto: true,
           profileCompleted: true,
           zodiacSign: true,
+          coins: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -367,6 +368,7 @@ export async function getUser(req: AuthRequest, res: Response, next: NextFunctio
         placeOfBirth: true,
         currentAddress: true,
         zodiacSign: true,
+        coins: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -383,6 +385,47 @@ export async function getUser(req: AuthRequest, res: Response, next: NextFunctio
     }
 
     return sendSuccess(res, { user });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Add coins to user (admin only)
+ * POST /api/v1/admin/users/:id/add-coins
+ * Body is validated by adminAddCoinsSchema middleware
+ */
+export async function addCoinsToUser(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+    const adminId = req.user!.id;
+
+    const coinService = await import('../services/coin.service');
+    const { CoinTransactionReason } = await import('../types/coin.types');
+
+    const result = await coinService.addCoins(
+      id,
+      amount,
+      reason || CoinTransactionReason.ADMIN_ADJUSTMENT,
+      adminId
+    );
+
+    // Log admin action (do not fail main flow if this fails)
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.ADMIN_ACTION,
+      resource: 'User',
+      resourceId: id,
+      details: {
+        action: 'ADD_COINS',
+        amount,
+        reason: reason || 'ADMIN_ADJUSTMENT',
+        newBalance: result.balance,
+      },
+    });
+
+    return sendSuccess(res, result, HTTP_STATUS.OK);
   } catch (error) {
     next(error);
   }

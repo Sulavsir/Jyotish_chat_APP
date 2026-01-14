@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
-import { Card } from '@jyotish/ui';
+import { Button, Card } from '@jyotish/ui';
 import { apiClient } from '@/lib/api-client';
 import { formatDistanceToNow } from 'date-fns';
 import { Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 
 interface Notification {
   id: string;
@@ -30,23 +31,17 @@ export default function JyotishNotificationsPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const LIMIT = 10;
-
-  const loadNotifications = async (reset: boolean) => {
-    try {
-      if (reset) {
-        setIsLoading(true);
-        setOffset(0);
-        setNotifications([]);
-      } else {
-        setIsLoadingMore(true);
-      }
-
+  const loadNotificationsMutation = useMutation({
+    mutationFn: async (params: { reset: boolean; offset: number; filter: 'all' | 'unread' }) => {
+      const { reset, offset, filter } = params;
       const currentOffset = reset ? 0 : offset;
       const response = await apiClient.get<any>(
         `/api/v1/notifications?limit=${LIMIT}&offset=${currentOffset}&unreadOnly=${filter === 'unread'}`
       );
-
-      const newNotifications = response?.notifications || [];
+      return { response, currentOffset, reset };
+    },
+    onSuccess: ({ response, currentOffset, reset }) => {
+      const newNotifications: Notification[] = response?.notifications || [];
 
       if (reset) {
         setNotifications(newNotifications);
@@ -57,65 +52,98 @@ export default function JyotishNotificationsPage() {
       setUnreadCount(response?.unreadCount || 0);
       setOffset(currentOffset + LIMIT);
       setHasMore(newNotifications.length === LIMIT);
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error loading notifications:', error);
       toast.error('Failed to load notifications');
-    } finally {
+    },
+    onSettled: () => {
       setIsLoading(false);
       setIsLoadingMore(false);
+    },
+  });
+
+  const loadNotifications = (reset: boolean) => {
+    if (reset) {
+      setIsLoading(true);
+      setOffset(0);
+      setNotifications([]);
+    } else {
+      setIsLoadingMore(true);
     }
+
+    loadNotificationsMutation.mutate({ reset, offset, filter });
   };
 
   useEffect(() => {
     loadNotifications(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
-
-  const markAllAsRead = async () => {
-    try {
-      await apiClient.post('/api/v1/notifications/mark-all-read', {});
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => apiClient.post('/api/v1/notifications/mark-all-read', {}),
+    onSuccess: () => {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true, count: 0 })));
       setUnreadCount(0);
       toast.success('All notifications marked as read');
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error:', error);
       toast.error('Failed to mark all as read');
-    }
-  };
+    },
+  });
 
-  const markAsRead = async (id: string) => {
-    try {
-      await apiClient.patch(`/api/v1/notifications/${id}/read`, {});
+  const markAsReadMutation = useMutation({
+    mutationFn: async (id: string) => apiClient.patch(`/api/v1/notifications/${id}/read`, {}),
+    onSuccess: (_, id) => {
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true, count: 0 } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error:', error);
-    }
-  };
+    },
+  });
 
-  const deleteNotification = async (id: string) => {
-    try {
-      await apiClient.delete(`/api/v1/notifications/${id}`);
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: string) => apiClient.delete(`/api/v1/notifications/${id}`),
+    onSuccess: (_, id) => {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       toast.success('Notification deleted');
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error:', error);
       toast.error('Failed to delete');
-    }
-  };
+    },
+  });
 
-  const deleteAllRead = async () => {
-    try {
-      await apiClient.delete('/api/v1/notifications/read');
+  const deleteAllReadMutation = useMutation({
+    mutationFn: async () => apiClient.delete('/api/v1/notifications/read'),
+    onSuccess: () => {
       setNotifications((prev) => prev.filter((n) => !n.isRead));
       toast.success('All read notifications deleted');
       loadNotifications(true);
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error:', error);
       toast.error('Failed to delete');
-    }
+    },
+  });
+
+  const markAllAsRead = () => {
+    markAllAsReadMutation.mutate();
+  };
+
+  const markAsRead = (id: string) => {
+    markAsReadMutation.mutate(id);
+  };
+
+  const deleteNotification = (id: string) => {
+    deleteNotificationMutation.mutate(id);
+  };
+
+  const deleteAllRead = () => {
+    deleteAllReadMutation.mutate();
   };
 
   const filteredNotifications =
@@ -236,13 +264,14 @@ export default function JyotishNotificationsPage() {
 
               {hasMore && (
                 <div className="p-4">
-                  <Button
+                  <LoadingButton
                     onClick={() => loadNotifications(false)}
-                    disabled={isLoadingMore}
+                    isLoading={isLoadingMore}
+                    loadingText="Loading..."
                     className="w-full bg-orange-600 hover:bg-orange-700"
                   >
-                    {isLoadingMore ? 'Loading...' : 'Load More'}
-                  </Button>
+                    Load More
+                  </LoadingButton>
                 </div>
               )}
             </div>

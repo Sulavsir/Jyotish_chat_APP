@@ -5,10 +5,12 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
+import { validateBody } from '../middleware/validate';
+import { adminAddCoinsSchema } from '../validators/coin.validators';
 import { AuditAction } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
 import { adminController, adminAppointmentController, pricingController } from '../controllers';
-import { asyncHandler } from '@/utils';
+import { asyncHandler } from '../utils';
 
 const router = Router();
 
@@ -70,6 +72,13 @@ router.post(
   '/users/:id/toggle-status',
   auditLogger(AuditAction.USER_UPDATE, 'User'),
   adminController.toggleUserStatus
+);
+
+router.post(
+  '/users/:id/add-coins',
+  auditLogger(AuditAction.ADMIN_ACTION, 'User'),
+  validateBody(adminAddCoinsSchema),
+  asyncHandler(adminController.addCoinsToUser)
 );
 
 router.delete(

@@ -8,7 +8,17 @@
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Calendar, Clock, DollarSign, Loader2, CalendarDays } from 'lucide-react';
-import { Button, Dialog, DialogContent, Search, Input, Textarea } from '@jyotish/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  Search,
+  Input,
+  Textarea,
+} from '@jyotish/ui';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import appointmentService from '@/services/appointment.service';
@@ -198,20 +208,20 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
 
         {/* Content wrapper */}
         <div className="relative flex flex-col h-full min-h-0">
-          {/* Header */}
-          <div className="flex-shrink-0 p-6 border-b border-purple-500 bg-gradient-to-r from-purple-900/40 to-indigo-900 backdrop-blur-sm">
+          {/* Header with DialogTitle for accessibility */}
+          <DialogHeader className="flex-shrink-0 p-6 border-b border-purple-500 bg-gradient-to-r from-purple-900/40 to-indigo-900 backdrop-blur-sm">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-1">
+                <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2 mb-1">
                   <CalendarDays className="h-6 w-6 text-purple-400" />
                   Book an Appointment
-                </h2>
-                <p className="text-sm text-purple-200/90">
+                </DialogTitle>
+                <DialogDescription className="text-sm text-purple-200/90">
                   Schedule a cosmic consultation with our expert astrologers
-                </p>
+                </DialogDescription>
               </div>
             </div>
-          </div>
+          </DialogHeader>
 
           {/* Info Banner */}
           {step === 'select-astrologer' && (

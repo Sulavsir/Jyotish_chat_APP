@@ -9,6 +9,9 @@ import { UserRole } from '@jyotish/shared';
 import { ParticipantType, ChatStatus, MessageType, Prisma } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { deductCoinsForChat } from './coin.service';
+import { requiresCoinsForChat } from '../constants/coin.constants';
+import { AstrologerCategory, AppointmentStatus } from '../types/appointment.types';
 
 /**
  * Find or create a chat between client and astrologer
@@ -199,16 +202,24 @@ export const findOrCreateChat = async (
       );
     }
 
-    // Check if astrologer is PREMIUM - they can only chat during appointments
+    // Check astrologer category and apply appropriate rules
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
       select: { category: true, name: true },
     });
 
-    if (astrologer?.category === 'PREMIUM') {
-      // Check for active appointment
+    if (!astrologer) {
+      throw new AppError(
+        'Astrologer not found',
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODES.ASTROLOGER_NOT_FOUND
+      );
+    }
+
+    // PREMIUM astrologers: allow chat only after an appointment has started or completed
+    if (astrologer.category === AstrologerCategory.PREMIUM) {
       const now = new Date();
-      const activeAppointment = await prisma.appointment.findFirst({
+      const eligibleAppointment = await prisma.appointment.findFirst({
         where: {
           clientId,
           astrologerId,
@@ -216,32 +227,31 @@ export const findOrCreateChat = async (
             lte: now,
           },
           status: {
-            in: ['CONFIRMED', 'IN_PROGRESS'],
+            in: [
+              AppointmentStatus.CONFIRMED,
+              AppointmentStatus.IN_PROGRESS,
+              AppointmentStatus.COMPLETED,
+            ],
           },
-        },
-        orderBy: {
-          scheduledAt: 'desc',
         },
       });
 
-      if (!activeAppointment) {
-        throw new Error(
-          `${astrologer.name} is a Premium astrologer and only available through scheduled appointments. Please book an appointment to chat.`
+      if (!eligibleAppointment) {
+        throw new AppError(
+          `${astrologer.name} is a Premium astrologer. You can chat only after a confirmed appointment has started.`,
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
         );
       }
+    }
 
-      // Check if appointment time has ended
-      const appointmentEndTime = new Date(activeAppointment.scheduledAt);
-      appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + activeAppointment.duration);
-
-      if (now > appointmentEndTime) {
-        throw new Error(
-          'Your appointment time has ended. Please book another appointment to continue chatting.'
-        );
-      }
-
-      // Link chat to appointment
-      consultationId = activeAppointment.id;
+    // ORDINARY, PROFESSIONAL and eligible PREMIUM astrologers require coins for chat
+    if (requiresCoinsForChat(astrologer.category)) {
+      // Deduct coins before creating chat
+      await deductCoinsForChat({
+        userId: clientId,
+        astrologerCategory: astrologer.category,
+      });
     }
 
     chat = await prisma.chat.create({
@@ -252,7 +262,7 @@ export const findOrCreateChat = async (
         participant2Type: ParticipantType.ASTROLOGER,
         consultationId,
         // ✅ Start as ACTIVE - chat is active when created
-        status: ChatStatus.PENDING,
+        status: ChatStatus.ACTIVE,
         isLocked: false,
       },
       include: {

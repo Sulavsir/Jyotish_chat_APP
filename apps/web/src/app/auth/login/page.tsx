@@ -379,7 +379,7 @@ export default function LoginPage() {
                         ← Back
                       </button>
 
-                      <button
+                      <LoadingButton
                         type="button"
                         onClick={() => sendOTPMutation.mutate({ phoneNumber: otpPhoneNumber })}
                         disabled={
@@ -387,10 +387,14 @@ export default function LoginPage() {
                           verifyOTPMutation.isPending ||
                           otpExpirySeconds > 240
                         }
+                        isLoading={sendOTPMutation.isPending}
+                        loadingText="Sending..."
+                        variant="ghost"
+                        size="sm"
                         className="flex-1 text-sm text-blue-300 hover:text-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {sendOTPMutation.isPending ? 'Sending...' : 'Resend OTP'}
-                      </button>
+                        Resend OTP
+                      </LoadingButton>
                     </div>
                   </div>
                 )}

@@ -29,6 +29,7 @@ import userService, { type ChatableUser } from '@/services/user.service';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
+import { CoinPurchaseModalWrapper } from '@/hooks/useChat';
 
 interface OnlineUsersProps {
   title?: string;
@@ -40,7 +41,14 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   const onlineUsers = useStore((state) => state.onlineUsers);
   const currentUser = useAuthStore((state) => state.user);
   const router = useRouter();
-  const { startChat, isStartingChat } = useChat();
+  const {
+    startChat,
+    isStartingChat,
+    showCoinPurchaseModal,
+    requiredCoins,
+    retryChat,
+    setShowCoinPurchaseModal,
+  } = useChat();
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
 
@@ -60,15 +68,15 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   });
 
   // Filter to show ONLY online users - NO LIMIT
-  // Exclude PROFESSIONAL astrologers from chat now (they only accept appointments)
+  // Exclude PREMIUM astrologers from Chat Now (they are appointment-only)
   // This will re-compute whenever onlineUsers Set changes (Zustand will trigger re-render)
   const onlineUsersFiltered = users.filter(
     (user: ChatableUser) =>
       onlineUsers.has(user.id) &&
-      // For clients viewing astrologers: exclude PROFESSIONAL category (they only accept appointments)
+      // For clients viewing astrologers: exclude PREMIUM category (they only accept appointments)
       (currentUser?.role !== UserRole.CLIENT ||
         user.role !== USER_ROLES.ASTROLOGER ||
-        user.category !== ASTROLOGER_CATEGORY.PROFESSIONAL)
+        user.category !== ASTROLOGER_CATEGORY.PREMIUM)
   );
 
   // Debug: Log when data updates
@@ -307,6 +315,13 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
         isOpen={showProfileIncompleteDialog}
         onClose={() => setShowProfileIncompleteDialog(false)}
         missingFields={missingProfileFields}
+      />
+      {/* Coin Purchase Modal */}
+      <CoinPurchaseModalWrapper
+        isOpen={showCoinPurchaseModal}
+        onClose={() => setShowCoinPurchaseModal(false)}
+        requiredCoins={requiredCoins}
+        onPurchaseSuccess={retryChat}
       />
     </Card>
   );

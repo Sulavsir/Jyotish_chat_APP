@@ -1,20 +1,43 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Search, PlusIcon, StarIcon } from '@jyotish/ui';
+import {
+  Button,
+  Search,
+  PlusIcon,
+  StarIcon,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@jyotish/ui';
 import { RefreshCw } from 'lucide-react';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { useAdminSocket } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
+import { generatePageNumbers } from '@/utils/helpers';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+interface AstrologersResponse {
+  astrologers: Astrologer[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 export default function AstrologersPage() {
   const router = useRouter();
@@ -33,23 +56,48 @@ export default function AstrologersPage() {
     });
   }, [isConnected, on, off]);
 
-  // Fetch astrologers with TanStack Query
+  // Fetch astrologers with TanStack Query (server-side pagination)
   const {
-    data: rawAstrologers = [],
+    data: astrologersResponse,
     isLoading,
     refetch,
-  } = useQuery<Astrologer[]>({
-    queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(),
+  } = useQuery<AstrologersResponse>({
+    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, searchTerm],
     queryFn: async () => {
-      const response: any = await adminApi.astrologers.list();
-      if (Array.isArray(response)) {
+      const response: any = await adminApi.astrologers.list({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: searchTerm || undefined,
+      });
+      // Handle both response formats
+      if (response?.astrologers && response?.pagination) {
         return response;
-      } else if (response?.astrologers) {
-        return response.astrologers;
+      } else if (Array.isArray(response)) {
+        // Fallback for old format
+        return {
+          astrologers: response,
+          pagination: {
+            page: 1,
+            limit: ITEMS_PER_PAGE,
+            total: response.length,
+            totalPages: 1,
+          },
+        };
       }
-      return [];
+      return {
+        astrologers: [],
+        pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 },
+      };
     },
   });
+
+  const astrologers = astrologersResponse?.astrologers || [];
+  const pagination = astrologersResponse?.pagination || {
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 0,
+  };
 
   // Listen for real-time astrologer online status updates
   useEffect(() => {
@@ -88,11 +136,11 @@ export default function AstrologersPage() {
 
   // Initialize online status from database
   useEffect(() => {
-    if (rawAstrologers.length > 0) {
-      const online = new Set(rawAstrologers.filter((a) => a.isOnline).map((a) => a.id));
+    if (astrologers.length > 0) {
+      const online = new Set(astrologers.filter((a) => a.isOnline).map((a) => a.id));
       setOnlineAstrologers(online);
     }
-  }, [rawAstrologers]);
+  }, [astrologers]);
 
   // Toggle status mutation
   const toggleStatusMutation = useMutation({
@@ -111,28 +159,9 @@ export default function AstrologersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  // Filter astrologers
-  const filteredAstrologers = useMemo(() => {
-    return rawAstrologers.filter(
-      (astro) =>
-        astro.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        astro.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        astro.phone?.includes(searchTerm)
-    );
-  }, [rawAstrologers, searchTerm]);
-
-  // Paginate astrologers
-  const paginatedAstrologers = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    return filteredAstrologers.slice(startIndex, endIndex);
-  }, [filteredAstrologers, currentPage]);
-
-  const totalPages = Math.ceil(filteredAstrologers.length / ITEMS_PER_PAGE);
-
   // Reset to page 1 when search term changes
-  useMemo(() => {
-    setCurrentPage(1);
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   }, [searchTerm]);
 
   const columns: AdminTableColumn<Astrologer>[] = [
@@ -263,15 +292,10 @@ export default function AstrologersPage() {
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
-            data={paginatedAstrologers}
+            data={astrologers}
             columns={columns}
             loading={isLoading}
             keyExtractor={(astrologer) => astrologer.id}
-            currentPage={currentPage}
-            itemsPerPage={ITEMS_PER_PAGE}
-            totalItems={filteredAstrologers.length}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
             emptyState={{
               icon: <StarIcon className="w-20 h-20 text-slate-600" />,
               title: searchTerm ? 'No astrologers found' : 'No astrologers yet',
@@ -285,6 +309,60 @@ export default function AstrologersPage() {
             }}
           />
         </div>
+
+        {/* Pagination */}
+        {!isLoading && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                </span> to{' '}
+                <span className="text-purple-400">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of{' '}
+                <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

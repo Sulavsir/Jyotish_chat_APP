@@ -1,8 +1,9 @@
 'use client';
 
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@jyotish/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { FormPasswordInput } from '@/components/form';
+import { LoadingButton } from '@/components/ui';
 import { authApi } from '@/lib/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
@@ -157,14 +158,15 @@ export default function SettingsPage() {
                   required
                 />
 
-                <Button
+                <LoadingButton
                   type="submit"
                   color="primary"
-                  disabled={changePasswordMutation.isPending}
+                  isLoading={changePasswordMutation.isPending}
+                  loadingText="Changing Password..."
                   className="w-full"
                 >
-                  {changePasswordMutation.isPending ? 'Changing Password...' : 'Change Password'}
-                </Button>
+                  Change Password
+                </LoadingButton>
               </form>
             ) : (
               // Set password form (no current password required)
@@ -209,14 +211,15 @@ export default function SettingsPage() {
                   required
                 />
 
-                <Button
+                <LoadingButton
                   type="submit"
                   color="primary"
-                  disabled={setPasswordMutation.isPending}
+                  isLoading={setPasswordMutation.isPending}
+                  loadingText="Setting Password..."
                   className="w-full"
                 >
-                  {setPasswordMutation.isPending ? 'Setting Password...' : 'Set Password'}
-                </Button>
+                  Set Password
+                </LoadingButton>
               </form>
             )}
           </CardContent>

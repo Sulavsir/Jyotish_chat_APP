@@ -375,9 +375,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       // Socket event 'chat:reopened' will update the state automatically
       // No need to reload the page
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error reopening chat:', error);
-      toast.error(error.message || 'Failed to reopen chat');
+      // Check if it's insufficient coins error
+      const axiosError = error as {
+        response?: { data?: { error?: { code?: string; message?: string } } };
+      };
+      const errorCode = axiosError?.response?.data?.error?.code;
+
+      if (errorCode === 'INSUFFICIENT_COINS') {
+        const errorMessage = axiosError?.response?.data?.error?.message || 'Insufficient coins';
+        const match = errorMessage.match(/Required:\s*(\d+)/i);
+        const requiredCoins = match ? parseInt(match[1], 10) : 1;
+
+        // Store pending chat info
+        sessionStorage.setItem(
+          'pendingChatAfterPurchase',
+          JSON.stringify({
+            hasCallback: false,
+            otherUserId,
+          })
+        );
+
+        // Redirect to pricing page with required coins info
+        window.location.href = `/pricing?requiredCoins=${requiredCoins}`;
+        return;
+      }
+
+      toast.error((error as Error)?.message || 'Failed to reopen chat');
     } finally {
       setIsReopeningChat(false);
     }

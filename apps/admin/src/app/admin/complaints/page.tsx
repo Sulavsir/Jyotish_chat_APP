@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Complaint,
@@ -29,9 +29,16 @@ import {
   Textarea,
   Label,
   ImagePreview,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
 } from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_QUERY_KEYS } from '@/constants/query-keys.constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
@@ -44,6 +51,9 @@ import {
   MessageSquare,
   Paperclip,
 } from 'lucide-react';
+import { generatePageNumbers } from '@/utils/helpers';
+
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 const STATUS_COLORS: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -72,6 +82,7 @@ export default function ComplaintsPage() {
   const queryClient = useQueryClient();
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<ComplaintStatus | 'ALL'>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [resolution, setResolution] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
@@ -80,21 +91,35 @@ export default function ComplaintsPage() {
   );
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // Fetch complaints
+  // Fetch complaints (server-side pagination)
   const {
     data: complaintsData,
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus],
+    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage],
     queryFn: () =>
       adminApi.complaints.getComplaints({
         status: filterStatus === 'ALL' ? undefined : filterStatus,
+        limit: ITEMS_PER_PAGE,
+        offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   const complaints = complaintsData?.complaints || [];
+  const totalComplaints = complaintsData?.total ?? complaints.length;
+  const pagination = {
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
+    total: totalComplaints,
+    totalPages: Math.ceil(totalComplaints / ITEMS_PER_PAGE),
+  };
+
+  // Reset to page 1 when filter status changes
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [filterStatus]);
 
   // Calculate stats using useMemo
   const stats = useMemo(() => {
@@ -462,6 +487,64 @@ export default function ComplaintsPage() {
             }}
           />
         </div>
+
+        {/* Pagination */}
+        {!isLoading && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing{' '}
+                <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (currentPage - 1) * pagination.limit + 1}
+                </span>{' '}
+                to{' '}
+                <span className="text-purple-400">
+                  {Math.min(currentPage * pagination.limit, pagination.total)}
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                      }
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Detail Modal */}

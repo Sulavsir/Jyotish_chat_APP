@@ -7,6 +7,7 @@
 
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './Dialog';
 import { Button } from '@jyotish/ui';
+import { LoadingButton } from './LoadingButton';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -37,25 +38,20 @@ export function ConfirmDialog({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
-      
+
       <DialogFooter>
-        <Button
-          variant="outline"
-          color="neutral"
-          onClick={onClose}
-          disabled={isLoading}
-        >
+        <Button variant="outline" color="neutral" onClick={onClose} disabled={isLoading}>
           {cancelText}
         </Button>
-        <Button
+        <LoadingButton
           color={isDestructive ? 'danger' : 'primary'}
           onClick={onConfirm}
-          disabled={isLoading}
+          isLoading={isLoading}
+          loadingText="Processing..."
         >
-          {isLoading ? 'Processing...' : confirmText}
-        </Button>
+          {confirmText}
+        </LoadingButton>
       </DialogFooter>
     </Dialog>
   );
 }
-

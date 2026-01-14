@@ -13,7 +13,7 @@ import { ROUTES } from '@/constants';
 import { cn } from '@/lib/utils';
 import spaceImage from '@/assets/images/space.jpg';
 import { LogoutModal } from '@/components/modals';
-import { ProfileDropdown, NotificationBell } from '@/components/ui';
+import { ProfileDropdown, NotificationBell, CoinDisplay } from '@/components/ui';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -25,6 +25,7 @@ const navigation = [
   { name: 'Chat', href: ROUTES.CHAT, icon: '💬' },
   { name: 'Consultations', href: ROUTES.CONSULTATIONS, icon: '📅' },
   { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: '⭐' },
+  { name: 'Pricing', href: ROUTES.PRICING, icon: '💰' },
   { name: 'Profile', href: ROUTES.PROFILE, icon: '👤' },
 ];
 
@@ -135,6 +136,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
               {/* Notifications & User Menu */}
               <div className="flex items-center gap-2">
+                <CoinDisplay themeColor="purple" />
                 <NotificationBell themeColor="purple" />
                 <ProfileDropdown
                   user={user}
@@ -149,7 +151,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">{children}</main>
+        <main className="container mx-auto px-4 py-4">{children}</main>
       </div>
 
       {/* Logout Confirmation Modal */}

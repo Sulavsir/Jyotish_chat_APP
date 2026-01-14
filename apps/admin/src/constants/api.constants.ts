@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
     GET: (id: string) => `/api/v1/admin/users/${id}`,
     UPDATE: (id: string) => `/api/v1/admin/users/${id}`,
     TOGGLE_STATUS: (id: string) => `/api/v1/admin/users/${id}/toggle-status`,
+    ADD_COINS: (id: string) => `/api/v1/admin/users/${id}/add-coins`,
   },
 
   AUDIT_LOGS: {

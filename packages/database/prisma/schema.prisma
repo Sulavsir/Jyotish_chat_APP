@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 // Client users only
@@ -28,6 +28,7 @@ model User {
   latitude                     Float?
   longitude                    Float?
   zodiacSign                   ZodiacSign?
+  coins                        Int                    @default(0)
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
   consultationsAsClient        Consultation[]         @relation("ClientConsultations")
@@ -44,6 +45,7 @@ model User {
   appointments                 Appointment[]          @relation("ClientAppointments")
   complaintsAsClient           Complaint[]            @relation("ClientComplaints")
   ratingsGiven                 Rating[]               @relation("ClientRatings")
+  coinTransactions             CoinTransaction[]      @relation("CoinTransactions")
 
   @@index([phone])
   @@index([email])
@@ -803,4 +805,42 @@ enum AppointmentStatus {
   COMPLETED // Appointment finished
   CANCELLED // Cancelled by client or astrologer
   NO_SHOW // Client didn't show up
+}
+
+model CoinTransaction {
+  id            String                @id @default(uuid())
+  userId        String
+  amount        Int // Positive for add, negative for deduct
+  type          CoinTransactionType
+  reason        CoinTransactionReason
+  balanceBefore Int // Balance before transaction
+  balanceAfter  Int // Balance after transaction
+  chatId        String? // If transaction is related to a chat
+  paymentId    String? // If transaction is from a payment
+  adminId      String? // If transaction was added by admin
+  metadata      Json? // Additional transaction details
+  createdAt     DateTime              @default(now())
+  user          User                  @relation("CoinTransactions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([reason])
+  @@index([createdAt])
+  @@index([chatId])
+  @@index([paymentId])
+}
+
+enum CoinTransactionType {
+  DEDUCT
+  ADD
+  REFUND
+}
+
+enum CoinTransactionReason {
+  CHAT_ORDINARY
+  CHAT_PREMIUM
+  PURCHASE
+  REFUND
+  ADMIN_ADJUSTMENT
+  PAYMENT_SUCCESS
 }

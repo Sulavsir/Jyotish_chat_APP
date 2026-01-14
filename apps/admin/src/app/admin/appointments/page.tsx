@@ -1,12 +1,21 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button } from '@jyotish/ui';
+import {
+  Button,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import {
   CalendarDays,
   RefreshCw,
@@ -24,19 +33,66 @@ import {
   APPOINTMENT_STATUS_ICONS,
   ASTROLOGER_CATEGORY_COLORS,
 } from '@/constants/appointment.constants';
+import { generatePageNumbers } from '@/utils/helpers';
+
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+interface AppointmentsResponse {
+  appointments: Appointment[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 export default function AppointmentsPage() {
-  // Fetch appointments with TanStack Query - auto-refresh every 30 seconds
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Fetch appointments with TanStack Query (server-side pagination)
   const {
-    data: appointments = [],
+    data: appointmentsResponse,
     isLoading,
     error,
     refetch,
-  } = useQuery<Appointment[]>({
-    queryKey: ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(),
-    queryFn: () => adminApi.appointments.list(),
+  } = useQuery<AppointmentsResponse>({
+    queryKey: ['admin', 'appointments', 'list', currentPage],
+    queryFn: async () => {
+      const response: any = await adminApi.appointments.list({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+      });
+      // Handle both response formats
+      if (response?.appointments && response?.pagination) {
+        return response;
+      } else if (Array.isArray(response)) {
+        // Fallback for old format
+        return {
+          appointments: response,
+          pagination: {
+            page: 1,
+            limit: ITEMS_PER_PAGE,
+            total: response.length,
+            totalPages: 1,
+          },
+        };
+      }
+      return {
+        appointments: [],
+        pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 },
+      };
+    },
     refetchInterval: 20000,
   });
+
+  const appointments = appointmentsResponse?.appointments || [];
+  const pagination = appointmentsResponse?.pagination || {
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 0,
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -238,6 +294,60 @@ export default function AppointmentsPage() {
             />
           )}
         </div>
+
+        {/* Pagination */}
+        {!isLoading && !error && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                </span> to{' '}
+                <span className="text-purple-400">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of{' '}
+                <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

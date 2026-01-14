@@ -10,6 +10,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore } from '@/store/auth-store';
 import { Button } from '@jyotish/ui';
+import { LoadingButton } from './LoadingButton';
 
 interface OnlineStatusToggleProps {
   initialStatus?: boolean;
@@ -174,9 +175,10 @@ export function OnlineStatusToggle({ initialStatus }: OnlineStatusToggleProps) {
 
   return (
     <>
-      <Button
+      <LoadingButton
         onClick={handleToggle}
-        disabled={toggleMutation.isPending}
+        isLoading={toggleMutation.isPending}
+        loadingText="Updating..."
         variant="ghost"
         className={cn(
           'relative inline-flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200',
@@ -202,7 +204,7 @@ export function OnlineStatusToggle({ initialStatus }: OnlineStatusToggleProps) {
 
         {/* Status Text */}
         <span className="text-sm font-medium hidden sm:inline">
-          {toggleMutation.isPending ? 'Updating...' : isOnline ? 'Online' : 'Offline'}
+          {isOnline ? 'Online' : 'Offline'}
         </span>
 
         {/* Toggle Switch */}
@@ -219,7 +221,7 @@ export function OnlineStatusToggle({ initialStatus }: OnlineStatusToggleProps) {
             )}
           />
         </div>
-      </Button>
+      </LoadingButton>
 
       {/* Confirmation Dialog */}
       <ConfirmDialog

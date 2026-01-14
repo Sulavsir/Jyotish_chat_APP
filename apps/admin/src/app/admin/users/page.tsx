@@ -1,40 +1,87 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Search, UsersIcon } from '@jyotish/ui';
-import { RefreshCw } from 'lucide-react';
+import {
+  Button,
+  Search,
+  UsersIcon,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@jyotish/ui';
+import { RefreshCw, Coins, Plus } from 'lucide-react';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { User } from '@/types';
+import { AddCoinsModal } from '@/components/admin/AddCoinsModal';
+import { generatePageNumbers } from '@/utils/helpers';
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+interface UsersResponse {
+  users: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; coins?: number } | null>(null);
+  const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
 
-  // Fetch users with TanStack Query
+  // Fetch users with TanStack Query (server-side pagination)
   const {
-    data: rawUsers = [],
+    data: usersResponse,
     isLoading,
     refetch,
-  } = useQuery<User[]>({
-    queryKey: ADMIN_QUERY_KEYS.USERS.LIST(),
+  } = useQuery<UsersResponse>({
+    queryKey: [...ADMIN_QUERY_KEYS.USERS.LIST(), currentPage, searchTerm],
     queryFn: async () => {
-      const response: any = await adminApi.users.list();
-      if (Array.isArray(response)) {
+      const response: any = await adminApi.users.list({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: searchTerm || undefined,
+      });
+      // Handle both response formats
+      if (response?.users && response?.pagination) {
         return response;
-      } else if (response?.users) {
-        return response.users;
+      } else if (Array.isArray(response)) {
+        // Fallback for old format
+        return {
+          users: response,
+          pagination: {
+            page: 1,
+            limit: ITEMS_PER_PAGE,
+            total: response.length,
+            totalPages: 1,
+          },
+        };
       }
-      return [];
+      return { users: [], pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 } };
     },
   });
+
+  const users = usersResponse?.users || [];
+  const pagination = usersResponse?.pagination || {
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 0,
+  };
 
   // Toggle status mutation
   const toggleStatusMutation = useMutation({
@@ -53,28 +100,9 @@ export default function UsersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  // Filter users
-  const filteredUsers = useMemo(() => {
-    return rawUsers.filter(
-      (user) =>
-        user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone?.includes(searchTerm)
-    );
-  }, [rawUsers, searchTerm]);
-
-  // Paginate users
-  const paginatedUsers = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    return filteredUsers.slice(startIndex, endIndex);
-  }, [filteredUsers, currentPage]);
-
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-
   // Reset to page 1 when search term changes
-  useMemo(() => {
-    setCurrentPage(1);
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   }, [searchTerm]);
 
   const columns: AdminTableColumn<User>[] = [
@@ -117,11 +145,34 @@ export default function UsersPage() {
       ),
     },
     {
+      header: 'Coins',
+      accessor: (user) => (
+        <div className="flex items-center gap-2">
+          <Coins className="h-4 w-4 text-yellow-400" />
+          <span className="text-yellow-400 font-semibold">{user.coins ?? 0}</span>
+        </div>
+      ),
+    },
+    {
       header: 'Actions',
       accessor: (user) => (
-        <Button variant="outline" size="sm" onClick={() => toggleStatus(user.id)}>
-          Toggle Status
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedUser({ id: user.id, name: user.name || 'User', coins: user.coins });
+              setShowAddCoinsModal(true);
+            }}
+            className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add Coins
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => toggleStatus(user.id)}>
+            Toggle Status
+          </Button>
+        </div>
       ),
       className: 'text-center',
     },
@@ -159,15 +210,10 @@ export default function UsersPage() {
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
-            data={paginatedUsers}
+            data={users}
             columns={columns}
             loading={isLoading}
             keyExtractor={(user) => user.id}
-            currentPage={currentPage}
-            itemsPerPage={ITEMS_PER_PAGE}
-            totalItems={filteredUsers.length}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
             emptyState={{
               icon: <UsersIcon className="w-20 h-20 text-slate-600" />,
               title: searchTerm ? 'No users found' : 'No users yet',
@@ -177,7 +223,75 @@ export default function UsersPage() {
             }}
           />
         </div>
+
+        {/* Pagination */}
+        {!isLoading && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                </span> to{' '}
+                <span className="text-purple-400">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of{' '}
+                <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Add Coins Modal */}
+      {selectedUser && (
+        <AddCoinsModal
+          isOpen={showAddCoinsModal}
+          onClose={() => {
+            setShowAddCoinsModal(false);
+            setSelectedUser(null);
+          }}
+          userId={selectedUser.id}
+          userName={selectedUser.name}
+          currentBalance={selectedUser.coins}
+        />
+      )}
     </AdminLayout>
   );
 }

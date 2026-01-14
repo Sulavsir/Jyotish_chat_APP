@@ -30,6 +30,7 @@ export interface User {
   profileCompleted?: boolean;
   hasPassword?: boolean;
   isActive?: boolean;
+  coins?: number;
   createdAt?: string | Date;
   updatedAt?: string | Date;
   // astrologer field comes from @jyotish/shared User type

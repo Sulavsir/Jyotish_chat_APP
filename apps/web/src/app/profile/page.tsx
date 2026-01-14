@@ -18,6 +18,7 @@ import {
   Label,
   Input,
 } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,6 +43,7 @@ import { RemoveProfileModal } from '@/components/modals/RemoveProfileModal';
 import { FormInput } from '@/components/form';
 import { profileEditSchema, type ProfileEditFormData } from '@/lib/validations';
 import type { ApiError } from '@/types/auth';
+import { CoinDisplay } from '@/components/ui';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -324,23 +326,29 @@ export default function ProfilePage() {
                       : 'New Member'}
                   </Badge>
                 </div>
+
+                {/* Coin Balance */}
+                <div className="mt-4">
+                  <CoinDisplay themeColor="yellow" />
+                </div>
               </div>
 
               {/* Edit Button */}
               <div className="flex gap-3">
                 {isEditing ? (
                   <>
-                    <Button
+                    <LoadingButton
                       type="submit"
                       form="profile-form"
                       color="primary"
                       size="lg"
-                      disabled={updateProfileMutation.isPending}
+                      isLoading={updateProfileMutation.isPending}
+                      loadingText="Saving..."
                       className="min-w-[120px]"
                     >
                       <Check className="h-4 w-4 mr-2" />
-                      {updateProfileMutation.isPending ? 'Saving...' : 'Save'}
-                    </Button>
+                      Save
+                    </LoadingButton>
                     <Button
                       type="button"
                       variant="outline"

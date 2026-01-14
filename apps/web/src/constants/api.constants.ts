@@ -122,4 +122,10 @@ export const API_ENDPOINTS = {
     ASTROLOGER: (astrologerId: string) => `/api/v1/ratings/astrologer/${astrologerId}`,
     ASTROLOGER_STATS: (astrologerId: string) => `/api/v1/ratings/astrologer/${astrologerId}/stats`,
   },
+  COINS: {
+    BALANCE: '/api/v1/coins/balance',
+    ADD: '/api/v1/coins/add',
+    TRANSACTIONS: '/api/v1/coins/transactions',
+  },
+  PRICING: '/api/v1/pricing',
 } as const;

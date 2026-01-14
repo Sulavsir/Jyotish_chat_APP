@@ -9,12 +9,16 @@ import {
   MessageType,
   AuditAction,
   BroadcastMessageStatus,
-  InstantChatRequestStatus,
   ChatStatus,
 } from '@prisma/client';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '../constants';
 import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
 import { auditService } from './audit.service';
+import { AstrologerCategory } from '../types/appointment.types';
+import { AppError } from '../middleware/error-handler';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { deductCoinsForChat } from './coin.service';
+import { requiresCoinsForChat } from '../constants/coin.constants';
 
 export interface CreateBroadcastMessageData {
   clientId: string;
@@ -348,6 +352,28 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     throw new Error('This message has already been accepted or expired');
   }
 
+  // Check if astrologer is PROFESSIONAL - they cannot accept broadcast messages
+  const astrologer = await prisma.astrologer.findUnique({
+    where: { id: astrologerId },
+    select: { category: true, name: true },
+  });
+
+  if (!astrologer) {
+    throw new AppError(
+      'Astrologer not found',
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODES.ASTROLOGER_NOT_FOUND
+    );
+  }
+
+  if (astrologer.category === AstrologerCategory.PROFESSIONAL) {
+    throw new AppError(
+      `${astrologer.name} is a Professional astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
   // Check if client has active chat (not locked)
   const clientActiveChat = await prisma.chat.findFirst({
     where: {
@@ -461,6 +487,14 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       throw new Error(
         `Please complete your profile before starting a chat. Missing: ${missingFields.join(', ')}`
       );
+    }
+
+    // Deduct coins if required for this astrologer category
+    if (requiresCoinsForChat(astrologer.category)) {
+      await deductCoinsForChat({
+        userId: message.clientId,
+        astrologerCategory: astrologer.category,
+      });
     }
 
     // Create new chat (client=participant1, astrologer=participant2)
