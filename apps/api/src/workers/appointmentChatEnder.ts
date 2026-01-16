@@ -4,6 +4,8 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { AstrologerCategory } from '@jyotish/shared';
+import { ChatStatus } from '@prisma/client';
 import { getSocketInstance } from '../utils/socket-instance';
 
 /**
@@ -17,7 +19,7 @@ export async function endExpiredAppointmentChats() {
     // Find all active chats with premium astrologers that have appointments
     const activeChats = await prisma.chat.findMany({
       where: {
-        status: 'ACTIVE',
+        status: ChatStatus.ACTIVE,
         isLocked: false,
         consultationId: {
           not: null,
@@ -36,7 +38,7 @@ export async function endExpiredAppointmentChats() {
 
     for (const chat of activeChats) {
       // Only process premium astrologers
-      if (chat.astrologerParticipant.category !== 'PREMIUM') {
+      if (chat.astrologerParticipant.category !== AstrologerCategory.PREMIUM) {
         continue;
       }
 
@@ -63,7 +65,7 @@ export async function endExpiredAppointmentChats() {
         await prisma.chat.update({
           where: { id: chat.id },
           data: {
-            status: 'ENDED',
+            status: ChatStatus.ENDED,
             endedAt: now,
             endedBy: 'SYSTEM',
           },

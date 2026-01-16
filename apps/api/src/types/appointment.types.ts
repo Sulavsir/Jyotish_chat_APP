@@ -2,20 +2,12 @@
  * Appointment Type Definitions
  */
 
-export enum AppointmentStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-  NO_SHOW = 'NO_SHOW',
-}
+import { AppointmentStatus } from '@prisma/client';
+import { AstrologerCategory } from '@jyotish/shared';
 
-export enum AstrologerCategory {
-  ORDINARY = 'ORDINARY', // Can receive chat requests, no appointments
-  PROFESSIONAL = 'PROFESSIONAL', // Can receive chat requests and appointments, lower fee
-  PREMIUM = 'PREMIUM', // Only appointments, no direct chat (higher fee)
-}
+// Re-export for convenience
+export { AppointmentStatus };
+export { AstrologerCategory };
 
 export interface BookAppointmentData {
   clientId: string;
@@ -33,7 +25,6 @@ export interface UpdateAppointmentData {
   review?: string;
   cancellationNote?: string;
 }
-
 
 export interface AppointmentEntity {
   id: string;

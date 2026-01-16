@@ -16,3 +16,4 @@ export * from './file-upload.constants';
 export * from './appointment.constants';
 export * from './query-keys.constants';
 export * from './pricing.constants';
+export * from './error.constants';

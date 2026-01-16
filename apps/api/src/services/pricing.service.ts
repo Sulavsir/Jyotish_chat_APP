@@ -5,6 +5,7 @@
 import { prisma } from '@jyotish/database';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { PurchaseMethod } from '../types/pricing.types';
 
 export class PricingService {
   /**
@@ -64,12 +65,20 @@ export class PricingService {
   }) {
     // Validate price
     if (data.priceInNrs <= 0) {
-      throw new AppError('Price must be greater than 0', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Price must be greater than 0',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
     }
 
     // Validate coins for non-unlimited plans
     if (!data.isUnlimited && data.coins <= 0) {
-      throw new AppError('Coins must be greater than 0 for non-unlimited plans', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Coins must be greater than 0 for non-unlimited plans',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
     }
 
     // Check for duplicate name
@@ -78,7 +87,11 @@ export class PricingService {
     });
 
     if (existing) {
-      throw new AppError('Pricing plan with this name already exists', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Pricing plan with this name already exists',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
     }
 
     return await prisma.pricingPlan.create({
@@ -120,7 +133,11 @@ export class PricingService {
 
     // Validate price if provided
     if (data.priceInNrs !== undefined && data.priceInNrs <= 0) {
-      throw new AppError('Price must be greater than 0', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      throw new AppError(
+        'Price must be greater than 0',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
     }
 
     // Check for duplicate name if name is being changed
@@ -133,7 +150,11 @@ export class PricingService {
       });
 
       if (existing) {
-        throw new AppError('Pricing plan with this name already exists', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+        throw new AppError(
+          'Pricing plan with this name already exists',
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
       }
     }
 
@@ -168,8 +189,96 @@ export class PricingService {
       data: { isActive: !plan.isActive },
     });
   }
+
+  /**
+   * Activate a pricing plan for a user (after payment)
+   * For unlimited plans, creates a UserPlan record
+   * For coin packs, just adds coins to user balance
+   */
+  async activatePlanForUser(
+    userId: string,
+    planId: string,
+    purchasedWith: PurchaseMethod = PurchaseMethod.MONEY
+  ) {
+    const plan = await this.getPlanById(planId);
+
+    if (!plan.isActive) {
+      throw new AppError(
+        'This plan is not available',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // If purchased with coins, check balance and deduct
+    if (purchasedWith === PurchaseMethod.COINS) {
+      if (!plan.coinPrice || plan.coinPrice <= 0) {
+        throw new AppError(
+          'This plan cannot be purchased with coins',
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+
+      const { getCoinBalance, addCoins } = await import('./coin.service');
+      const { CoinTransactionReason } = await import('../types/coin.types');
+      const balance = await getCoinBalance(userId);
+
+      if (balance < plan.coinPrice) {
+        throw new AppError(
+          `Insufficient coins. Required: ${plan.coinPrice}, Available: ${balance}`,
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.INSUFFICIENT_COINS
+        );
+      }
+
+      // Deduct coins (negative amount)
+      await addCoins(userId, -plan.coinPrice, CoinTransactionReason.PURCHASE);
+    }
+
+    // If it's an unlimited plan, create UserPlan record
+    if (plan.isUnlimited) {
+      const now = new Date();
+      const expiresAt = plan.validityInDays
+        ? new Date(now.getTime() + plan.validityInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+      // Deactivate any existing unlimited plans for this user
+      await prisma.userPlan.updateMany({
+        where: {
+          userId,
+          isActive: true,
+          plan: {
+            isUnlimited: true,
+          },
+        },
+        data: {
+          isActive: false,
+        },
+      });
+
+      // Create new unlimited plan
+      await prisma.userPlan.create({
+        data: {
+          userId,
+          planId,
+          purchasedWith,
+          activatedAt: now,
+          expiresAt,
+          isActive: true,
+        },
+      });
+    } else {
+      // For coin packs, add coins to user balance (only if purchased with money)
+      if (purchasedWith === PurchaseMethod.MONEY) {
+        const { addCoins } = await import('./coin.service');
+        const { CoinTransactionReason } = await import('../types/coin.types');
+        await addCoins(userId, plan.coins, CoinTransactionReason.PURCHASE);
+      }
+    }
+
+    return { message: 'Plan activated successfully' };
+  }
 }
 
 export const pricingService = new PricingService();
-
-

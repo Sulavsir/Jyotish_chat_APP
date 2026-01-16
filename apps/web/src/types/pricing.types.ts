@@ -8,6 +8,7 @@ export interface PricingPlan {
   description: string | null;
   priceInNrs: number;
   coins: number;
+  coinPrice: number | null; // Price in coins for purchasing with coins (e.g., 60 coins)
   validityInDays: number | null;
   isUnlimited: boolean;
   discountPercent: number | null;

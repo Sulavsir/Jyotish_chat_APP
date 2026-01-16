@@ -9,7 +9,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '@jyotish/database';
 import { birthDetailsSchema } from '../validators';
 import { AuthRequest } from '../types';
-import { sendSuccess } from '../utils';
+import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { getZodiacSign, UserRole } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
@@ -56,7 +56,8 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
     }
 
     // Format response
-    const { phone, password, category, appointmentFee, ...astrologerWithoutSensitiveData } = astrologer;
+    const { phone, password, category, appointmentFee, ...astrologerWithoutSensitiveData } =
+      astrologer;
     const formattedAstrologer = {
       ...astrologerWithoutSensitiveData,
       phoneNumber: phone,
@@ -513,4 +514,54 @@ export async function getChatableUsers(req: AuthRequest, res: Response, next: Ne
   const users = await userServiceNew.getChatableUsers(userId, userRole);
 
   return sendSuccess(res, users);
+}
+
+/**
+ * Get client details by ID (for astrologers to view client profile)
+ * GET /api/v1/users/:id/details
+ */
+export async function getClientDetails(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    const currentUser = req.user!;
+
+    // Only astrologers can view client details
+    if (currentUser.role !== UserRole.ASTROLOGER) {
+      return sendError(res, 'Only astrologers can view client details', HTTP_STATUS.FORBIDDEN);
+    }
+
+    // Get client user details
+    const client = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        profilePhoto: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        placeOfBirth: true,
+        currentAddress: true,
+        permanentAddress: true,
+        zodiacSign: true,
+        profileCompleted: true,
+        createdAt: true,
+      },
+    });
+
+    if (!client) {
+      throw new AppError('Client not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    // Verify it's a client, not an astrologer
+    if (client.role !== UserRole.CLIENT) {
+      return sendError(res, 'User is not a client', HTTP_STATUS.BAD_REQUEST);
+    }
+
+    return sendSuccess(res, { client });
+  } catch (error) {
+    next(error);
+  }
 }

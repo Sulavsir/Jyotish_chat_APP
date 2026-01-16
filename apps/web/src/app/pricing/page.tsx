@@ -17,6 +17,7 @@ type TabFilter = 'all' | 'packs' | 'unlimited';
 function PricingContent() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<TabFilter>('all');
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEYS.PRICING.PLANS,
@@ -301,6 +302,12 @@ function PricingContent() {
                       {/* CTA Button */}
                       <Button
                         onClick={() => {
+                          // Check authentication before proceeding
+                          if (!isAuthenticated) {
+                            router.push(ROUTES.LOGIN);
+                            return;
+                          }
+                          // If authenticated, proceed to payment
                           router.push(
                             `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`
                           );

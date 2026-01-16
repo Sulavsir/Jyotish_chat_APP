@@ -18,6 +18,22 @@ export interface ChatableUser {
   category?: string; // For astrologers: ORDINARY, PROFESSIONAL, PREMIUM
 }
 
+interface ClientDetails {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  profilePhoto: string | null;
+  dateOfBirth: Date | string | null;
+  timeOfBirth: string | null;
+  placeOfBirth: string | null;
+  currentAddress: string | null;
+  permanentAddress: string | null;
+  zodiacSign: string | null;
+  profileCompleted: boolean;
+  createdAt: Date | string;
+}
+
 class UserService {
   /**
    * Get users that can be chatted with
@@ -27,7 +43,17 @@ class UserService {
   async getChatableUsers(): Promise<ChatableUser[]> {
     return apiClient.get<ChatableUser[]>(API_ENDPOINTS.USER.CHATABLE);
   }
+
+  /**
+   * Get client details by ID (for astrologers)
+   */
+  async getClientDetails(clientId: string): Promise<{ client: ClientDetails }> {
+    return apiClient.get<{ client: ClientDetails }>(
+      `/api/v1/users/${clientId}/details`
+    );
+  }
 }
 
 export const userService = new UserService();
 export default userService;
+export type { ClientDetails };

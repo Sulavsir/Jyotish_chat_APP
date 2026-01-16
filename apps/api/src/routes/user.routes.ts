@@ -40,4 +40,7 @@ router.delete('/remove-photo', authenticate, asyncHandler(userController.removeP
 // Get chatable users (astrologers for clients, clients for astrologers)
 router.get('/chatable', authenticate, asyncHandler(userController.getChatableUsers));
 
+// Get client details by ID (for astrologers to view client profile)
+router.get('/:id/details', authenticate, asyncHandler(userController.getClientDetails));
+
 export default router;

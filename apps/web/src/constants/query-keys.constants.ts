@@ -40,7 +40,11 @@ export const QUERY_KEYS = {
 
   // Notifications
   NOTIFICATIONS: {
-    LIST: ['notifications', 'list'] as const,
+    LIST: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
+      params
+        ? (['notifications', 'list', params] as const)
+        : (['notifications', 'list'] as const),
+    UNREAD_COUNT: ['notifications', 'unread-count'] as const,
   },
 
   // Horoscope
@@ -62,6 +66,7 @@ export const QUERY_KEYS = {
   // Users
   USERS: {
     CHATABLE: ['users', 'chatable'] as const,
+    CLIENT_DETAILS: (clientId: string) => ['users', 'client-details', clientId] as const,
   },
 
   // Complaints
@@ -93,6 +98,7 @@ export const QUERY_KEYS = {
     BALANCE: ['coins', 'balance'] as const,
     TRANSACTIONS: (params?: { limit?: number; offset?: number }) =>
       params ? (['coins', 'transactions', params] as const) : (['coins', 'transactions'] as const),
+    TRANSACTION_HISTORY: ['coins', 'transactions', 'history'] as const,
   },
 
   // Pricing

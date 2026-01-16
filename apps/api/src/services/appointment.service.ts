@@ -4,8 +4,8 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { UserRole } from '@jyotish/shared';
-import { AppointmentStatus, AstrologerCategory } from '../types/appointment.types';
+import { UserRole, AstrologerCategory } from '@jyotish/shared';
+import { AppointmentStatus } from '@prisma/client';
 import type {
   BookAppointmentData,
   UpdateAppointmentData,

@@ -6,13 +6,13 @@
 
 import { prisma } from '@jyotish/database';
 import { InstantChatRequestStatus, AuditAction } from '@prisma/client';
+import { AstrologerCategory } from '@jyotish/shared';
 import {
   notifyInstantChatRequestCreated,
   notifyInstantChatRequestAccepted,
   notifyInstantChatRequestCancelled,
 } from '../utils';
 import { auditService } from './audit.service';
-import { AstrologerCategory } from '../types/appointment.types';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat } from './coin.service';
@@ -163,7 +163,11 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
   });
 
   if (!astrologer) {
-    throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.ASTROLOGER_NOT_FOUND);
+    throw new AppError(
+      'Astrologer not found',
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODES.ASTROLOGER_NOT_FOUND
+    );
   }
 
   if (astrologer.category === AstrologerCategory.PROFESSIONAL) {
@@ -254,9 +258,10 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
 
     // Deduct coins if required for this astrologer category
     if (requiresCoinsForChat(astrologer.category)) {
+      const { toSharedAstrologerCategory } = await import('../constants/coin.constants');
       await deductCoinsForChat({
         userId: request.clientId,
-        astrologerCategory: astrologer.category,
+        astrologerCategory: toSharedAstrologerCategory(astrologer.category),
       });
     }
 

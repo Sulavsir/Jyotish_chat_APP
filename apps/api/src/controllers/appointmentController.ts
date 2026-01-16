@@ -4,11 +4,11 @@
  */
 
 import { Response } from 'express';
+import { AppointmentStatus } from '@prisma/client';
+import { UserRole } from '@jyotish/shared';
 import * as appointmentService from '../services/appointment.service';
 import { AuthRequest } from '../types/common.types';
 import { HTTP_STATUS } from '../constants';
-import { AppointmentStatus } from '../types/appointment.types';
-import { UserRole } from '@jyotish/shared';
 
 /**
  * Create a new appointment

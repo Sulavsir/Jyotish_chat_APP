@@ -35,7 +35,7 @@ export default function CoinTransactionsPage() {
   const user = useAuthStore((state) => state.user);
 
   const { data, isLoading } = useQuery({
-    queryKey: [...QUERY_KEYS.COINS.BALANCE, 'history'],
+    queryKey: QUERY_KEYS.COINS.TRANSACTION_HISTORY,
     queryFn: () => coinService.getTransactionHistory({ limit: 100 }),
     enabled: user?.role === UserRole.CLIENT,
   });

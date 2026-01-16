@@ -6,7 +6,16 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
-import { Avatar, AvatarImage, AvatarFallback, Button, Textarea, Label, Input } from '@jyotish/ui';
+import {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  Button,
+  Textarea,
+  Label,
+  Input,
+  Badge,
+} from '@jyotish/ui';
 import {
   ArrowLeft,
   MoreVertical,
@@ -16,6 +25,7 @@ import {
   Clock,
   AlertCircle,
   AlertTriangle,
+  User,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -29,10 +39,12 @@ import { toast } from 'sonner';
 import { Chat, Message } from '@/types/chat';
 import { useAuthStore } from '@/store/auth-store';
 import { useSocket } from '@/hooks/useSocket';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import complaintService from '@/services/complaint.service';
 import { ComplaintCategory, COMPLAINT_CATEGORY_LABELS } from '@/types/complaint';
 import { InlineChatRating } from '@/components/features/ratings';
+import { ERROR_CODES, QUERY_KEYS } from '@/constants';
+import { ClientDetailsModal } from '@/components/modals/ClientDetailsModal';
 
 interface SystemMessage {
   id: string;
@@ -92,9 +104,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     ComplaintCategory.SLOW_RESPONSE
   );
   const [complaintAttachment, setComplaintAttachment] = useState<File | null>(null);
+  const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const onlineUsers = useStore((state) => state.onlineUsers);
   const user = useAuthStore((state) => state.user);
   const { socket } = useSocket();
+  const queryClient = useQueryClient();
   const previousScrollHeight = useRef<number>(0);
   const isLoadingMoreRef = useRef(false);
   const previousChatId = useRef<string | null>(null);
@@ -198,6 +213,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       if (data.chatId !== chat.id) return;
 
       console.log('📤 [ChatWindow] Message sent event:', data);
+
+      // Invalidate coin balance query to reflect real-time deduction
+      if (user?.role === UserRole.CLIENT) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      }
 
       if (user?.role === UserRole.CLIENT && data.turnState) {
         console.log('🔄 [ChatWindow] Updating client turn state:', data.turnState);
@@ -383,7 +403,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       };
       const errorCode = axiosError?.response?.data?.error?.code;
 
-      if (errorCode === 'INSUFFICIENT_COINS') {
+      if (errorCode === ERROR_CODES.INSUFFICIENT_COINS) {
         const errorMessage = axiosError?.response?.data?.error?.message || 'Insufficient coins';
         const match = errorMessage.match(/Required:\s*(\d+)/i);
         const requiredCoins = match ? parseInt(match[1], 10) : 1;
@@ -469,22 +489,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View Profile Badge - only for astrologers viewing client messages */}
+          {user?.role === UserRole.ASTROLOGER && otherUser.role === UserRole.CLIENT && (
+            <Badge
+              variant="outline"
+              className="cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium"
+              onClick={() => {
+                setSelectedClientId(otherUser.id);
+                setShowClientDetailsModal(true);
+              }}
+            >
+              <User className="h-3.5 w-3.5 mr-1.5" />
+              View Profile Details
+            </Badge>
+          )}
+
           {/* End Chat button - only show if chat is active and not locked */}
           {chat?.status === 'ACTIVE' && !chat?.isLocked && (
             <Tooltip content="End chat session">
-              <button
-                onClick={handleEndChat}
-                disabled={isEndingChat}
-                className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <PhoneOff className="h-5 w-5" />
-              </button>
+              <Button variant="ghost" size="icon" onClick={handleEndChat} disabled={isEndingChat}>
+                <PhoneOff className="h-5 w-6 text-red-400 " />
+              </Button>
             </Tooltip>
           )}
 
-          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <Button variant="ghost" size="icon" className="h-9 w-9">
             <MoreVertical className="h-5 w-5 text-gray-600" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -594,6 +625,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   isOwn={isOwn}
                   showAvatar={showAvatar}
                   showTimestamp={showTimestamp}
+                  onViewProfile={
+                    user?.role === UserRole.ASTROLOGER &&
+                    !isOwn &&
+                    otherUser.role === UserRole.CLIENT
+                      ? (clientId: string) => {
+                          setShowClientDetailsModal(true);
+                        }
+                      : undefined
+                  }
                 />
               );
             })}
@@ -944,6 +984,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Client Details Modal */}
+      {user?.role === UserRole.ASTROLOGER && (
+        <ClientDetailsModal
+          isOpen={showClientDetailsModal}
+          onClose={() => {
+            setShowClientDetailsModal(false);
+            setSelectedClientId(null);
+          }}
+          clientId={selectedClientId || (otherUser.role === UserRole.CLIENT ? otherUser.id : null)}
+        />
       )}
     </div>
   );

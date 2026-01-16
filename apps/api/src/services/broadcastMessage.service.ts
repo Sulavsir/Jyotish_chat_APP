@@ -11,10 +11,10 @@ import {
   BroadcastMessageStatus,
   ChatStatus,
 } from '@prisma/client';
+import { AstrologerCategory } from '@jyotish/shared';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '../constants';
 import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
 import { auditService } from './audit.service';
-import { AstrologerCategory } from '../types/appointment.types';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat } from './coin.service';
@@ -121,11 +121,15 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     }
   }
 
-  // Check if there are any online astrologers available
+  // Check if there are any online astrologers available (exclude PREMIUM only)
+  // ORDINARY and PROFESSIONAL can accept broadcasts
   const onlineAstrologers = await prisma.astrologer.count({
     where: {
       isActive: true,
       isOnline: true,
+      category: {
+        in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+      },
     },
   });
 
@@ -352,7 +356,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     throw new Error('This message has already been accepted or expired');
   }
 
-  // Check if astrologer is PROFESSIONAL - they cannot accept broadcast messages
+  // Check if astrologer is PROFESSIONAL or PREMIUM - they cannot accept broadcast messages
   const astrologer = await prisma.astrologer.findUnique({
     where: { id: astrologerId },
     select: { category: true, name: true },
@@ -366,9 +370,11 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     );
   }
 
-  if (astrologer.category === AstrologerCategory.PROFESSIONAL) {
+  // Only PREMIUM astrologers cannot accept broadcast messages
+  // PROFESSIONAL astrologers can accept broadcasts (1 coin per message)
+  if (astrologer.category === AstrologerCategory.PREMIUM) {
     throw new AppError(
-      `${astrologer.name} is a Professional astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
+      `${astrologer.name} is a Premium astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );
@@ -487,14 +493,6 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       throw new Error(
         `Please complete your profile before starting a chat. Missing: ${missingFields.join(', ')}`
       );
-    }
-
-    // Deduct coins if required for this astrologer category
-    if (requiresCoinsForChat(astrologer.category)) {
-      await deductCoinsForChat({
-        userId: message.clientId,
-        astrologerCategory: astrologer.category,
-      });
     }
 
     // Create new chat (client=participant1, astrologer=participant2)

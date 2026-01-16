@@ -6,18 +6,26 @@
 import React from 'react';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
-import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
-import { CheckCheck, Check, FileText, Download } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
+import { CheckCheck, Check, FileText, Download, User } from 'lucide-react';
 import { MessageBubbleProps } from '@/types/chat';
 import { getImageUrl } from '@/utils/image.utils';
 import { API_BASE_URL } from '@/constants';
+import { useAuthStore } from '@/store/auth-store';
+import { UserRole } from '@/types/user.types';
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isOwn,
   showAvatar = true,
   showTimestamp = true,
+  onViewProfile,
 }) => {
+  const user = useAuthStore((state) => state.user);
+  const isAstrologerViewingClient =
+    user?.role === UserRole.ASTROLOGER && !isOwn && message.sender?.role === UserRole.CLIENT;
+  const clientId = message.senderId || message.sender?.id;
+
   // Check if message has file attachment
   const metadata = message.metadata as any;
   const hasFile = metadata?.fileUrl;
@@ -123,6 +131,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
           )}
         </div>
+
+        {/* View Profile Badge - only for astrologers viewing client messages */}
+        {isAstrologerViewingClient && onViewProfile && clientId && (
+          <div className="mt-1">
+            <Badge
+              variant="outline"
+              className="cursor-pointer hover:bg-purple-50 border-purple-300 text-purple-700 hover:text-purple-800 transition-colors"
+              onClick={() => onViewProfile(clientId)}
+            >
+              <User className="h-3 w-3 mr-1" />
+              View Profile
+            </Badge>
+          </div>
+        )}
 
         {showTimestamp && (
           <div

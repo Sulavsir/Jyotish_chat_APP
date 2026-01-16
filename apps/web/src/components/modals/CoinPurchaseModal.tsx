@@ -21,12 +21,13 @@ import {
   AlertDescription,
 } from '@jyotish/ui';
 import { Coins, Loader2, Plus, Infinity as InfinityIcon } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { pricingService } from '@/services/pricing.service';
 import { coinService } from '@/services/coin.service';
 import { QUERY_KEYS, ROUTES, COIN_PRICE_NPR } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
 import type { PricingPlan } from '@/types/pricing.types';
+import { toast } from 'sonner';
 
 type CoinPurchaseMode = 'insufficient' | 'purchase';
 
@@ -46,6 +47,7 @@ export function CoinPurchaseModal({
   mode = 'insufficient',
 }: CoinPurchaseModalProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
 
   // Custom coin selection state (defaults to requiredCoins or 1)
@@ -125,6 +127,47 @@ export function CoinPurchaseModal({
 
     router.push(`${ROUTES.PAYMENT}?planId=custom-${coins}&amount=${amount}&coins=${coins}`);
     onClose();
+  };
+
+  const handlePurchaseWithCoins = async (plan: PricingPlan) => {
+    if (!plan.coinPrice || plan.coinPrice <= 0) {
+      toast.error('This plan cannot be purchased with coins');
+      return;
+    }
+
+    if (currentBalance < plan.coinPrice) {
+      toast.error(`Insufficient coins. You need ${plan.coinPrice} coins but have ${currentBalance}`);
+      return;
+    }
+
+    try {
+      // Call API to purchase plan with coins (amount: 0 indicates coin purchase)
+      const { coinService } = await import('@/services/coin.service');
+      await coinService.addCoins({ planId: plan.id, amount: 0 });
+
+      toast.success('Unlimited plan activated successfully!');
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
+
+      // Store pending chat info if callback exists
+      if (onPurchaseSuccess) {
+        sessionStorage.setItem(
+          'pendingChatAfterPurchase',
+          JSON.stringify({
+            hasCallback: true,
+          })
+        );
+        // Trigger callback after a short delay
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('coinsPurchased'));
+        }, 500);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Error purchasing plan with coins:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to purchase plan');
+    }
   };
 
   return (
@@ -296,13 +339,25 @@ export function CoinPurchaseModal({
                           </p>
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        onClick={() => handlePurchase(unlimitedPlan)}
-                        className="shrink-0 rounded-xl bg-black/40 px-4 py-2 text-sm font-semibold text-indigo-100 ring-2 ring-indigo-200/80 hover:bg-black/60 hover:ring-indigo-100"
-                      >
-                        Unlock 1-Day Unlimited
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => handlePurchase(unlimitedPlan)}
+                          className="shrink-0 rounded-xl bg-black/40 px-4 py-2 text-sm font-semibold text-indigo-100 ring-2 ring-indigo-200/80 hover:bg-black/60 hover:ring-indigo-100"
+                        >
+                          Buy with Money
+                        </Button>
+                        {unlimitedPlan.coinPrice && unlimitedPlan.coinPrice > 0 && (
+                          <Button
+                            type="button"
+                            onClick={() => handlePurchaseWithCoins(unlimitedPlan)}
+                            className="shrink-0 rounded-xl bg-gradient-to-r from-yellow-500/20 to-amber-500/20 px-4 py-2 text-sm font-semibold text-yellow-200 ring-2 ring-yellow-400/50 hover:from-yellow-500/30 hover:to-amber-500/30"
+                            disabled={currentBalance < unlimitedPlan.coinPrice}
+                          >
+                            Buy with {unlimitedPlan.coinPrice} Coins
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

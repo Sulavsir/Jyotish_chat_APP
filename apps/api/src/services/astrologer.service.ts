@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { UserRole } from '@jyotish/shared';
+import { UserRole, AstrologerCategory } from '@jyotish/shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -122,7 +122,7 @@ export class AstrologerService {
     bio?: string;
     specialization: string[];
     experience?: number;
-    category?: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM'; // AstrologerCategory enum
+    category?: AstrologerCategory;
     appointmentFee?: number;
     commissionRate: number;
     languages: string[];

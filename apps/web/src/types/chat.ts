@@ -91,15 +91,18 @@ export interface MessageBubbleProps {
     metadata?: unknown; // JSON metadata - use unknown for type safety
     createdAt: Date;
     isRead: boolean;
+    senderId?: string;
     sender?: {
       id: string;
       name: string;
       profilePhoto?: string;
+      role?: string;
     };
   };
   isOwn: boolean;
   showAvatar?: boolean;
   showTimestamp?: boolean;
+  onViewProfile?: (clientId: string) => void;
 }
 
 export interface FileAttachment {

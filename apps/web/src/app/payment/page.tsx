@@ -12,6 +12,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { Loader2, CheckCircle2, XCircle, Coins } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { coinService } from '@/services/coin.service';
+import type { AddCoinsResponse } from '@/types/coin.types';
 import { QUERY_KEYS } from '@/constants';
 import { toast } from 'sonner';
 import { ROUTES } from '@/constants';
@@ -30,13 +31,21 @@ export default function PaymentPage() {
   const coins = searchParams.get('coins');
 
   const addCoinsMutation = useMutation({
-    mutationFn: (data: { amount: number; paymentId?: string }) => coinService.addCoins(data),
-    onSuccess: () => {
+    mutationFn: (data: { amount?: number; paymentId?: string; planId?: string }) =>
+      coinService.addCoins(data),
+    onSuccess: (data) => {
       // Mark as processed to prevent duplicate calls
       hasProcessedRef.current = true;
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
       setPaymentStatus('success');
-      toast.success('Payment successful! Coins added to your account.');
+      
+      // Show appropriate success message
+      if (data?.isUnlimited) {
+        toast.success('Unlimited plan activated successfully!');
+      } else {
+        toast.success('Payment successful! Coins added to your account.');
+      }
 
       // Check if we should retry a pending chat
       const pendingChatData = sessionStorage.getItem('pendingChatAfterPurchase');
@@ -89,46 +98,45 @@ export default function PaymentPage() {
       return;
     }
 
-    if (coins && amount) {
-      const coinsAmount = parseInt(coins, 10);
-      if (isNaN(coinsAmount) || coinsAmount <= 0) {
-        setPaymentStatus('failed');
-        toast.error('Invalid coin amount');
-        return;
-      }
-
-      // Mark as processing to prevent duplicate calls
-      hasProcessedRef.current = true;
-
-      // Call API without paymentId (will be integrated later)
-      addCoinsMutation.mutate({
-        amount: coinsAmount,
-      });
-    } else {
+    if (!planId || !amount) {
       setPaymentStatus('failed');
       toast.error('Invalid payment parameters');
+      return;
     }
-  }, [coins, amount, addCoinsMutation]);
+
+    // Mark as processing to prevent duplicate calls
+    hasProcessedRef.current = true;
+
+    // If it's a custom coin purchase (not a plan), include amount
+    // If it's a plan, just pass planId (backend will handle it)
+    const isCustomPlan = planId.startsWith('custom-');
+    const coinsAmount = coins ? parseInt(coins, 10) : undefined;
+
+    // Call API with planId (backend will activate unlimited plans or add coins for coin packs)
+    addCoinsMutation.mutate({
+      ...(isCustomPlan && coinsAmount ? { amount: coinsAmount } : {}),
+      planId: isCustomPlan ? undefined : planId, // Only pass planId for actual plans
+    });
+  }, [planId, amount, coins, addCoinsMutation]);
 
   // Redirect if no plan parameters
   useEffect(() => {
-    if (!planId || !amount || !coins) {
+    if (!planId || !amount) {
       router.push(ROUTES.PRICING);
     }
-  }, [planId, amount, coins, router]);
+  }, [planId, amount, router]);
 
   // Trigger payment processing immediately when params are valid (only once)
   useEffect(() => {
     // Only process if:
     // 1. Status is processing
-    // 2. All params are valid
+    // 2. PlanId and amount are valid
     // 3. Haven't processed yet
     // 4. Mutation is not already in progress
     if (
       paymentStatus === 'processing' &&
       planId &&
       amount &&
-      coins &&
       !hasProcessedRef.current &&
       !addCoinsMutation.isPending
     ) {
@@ -136,7 +144,7 @@ export default function PaymentPage() {
       // call the backend API and update state accordingly.
       handlePaymentSuccess();
     }
-  }, [paymentStatus, planId, amount, coins, handlePaymentSuccess, addCoinsMutation.isPending]);
+  }, [paymentStatus, planId, amount, handlePaymentSuccess, addCoinsMutation.isPending]);
 
   const handleRetry = () => {
     // Reset the ref to allow retry
@@ -202,14 +210,24 @@ export default function PaymentPage() {
                 </div>
                 <h3 className="text-2xl font-semibold text-white mb-2">Payment Successful!</h3>
                 <p className="text-green-50/90 mb-6">
-                  Your coins have been added to your account. You&apos;re ready to start chatting.
+                  {planId && planId.startsWith('custom-')
+                    ? 'Your coins have been added to your account. You&apos;re ready to start chatting.'
+                    : 'Your purchase was successful. You&apos;re ready to start chatting.'}
                 </p>
-                {coins && (
+                {coins && !planId?.includes('unlimited') && (
                   <div className="mb-6 p-4 bg-green-800/40 border border-green-400/50 rounded-xl">
                     <p className="text-green-50 text-sm mb-1">Coins Added</p>
                     <p className="text-yellow-200 font-bold text-2xl flex items-center justify-center gap-2">
                       <Coins className="h-6 w-6" />
                       {coins} Coins
+                    </p>
+                  </div>
+                )}
+                {planId && !planId.startsWith('custom-') && (
+                  <div className="mb-6 p-4 bg-green-800/40 border border-green-400/50 rounded-xl">
+                    <p className="text-green-50 text-sm mb-1">Plan Activated</p>
+                    <p className="text-green-200 font-bold text-lg">
+                      Your plan has been activated successfully!
                     </p>
                   </div>
                 )}

@@ -17,9 +17,11 @@ export enum CoinTransactionReason {
   PAYMENT_SUCCESS = 'PAYMENT_SUCCESS',
 }
 
+import { AstrologerCategory } from '@jyotish/shared';
+
 export interface CoinDeductionParams {
   userId: string;
-  astrologerCategory: string;
+  astrologerCategory: AstrologerCategory | string; // Allow string for backward compatibility
   chatId?: string;
 }
 

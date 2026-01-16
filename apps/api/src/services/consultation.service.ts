@@ -3,13 +3,12 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { UserRole } from '@jyotish/shared';
+import { UserRole, ConsultationStatus } from '@jyotish/shared';
 import type {
   BookConsultationData,
   UpdateConsultationData,
   ConsultationUserRole,
   ConsultationWithRelations,
-  ConsultationStatus,
 } from '../types';
 
 export class ConsultationService {
@@ -121,7 +120,7 @@ export class ConsultationService {
           lte: new Date(data.scheduledAt.getTime() + data.duration * 60 * 1000),
         },
         status: {
-          notIn: ['CANCELLED', 'COMPLETED'],
+          notIn: [ConsultationStatus.CANCELLED, ConsultationStatus.COMPLETED],
         },
       },
     });
@@ -223,7 +222,7 @@ export class ConsultationService {
     userId: string
   ): Promise<ConsultationWithRelations> {
     return await this.updateConsultation(consultationId, userId, {
-      status: 'CANCELLED' as ConsultationStatus,
+      status: ConsultationStatus.CANCELLED,
     });
   }
 
@@ -241,7 +240,7 @@ export class ConsultationService {
           gte: new Date(),
         },
         status: {
-          notIn: ['CANCELLED', 'COMPLETED'],
+          notIn: [ConsultationStatus.CANCELLED, ConsultationStatus.COMPLETED],
         },
       },
       include: {
@@ -333,7 +332,7 @@ export class ConsultationService {
       throw new Error('Unauthorized to rate this consultation');
     }
 
-    if (consultation.status !== 'COMPLETED') {
+    if (consultation.status !== ConsultationStatus.COMPLETED) {
       throw new Error('Can only rate completed consultations');
     }
 

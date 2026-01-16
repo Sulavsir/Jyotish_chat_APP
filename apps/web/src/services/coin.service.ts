@@ -16,9 +16,11 @@ class CoinService {
   }
 
   /**
-   * Add coins to user balance
+   * Add coins to user balance or activate a plan
    */
-  async addCoins(data: AddCoinsRequest & { paymentId?: string }): Promise<AddCoinsResponse> {
+  async addCoins(
+    data: { amount?: number; paymentId?: string; planId?: string }
+  ): Promise<AddCoinsResponse> {
     return apiClient.post<AddCoinsResponse>(API_ENDPOINTS.COINS.ADD, data);
   }
 

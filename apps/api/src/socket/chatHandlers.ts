@@ -5,8 +5,9 @@ import {
   ChatStatus,
   MessageType as PrismaMessageType,
   Prisma,
+  AppointmentStatus,
 } from '@prisma/client';
-import { MessageType, UserRole } from '@jyotish/shared';
+import { MessageType, UserRole, AstrologerCategory } from '@jyotish/shared';
 import { onlineUsers } from './index';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 
@@ -216,6 +217,94 @@ export function chatHandlers(io: Server, socket: Socket) {
 
           // Emit new chat event to admin for real-time stats
           AdminStatsEmitter.emitNewChat();
+        }
+
+        // For PREMIUM astrologers, verify we're within appointment window
+        if (user.role === UserRole.CLIENT) {
+          // Get astrologer category
+          const astrologer = await prisma.astrologer.findUnique({
+            where: { id: astrologerId },
+            select: { category: true, id: true },
+          });
+
+          if (astrologer?.category === AstrologerCategory.PREMIUM) {
+            const now = new Date();
+            // Find the most recent appointment for this client-astrologer pair
+            const appointment = await prisma.appointment.findFirst({
+              where: {
+                clientId,
+                astrologerId,
+                scheduledAt: {
+                  lte: now, // Appointment has started
+                },
+                status: {
+                  in: [
+                    AppointmentStatus.CONFIRMED,
+                    AppointmentStatus.IN_PROGRESS,
+                    AppointmentStatus.COMPLETED,
+                  ],
+                },
+              },
+              orderBy: {
+                scheduledAt: 'desc',
+              },
+            });
+
+            if (!appointment) {
+              socket.emit('chat:error', {
+                message:
+                  'You can only chat with Premium astrologers during your scheduled appointment time. Please book an appointment first.',
+                code: 'APPOINTMENT_REQUIRED',
+              });
+              return;
+            }
+
+            // Check if we're within the appointment window (duration minutes from scheduledAt)
+            const appointmentStart = new Date(appointment.scheduledAt);
+            const appointmentEnd = new Date(
+              appointmentStart.getTime() + appointment.duration * 60 * 1000
+            );
+
+            if (now < appointmentStart || now > appointmentEnd) {
+              socket.emit('chat:error', {
+                message: `You can only chat during your appointment window (${appointment.duration} minutes starting from ${appointmentStart.toLocaleString()}).`,
+                code: 'APPOINTMENT_WINDOW_EXPIRED',
+              });
+              return;
+            }
+          }
+
+          // Deduct coins per message (only for ORDINARY and PROFESSIONAL, not PREMIUM)
+          if (astrologer?.category) {
+            const { requiresCoinsForChat, toSharedAstrologerCategory } =
+              await import('../constants/coin.constants');
+            if (requiresCoinsForChat(astrologer.category)) {
+              // Check if this chat is from a broadcast message
+              const broadcastMessage = await prisma.broadcastMessage.findFirst({
+                where: { chatId: chat.id },
+                select: { id: true },
+              });
+              const isBroadcastChat = !!broadcastMessage;
+
+              const { deductCoinsForMessage } = await import('../services/coin.service');
+              try {
+                await deductCoinsForMessage(
+                  user.id,
+                  toSharedAstrologerCategory(astrologer.category),
+                  chat.id,
+                  isBroadcastChat
+                );
+              } catch (error: any) {
+                // Emit insufficient coins error to client
+                socket.emit('chat:error', {
+                  message: error.message || 'Insufficient coins to send message',
+                  code: 'INSUFFICIENT_COINS',
+                  requiredCoins: error.requiredCoins,
+                });
+                return;
+              }
+            }
+          }
         }
 
         // Determine sender and receiver types

@@ -2,37 +2,69 @@
  * Coin Constants
  */
 
-import { AstrologerCategory } from '../types/appointment.types';
+import { AstrologerCategory } from '@jyotish/shared';
 import { CoinTransactionReason } from '../types/coin.types';
+import { AstrologerCategory as PrismaAstrologerCategory } from '@prisma/client';
 
 /**
- * Coin cost per chat based on astrologer category
+ * Convert Prisma AstrologerCategory to shared AstrologerCategory
  */
-export const CHAT_COIN_COSTS: Record<string, number> = {
-  [AstrologerCategory.ORDINARY]: 1,
+export function toSharedAstrologerCategory(
+  category: PrismaAstrologerCategory | AstrologerCategory | string
+): AstrologerCategory {
+  return category as AstrologerCategory;
+}
+
+/**
+ * Coin cost per message for direct DMs based on astrologer category
+ * PREMIUM astrologers don't require coins (they can only chat during appointment window)
+ */
+export const DIRECT_CHAT_COIN_COSTS: Record<AstrologerCategory, number> = {
+  [AstrologerCategory.ORDINARY]: 2,
   [AstrologerCategory.PROFESSIONAL]: 2,
-  [AstrologerCategory.PREMIUM]: 3,
+  [AstrologerCategory.PREMIUM]: 0, // No coins required (chat only allowed during appointment window)
 };
+
+/**
+ * Coin cost per message for broadcast chats (always 1 coin regardless of category)
+ */
+export const BROADCAST_CHAT_COIN_COST = 1;
 
 /**
  * Coin transaction reasons mapping
  */
-export const COIN_REASON_MAPPING: Record<string, CoinTransactionReason> = {
+export const COIN_REASON_MAPPING: Record<AstrologerCategory, CoinTransactionReason> = {
   [AstrologerCategory.ORDINARY]: CoinTransactionReason.CHAT_ORDINARY,
-  [AstrologerCategory.PREMIUM]: CoinTransactionReason.CHAT_PREMIUM,
   [AstrologerCategory.PROFESSIONAL]: CoinTransactionReason.CHAT_PREMIUM,
+  [AstrologerCategory.PREMIUM]: CoinTransactionReason.CHAT_PREMIUM, // Should not be used, but included for completeness
 };
 
 /**
- * Get coin cost for astrologer category
+ * Get coin cost for direct DM based on astrologer category
+ * Accepts both Prisma and shared enum types
  */
-export function getChatCoinCost(category: string): number {
-  return CHAT_COIN_COSTS[category] || 0;
+export function getDirectChatCoinCost(
+  category: PrismaAstrologerCategory | AstrologerCategory | string
+): number {
+  const sharedCategory = toSharedAstrologerCategory(category);
+  return DIRECT_CHAT_COIN_COSTS[sharedCategory] ?? 0;
+}
+
+/**
+ * Get coin cost for broadcast chat (always 1 coin)
+ */
+export function getBroadcastChatCoinCost(): number {
+  return BROADCAST_CHAT_COIN_COST;
 }
 
 /**
  * Check if category requires coins for chat
+ * PREMIUM astrologers don't require coins (they can only chat during appointment window)
+ * Accepts both Prisma and shared enum types
  */
-export function requiresCoinsForChat(category: string): boolean {
-  return category in CHAT_COIN_COSTS;
+export function requiresCoinsForChat(
+  category: PrismaAstrologerCategory | AstrologerCategory | string
+): boolean {
+  const sharedCategory = toSharedAstrologerCategory(category);
+  return DIRECT_CHAT_COIN_COSTS[sharedCategory] > 0;
 }

@@ -9,6 +9,7 @@ import { sendSuccess, sendError } from '../utils';
 import * as coinService from '../services/coin.service';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { CoinTransactionReason } from '../types/coin.types';
+import { PurchaseMethod } from '../types/pricing.types';
 
 /**
  * Get user's coin balance
@@ -30,11 +31,58 @@ export const getCoinBalance = async (req: AuthRequest, res: Response, next: Next
  * Add coins to user balance (for payment processing)
  * POST /api/v1/coins/add
  * Body is validated by addCoinsSchema middleware
+ * Also handles unlimited plan activation if planId is provided
  */
 export const addCoins = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.id;
-    const { amount, paymentId } = req.body;
+    const { amount, paymentId, planId } = req.body;
+
+    // If planId is provided, activate the plan (handles both unlimited plans and coin packs)
+    if (planId) {
+      const { pricingService } = await import('../services/pricing.service');
+      const plan = await pricingService.getPlanById(planId);
+
+      // Determine purchase method: if amount is 0 or not provided, it's a coin purchase
+      const purchasedWith = !amount || amount === 0 ? PurchaseMethod.COINS : PurchaseMethod.MONEY;
+
+      // Activate the plan
+      await pricingService.activatePlanForUser(userId, planId, purchasedWith);
+
+      if (plan.isUnlimited) {
+        // For unlimited plans, return success
+        return sendSuccess(
+          res,
+          {
+            userId,
+            balance: await coinService.getCoinBalance(userId),
+            planActivated: true,
+            isUnlimited: true,
+          },
+          HTTP_STATUS.OK
+        );
+      }
+      // For coin packs, coins are already added by activatePlanForUser (if purchased with money), just return balance
+      return sendSuccess(
+        res,
+        {
+          userId,
+          balance: await coinService.getCoinBalance(userId),
+          planActivated: true,
+          isUnlimited: false,
+        },
+        HTTP_STATUS.OK
+      );
+    }
+
+    // Legacy: Direct coin addition (no plan) - amount is required
+    if (!amount) {
+      return sendError(
+        res,
+        'Amount is required when planId is not provided',
+        HTTP_STATUS.BAD_REQUEST
+      );
+    }
 
     const result = await coinService.addCoins(
       userId,

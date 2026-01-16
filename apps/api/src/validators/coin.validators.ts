@@ -8,17 +8,28 @@ import { z } from 'zod';
 /**
  * Validator for adding coins
  */
-export const addCoinsSchema = z.object({
-  amount: z
-    .number({
-      required_error: 'Amount is required',
-      invalid_type_error: 'Amount must be a number',
-    })
-    .int('Amount must be an integer')
-    .positive('Amount must be greater than 0')
-    .max(10000, 'Amount cannot exceed 10000 coins'),
-  paymentId: z.string().uuid('Invalid payment ID').optional(),
-});
+export const addCoinsSchema = z
+  .object({
+    amount: z
+      .number({
+        invalid_type_error: 'Amount must be a number',
+      })
+      .int('Amount must be an integer')
+      .nonnegative('Amount must be 0 or greater')
+      .max(10000, 'Amount cannot exceed 10000 coins')
+      .optional(),
+    paymentId: z.string().uuid('Invalid payment ID').optional(),
+    planId: z.string().uuid('Invalid plan ID').optional(),
+  })
+  .refine(
+    (data) => {
+      // Either amount (for direct coin addition) or planId (for plan activation) must be provided
+      return (data.amount !== undefined && data.amount > 0) || !!data.planId;
+    },
+    {
+      message: 'Either amount (for direct coin addition) or planId (for plan activation) must be provided',
+    }
+  );
 
 /**
  * Validator for admin adding coins to user

@@ -22,6 +22,10 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { Chat, Message, FileAttachment } from '@/types/chat';
+import { CoinPurchaseModal } from '@/components/modals';
+import { ERROR_CODES, QUERY_KEYS } from '@/constants';
+import { useQueryClient } from '@tanstack/react-query';
+import { UserRole } from '@/types/user.types';
 
 export default function ChatPage() {
   // Require CLIENT role to access this page
@@ -45,12 +49,15 @@ export default function ChatPage() {
   const [isBroadcastChatActive, setIsBroadcastChatActive] = useState(false);
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
+  const [requiredCoins, setRequiredCoins] = useState(1);
   const initializedRef = useRef(false);
   const currentOtherUserId = useRef<string | null>(null);
 
   const { sendMessage, sendTypingIndicator, isConnected, socket } = useSocket();
   const typingUsers = useStore((state) => state.typingUsers);
   const chatMessages = useStore((state) => state.messages);
+  const queryClient = useQueryClient();
 
   // Load conversations on initial mount
   useEffect(() => {
@@ -87,7 +94,7 @@ export default function ChatPage() {
     }
 
     console.log('📍 [ChatPage] URL changed, loading chat:', chatIdFromUrl);
-    
+
     // If this chat is already active, don't reload
     if (activeChatId === chatIdFromUrl && !isBroadcastChatActive) {
       console.log('✅ [ChatPage] Chat already active, skipping');
@@ -132,6 +139,11 @@ export default function ChatPage() {
     };
 
     const handleNewMessage = async (message: any) => {
+      // Invalidate coin balance query to reflect real-time deduction
+      if (user?.role === UserRole.CLIENT) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      }
+
       // DON'T add message here - it's already added by useSocket hook to Zustand store
       // The useEffect watching chatMessages will handle adding it to the active chat
       // This prevents duplicate messages!
@@ -275,8 +287,6 @@ export default function ChatPage() {
       isLocked: boolean;
       status: string;
     }) => {
-     
-
       // Show toast notification
       if (activeChatId === data.chatId) {
         toast.error('This conversation has been ended by administration.', {
@@ -288,13 +298,13 @@ export default function ChatPage() {
       if (activeChatId === data.chatId) {
         setActiveChat((prev) =>
           prev
-            ? {
+            ? ({
                 ...prev,
                 status: data.status as 'ACTIVE' | 'ENDED',
                 isLocked: data.isLocked,
                 isAbandonedByAdmin: data.isAbandonedByAdmin,
                 abandonReason: data.abandonReason,
-              } as any
+              } as any)
             : null
         );
       }
@@ -303,13 +313,13 @@ export default function ChatPage() {
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === data.chatId
-            ? {
+            ? ({
                 ...chat,
                 status: data.status as 'ACTIVE' | 'ENDED',
                 isLocked: data.isLocked,
                 isAbandonedByAdmin: data.isAbandonedByAdmin,
                 abandonReason: data.abandonReason,
-              } as any
+              } as any)
             : chat
         )
       );
@@ -326,22 +336,25 @@ export default function ChatPage() {
 
       // Show toast notification
       if (activeChatId === data.chatId) {
-        toast.success('This conversation has been unblocked by administration. You can now send messages.', {
-          duration: 5000,
-        });
+        toast.success(
+          'This conversation has been unblocked by administration. You can now send messages.',
+          {
+            duration: 5000,
+          }
+        );
       }
 
       // Update active chat
       if (activeChatId === data.chatId) {
         setActiveChat((prev) =>
           prev
-            ? {
+            ? ({
                 ...prev,
                 status: data.status as 'ACTIVE' | 'ENDED',
                 isLocked: data.isLocked,
                 isAbandonedByAdmin: data.isAbandonedByAdmin,
                 abandonReason: null, // Clear the abandon reason when unblocked
-              } as any
+              } as any)
             : null
         );
       }
@@ -350,16 +363,39 @@ export default function ChatPage() {
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === data.chatId
-            ? {
+            ? ({
                 ...chat,
                 status: data.status as 'ACTIVE' | 'ENDED',
                 isLocked: data.isLocked,
                 isAbandonedByAdmin: data.isAbandonedByAdmin,
                 abandonReason: null, // Clear the abandon reason when unblocked
-              } as any
+              } as any)
             : chat
         )
       );
+    };
+
+    // Handle chat errors (e.g., insufficient coins)
+    const handleChatError = (data: { message: string; code?: string; requiredCoins?: number }) => {
+      console.error('Chat error:', data);
+
+      if (
+        data.code === ERROR_CODES.INSUFFICIENT_COINS ||
+        data.message?.toLowerCase().includes('insufficient coins')
+      ) {
+        const coins = data.requiredCoins || extractRequiredCoins(data.message);
+        toast.error(data.message || 'Insufficient coins to send message');
+        setRequiredCoins(coins);
+        setShowCoinPurchaseModal(true);
+      } else {
+        toast.error(data.message || 'Failed to send message');
+      }
+    };
+
+    // Extract required coins from error message
+    const extractRequiredCoins = (errorMessage: string): number => {
+      const match = errorMessage.match(/Required:\s*(\d+)/i);
+      return match ? parseInt(match[1], 10) : 1;
     };
 
     // Listen to both receive and sent events
@@ -369,6 +405,7 @@ export default function ChatPage() {
     socket.on('chat:reopened', handleChatReopened);
     socket.on('chat:abandoned', handleChatAbandoned);
     socket.on('chat:unblocked', handleChatUnblocked);
+    socket.on('chat:error', handleChatError);
     socket.on('broadcast:yourMessageAccepted', handleYourBroadcastAccepted); // ✅ Listen for broadcast acceptance
 
     return () => {
@@ -378,6 +415,7 @@ export default function ChatPage() {
       socket.off('chat:reopened', handleChatReopened);
       socket.off('chat:abandoned', handleChatAbandoned);
       socket.off('chat:unblocked', handleChatUnblocked);
+      socket.off('chat:error', handleChatError);
       socket.off('broadcast:yourMessageAccepted', handleYourBroadcastAccepted);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -412,7 +450,11 @@ export default function ChatPage() {
   };
 
   // Load and select a specific chat from URL
-  const loadAndSelectChatFromUrl = async (chatId: string, loadedChats?: any[], skipMobileToggle = false) => {
+  const loadAndSelectChatFromUrl = async (
+    chatId: string,
+    loadedChats?: any[],
+    skipMobileToggle = false
+  ) => {
     if (!chatId || !user) return;
 
     try {
@@ -450,14 +492,14 @@ export default function ChatPage() {
       // Set the active chat FIRST (this triggers ChatWindow to prepare for new chat)
       setActiveChat(chat);
       setActiveChatId(chat.id);
-      
+
       // ✅ Only toggle mobile chat if not skipping (prevents layout shift)
       if (!skipMobileToggle) {
         setShowMobileChat(true);
       }
 
       // Small delay to ensure state updates propagate
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Load messages
       await loadMessages(otherUser.id);
@@ -531,7 +573,7 @@ export default function ChatPage() {
     setActiveChatId(null);
     setMessages([]);
     setShowMobileChat(true);
-    
+
     // ✅ Change URL to just /chat (remove chatId query param)
     router.replace('/chat');
   };
@@ -802,6 +844,18 @@ export default function ChatPage() {
         isOpen={showProfileIncompleteDialog}
         onClose={() => setShowProfileIncompleteDialog(false)}
         missingFields={missingProfileFields}
+      />
+
+      {/* Coin Purchase Modal */}
+      <CoinPurchaseModal
+        isOpen={showCoinPurchaseModal}
+        onClose={() => setShowCoinPurchaseModal(false)}
+        requiredCoins={requiredCoins}
+        onPurchaseSuccess={() => {
+          setShowCoinPurchaseModal(false);
+          // After purchase, coins will be updated and user can retry sending message
+        }}
+        mode="insufficient"
       />
     </DashboardLayout>
   );
