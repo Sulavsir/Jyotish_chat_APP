@@ -43,6 +43,7 @@ export const createAstrologerSchema = z.object({
   email: emailSchema,
   phone: phoneSchema,
   password: passwordSchema,
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().default('MALE'),
 
   // Professional Details
   specialization: z

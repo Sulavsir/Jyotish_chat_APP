@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from 'sonner';
 import { QueryProvider } from '@/providers/query-provider';
 import { AuthProvider } from '@/providers/auth-provider';
+import { AdminChatWidget } from '@/components/widgets/AdminChatWidget';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -74,6 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <AuthProvider>
             {children}
+            <AdminChatWidget />
             <Toaster position="top-right" richColors />
           </AuthProvider>
         </QueryProvider>

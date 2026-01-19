@@ -17,6 +17,7 @@ import complaintRoutes from './complaint.routes';
 import publicRoutes from './public.routes';
 import ratingRoutes from './rating.routes';
 import coinRoutes from './coin.routes';
+import adminChatRoutes from './adminChat.routes';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.use('/pricing', pricingRoutes); // Pricing plans
 router.use('/complaints', complaintRoutes); // User complaints
 router.use('/ratings', ratingRoutes); // Astrologer ratings
 router.use('/coins', coinRoutes); // Coin management
+router.use('/admin-chat', adminChatRoutes); // Admin chat support widget
 
 // Astrologer routes
 router.use('/astrologer', astrologerRoutes);

@@ -71,5 +71,17 @@ export const ADMIN_QUERY_KEYS = {
         : ['admin', 'complaints', 'list'] as const,
     STATS: () => ['admin', 'complaints', 'stats'] as const,
   },
+
+  // Admin Chat
+  ADMIN_CHAT: {
+    ALL: ['admin', 'admin-chat'] as const,
+    LIST: () => ['admin', 'admin-chat', 'list'] as const,
+    DETAIL: (id: string) => ['admin', 'admin-chat', 'detail', id] as const,
+    UNREAD_COUNT: () => ['admin', 'admin-chat', 'unread-count'] as const,
+    MESSAGES: (id: string, params?: { page?: number; limit?: number }) =>
+      params
+        ? ['admin', 'admin-chat', 'messages', id, params] as const
+        : ['admin', 'admin-chat', 'messages', id] as const,
+  },
 } as const;
 

@@ -29,6 +29,9 @@ export const ADMIN_ROUTES = {
   // Chat Audit
   CHAT_AUDIT: '/admin/chat-audit',
   
+  // Admin Chats (Support Widget)
+  ADMIN_CHATS: '/admin/admin-chats',
+  
   // Complaints
   COMPLAINTS: '/admin/complaints',
   COMPLAINTS_VIEW: (id: string) => `/admin/complaints/${id}`,

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminStore } from '@/store/admin-store';
 import { adminApi } from '@/lib/admin-api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Button,
   UsersIcon,
@@ -19,8 +20,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@jyotish/ui';
-import { ADMIN_ROUTES } from '@/constants';
+import { ADMIN_QUERY_KEYS, ADMIN_ROUTES } from '@/constants';
 import { useAdminSocket } from '@/hooks';
+import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -29,12 +31,37 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const { admin, isAuthenticated, logout, setAdmin, _hasHydrated } = useAdminStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isValidatingSession, setIsValidatingSession] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [adminStatus, setAdminStatus] = useState<'available' | 'busy'>('available');
-  const { isConnected, isConnecting, error: socketError } = useAdminSocket();
+  const { isConnected, isConnecting, error: socketError, on, off } = useAdminSocket();
+
+  // Unread admin chat count (sidebar badge)
+  const { data: unreadData } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.ADMIN_CHAT.UNREAD_COUNT(),
+    queryFn: () => adminApi.adminChat.unreadCount(),
+    enabled: isAuthenticated && _hasHydrated,
+    staleTime: 10_000,
+  });
+  const unreadCount = unreadData?.count ?? 0;
+
+  // Live update unread count on new incoming user message
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleNewAdminChatMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ADMIN_CHAT.UNREAD_COUNT() });
+    };
+
+    on(ADMIN_SOCKET_EVENTS.ADMIN_CHAT.NEW_MESSAGE, handleNewAdminChatMessage);
+
+    return () => {
+      off(ADMIN_SOCKET_EVENTS.ADMIN_CHAT.NEW_MESSAGE, handleNewAdminChatMessage);
+    };
+  }, [isConnected, on, off, queryClient]);
 
   // Handle authentication state after hydration
   useEffect(() => {
@@ -131,6 +158,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       icon: <ChatIcon className="w-5 h-5" />,
     },
     {
+      name: 'Admin Chats',
+      href: ADMIN_ROUTES.ADMIN_CHATS,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+          />
+        </svg>
+      ),
+    },
+    {
       name: 'Complaints',
       href: ADMIN_ROUTES.COMPLAINTS,
       icon: (
@@ -222,6 +263,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <nav className="flex-1 p-4 space-y-2 relative z-20">
           {navigation.map((item) => {
             const isActive = pathname === item.href;
+            const isAdminChats = item.href === ADMIN_ROUTES.ADMIN_CHATS;
             return (
               <Link
                 key={item.name}
@@ -233,7 +275,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 }`}
               >
                 {item.icon}
-                {sidebarOpen && <span className="font-medium">{item.name}</span>}
+                {sidebarOpen && (
+                  <div className="flex items-center justify-between w-full">
+                    <span className="font-medium">{item.name}</span>
+                    {isAdminChats && unreadCount > 0 && (
+                      <span className="ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </div>
+                )}
               </Link>
             );
           })}

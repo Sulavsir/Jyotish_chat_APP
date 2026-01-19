@@ -12,6 +12,8 @@ export interface User {
   dateOfBirth?: string | Date;
   timeOfBirth?: string;
   placeOfBirth?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  zodiacSign?: ZodiacSign | null;
 
   // Address fields
   currentAddress?: string;

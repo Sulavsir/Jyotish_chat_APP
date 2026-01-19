@@ -71,6 +71,7 @@ export class UserService {
         latitude: true,
         longitude: true,
         zodiacSign: true,
+        gender: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -148,6 +149,7 @@ export class UserService {
         latitude: true,
         longitude: true,
         zodiacSign: true,
+        gender: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -208,7 +210,7 @@ export class UserService {
 
     if (!user) return null;
 
-    return toUserResponse(user);
+    return toUserResponse(user as UserEntity);
   }
 
   /**
@@ -226,6 +228,7 @@ export class UserService {
         placeOfBirth: data.placeOfBirth,
         currentAddress: data.currentAddress,
         permanentAddress: data.permanentAddress,
+        gender: data.gender ?? 'MALE',
         profileCompleted: true,
         ...(data.profilePhoto && { profilePhoto: data.profilePhoto }),
       },
@@ -248,6 +251,7 @@ export class UserService {
         latitude: true,
         longitude: true,
         zodiacSign: true,
+        gender: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -292,6 +296,7 @@ export class UserService {
         latitude: true,
         longitude: true,
         zodiacSign: true,
+        gender: true,
         createdAt: true,
         updatedAt: true,
       },

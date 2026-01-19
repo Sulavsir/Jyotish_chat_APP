@@ -17,3 +17,4 @@ export const ZODIAC_SIGNS = [
   'PISCES',
 ] as const;
 
+export type ZodiacSign = (typeof ZODIAC_SIGNS)[number];

@@ -2,6 +2,8 @@
  * User related types and enums
  */
 
+import type { GenderType } from '@/constants';
+
 // User Role Enum (matches Prisma schema)
 export enum UserRole {
   CLIENT = 'CLIENT',
@@ -25,6 +27,7 @@ export interface User {
   dateOfBirth?: string;
   timeOfBirth?: string;
   placeOfBirth?: string;
+  gender?: GenderType;
   currentAddress?: string;
   permanentAddress?: string;
   profileCompleted?: boolean;

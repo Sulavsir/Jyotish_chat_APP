@@ -28,6 +28,7 @@ model User {
   latitude                     Float?
   longitude                    Float?
   zodiacSign                   ZodiacSign?
+  gender                       Gender?
   coins                        Int                    @default(0)
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
@@ -42,6 +43,7 @@ model User {
   payments                     Payment[]
   sessions                     Session[]
   chatsAsClient                Chat[]                 @relation("ChatParticipant1")
+  adminChatsAsUser              AdminChat[]           @relation("UserAdminChats")
   auditLogs                    AuditLog[]
   appointments                 Appointment[]          @relation("ClientAppointments")
   complaintsAsClient           Complaint[]            @relation("ClientComplaints")
@@ -78,6 +80,7 @@ model Astrologer {
   documentVerification         Json? // Store verification documents metadata
   availabilitySchedule         Json? // Store weekly schedule
   languages                    String[]              @default(["English", "Nepali"])
+  gender                       Gender?
   createdBy                    String // Admin ID who created this astrologer
   createdAt                    DateTime              @default(now())
   updatedAt                    DateTime              @updatedAt
@@ -94,6 +97,7 @@ model Astrologer {
   complaintsReceived           Complaint[]                  @relation("AstrologerComplaints")
   dismissedBroadcastMessages   BroadcastMessageDismissal[]  @relation("DismissedBroadcastMessages")
   ratingsReceived              Rating[]                     @relation("AstrologerRatings")
+  adminChatsAsAstrologer       AdminChat[]                  @relation("AstrologerAdminChats")
 
   @@index([phone])
   @@index([email])
@@ -114,6 +118,7 @@ model Admin {
   updatedAt          DateTime    @updatedAt
   auditLogs          AuditLog[]
   resolvedComplaints Complaint[] @relation("ResolvedComplaints")
+  adminChats         AdminChat[] @relation("AdminAdminChats")
 
   @@index([email])
   @@index([isActive])
@@ -612,6 +617,12 @@ enum UserRole {
   ADMIN
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 enum ZodiacSign {
   ARIES
   TAURUS
@@ -827,6 +838,63 @@ enum AppointmentStatus {
   COMPLETED // Appointment finished
   CANCELLED // Cancelled by client or astrologer
   NO_SHOW // Client didn't show up
+}
+
+// Admin Chat - Direct chat between users and admins (support widget)
+model AdminChat {
+  id            String        @id @default(uuid())
+  userId        String?       // Client user who initiated the chat (null if astrologer initiated)
+  astrologerId  String?       // Astrologer who initiated the chat (null if client initiated)
+  adminId       String?       // Admin who responds (null if no admin assigned yet)
+  status        AdminChatStatus @default(ACTIVE)
+  lastMessageAt DateTime?
+  lastMessageText String?
+  userRead      Boolean       @default(true)
+  adminRead     Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User?         @relation("UserAdminChats", fields: [userId], references: [id], onDelete: Cascade)
+  astrologer    Astrologer?   @relation("AstrologerAdminChats", fields: [astrologerId], references: [id], onDelete: Cascade)
+  admin         Admin?        @relation("AdminAdminChats", fields: [adminId], references: [id], onDelete: SetNull)
+  messages      AdminChatMessage[]
+
+  @@index([userId])
+  @@index([astrologerId])
+  @@index([adminId])
+  @@index([status])
+  @@index([lastMessageAt])
+  @@index([createdAt])
+}
+
+// Admin Chat Messages
+model AdminChatMessage {
+  id        String        @id @default(uuid())
+  chatId    String
+  senderId  String        // User ID or Admin ID
+  senderType AdminChatSenderType // USER or ADMIN
+  content   String
+  type      MessageType   @default(TEXT)
+  metadata  Json?
+  isRead    Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  chat      AdminChat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+  @@index([senderId])
+  @@index([senderType])
+  @@index([createdAt])
+}
+
+enum AdminChatStatus {
+  ACTIVE
+  RESOLVED
+  CLOSED
+}
+
+enum AdminChatSenderType {
+  USER
+  ADMIN
 }
 
 model CoinTransaction {

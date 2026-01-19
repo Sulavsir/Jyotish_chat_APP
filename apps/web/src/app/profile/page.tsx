@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { useAuthStore } from '@/store/auth-store';
-import { ROUTES, USER_ROLES } from '@/constants';
+import { GenderEnum, GenderType, ROUTES, USER_ROLES } from '@/constants';
 import {
   Card,
   CardContent,
@@ -26,7 +26,7 @@ import { displayError, displaySuccess } from '@/utils/error-handler';
 import {
   Mail,
   Phone,
-  MapPin,
+  MapPin,                 
   Calendar,
   Clock,
   User,
@@ -44,6 +44,7 @@ import { FormInput } from '@/components/form';
 import { profileEditSchema, type ProfileEditFormData } from '@/lib/validations';
 import type { ApiError } from '@/types/auth';
 import { CoinDisplay } from '@/components/ui';
+import { ZODIAC_SIGNS } from '@/constants';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -55,6 +56,24 @@ export default function ProfilePage() {
   // Local state for dismissing alerts (resets on page reload/navigation)
   const [showProfileAlert, setShowProfileAlert] = useState(true);
   const [showPasswordAlert, setShowPasswordAlert] = useState(true);
+
+  // Get gender from user or localStorage
+  const getGenderFromStorage = (): GenderType | null => {
+    if (user?.gender) {
+      return user.gender as GenderType;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('jyotish_user_gender');
+        if (stored) {
+          return stored as GenderType;
+        }
+      } catch (error) {
+        console.error('Error reading gender from localStorage:', error);
+      }
+    }
+    return null;
+  };
 
   // React Hook Form
   const {
@@ -72,6 +91,8 @@ export default function ProfilePage() {
       placeOfBirth: user?.placeOfBirth || '',
       currentAddress: user?.currentAddress || '',
       permanentAddress: user?.permanentAddress || '',
+      gender: getGenderFromStorage(),
+      zodiacSign: (user as { zodiacSign?: string })?.zodiacSign || '',
     },
   });
 
@@ -89,30 +110,34 @@ export default function ProfilePage() {
           placeOfBirth: user.placeOfBirth || '',
           currentAddress: user.currentAddress || '',
           permanentAddress: user.permanentAddress || '',
+          gender: getGenderFromStorage(),
+          zodiacSign: (user as { zodiacSign?: string })?.zodiacSign || '',
         },
         { keepDirtyValues: true }
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, user?.gender]);
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileEditFormData) => {
-      // First update basic profile (name, email)
+      // First update basic profile (name, email only)
       const updatedUser = await authApi.updateProfile({
         name: data.name,
         email: data.email,
       });
 
-      // Then update birth details if they're provided
-      if (data.dateOfBirth || data.timeOfBirth || data.placeOfBirth) {
+      // Then update birth details if they're provided (including gender and zodiacSign)
+      if (data.dateOfBirth || data.timeOfBirth || data.placeOfBirth || data.gender || data.zodiacSign) {
         return await authApi.updateBirthDetails({
           dateOfBirth: data.dateOfBirth,
           timeOfBirth: data.timeOfBirth,
           placeOfBirth: data.placeOfBirth,
           currentAddress: data.currentAddress,
           permanentAddress: data.permanentAddress,
+          ...(data.gender ? { gender: data.gender as GenderType } : {}),
+          ...(data.zodiacSign ? { zodiacSign: data.zodiacSign } : {}),
         });
       }
 
@@ -120,6 +145,16 @@ export default function ProfilePage() {
     },
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
+      
+      // Explicitly save gender to localStorage for immediate access
+      if (typeof window !== 'undefined' && updatedUser.gender) {
+        try {
+          localStorage.setItem('jyotish_user_gender', updatedUser.gender);
+        } catch (error) {
+          console.error('Error saving gender to localStorage:', error);
+        }
+      }
+      
       // Reset form with updated values
       reset({
         name: updatedUser.name || '',
@@ -131,6 +166,8 @@ export default function ProfilePage() {
         placeOfBirth: updatedUser.placeOfBirth || '',
         currentAddress: updatedUser.currentAddress || '',
         permanentAddress: updatedUser.permanentAddress || '',
+        gender: (updatedUser?.gender as GenderType) || null,
+        zodiacSign: (updatedUser as { zodiacSign?: string })?.zodiacSign || '',
       });
       setIsEditing(false);
       displaySuccess('Profile updated successfully!');
@@ -189,6 +226,8 @@ export default function ProfilePage() {
       placeOfBirth: user?.placeOfBirth || '',
       currentAddress: user?.currentAddress || '',
       permanentAddress: user?.permanentAddress || '',
+      gender: (user?.gender as GenderType) || null,
+      zodiacSign: (user as { zodiacSign?: string })?.zodiacSign || '',
     });
   };
 
@@ -444,6 +483,73 @@ export default function ProfilePage() {
                   placeholder="your@email.com"
                   className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed"
                 />
+              </div>
+              <div className="flex flex-row gap-4 mt-2">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="gender" className="text-white text-sm font-medium">
+                    Gender
+                  </Label>
+                  {isEditing ? (
+                    <>
+                      <select
+                        id="gender"
+                        {...register('gender')}
+                        className="w-full px-3 py-2 bg-white/5 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20"
+                      >
+                        <option value="" className="bg-slate-900 text-white">Select Gender</option>
+                        <option value={GenderEnum.MALE} className="bg-slate-900 text-white">Male</option>
+                        <option value={GenderEnum.FEMALE} className="bg-slate-900 text-white">Female</option>
+                        <option value={GenderEnum.OTHER} className="bg-slate-900 text-white">Other</option>
+                      </select>
+                      {errors.gender && (
+                        <p className="text-xs text-red-400">{errors.gender.message}</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="px-3 py-2 bg-white/5 border-2 border-white/20 rounded-md text-white text-sm">
+                      {user?.gender ? (
+                        user.gender === GenderEnum.MALE ? 'Male' : user.gender === GenderEnum.FEMALE ? 'Female' : 'Other'
+                      ) : (
+                        <span className="text-gray-500 italic">Not set</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="zodiacSign" className="text-white text-sm font-medium">
+                    Zodiac Sign
+                  </Label>
+                  {isEditing ? (
+                    <>
+                      <select
+                        id="zodiacSign"
+                        {...register('zodiacSign')}
+                        className="w-full px-3 py-2 bg-white/5 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20"
+                      >
+                        <option value="" className="bg-slate-900 text-white">Select Zodiac Sign</option>
+                        {ZODIAC_SIGNS.map((sign) => (
+                          <option key={sign} value={sign} className="bg-slate-900 text-white">
+                            {sign.charAt(0) + sign.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.zodiacSign && (
+                        <p className="text-xs text-red-400">{errors.zodiacSign.message}</p>
+                      )}
+                    </>
+                  ) : (
+                    <div className="px-3 py-2 bg-white/5 border-2 border-white/20 rounded-md text-white text-sm">
+                      {(() => {
+                        const zodiac = (user as { zodiacSign?: string })?.zodiacSign;
+                        return zodiac ? (
+                          zodiac.charAt(0) + zodiac.slice(1).toLowerCase()
+                        ) : (
+                          <span className="text-gray-500 italic">Not set</span>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

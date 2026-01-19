@@ -209,6 +209,24 @@ class ApiClient {
       throw new Error(this.getErrorMessage(error));
     }
   }
+
+  /**
+   * Upload file (multipart/form-data)
+   */
+  async uploadFile<T>(url: string, formData: FormData, config?: any): Promise<T> {
+    try {
+      const response = await this.client.post(url, formData, {
+        ...(config || {}),
+        headers: {
+          ...(config?.headers || {}),
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data.data || response.data;
+    } catch (error: any) {
+      throw new Error(this.getErrorMessage(error));
+    }
+  }
 }
 
 export const apiClient = new ApiClient();

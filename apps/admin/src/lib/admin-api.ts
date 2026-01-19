@@ -7,6 +7,85 @@ import { API_ENDPOINTS } from '@/constants/api.constants';
 import type { Complaint, ComplaintStats } from '@/types';
 import type { Appointment } from '@/types/appointment.types';
 
+export interface AdminChat {
+  id: string;
+  userId: string | null;
+  astrologerId?: string | null;
+  adminId: string | null;
+  status: 'ACTIVE' | 'RESOLVED' | 'CLOSED';
+  lastMessageAt: Date | string | null;
+  lastMessageText: string | null;
+  userRead: boolean;
+  adminRead: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  user?: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    phone: string;
+    profilePhoto: string | null;
+  };
+  astrologer?: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    phone: string;
+    profilePhoto: string | null;
+  };
+  admin?: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  };
+  participantRole?: 'CLIENT' | 'ASTROLOGER';
+}
+
+export interface AdminChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  senderType: 'USER' | 'ADMIN';
+  content: string;
+  type: 'TEXT' | 'IMAGE' | 'FILE';
+  metadata: Record<string, unknown> | null;
+  isRead: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface AdminChatListResponse {
+  chats: AdminChat[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface AdminChatMessagesResponse {
+  messages: AdminChatMessage[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface AdminChatUnreadCountResponse {
+  count: number;
+}
+
+export interface AdminChatUploadedFile {
+  url: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  type: 'IMAGE' | 'FILE' | 'AUDIO';
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -310,6 +389,89 @@ export const adminApi = {
     toggle: async (id: string): Promise<import('@/types').GetPricingPlanResponse> => {
       const response = await apiClient.patch<import('@/types').GetPricingPlanResponse>(
         API_ENDPOINTS.PRICING.TOGGLE(id)
+      );
+      return response;
+    },
+  },
+
+  /**
+   * Admin Chat (Support Widget)
+   */
+  adminChat: {
+    list: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: 'ACTIVE' | 'RESOLVED' | 'CLOSED';
+      search?: string;
+    }): Promise<AdminChatListResponse> => {
+      const response = await apiClient.get<AdminChatListResponse>(
+        API_ENDPOINTS.ADMIN_CHAT.LIST,
+        { params }
+      );
+      return response;
+    },
+
+    get: async (id: string): Promise<{ chat: AdminChat }> => {
+      const response = await apiClient.get<{ chat: AdminChat }>(API_ENDPOINTS.ADMIN_CHAT.GET(id));
+      return response;
+    },
+
+    getMessages: async (
+      id: string,
+      params?: { page?: number; limit?: number }
+    ): Promise<AdminChatMessagesResponse> => {
+      const response = await apiClient.get<AdminChatMessagesResponse>(
+        API_ENDPOINTS.ADMIN_CHAT.MESSAGES(id),
+        { params }
+      );
+      return response;
+    },
+
+    sendMessage: async (id: string, data: { content: string; type?: 'TEXT' | 'IMAGE' | 'FILE' }): Promise<{ message: AdminChatMessage }> => {
+      const response = await apiClient.post<{ message: AdminChatMessage }>(
+        API_ENDPOINTS.ADMIN_CHAT.SEND_MESSAGE(id),
+        data
+      );
+      return response;
+    },
+
+    markAsRead: async (id: string): Promise<{ message: string }> => {
+      const response = await apiClient.patch<{ message: string }>(
+        API_ENDPOINTS.ADMIN_CHAT.MARK_READ(id)
+      );
+      return response;
+    },
+
+    unreadCount: async (): Promise<AdminChatUnreadCountResponse> => {
+      const response = await apiClient.get<AdminChatUnreadCountResponse>(
+        API_ENDPOINTS.ADMIN_CHAT.UNREAD_COUNT
+      );
+      return response;
+    },
+
+    uploadFile: async (file: File): Promise<AdminChatUploadedFile> => {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await apiClient.uploadFile<{ file: AdminChatUploadedFile }>(
+        API_ENDPOINTS.ADMIN_CHAT.UPLOAD_FILE,
+        formData
+      );
+      return response.file;
+    },
+
+    updateStatus: async (id: string, status: 'ACTIVE' | 'RESOLVED' | 'CLOSED'): Promise<{ chat: AdminChat }> => {
+      const response = await apiClient.patch<{ chat: AdminChat }>(
+        API_ENDPOINTS.ADMIN_CHAT.UPDATE_STATUS(id),
+        { status }
+      );
+      return response;
+    },
+
+    assign: async (id: string, adminId: string): Promise<{ chat: AdminChat }> => {
+      const response = await apiClient.patch<{ chat: AdminChat }>(
+        API_ENDPOINTS.ADMIN_CHAT.ASSIGN(id),
+        { adminId }
       );
       return response;
     },

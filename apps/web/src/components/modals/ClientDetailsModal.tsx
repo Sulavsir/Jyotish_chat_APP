@@ -22,7 +22,7 @@ import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
 import { getImageUrl } from '@/utils/image.utils';
 import { useQuery } from '@tanstack/react-query';
 import { userService, type ClientDetails } from '@/services/user.service';
-import { QUERY_KEYS } from '@/constants';
+import { QUERY_KEYS, GenderEnum } from '@/constants';
 
 interface ClientDetailsResponse {
   client: ClientDetails;
@@ -93,9 +93,16 @@ export function ClientDetailsModal({ isOpen, onClose, clientId }: ClientDetailsM
                     <h3 className="text-xl font-bold text-white mb-1">
                       {client.name || client.phone || 'Unknown Client'}
                     </h3>
-                    {client.zodiacSign && (
-                      <p className="text-blue-300 text-sm font-medium">♈ {client.zodiacSign}</p>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {client.zodiacSign && (
+                        <p className="text-blue-300 text-sm font-medium">♈ {client.zodiacSign}</p>
+                      )}
+                      {client.gender && (
+                        <p className="text-blue-300 text-sm font-medium">
+                          {client.gender === GenderEnum.MALE ? '♂' : client.gender === GenderEnum.FEMALE ? '♀' : client.gender === GenderEnum.OTHER ? '⚧' : ''} {client.gender}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

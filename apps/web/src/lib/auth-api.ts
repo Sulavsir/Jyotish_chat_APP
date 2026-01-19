@@ -1,4 +1,4 @@
-import { API_ENDPOINTS } from '@/constants';
+import { API_ENDPOINTS, type GenderType } from '@/constants';
 import { apiClient } from './api-client';
 import { TokenManager } from '@/lib/auth';
 import { useAuthStore } from '@/store/auth-store';
@@ -168,6 +168,8 @@ export const authApi = {
     placeOfBirth?: string;
     currentAddress?: string;
     permanentAddress?: string;
+    gender?: GenderType;
+    zodiacSign?: string;
   }): Promise<User> => {
     return apiClient.patch<User>(API_ENDPOINTS.USER.BIRTH_DETAILS, data);
   },

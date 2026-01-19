@@ -128,4 +128,14 @@ export const API_ENDPOINTS = {
     TRANSACTIONS: '/api/v1/coins/transactions',
   },
   PRICING: '/api/v1/pricing',
+  ADMIN_CHAT: {
+    BASE: '/api/v1/admin-chat',
+    CREATE: '/api/v1/admin-chat',
+    MY: '/api/v1/admin-chat/my',
+    BY_ID: (id: string) => `/api/v1/admin-chat/${id}`,
+    MESSAGES: (id: string) => `/api/v1/admin-chat/${id}/messages`,
+    SEND_MESSAGE: (id: string) => `/api/v1/admin-chat/${id}/messages`,
+    UPLOAD_FILE: '/api/v1/admin-chat/upload-file',
+    MARK_READ: (id: string) => `/api/v1/admin-chat/${id}/read`,
+  },
 } as const;

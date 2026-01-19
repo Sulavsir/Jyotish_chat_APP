@@ -23,6 +23,7 @@ import { ProfileImageUpload } from '@/components/profile/ProfileImageUpload';
 import { RemoveProfileModal } from '@/components/modals/RemoveProfileModal';
 import { LoadingScreenWithBackground } from '@/components/ui';
 import { useRouter } from 'next/navigation';
+import { GenderEnum, type GenderType } from '@/constants';
 
 export default function JyotishProfilePage() {
   const router = useRouter();
@@ -45,6 +46,7 @@ export default function JyotishProfilePage() {
     defaultValues: {
       name: user?.name || '',
       email: user?.email || '',
+      gender: (user?.gender as GenderType) || null,
     },
   });
 
@@ -54,6 +56,7 @@ export default function JyotishProfilePage() {
       reset({
         name: user.name || '',
         email: user.email || '',
+        gender: (user?.gender as GenderType) || null,
       });
     }
   }, [user, reset]);
@@ -117,6 +120,7 @@ export default function JyotishProfilePage() {
     reset({
       name: user?.name || '',
       email: user?.email || '',
+      gender: (user?.gender as GenderType) || null,
     });
   };
 
@@ -171,7 +175,9 @@ export default function JyotishProfilePage() {
                 {/* User Info */}
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-white">{user?.name || 'Jyotish Name'}</h2>
-                  <p className="text-gray-400">{user?.phoneNumber}</p>
+                  <p className="text-white">
+                    {user?.phone || user?.phoneNumber || 'No phone number'}
+                  </p>
                   {user?.email && <p className="text-gray-400">{user.email}</p>}
                   <span className="inline-block px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full text-sm font-semibold">
                     Astrologer
@@ -220,7 +226,7 @@ export default function JyotishProfilePage() {
                     <Input
                       id="phone"
                       type="tel"
-                      defaultValue={user?.phoneNumber || ''}
+                      value={user?.phone || user?.phoneNumber || ''}
                       disabled
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
                     />
@@ -238,69 +244,122 @@ export default function JyotishProfilePage() {
                   />
 
                   <div className="space-y-2">
-                    <Label htmlFor="experience" className="text-white">
-                      Years of Experience
+                    <Label htmlFor="gender" className="text-white">
+                      Gender
+                    </Label>
+                    {isEditing ? (
+                      <>
+                        <select
+                          id="gender"
+                          {...register('gender')}
+                          className="w-full px-3 py-2 bg-white/10 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 [color-scheme:dark]"
+                        >
+                          <option value="">Select Gender</option>
+                          <option value={GenderEnum.MALE}>Male</option>
+                          <option value={GenderEnum.FEMALE}>Female</option>
+                          <option value={GenderEnum.OTHER}>Other</option>
+                        </select>
+                        {errors.gender && (
+                          <p className="text-xs text-red-400">{errors.gender.message}</p>
+                        )}
+                      </>
+                    ) : (
+                      <div className="px-3 py-2 bg-white/5 border-2 border-white/10 rounded-md text-white text-sm">
+                        {user?.gender ? (
+                          user.gender === GenderEnum.MALE ? 'Male' : user.gender === GenderEnum.FEMALE ? 'Female' : 'Other'
+                        ) : (
+                          <span className="text-gray-500 italic">Not set</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="experience" className="text-white">
+                        Years of Experience
+                      </Label>
+                      <Input
+                        id="experience"
+                        type="number"
+                        defaultValue="10"
+                        disabled={!isEditing}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="specialization" className="text-white">
+                      Specialization
                     </Label>
                     <Input
-                      id="experience"
-                      type="number"
-                      defaultValue="10"
+                      id="specialization"
+                      type="text"
+                      defaultValue="Vedic Astrology, Numerology, Palmistry"
                       disabled={!isEditing}
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
                     />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="specialization" className="text-white">
-                    Specialization
-                  </Label>
-                  <Input
-                    id="specialization"
-                    type="text"
-                    defaultValue="Vedic Astrology, Numerology, Palmistry"
-                    disabled={!isEditing}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="languages" className="text-white">
-                    Languages
-                  </Label>
-                  <Input
-                    id="languages"
-                    type="text"
-                    defaultValue="Nepali, English, Hindi"
-                    disabled={!isEditing}
-                    className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
-                  />
-                </div>
-
-                {isEditing && (
-                  <div className="flex gap-4 pt-4">
-                    <LoadingButton
-                      type="submit"
-                      color="primary"
-                      size="lg"
-                      className="flex-1"
-                      isLoading={updateProfileMutation.isPending}
-                      loadingText="Saving..."
-                    >
-                      Save Changes
-                    </LoadingButton>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="lg"
-                      onClick={handleCancel}
-                      className="flex-1"
-                      disabled={updateProfileMutation.isPending}
-                    >
-                      Cancel
-                    </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="languages" className="text-white">
+                      Languages
+                    </Label>
+                    <Input
+                      id="languages"
+                      type="text"
+                      defaultValue="Nepali, English, Hindi"
+                      disabled={!isEditing}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
+                    />
                   </div>
-                )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bio" className="text-white">
+                      Bio
+                    </Label>
+                    {isEditing ? (
+                      <textarea
+                        id="bio"
+                        rows={4}
+                        defaultValue={(user?.astrologer as { bio?: string } | undefined)?.bio || ''}
+                        disabled={!isEditing}
+                        className="w-full px-3 py-2 bg-white/10 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                        placeholder="Tell us about your expertise and background..."
+                      />
+                    ) : (
+                      <div className="w-full px-3 py-2 bg-white/5 border-2 border-white/10 rounded-md text-white text-sm min-h-[100px]">
+                        {(user?.astrologer as any)?.bio || (
+                          <span className="text-gray-500 italic">No bio provided</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditing && (
+                    <div className="flex gap-4 pt-4">
+                      <LoadingButton
+                        type="submit"
+                        color="primary"
+                        size="lg"
+                        className="flex-1"
+                        isLoading={updateProfileMutation.isPending}
+                        loadingText="Saving..."
+                      >
+                        Save Changes
+                      </LoadingButton>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        onClick={handleCancel}
+                        className="flex-1"
+                        disabled={updateProfileMutation.isPending}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
               </form>
             </CardContent>
           </Card>

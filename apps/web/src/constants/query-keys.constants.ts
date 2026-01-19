@@ -105,4 +105,14 @@ export const QUERY_KEYS = {
   PRICING: {
     PLANS: ['pricing', 'plans'] as const,
   },
+
+  // Admin Chat
+  ADMIN_CHAT: {
+    MY: ['admin-chat', 'my'] as const,
+    DETAIL: (chatId: string) => ['admin-chat', 'detail', chatId] as const,
+    MESSAGES: (chatId: string, params?: { page?: number; limit?: number }) =>
+      params
+        ? (['admin-chat', 'messages', chatId, params] as const)
+        : (['admin-chat', 'messages', chatId] as const),
+  },
 } as const;

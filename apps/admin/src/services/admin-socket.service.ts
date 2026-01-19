@@ -4,6 +4,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
+import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 
 // WebSocket URL configuration
 // Production: Use environment variable (points to API server)
@@ -17,44 +18,59 @@ const SOCKET_URL =
 
 export interface AdminSocketEvents {
   // Dashboard events
-  'stats:update': (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.STATS.UPDATE]: (data: any) => void;
 
   // Chat events
-  'chat:new': (data: any) => void;
-  'chat:update': (data: any) => void;
-  'chat:ended': (data: any) => void;
-  'chat:abandoned': (data: { chatId: string; reason?: string; abandonedBy: string }) => void;
-  'chat:unblocked': (data: { chatId: string }) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.UPDATE]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.ENDED]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.ABANDONED]: (data: { chatId: string; reason?: string; abandonedBy: string }) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.UNBLOCKED]: (data: { chatId: string }) => void;
 
   // User events
-  'user:new': (data: any) => void;
-  'user:update': (data: any) => void;
-  'user:status': (data: { userId: string; status: 'online' | 'offline' }) => void;
+  [ADMIN_SOCKET_EVENTS.USER.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.USER.UPDATE]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.USER.STATUS]: (data: { userId: string; status: 'online' | 'offline' }) => void;
 
   // Astrologer events
-  'astrologer:new': (data: any) => void;
-  'astrologer:update': (data: any) => void;
-  'astrologer:status_changed': (data: { astrologerId: string; isOnline: boolean }) => void;
+  [ADMIN_SOCKET_EVENTS.ASTROLOGER.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.ASTROLOGER.UPDATE]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.ASTROLOGER.STATUS_CHANGED]: (data: { astrologerId: string; isOnline: boolean }) => void;
 
   // Earning events
-  'earning:new': (data: any) => void;
-  'earning:update': (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.EARNING.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.EARNING.UPDATE]: (data: any) => void;
 
   // Audit log events
-  'auditLog:new': (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.AUDIT_LOG.NEW]: (data: any) => void;
 
   // Consultation events
-  'consultation:new': (data: any) => void;
-  'consultation:update': (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CONSULTATION.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CONSULTATION.UPDATE]: (data: any) => void;
 
   // Chat audit events
-  'chatAudit:new': (data: any) => void;
-  'chatAudit:update': (data: any) => void;
-  'chatAudit:chatEnded': (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT_AUDIT.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT_AUDIT.UPDATE]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT_AUDIT.CHAT_ENDED]: (data: any) => void;
 
   // Broadcast message events
-  'broadcast:new': (data: any) => void;
-  'broadcast:update': (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.BROADCAST.NEW]: (data: any) => void;
+  [ADMIN_SOCKET_EVENTS.BROADCAST.UPDATE]: (data: any) => void;
+
+  // Admin support chat (support widget)
+  [ADMIN_SOCKET_EVENTS.ADMIN_CHAT.NEW_MESSAGE]: (data: {
+    chatId: string;
+    message: unknown;
+    chat: any;
+  }) => void;
+  [ADMIN_SOCKET_EVENTS.ADMIN_CHAT.MESSAGE]: (data: { message: unknown; chat: any }) => void;
+  [ADMIN_SOCKET_EVENTS.ADMIN_CHAT.JOINED]: (data: { chatId: string }) => void;
+  [ADMIN_SOCKET_EVENTS.ADMIN_CHAT.TYPING]: (data: {
+    userId: string;
+    userName: string;
+    isTyping: boolean;
+  }) => void;
+  [ADMIN_SOCKET_EVENTS.ADMIN_CHAT.ERROR]: (data: { message: string }) => void;
 }
 
 class AdminSocketService {
@@ -221,6 +237,8 @@ class AdminSocketService {
 
     this.eventListeners.forEach((listeners, event) => {
       listeners.forEach((callback) => {
+        // Prevent duplicate listeners on reconnects
+        this.socket!.off(event, callback as any);
         this.socket!.on(event, callback as any);
         console.log(`  ✓ Reattached listener for: ${event}`);
       });

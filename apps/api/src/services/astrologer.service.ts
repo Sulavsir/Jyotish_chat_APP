@@ -36,6 +36,7 @@ export class AstrologerService {
         isVerified: true,
         commissionRate: true,
         languages: true,
+        gender: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -72,6 +73,7 @@ export class AstrologerService {
         isVerified: true,
         commissionRate: true,
         languages: true,
+        gender: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -104,6 +106,7 @@ export class AstrologerService {
         isVerified: true,
         commissionRate: true,
         languages: true,
+        gender: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -126,6 +129,7 @@ export class AstrologerService {
     appointmentFee?: number;
     commissionRate: number;
     languages: string[];
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
     createdBy: string; // Admin ID
   }) {
     // Check if phone number is already used by a CLIENT
@@ -185,6 +189,7 @@ export class AstrologerService {
         appointmentFee: data.appointmentFee,
         commissionRate: data.commissionRate,
         languages: data.languages,
+        gender: data.gender ?? null,
         createdBy: data.createdBy,
         isActive: true,
         isVerified: false, // Must be verified by admin
@@ -207,6 +212,7 @@ export class AstrologerService {
         isVerified: true,
         commissionRate: true,
         languages: true,
+        gender: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -244,6 +250,7 @@ export class AstrologerService {
         isVerified: true,
         commissionRate: true,
         languages: true,
+        gender: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -312,6 +319,7 @@ export class AstrologerService {
         isActive: astrologer.isActive,
         isOnline: astrologer.isOnline,
         isVerified: astrologer.isVerified,
+        gender: astrologer.gender,
       },
       accessToken,
       refreshToken,
@@ -368,6 +376,7 @@ export class AstrologerService {
       experience?: number;
       commissionRate?: number;
       languages?: string[];
+      gender?: 'MALE' | 'FEMALE' | 'OTHER';
     }
   ) {
     const astrologer = await prisma.astrologer.update({
@@ -389,6 +398,7 @@ export class AstrologerService {
         isVerified: true,
         commissionRate: true,
         languages: true,
+        gender: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -501,6 +511,7 @@ export class AstrologerService {
           isVerified: true,
           commissionRate: true,
           languages: true,
+          gender: true,
           createdAt: true,
           updatedAt: true,
         },

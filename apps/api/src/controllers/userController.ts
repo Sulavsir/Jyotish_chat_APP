@@ -45,6 +45,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
         isOnline: true,
         isVerified: true,
         languages: true,
+        gender: true,
         password: true,
         createdAt: true,
         updatedAt: true,
@@ -89,6 +90,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
         currentAddress: true,
         permanentAddress: true,
         zodiacSign: true,
+        gender: true,
         latitude: true,
         longitude: true,
         password: true,
@@ -119,7 +121,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
  * PATCH /api/v1/users/me
  */
 export async function updateProfile(req: AuthRequest, res: Response, next: NextFunction) {
-  const { name, email, phone, profilePhoto, bio, specialization, experience, languages } = req.body;
+  const { name, email, phone, profilePhoto, bio, specialization, experience, languages, gender } = req.body;
   const userId = req.user!.id;
   const userRole = req.user!.role;
 
@@ -137,6 +139,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
         ...(specialization && { specialization }),
         ...(experience !== undefined && { experience }),
         ...(languages && { languages }),
+        ...(gender && { gender }),
       },
       select: {
         id: true,
@@ -153,6 +156,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
         isOnline: true,
         isVerified: true,
         languages: true,
+        gender: true,
         password: true,
         createdAt: true,
         updatedAt: true,
@@ -178,6 +182,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
         ...(email !== undefined && { email: email || null }),
         ...(phone && { phone }),
         ...(profilePhoto && { profilePhoto }),
+        ...(gender && { gender }),
       },
       select: {
         id: true,
@@ -192,6 +197,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
         currentAddress: true,
         permanentAddress: true,
         zodiacSign: true,
+        gender: true,
         latitude: true,
         longitude: true,
         password: true,
@@ -232,7 +238,10 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
 
   const validatedData = birthDetailsSchema.parse(req.body);
   const dob = new Date(validatedData.dateOfBirth);
-  const zodiacSign = getZodiacSign(dob);
+  const resolvedZodiacSign =
+    validatedData.zodiacSign === undefined || validatedData.zodiacSign === null
+      ? getZodiacSign(dob)
+      : validatedData.zodiacSign;
 
   const user = await prisma.user.update({
     where: { id: req.user!.id },
@@ -244,7 +253,8 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
       longitude: validatedData.longitude,
       currentAddress: validatedData.currentAddress,
       permanentAddress: validatedData.permanentAddress,
-      zodiacSign,
+      zodiacSign: resolvedZodiacSign,
+      ...(validatedData.gender !== undefined ? { gender: validatedData.gender } : {}),
     },
     select: {
       id: true,
@@ -259,6 +269,7 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
       currentAddress: true,
       permanentAddress: true,
       zodiacSign: true,
+      gender: true,
       latitude: true,
       longitude: true,
       password: true,
@@ -372,6 +383,7 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
         currentAddress: true,
         permanentAddress: true,
         zodiacSign: true,
+        gender: true,
         latitude: true,
         longitude: true,
         password: true,
@@ -482,6 +494,7 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
         currentAddress: true,
         permanentAddress: true,
         zodiacSign: true,
+        gender: true,
         latitude: true,
         longitude: true,
         password: true,
@@ -546,6 +559,7 @@ export async function getClientDetails(req: AuthRequest, res: Response, next: Ne
         currentAddress: true,
         permanentAddress: true,
         zodiacSign: true,
+        gender: true,
         profileCompleted: true,
         createdAt: true,
       },

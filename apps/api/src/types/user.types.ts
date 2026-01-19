@@ -25,5 +25,6 @@ export interface ProfileSetupData {
   placeOfBirth: string;
   currentAddress: string;
   permanentAddress: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
   profilePhoto?: string;
 }

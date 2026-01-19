@@ -30,6 +30,7 @@ interface ClientDetails {
   currentAddress: string | null;
   permanentAddress: string | null;
   zodiacSign: string | null;
+  gender: string | null;
   profileCompleted: boolean;
   createdAt: Date | string;
 }

@@ -92,4 +92,17 @@ export const API_ENDPOINTS = {
     RESOLVE: (id: string) => `/api/v1/admin/complaints/${id}/resolve`,
     DISMISS: (id: string) => `/api/v1/admin/complaints/${id}/dismiss`,
   },
+
+  ADMIN_CHAT: {
+    // Admin Chat (Support Widget)
+    LIST: '/api/v1/admin-chat/admin/all',
+    UNREAD_COUNT: '/api/v1/admin-chat/admin/unread-count',
+    UPLOAD_FILE: '/api/v1/admin-chat/upload-file',
+    GET: (id: string) => `/api/v1/admin-chat/${id}`,
+    MESSAGES: (id: string) => `/api/v1/admin-chat/${id}/messages`,
+    SEND_MESSAGE: (id: string) => `/api/v1/admin-chat/${id}/messages`,
+    MARK_READ: (id: string) => `/api/v1/admin-chat/${id}/read`,
+    UPDATE_STATUS: (id: string) => `/api/v1/admin-chat/admin/${id}/status`,
+    ASSIGN: (id: string) => `/api/v1/admin-chat/admin/${id}/assign`,
+  },
 };

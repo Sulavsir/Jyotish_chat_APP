@@ -6,6 +6,7 @@ import { notificationHandlers } from './notificationHandlers';
 import { consultationRequestHandlers } from './consultationRequestHandlers';
 import { setupInstantChatHandlers, expireOldInstantChatRequests } from './instantChatHandlers';
 import { broadcastMessageHandlers } from './broadcastMessageHandlers';
+import { adminChatHandlers } from './adminChatHandlers';
 import { AUTH_CONFIG } from '../constants';
 import { initializeAdminMonitor } from '../utils/admin-monitor';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
@@ -137,6 +138,7 @@ export function setupSocketHandlers(io: Server) {
     consultationRequestHandlers(io, socket);
     setupInstantChatHandlers(io, socket);
     broadcastMessageHandlers(io, socket);
+    adminChatHandlers(io, socket);
 
     // Handle disconnection
     socket.on('disconnect', async () => {

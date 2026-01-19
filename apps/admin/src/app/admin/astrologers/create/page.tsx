@@ -37,6 +37,7 @@ export default function CreateAstrologerPage() {
       email: '',
       phone: '',
       password: '',
+      gender: 'MALE',
       specialization: [],
       experience: 5,
       commissionRate: 15,
@@ -57,6 +58,7 @@ export default function CreateAstrologerPage() {
         email: data.email.trim(),
         phone: data.phone.trim(),
         password: data.password,
+        gender: data.gender || 'MALE',
         specialization: Array.isArray(data.specialization) ? data.specialization : [],
         experience: Number(data.experience) || 0,
         commissionRate: Number(data.commissionRate) || 10,
@@ -170,6 +172,27 @@ export default function CreateAstrologerPage() {
                         <FormDescription>
                           Min 8 chars, 1 uppercase, 1 number, 1 special
                         </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Gender *</FormLabel>
+                        <FormControl>
+                          <select
+                            {...field}
+                            className="w-full px-3 py-2 bg-slate-800 text-white border border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          >
+                            <option value="MALE">Male</option>
+                            <option value="FEMALE">Female</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
