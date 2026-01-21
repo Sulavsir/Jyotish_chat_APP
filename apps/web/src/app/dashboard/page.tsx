@@ -882,7 +882,7 @@ export default function DashboardPage() {
               <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
                 <div className="text-sm text-gray-200/70 space-y-1 flex-1">
                   <p>• Compatibility insights</p>
-                  <p>• Dosha & remedies</p>
+                  <p>• Dasha & remedies</p>
                 </div>
                 <Button
                   disabled

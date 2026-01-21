@@ -15,7 +15,7 @@ export const VAASTU_BOOKING_CATEGORIES = [
   'Home & Residential Vaastu',
   'Property & Construction Vaastu',
   'Office & Business Vaastu',
-  'Vaastu Dosha & Corrections',
+  'Vaastu Dasha & Corrections',
   'Energy & Directional Remedies',
   'Online & Special Consultation',
 ] as const;
