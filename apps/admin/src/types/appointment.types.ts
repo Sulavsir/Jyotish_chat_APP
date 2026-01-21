@@ -15,6 +15,7 @@ export enum AstrologerCategory {
   ORDINARY = 'ORDINARY',
   PROFESSIONAL = 'PROFESSIONAL',
   PREMIUM = 'PREMIUM',
+  KATHA_VACHAK = 'KATHA_VACHAK',
 }
 
 export interface AppointmentClient {

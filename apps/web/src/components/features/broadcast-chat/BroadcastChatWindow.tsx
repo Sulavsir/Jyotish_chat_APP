@@ -327,7 +327,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           <div className="flex-1">
             <h2 className="text-lg font-semibold text-white dark:text-white">Channel Jyotish</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Broadcast to all online astrologers
+              Request Message to all online astrologers
             </p>
           </div>
         </div>

@@ -23,6 +23,7 @@ export const DIRECT_CHAT_COIN_COSTS: Record<AstrologerCategory, number> = {
   [AstrologerCategory.ORDINARY]: 2,
   [AstrologerCategory.PROFESSIONAL]: 2,
   [AstrologerCategory.PREMIUM]: 0, // No coins required (chat only allowed during appointment window)
+  [AstrologerCategory.KATHA_VACHAK]: 0, // Booking-only category (no direct chat)
 };
 
 /**
@@ -37,6 +38,7 @@ export const COIN_REASON_MAPPING: Record<AstrologerCategory, CoinTransactionReas
   [AstrologerCategory.ORDINARY]: CoinTransactionReason.CHAT_ORDINARY,
   [AstrologerCategory.PROFESSIONAL]: CoinTransactionReason.CHAT_PREMIUM,
   [AstrologerCategory.PREMIUM]: CoinTransactionReason.CHAT_PREMIUM, // Should not be used, but included for completeness
+  [AstrologerCategory.KATHA_VACHAK]: CoinTransactionReason.CHAT_PREMIUM, // Not used (no direct chat)
 };
 
 /**

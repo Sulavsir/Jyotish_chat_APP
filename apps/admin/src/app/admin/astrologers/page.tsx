@@ -193,11 +193,13 @@ export default function AstrologersPage() {
                 : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
           }`}
         >
-          {astrologer.category === AstrologerCategory.PREMIUM
-            ? '👑 Premium'
-            : astrologer.category === AstrologerCategory.PROFESSIONAL
-              ? '💎 Professional'
-              : '⭐ Ordinary'}
+         {astrologer.category === AstrologerCategory.PREMIUM
+  ? '👑 Premium'
+  : astrologer.category === AstrologerCategory.PROFESSIONAL
+    ? '💎 Professional'
+    : astrologer.category === AstrologerCategory.KATHA_VACHAK
+      ? '📖 Katha Vachak'
+      : '⭐ Ordinary'}
         </span>
       ),
     },

@@ -5,7 +5,7 @@ import { asyncHandler } from '../utils';
 import { userController } from '../controllers';
 import { authController } from '../controllers';
 import { profileSetupSchema } from '../validators';
-import { uploadSingle } from '../middleware/upload';
+import { uploadProfilePhoto } from '../middleware/upload';
 
 const router = Router();
 
@@ -30,7 +30,7 @@ router.patch('/me/birth-details', authenticate, asyncHandler(userController.upda
 router.post(
   '/upload-photo',
   authenticate,
-  uploadSingle('photo'),
+  uploadProfilePhoto(),
   asyncHandler(userController.uploadPhoto)
 );
 

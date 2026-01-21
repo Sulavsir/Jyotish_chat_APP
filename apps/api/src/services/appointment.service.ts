@@ -5,7 +5,7 @@
 
 import { prisma } from '@jyotish/database';
 import { UserRole, AstrologerCategory } from '@jyotish/shared';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, Prisma } from '@prisma/client';
 import type {
   BookAppointmentData,
   UpdateAppointmentData,
@@ -103,46 +103,91 @@ export const createAppointment = async (
 /**
  * Get appointments for a user (client or astrologer)
  */
+export const listAppointments = async (input: {
+  userId: string;
+  role: UserRole.CLIENT | UserRole.ASTROLOGER;
+  page: number;
+  limit: number;
+  search?: string;
+  status?: AppointmentStatus;
+}): Promise<{
+  appointments: AppointmentWithRelations[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> => {
+  const skip = (input.page - 1) * input.limit;
+  const q = input.search?.trim();
+
+  const baseWhere: Prisma.AppointmentWhereInput =
+    input.role === UserRole.CLIENT ? { clientId: input.userId } : { astrologerId: input.userId };
+
+  const where: Prisma.AppointmentWhereInput = {
+    ...baseWhere,
+    ...(input.status ? { status: input.status } : {}),
+    ...(q
+      ? {
+          OR: [
+            { notes: { contains: q, mode: 'insensitive' } },
+            { cancellationNote: { contains: q, mode: 'insensitive' } },
+            { client: { name: { contains: q, mode: 'insensitive' } } },
+            { client: { phone: { contains: q, mode: 'insensitive' } } },
+            { astrologer: { name: { contains: q, mode: 'insensitive' } } },
+            { astrologer: { phone: { contains: q, mode: 'insensitive' } } },
+          ],
+        }
+      : {}),
+  };
+
+  const [appointments, total] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            profilePhoto: true,
+          },
+        },
+        astrologer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+            profilePhoto: true,
+            category: true,
+            appointmentFee: true,
+          },
+        },
+      },
+      orderBy: { scheduledAt: 'desc' },
+      skip,
+      take: input.limit,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
+
+  return {
+    appointments: appointments as AppointmentWithRelations[],
+    pagination: {
+      page: input.page,
+      limit: input.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / input.limit)),
+    },
+  };
+};
+
+// Backward-compatible helper (used elsewhere in API)
 export const getAppointments = async (
   userId: string,
   role: UserRole.CLIENT | UserRole.ASTROLOGER,
   status?: AppointmentStatus
 ): Promise<AppointmentWithRelations[]> => {
-  const where: any = {
-    ...(role === UserRole.CLIENT ? { clientId: userId } : { astrologerId: userId }),
-    ...(status && { status }),
-  };
-
-  const appointments = await prisma.appointment.findMany({
-    where,
-    include: {
-      client: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-          profilePhoto: true,
-        },
-      },
-      astrologer: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-          profilePhoto: true,
-          category: true,
-          appointmentFee: true,
-        },
-      },
-    },
-    orderBy: {
-      scheduledAt: 'desc',
-    },
-  });
-
-  return appointments as AppointmentWithRelations[];
+  const result = await listAppointments({ userId, role, status, page: 1, limit: 1000 });
+  return result.appointments;
 };
 
 /**

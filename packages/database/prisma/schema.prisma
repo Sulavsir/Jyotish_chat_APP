@@ -49,6 +49,7 @@ model User {
   complaintsAsClient           Complaint[]            @relation("ClientComplaints")
   ratingsGiven                 Rating[]               @relation("ClientRatings")
   coinTransactions             CoinTransaction[]      @relation("CoinTransactions")
+  jyotishBookingRequests       JyotishBookingRequest[]
 
   @@index([phone])
   @@index([email])
@@ -98,6 +99,7 @@ model Astrologer {
   dismissedBroadcastMessages   BroadcastMessageDismissal[]  @relation("DismissedBroadcastMessages")
   ratingsReceived              Rating[]                     @relation("AstrologerRatings")
   adminChatsAsAstrologer       AdminChat[]                  @relation("AstrologerAdminChats")
+  preferredJyotishBookingRequests JyotishBookingRequest[]   @relation("PreferredAstrologerBookings")
 
   @@index([phone])
   @@index([email])
@@ -570,6 +572,48 @@ model Settings {
   @@index([key])
 }
 
+// Dashboard rotating header copy managed by admin
+model DashboardRotatingCopy {
+  id        String   @id @default(uuid())
+  title     String
+  subtitle  String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([isActive, sortOrder])
+}
+
+// Jyotish service booking requests (Pandit Ji / Vaastu Shastri) created by clients and handled by admin
+model JyotishBookingRequest {
+  id         String              @id @default(uuid())
+  clientId   String
+  type       JyotishBookingType
+  preferredAstrologerId String?
+  category   String
+  bookingDate DateTime
+  details    String?
+  status     JyotishBookingStatus @default(PENDING)
+  adminNotes String?
+  decidedAt  DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  client     User                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  preferredAstrologer Astrologer? @relation("PreferredAstrologerBookings", fields: [preferredAstrologerId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([type])
+  @@index([status])
+  @@index([bookingDate])
+  @@index([preferredAstrologerId])
+  @@index([type, status])
+  @@index([status, createdAt])
+}
+
 model PricingPlan {
   id              String    @id @default(uuid())
   name            String // e.g., "1 Day Unlimited", "50 Chats Pack"
@@ -736,6 +780,18 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum JyotishBookingType {
+  PANDIT
+  VAASTU
+  KATHA_VACHAK
+}
+
+enum JyotishBookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Rating {
   id           String     @id @default(uuid())
   chatId       String     @unique // One rating per chat session
@@ -829,6 +885,7 @@ enum AstrologerCategory {
   ORDINARY // Can receive chat requests, no appointments
   PROFESSIONAL // Can receive chat requests and appointments, lower fee
   PREMIUM // Only appointments, no direct chat (higher fee)
+  KATHA_VACHAK // Only Bookings
 }
 
 enum AppointmentStatus {

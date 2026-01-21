@@ -12,6 +12,17 @@ import type {
   TimeSlot,
   Astrologer,
 } from '@/types/appointment.types';
+import type { AppointmentStatus } from '@/types/appointment.types';
+
+type ListMyAppointmentsResponse = {
+  appointments: Appointment[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
 
 /**
  * Create a new appointment
@@ -23,9 +34,23 @@ export const createAppointment = async (data: CreateAppointmentData): Promise<Ap
 /**
  * Get all appointments for the current user
  */
+export const listMine = async (params: {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: AppointmentStatus | string;
+}): Promise<ListMyAppointmentsResponse> => {
+  return apiClient.get<ListMyAppointmentsResponse>(API_ENDPOINTS.APPOINTMENTS.MY, { params });
+};
+
+// Backward-compatible helper used by existing pages
 export const getMyAppointments = async (status?: string): Promise<Appointment[]> => {
-  const params = status ? { status } : {};
-  return apiClient.get<Appointment[]>(API_ENDPOINTS.APPOINTMENTS.MY, { params });
+  const data = await listMine({
+    page: 1,
+    limit: 1000,
+    status: status || undefined,
+  });
+  return data.appointments;
 };
 
 /**
@@ -88,6 +113,7 @@ export const getAstrologersForAppointment = async (): Promise<Astrologer[]> => {
 const appointmentService = {
   createAppointment,
   getMyAppointments,
+  listMine,
   getAppointmentById,
   updateAppointment,
   cancelAppointment,

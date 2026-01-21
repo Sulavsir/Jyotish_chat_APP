@@ -6,6 +6,13 @@ import { apiClient } from './api-client';
 import { API_ENDPOINTS } from '@/constants/api.constants';
 import type { Complaint, ComplaintStats } from '@/types';
 import type { Appointment } from '@/types/appointment.types';
+import type { DashboardRotatingCopy } from '@jyotish/shared';
+import {
+  AstrologerCategory,
+  JyotishBookingStatus,
+  JyotishBookingType,
+  type JyotishBookingRequest,
+} from '@jyotish/shared';
 
 export interface AdminChat {
   id: string;
@@ -98,6 +105,45 @@ export interface LoginResponse {
     name: string;
   };
 }
+
+type ListDashboardRotatingCopyResponse = {
+  items: DashboardRotatingCopy[];
+};
+
+type CreateDashboardRotatingCopyRequest = {
+  title: string;
+  subtitle: string;
+  isActive?: boolean;
+  sortOrder?: number;
+};
+
+type UpdateDashboardRotatingCopyRequest = Partial<CreateDashboardRotatingCopyRequest>;
+
+type ListJyotishBookingsResponse = {
+  bookings: Array<
+    JyotishBookingRequest & {
+      client: {
+        id: string;
+        phone: string;
+        name: string | null;
+        email: string | null;
+        profilePhoto: string | null;
+      };
+      preferredAstrologer?: {
+        id: string;
+        name: string;
+        category: AstrologerCategory;
+        specialization: string[];
+        profilePhoto: string | null;
+      } | null;
+    }
+  >;
+};
+
+type UpdateJyotishBookingStatusRequest = {
+  status: JyotishBookingStatus;
+  adminNotes?: string;
+};
 
 export interface ComplaintsListResponse {
   complaints: Complaint[];
@@ -326,6 +372,67 @@ export const adminApi = {
   dashboard: {
     stats: async () => {
       const response = await apiClient.get(API_ENDPOINTS.DASHBOARD.STATS);
+      return response;
+    },
+
+    rotatingCopy: {
+      list: async (): Promise<ListDashboardRotatingCopyResponse> => {
+        const response = await apiClient.get<ListDashboardRotatingCopyResponse>(
+          API_ENDPOINTS.DASHBOARD.ROTATING_COPY
+        );
+        return response;
+      },
+
+      create: async (
+        data: CreateDashboardRotatingCopyRequest
+      ): Promise<{ item: DashboardRotatingCopy }> => {
+        const response = await apiClient.post<{ item: DashboardRotatingCopy }>(
+          API_ENDPOINTS.DASHBOARD.ROTATING_COPY,
+          data
+        );
+        return response;
+      },
+
+      update: async (
+        id: string,
+        data: UpdateDashboardRotatingCopyRequest
+      ): Promise<{ item: DashboardRotatingCopy }> => {
+        const response = await apiClient.patch<{ item: DashboardRotatingCopy }>(
+          API_ENDPOINTS.DASHBOARD.ROTATING_COPY_BY_ID(id),
+          data
+        );
+        return response;
+      },
+
+      toggle: async (id: string): Promise<{ item: DashboardRotatingCopy }> => {
+        const response = await apiClient.patch<{ item: DashboardRotatingCopy }>(
+          API_ENDPOINTS.DASHBOARD.ROTATING_COPY_TOGGLE(id)
+        );
+        return response;
+      },
+
+      remove: async (id: string): Promise<{ message: string }> => {
+        const response = await apiClient.delete<{ message: string }>(
+          API_ENDPOINTS.DASHBOARD.ROTATING_COPY_BY_ID(id)
+        );
+        return response;
+      },
+    },
+  },
+
+  jyotishBookings: {
+    list: async (params?: { type?: JyotishBookingType; status?: JyotishBookingStatus }) => {
+      const response = await apiClient.get<ListJyotishBookingsResponse>(API_ENDPOINTS.JYOTISH_BOOKINGS.LIST, {
+        params,
+      });
+      return response;
+    },
+
+    updateStatus: async (id: string, data: UpdateJyotishBookingStatusRequest) => {
+      const response = await apiClient.patch<{ booking: JyotishBookingRequest }>(
+        API_ENDPOINTS.JYOTISH_BOOKINGS.UPDATE_STATUS(id),
+        data
+      );
       return response;
     },
   },

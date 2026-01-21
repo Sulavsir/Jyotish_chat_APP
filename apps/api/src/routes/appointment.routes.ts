@@ -7,7 +7,12 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { asyncHandler } from '../utils';
 import * as appointmentController from '../controllers/appointmentController';
-import { createAppointmentSchema, updateAppointmentSchema, checkAvailabilitySchema } from '../validators';
+import {
+  createAppointmentSchema,
+  updateAppointmentSchema,
+  checkAvailabilitySchema,
+  listMyAppointmentsQuerySchema,
+} from '../validators';
 
 const router = Router();
 
@@ -20,7 +25,12 @@ router.post(
 );
 
 // Get user's appointments
-router.get('/my', authenticate, asyncHandler(appointmentController.getMyAppointments));
+router.get(
+  '/my',
+  authenticate,
+  validateQuery(listMyAppointmentsQuerySchema),
+  asyncHandler(appointmentController.getMyAppointments)
+);
 
 // Check availability for an astrologer
 router.get(

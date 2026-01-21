@@ -8,4 +8,6 @@ export * from './chatService';
 export * from './consultationService';
 export * from './horoscopeService';
 export * from './notificationService';
+export * from './dashboardRotatingCopy.service';
+export * from './jyotishBooking.service';
 

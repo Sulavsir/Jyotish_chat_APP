@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { AppointmentStatus } from '@prisma/client';
+import { queryPaginationSchema } from './query.validators';
 
 /**
  * Validator for creating a new appointment
@@ -40,4 +41,12 @@ export const updateAppointmentSchema = z.object({
 export const checkAvailabilitySchema = z.object({
   astrologerId: z.string().uuid('Invalid astrologer ID'),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+});
+
+/**
+ * Query validator for listing "my" appointments (client/astrologer)
+ */
+export const listMyAppointmentsQuerySchema = queryPaginationSchema.extend({
+  search: z.string().trim().min(1).optional(),
+  status: z.nativeEnum(AppointmentStatus).optional(),
 });

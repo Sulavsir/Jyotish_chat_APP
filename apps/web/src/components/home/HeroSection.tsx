@@ -5,6 +5,7 @@ import spaceImage from '@/assets/images/space.jpg';
 import horoscopeImage from '@/assets/images/horoscope.webp';
 import { ROUTES } from '@/constants';
 import { TwinklingStars } from '@/components/ui/TwinklingStars';
+import { RotatingCopyTypewriter } from '@/components/ui/RotatingCopyTypewriter';
 
 export function HeroSection() {
   return (
@@ -36,18 +37,12 @@ export function HeroSection() {
               Ancient Wisdom • Modern Technology
             </span>
           </div>
-          <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-purple-300 via-pink-300 to-purple-300 drop-shadow-[0_0_50px_rgba(220,20,60,0.8)] animate-gradient-x leading-tight">
-            Discover Your{' '}
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-pink-400 via-red-400 to-purple-400">
-              Cosmic Path
-            </span>
-          </h1>
-          <p className="text-xl md:text-2xl lg:text-3xl text-gray-200 mb-4 font-light tracking-wide max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
-            Connect with Verified Expert Astrologers
-          </p>
-          <p className="text-lg md:text-xl text-gray-400 mb-12 max-w-3xl mx-auto animate-fade-in-up animation-delay-400">
-            Personalized horoscopes, real-time consultations, and insights from the stars
-          </p>
+          <RotatingCopyTypewriter
+            titleAs="h1"
+            subtitleAs="p"
+            titleClassName="text-5xl md:text-6xl lg:text-7xl font-bold mb-5 bg-clip-text text-transparent bg-gradient-to-r from-purple-300 via-pink-300 to-purple-300 drop-shadow-[0_0_50px_rgba(220,20,60,0.65)] animate-gradient-x leading-tight py-2"
+            subtitleClassName="text-lg md:text-xl lg:text-2xl text-gray-200/90 mb-12 font-light tracking-wide max-w-3xl mx-auto animate-fade-in-up animation-delay-200"
+          />
           <div className="flex flex-col sm:flex-row gap-6 justify-center animate-fade-in-up animation-delay-600">
             <Button
               size="xl"

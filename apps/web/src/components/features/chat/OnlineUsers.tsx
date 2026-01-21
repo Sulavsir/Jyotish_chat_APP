@@ -18,7 +18,7 @@ import { useStore } from '@/store';
 import { useAuthStore } from '@/store/auth-store';
 import { Spinner } from '@/components/ui/Spinner';
 import { DropdownMenu, DropdownItem } from '@/components/ui/DropdownMenu';
-import { ChevronDown, MessageSquare, User as UserIcon } from 'lucide-react';
+import { ChevronDown, MessageSquare, User as UserIcon, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/hooks/useChat';
 import { QUERY_KEYS, ROUTES } from '@/constants';
@@ -51,6 +51,7 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   } = useChat();
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch chatable users with TanStack Query
   const {
@@ -78,6 +79,17 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
         user.role !== USER_ROLES.ASTROLOGER ||
         user.category !== ASTROLOGER_CATEGORY.PREMIUM)
   );
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const onlineUsersSearched =
+    normalizedSearch.length === 0
+      ? onlineUsersFiltered
+      : onlineUsersFiltered.filter((u: ChatableUser) => {
+          const name = (u.name || '').toLowerCase();
+          const category = (u.category || '').toLowerCase();
+          const zodiac = (u.zodiacSign || '').toLowerCase();
+          return name.includes(normalizedSearch) || category.includes(normalizedSearch) || zodiac.includes(normalizedSearch);
+        });
 
   // Debug: Log when data updates
   React.useEffect(() => {
@@ -132,7 +144,7 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
 
   if (onlineUsersFiltered.length === 0) {
     return (
-      <Card className="bg-black/40 backdrop-blur-md border-white/10">
+      <Card className="relative overflow-hidden bg-black/40 backdrop-blur-md border-white/10">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <span className="relative flex h-3 w-3">
@@ -207,9 +219,12 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
   }
 
   return (
-    <Card className="bg-black/40 backdrop-blur-md border-white/10">
+    <Card className="relative overflow-hidden bg-black/40 backdrop-blur-md border-white/10">
+      {/* Subtle gradient overlay */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-transparent" />
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="relative flex flex-col gap-3">
+          <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -218,7 +233,7 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
             {title ||
               (currentUser?.role === UserRole.ASTROLOGER ? 'Active Clients' : 'Online Astrologers')}
             <span className="text-sm font-normal text-gray-400">
-              ({onlineUsersFiltered.length} online)
+              ({onlineUsersSearched.length} online)
             </span>
           </CardTitle>
           <button
@@ -227,69 +242,128 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
           >
             Refresh list
           </button>
+          </div>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={
+                currentUser?.role === UserRole.ASTROLOGER
+                  ? 'Search clients...'
+                  : 'Search astrologers by name or expertise...'
+              }
+              className="w-full rounded-xl bg-white/5 border border-white/10 pl-9 pr-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/30"
+            />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {/* Scrollable Grid Container */}
-        <div className="overflow-y-auto pr-2 custom-scrollbar" style={{ maxHeight }}>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-            {onlineUsersFiltered.map((user: ChatableUser) => {
-              return (
-                <div key={user.id} className="relative flex flex-col items-center group">
-                  {/* Avatar with online indicator */}
-                  <div className="relative mb-3">
-                    <Avatar className="h-24 w-24 ring-2 ring-green-500/50 transition-transform group-hover:scale-105">
-                      <AvatarImage
-                        src={getImageUrl(user.profilePhoto) || undefined}
-                        alt={user.name || 'User'}
-                      />
-                      <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-2xl font-bold">
-                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 ring-2 ring-black animate-pulse" />
-                  </div>
-
-                  {/* Name and Dropdown */}
-                  <div className="flex items-center gap-2">
-                    <p className="text-white font-semibold text-center truncate max-w-[120px]">
-                      {user.name || 'Anonymous'}
-                    </p>
-                    <DropdownMenu
-                      trigger={
-                        <button
-                          className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-                          title="Actions"
-                          disabled={isStartingChat}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                      }
-                      align="right"
-                      className="w-48 bg-gray-900 border border-purple-500/30 rounded-lg shadow-2xl overflow-hidden"
-                      disabled={isStartingChat}
-                    >
-                      <DropdownItem
-                        onClick={() => handleChatNow(user.id)}
-                        disabled={isStartingChat}
-                        icon={<MessageSquare className="h-4 w-4 text-purple-400" />}
-                      >
-                        {isStartingChat ? 'Starting...' : 'Chat Now'}
-                      </DropdownItem>
-                      <DropdownItem
-                        onClick={() => handleVisitProfile(user.id)}
-                        icon={<UserIcon className="h-4 w-4 text-purple-400" />}
-                        className="border-t border-gray-800"
-                      >
-                        Visit Profile
-                      </DropdownItem>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Search empty state */}
+        {onlineUsersFiltered.length > 0 && onlineUsersSearched.length === 0 ? (
+          <div className="py-10 flex flex-col items-center justify-center text-center">
+            <div className="relative mb-4">
+              <div className="absolute inset-0 bg-purple-600/20 rounded-full blur-xl" />
+              <div className="relative bg-gradient-to-br from-purple-900/30 to-indigo-900/30 p-4 rounded-full border border-purple-500/20">
+                <Search className="h-8 w-8 text-purple-300" />
+              </div>
+            </div>
+            <p className="text-white font-semibold">
+              {currentUser?.role === UserRole.ASTROLOGER
+                ? 'No active client matches your search'
+                : 'No astrologer with this name is active'}
+            </p>
+            <p className="text-sm text-gray-400 mt-1 max-w-md">
+              Try a different name, category, or zodiac sign. You can also clear the search to see all
+              active users.
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                onClick={() => setSearchTerm('')}
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10 transition-colors"
+              >
+                Clear search
+              </button>
+              <button
+                onClick={handleRefresh}
+                className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm text-purple-200 hover:bg-purple-500/15 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="overflow-y-auto pr-2 custom-scrollbar" style={{ maxHeight }}>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {onlineUsersSearched.map((user: ChatableUser) => {
+                const showClientIconFallback =
+                  user.role === USER_ROLES.CLIENT && !user.profilePhoto && !user.name;
+                return (
+                  <div
+                    key={user.id}
+                    className="relative flex flex-col items-center rounded-xl border border-white/5 bg-white/0 p-3 group transition-all hover:bg-white/5 hover:border-purple-500/30 hover:shadow-[0_0_32px_rgba(168,85,247,0.12)]"
+                  >
+                    {/* Avatar with online indicator */}
+                    <div className="relative mb-3">
+                      <Avatar className="h-24 w-24 ring-2 ring-green-500/50 transition-transform group-hover:scale-[1.06]">
+                        <AvatarImage
+                          src={getImageUrl(user.profilePhoto) || undefined}
+                          alt={user.name || 'User'}
+                        />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-2xl font-bold">
+                          {showClientIconFallback ? (
+                            <UserIcon className="h-10 w-10 text-white/90" />
+                          ) : (
+                            user.name?.charAt(0)?.toUpperCase() || 'U'
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="absolute bottom-1 right-1 block h-5 w-5 rounded-full bg-green-500 ring-2 ring-black animate-pulse" />
+                    </div>
+
+                    {/* Name and Dropdown */}
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-semibold text-center truncate max-w-[120px]">
+                        {user.name || 'Anonymous'}
+                      </p>
+                      <DropdownMenu
+                        trigger={
+                          <button
+                            className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                            title="Actions"
+                            disabled={isStartingChat}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        }
+                        align="right"
+                        className="w-48 bg-gray-900 border border-purple-500/30 rounded-lg shadow-2xl overflow-hidden"
+                        disabled={isStartingChat}
+                      >
+                        <DropdownItem
+                          onClick={() => handleChatNow(user.id)}
+                          disabled={isStartingChat}
+                          icon={<MessageSquare className="h-4 w-4 text-purple-400" />}
+                        >
+                          {isStartingChat ? 'Starting...' : 'Chat Now'}
+                        </DropdownItem>
+                        <DropdownItem
+                          onClick={() => handleVisitProfile(user.id)}
+                          icon={<UserIcon className="h-4 w-4 text-purple-400" />}
+                          className="border-t border-gray-800"
+                        >
+                          Visit Profile
+                        </DropdownItem>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Custom Scrollbar Styles */}
         <style jsx>{`

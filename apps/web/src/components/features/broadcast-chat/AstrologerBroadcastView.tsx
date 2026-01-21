@@ -15,7 +15,7 @@ import { BroadcastMessageStatus } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
-import { MessageSquare, Clock, CheckCircle2, Send, Lock } from 'lucide-react';
+import { MessageSquare, Clock, CheckCircle2, Send, Lock, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
@@ -255,9 +255,13 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                       alt={message.client?.name || 'Client'}
                     />
                     <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold">
-                      {(message.client?.name || message.client?.phone || 'C')
-                        .charAt(0)
-                        .toUpperCase()}
+                      {!message.client?.profilePhoto && !message.client?.name ? (
+                        <User className="h-6 w-6 text-white" />
+                      ) : (
+                        (message.client?.name || message.client?.phone || 'C')
+                          .charAt(0)
+                          .toUpperCase()
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">

@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback, Button } from '@jyotish/ui';
-import { MessageSquare, X, Clock, Check } from 'lucide-react';
+import { MessageSquare, X, Clock, Check, User } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -225,7 +225,11 @@ const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
             alt={request.client.name || 'Client'}
           />
           <AvatarFallback className="bg-white text-orange-600 font-bold text-lg">
-            {(request.client.name || request.client.phone || 'C').charAt(0).toUpperCase()}
+            {!request.client.profilePhoto && !request.client.name ? (
+              <User className="h-6 w-6 text-orange-600" />
+            ) : (
+              (request.client.name || request.client.phone || 'C').charAt(0).toUpperCase()
+            )}
           </AvatarFallback>
         </Avatar>
 

@@ -3,7 +3,9 @@
 export const API_BASE_URL =
   process.env.NODE_ENV === 'production'
     ? process.env.NEXT_PUBLIC_API_URL || ''
-    : 'http://localhost:4000'; // Direct connection to backend in development
+    : typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:4000`
+      : 'http://localhost:4000'; // Always match current host in dev
 
 export const API_ENDPOINTS = {
   ADMIN: {
@@ -64,6 +66,15 @@ export const API_ENDPOINTS = {
   DASHBOARD: {
     // Dashboard Stats
     STATS: '/api/v1/admin/dashboard/stats',
+    // Website content (dashboard rotating copy)
+    ROTATING_COPY: '/api/v1/admin/dashboard/rotating-copy',
+    ROTATING_COPY_BY_ID: (id: string) => `/api/v1/admin/dashboard/rotating-copy/${id}`,
+    ROTATING_COPY_TOGGLE: (id: string) => `/api/v1/admin/dashboard/rotating-copy/${id}/toggle`,
+  },
+
+  JYOTISH_BOOKINGS: {
+    LIST: '/api/v1/admin/jyotish-bookings',
+    UPDATE_STATUS: (id: string) => `/api/v1/admin/jyotish-bookings/${id}/status`,
   },
 
   APPOINTMENTS: {

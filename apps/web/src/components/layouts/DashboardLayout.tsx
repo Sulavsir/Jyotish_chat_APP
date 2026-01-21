@@ -23,7 +23,7 @@ const navigation = [
   { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: '🏠' },
   { name: 'Astrologers', href: ROUTES.ASTROLOGERS, icon: '🔮' },
   { name: 'Chat', href: ROUTES.CHAT, icon: '💬' },
-  { name: 'Consultations', href: ROUTES.CONSULTATIONS, icon: '📅' },
+  { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: '📝' },
   { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: '⭐' },
   { name: 'Pricing', href: ROUTES.PRICING, icon: '💰' },
   { name: 'Profile', href: ROUTES.PROFILE, icon: '👤' },

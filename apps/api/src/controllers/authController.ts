@@ -316,6 +316,7 @@ export async function verifyLoginOTP(req: AuthRequest, res: Response, next: Next
  * POST /api/v1/users/profile-setup
  */
 export async function profileSetup(req: AuthRequest, res: Response, next: NextFunction) {
+  const debug = process.env.NODE_ENV !== 'production';
   // Check authentication
   if (!req.user?.id) {
     throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
@@ -325,11 +326,25 @@ export async function profileSetup(req: AuthRequest, res: Response, next: NextFu
   // @ts-ignore - multer adds 'file' property
   const profilePhoto = req.file?.path || undefined;
 
+  if (debug) {
+    console.log('[users/profile-setup] incoming body:', req.body);
+    console.log('[users/profile-setup] file:', req.file ? { path: req.file.path, mimetype: req.file.mimetype } : null);
+  }
+
   // Setup profile via service
   const user = await userService.setupProfile(req.user.id, {
     ...req.body,
     profilePhoto,
   });
+
+  if (debug) {
+    console.log('[users/profile-setup] response:', {
+      id: user.id,
+      zodiacSign: (user as any).zodiacSign,
+      gender: (user as any).gender,
+      profileCompleted: (user as any).profileCompleted,
+    });
+  }
 
   return sendSuccess(res, {
     user,

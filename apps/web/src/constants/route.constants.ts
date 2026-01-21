@@ -32,6 +32,7 @@ export const ROUTES = {
   COIN_TRANSACTIONS: '/coins/transactions',
   ASTROLOGERS: '/astrologers',
   ASTROLOGER_PROFILE: '/astrologers/[id]',
+  MY_BOOKINGS: '/my-bookings',
 
   // Jyotish (Astrologer) Routes
   JYOTISH_DASHBOARD: '/jyotish/dashboard',

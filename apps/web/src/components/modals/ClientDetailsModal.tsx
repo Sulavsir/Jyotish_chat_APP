@@ -45,6 +45,7 @@ export function ClientDetailsModal({ isOpen, onClose, clientId }: ClientDetailsM
 
   // Extract client from response (API returns { client: {...} })
   const client: ClientDetails | null = response?.client || null;
+  const showClientIconFallback = !!client && !client.profilePhoto && !client.name;
 
   const formatDate = (date: Date | string | null): string => {
     if (!date) return 'Not provided';
@@ -86,7 +87,11 @@ export function ClientDetailsModal({ isOpen, onClose, clientId }: ClientDetailsM
                       alt={client.name || 'Client'}
                     />
                     <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-2xl font-bold">
-                      {(client.name || client.phone || 'C').charAt(0).toUpperCase()}
+                      {showClientIconFallback ? (
+                        <User className="h-8 w-8 text-white" />
+                      ) : (
+                        (client.name || client.phone || 'C').charAt(0).toUpperCase()
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">

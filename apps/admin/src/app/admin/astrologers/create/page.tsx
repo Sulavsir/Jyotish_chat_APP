@@ -288,6 +288,7 @@ export default function CreateAstrologerPage() {
                             <option value="ORDINARY">Ordinary - Chat only</option>
                             <option value="PROFESSIONAL">Professional - Chat & Appointments</option>
                             <option value="PREMIUM">Premium - Appointments only</option>
+                            <option value="KATHA_VACHAK">Katha Vachak - Booking only</option>
                           </select>
                         </FormControl>
                         <FormDescription>
@@ -306,7 +307,8 @@ export default function CreateAstrologerPage() {
                         <FormLabel>
                           Appointment Fee (Rs)
                           {(form.watch('category') === 'PROFESSIONAL' ||
-                            form.watch('category') === 'PREMIUM') &&
+                            form.watch('category') === 'PREMIUM' ||
+                            form.watch('category') === 'KATHA_VACHAK') &&
                             ' *'}
                         </FormLabel>
                         <FormControl>

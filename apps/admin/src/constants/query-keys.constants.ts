@@ -62,6 +62,17 @@ export const ADMIN_QUERY_KEYS = {
     STATS: () => ['admin', 'dashboard', 'stats'] as const,
   },
 
+  // Website
+  WEBSITE: {
+    DASHBOARD_ROTATING_COPY: () => ['admin', 'website', 'dashboard', 'rotating-copy'] as const,
+  },
+
+  // Jyotish Bookings
+  JYOTISH_BOOKINGS: {
+    LIST: (filters?: { type?: string; status?: string }) =>
+      filters ? (['admin', 'jyotish-bookings', 'list', filters] as const) : (['admin', 'jyotish-bookings', 'list'] as const),
+  },
+
   // Complaints
   COMPLAINTS: {
     ALL: ['admin', 'complaints'] as const,

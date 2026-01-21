@@ -60,4 +60,5 @@ export const ASTROLOGER_CATEGORY_LABELS: Record<AstrologerCategory, string> = {
   [AstrologerCategory.ORDINARY]: 'Ordinary',
   [AstrologerCategory.PROFESSIONAL]: 'Professional',
   [AstrologerCategory.PREMIUM]: 'Premium',
+  [AstrologerCategory.KATHA_VACHAK]: 'Katha Vachak',
 };

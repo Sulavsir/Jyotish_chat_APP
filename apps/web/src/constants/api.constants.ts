@@ -8,7 +8,9 @@
 export const API_BASE_URL =
   process.env.NODE_ENV === 'production'
     ? process.env.NEXT_PUBLIC_API_URL || ''
-    : 'http://localhost:4000'; // Direct connection to backend in development
+    : typeof window !== 'undefined'
+      ? `${window.location.protocol}//${window.location.hostname}:4000`
+      : 'http://localhost:4000'; // Always match current host in dev
 
 // WebSocket URL - Dynamically use current hostname to support both localhost and network IP
 // This ensures sockets work on any device accessing the app
@@ -22,6 +24,13 @@ export const WS_BASE_URL =
 
 // API Endpoints
 export const API_ENDPOINTS = {
+  PUBLIC: {
+    DASHBOARD_ROTATING_COPY: '/api/v1/public/dashboard-rotating-copy',
+  },
+  JYOTISH_BOOKINGS: {
+    CREATE: '/api/v1/jyotish-bookings',
+    MY: '/api/v1/jyotish-bookings/my',
+  },
   AUTH: {
     CHECK_PHONE: '/api/v1/auth/check-phone',
     SEND_OTP: '/api/v1/auth/send-otp',

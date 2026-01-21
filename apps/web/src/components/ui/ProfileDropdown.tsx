@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { getImageUrl } from '@/utils/image.utils';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
+import { User } from 'lucide-react';
 
 export interface ProfileDropdownProps {
   user: {
@@ -116,7 +117,11 @@ export function ProfileDropdown({
                 theme.gradient
               )}
             >
-              {user?.name ? user.name.charAt(0).toUpperCase() : '👤'}
+              {!user?.profilePhoto && !user?.name ? (
+                <User className="h-5 w-5 text-white" />
+              ) : (
+                (user?.name || 'U').charAt(0).toUpperCase()
+              )}
             </AvatarFallback>
           </Avatar>
           {/* Active indicator dot */}

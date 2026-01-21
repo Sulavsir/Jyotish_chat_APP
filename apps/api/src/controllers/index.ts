@@ -11,3 +11,5 @@ export * as notificationController from './notificationController';
 export * as adminController from './adminController';
 export * as adminAppointmentController from './adminAppointmentController';
 export * as pricingController from './pricingController';
+export * as dashboardRotatingCopyController from './dashboardRotatingCopyController';
+export * as jyotishBookingController from './jyotishBookingController';

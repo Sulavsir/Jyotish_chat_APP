@@ -5,12 +5,24 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
-import { validateBody } from '../middleware/validate';
+import { validateBody, validateParams } from '../middleware/validate';
 import { adminAddCoinsSchema } from '../validators/coin.validators';
 import { AuditAction } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
-import { adminController, adminAppointmentController, pricingController } from '../controllers';
+import {
+  adminController,
+  adminAppointmentController,
+  pricingController,
+  dashboardRotatingCopyController,
+} from '../controllers';
 import { asyncHandler } from '../utils';
+import {
+  createDashboardRotatingCopySchema,
+  updateDashboardRotatingCopySchema,
+  uuidParamSchema,
+  adminUpdateJyotishBookingStatusSchema,
+} from '../validators';
+import { jyotishBookingController } from '../controllers';
 
 const router = Router();
 
@@ -151,6 +163,44 @@ router.post(
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
 router.get('/dashboard/recent-activities', adminController.getRecentActivities);
+
+// Dashboard rotating copy (managed by admin)
+router.get('/dashboard/rotating-copy', asyncHandler(dashboardRotatingCopyController.listAdmin));
+router.post(
+  '/dashboard/rotating-copy',
+  auditLogger(AuditAction.ADMIN_ACTION, 'DashboardRotatingCopy'),
+  validateBody(createDashboardRotatingCopySchema),
+  asyncHandler(dashboardRotatingCopyController.create)
+);
+router.patch(
+  '/dashboard/rotating-copy/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'DashboardRotatingCopy'),
+  validateParams(uuidParamSchema),
+  validateBody(updateDashboardRotatingCopySchema),
+  asyncHandler(dashboardRotatingCopyController.update)
+);
+router.patch(
+  '/dashboard/rotating-copy/:id/toggle',
+  auditLogger(AuditAction.ADMIN_ACTION, 'DashboardRotatingCopy'),
+  validateParams(uuidParamSchema),
+  asyncHandler(dashboardRotatingCopyController.toggle)
+);
+router.delete(
+  '/dashboard/rotating-copy/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'DashboardRotatingCopy'),
+  validateParams(uuidParamSchema),
+  asyncHandler(dashboardRotatingCopyController.remove)
+);
+
+// ==================== Jyotish Bookings (Pandit/Vaastu) ====================
+router.get('/jyotish-bookings', asyncHandler(jyotishBookingController.listAdmin));
+router.patch(
+  '/jyotish-bookings/:id/status',
+  auditLogger(AuditAction.ADMIN_ACTION, 'JyotishBookingRequest'),
+  validateParams(uuidParamSchema),
+  validateBody(adminUpdateJyotishBookingStatusSchema),
+  asyncHandler(jyotishBookingController.updateStatusAdmin)
+);
 
 // ==================== Chat Audit ====================
 router.get('/chat-audit', adminController.getChatAudit);

@@ -11,6 +11,7 @@ import { AppError } from '../middleware/error-handler';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { prisma } from '@jyotish/database';
 import { AstrologerCategory } from '@prisma/client';
+import { getSocketInstance } from '../utils/socket-instance';
 
 /**
  * Astrologer login with phone/email and password
@@ -157,8 +158,8 @@ export async function toggleOnlineStatus(req: AuthRequest, res: Response, next: 
     );
 
     // Emit socket events for real-time status update
-    const io = req.app.get('io');
-    if (io) {
+    try {
+      const io = getSocketInstance();
       // Emit astrologer-specific event (for admins and monitoring)
       io.emit('astrologer:status_changed', {
         astrologerId,
@@ -166,11 +167,13 @@ export async function toggleOnlineStatus(req: AuthRequest, res: Response, next: 
         isOnline: updatedAstrologer.isOnline,
       });
 
-      // ALSO emit user:status event (same as disconnect) for client-side online lists
+      // ALSO emit user:status event (used by client-side online lists)
       io.emit('user:status', {
         userId: astrologerId,
         status: updatedAstrologer.isOnline ? 'online' : 'offline',
       });
+    } catch {
+      // If socket isn't initialized, still return REST response successfully.
     }
 
     return sendSuccess(res, {

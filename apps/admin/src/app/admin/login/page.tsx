@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,9 +12,17 @@ import { adminLoginSchema, type AdminLoginFormData } from '@/constants/validator
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { setAdmin } = useAdminStore();
+  const { setAdmin, isAuthenticated, _hasHydrated } = useAdminStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
+
+  // If already authenticated, never show login form
+  useEffect(() => {
+    if (!_hasHydrated) return;
+    if (isAuthenticated) {
+      router.replace(ADMIN_ROUTES.DASHBOARD);
+    }
+  }, [_hasHydrated, isAuthenticated, router]);
 
   const form = useForm<AdminLoginFormData>({
     resolver: zodResolver(adminLoginSchema),
@@ -46,6 +54,18 @@ export default function AdminLoginPage() {
       setIsSubmitting(false);
     }
   };
+
+  // Prevent flashing login UI while store hydrates / redirecting
+  if (!_hasHydrated || isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-space-black via-deep-purple to-space-black">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">

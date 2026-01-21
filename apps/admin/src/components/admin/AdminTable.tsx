@@ -80,54 +80,54 @@ export function AdminTable<T>({
   };
 
   return (
-    <div className="flex flex-col">
+    <>
       <Table>
-      <TableHeader>
-        <TableRow>
-          {showSerialNumber && (
-            <TableHead className="border-r border-slate-700 bg-indigo-900 w-16">S.N.</TableHead>
-          )}
-          {columns.map((column, index) => (
-            <TableHead
-              key={index}
-              className={`border-r border-slate-700 bg-indigo-900 ${column.className || ''} ${
-                index === columns.length - 1 ? 'border-r-0' : ''
-              }`}
-              style={column.width ? { width: column.width } : undefined}
-            >
-              {column.header}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {data.map((item, index) => (
-          <TableRow
-            key={keyExtractor(item, index)}
-            onClick={() => onRowClick?.(item)}
-            className={onRowClick ? 'cursor-pointer hover:bg-slate-800/50 transition-colors' : ''}
-          >
+        <TableHeader>
+          <TableRow>
             {showSerialNumber && (
-              <TableCell className="border-r border-slate-700/50 text-slate-400 font-medium">
-                {getSerialNumber(index)}
-              </TableCell>
+              <TableHead className="border-r border-slate-700 bg-indigo-900 w-16">S.N.</TableHead>
             )}
-            {columns.map((column, colIndex) => (
-              <TableCell
-                key={colIndex}
-                className={`border-r border-slate-700/50 ${column.className || ''} ${
-                  colIndex === columns.length - 1 ? 'border-r-0' : ''
+            {columns.map((column, index) => (
+              <TableHead
+                key={index}
+                className={`border-r border-slate-700 bg-indigo-900 ${column.className || ''} ${
+                  index === columns.length - 1 ? 'border-r-0' : ''
                 }`}
                 style={column.width ? { width: column.width } : undefined}
               >
-                {column.accessor(item, index)}
-              </TableCell>
+                {column.header}
+              </TableHead>
             ))}
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-      
+        </TableHeader>
+        <TableBody>
+          {data.map((item, index) => (
+            <TableRow
+              key={keyExtractor(item, index)}
+              onClick={() => onRowClick?.(item)}
+              className={onRowClick ? 'cursor-pointer hover:bg-slate-800/50 transition-colors' : ''}
+            >
+              {showSerialNumber && (
+                <TableCell className="border-r border-slate-700/50 text-slate-400 font-medium">
+                  {getSerialNumber(index)}
+                </TableCell>
+              )}
+              {columns.map((column, colIndex) => (
+                <TableCell
+                  key={colIndex}
+                  className={`border-r border-slate-700/50 ${column.className || ''} ${
+                    colIndex === columns.length - 1 ? 'border-r-0' : ''
+                  }`}
+                  style={column.width ? { width: column.width } : undefined}
+                >
+                  {column.accessor(item, index)}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
       {/* Pagination */}
       {onPageChange && totalItems && totalPages && totalPages > 1 && (
         <Pagination
@@ -138,6 +138,6 @@ export function AdminTable<T>({
           onPageChange={onPageChange}
         />
       )}
-    </div>
+    </>
   );
 }

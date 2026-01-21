@@ -143,7 +143,7 @@ export function ProfileImageUpload({
           </div>
         ) : (
           <div className="w-32 h-32 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white font-bold text-4xl border-4 border-white/10">
-            {userName ? userName.charAt(0).toUpperCase() : '👤'}
+            {(userName || 'J').charAt(0).toUpperCase()}
           </div>
         )}
 

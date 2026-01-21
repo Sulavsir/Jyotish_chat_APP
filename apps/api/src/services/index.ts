@@ -15,3 +15,5 @@ export { horoscopeService } from './horoscope.service';
 export { notificationService } from './notification.service';
 export { pricingService } from './pricing.service';
 export * as broadcastMessageService from './broadcastMessage.service';
+export { dashboardRotatingCopyService } from './dashboardRotatingCopy.service';
+export { jyotishBookingService } from './jyotishBooking.service';

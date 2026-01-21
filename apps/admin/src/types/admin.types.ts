@@ -18,7 +18,7 @@ export interface Astrologer {
   phone: string;
   specialization: string[];
   experience: number;
-  category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM';
+  category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
   appointmentFee?: number | null;
   rating: number;
   isActive: boolean;

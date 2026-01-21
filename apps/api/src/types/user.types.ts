@@ -3,6 +3,7 @@
  */
 
 import { UserResponse } from './database.types';
+import { ZodiacSign } from '@jyotish/shared';
 
 export interface CreateUserData {
   phoneNumber: string;
@@ -26,5 +27,6 @@ export interface ProfileSetupData {
   currentAddress: string;
   permanentAddress: string;
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  zodiacSign?: ZodiacSign | null;
   profilePhoto?: string;
 }

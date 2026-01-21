@@ -156,7 +156,7 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
     throw new Error('Request has expired');
   }
 
-  // Check if astrologer is PROFESSIONAL - they cannot accept instant chat requests
+  // Only PREMIUM astrologers cannot accept instant chats (appointments only).
   const astrologer = await prisma.astrologer.findUnique({
     where: { id: astrologerId },
     select: { category: true, name: true },
@@ -170,9 +170,9 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
     );
   }
 
-  if (astrologer.category === AstrologerCategory.PROFESSIONAL) {
+  if (astrologer.category === AstrologerCategory.PREMIUM) {
     throw new AppError(
-      `${astrologer.name} is a Professional astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
+      `${astrologer.name} is a Premium astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );

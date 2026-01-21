@@ -12,6 +12,8 @@ export * from './dialog';
 export * from './spinner';
 export * from './pagination';
 export * from './image-preview';
+export * from './select';
+export * from './loading-button';
 export * from './utils';
 
 // Shadcn components

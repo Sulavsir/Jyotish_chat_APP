@@ -26,7 +26,7 @@ const Search = React.forwardRef<HTMLInputElement, SearchProps>(
             size={20}
             strokeWidth={2}
             absoluteStrokeWidth
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 !text-white pointer-events-none"
           />
           <Input
             ref={ref}

@@ -28,6 +28,9 @@ export function toUserResponse(user: User | (User & { password?: string | null }
     currentAddress: user.currentAddress,
     permanentAddress: user.permanentAddress,
     zodiacSign: user.zodiacSign,
+    gender: (user as any).gender ?? null,
+    latitude: (user as any).latitude ?? null,
+    longitude: (user as any).longitude ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -53,6 +56,9 @@ export function entityToUserResponse(entity: UserEntity): UserResponse {
     currentAddress: entity.currentAddress,
     permanentAddress: entity.permanentAddress,
     zodiacSign: entity.zodiacSign,
+    gender: (entity as any).gender ?? null,
+    latitude: (entity as any).latitude ?? null,
+    longitude: (entity as any).longitude ?? null,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
   };

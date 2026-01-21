@@ -12,6 +12,18 @@ export const QUERY_KEYS = {
     ASTROLOGER_ME: ['auth', 'astrologer', 'me'] as const,
   },
 
+  // Dashboard
+  DASHBOARD: {
+    ROTATING_COPY: ['dashboard', 'rotating-copy'] as const,
+  },
+
+  // Jyotish Bookings
+  JYOTISH_BOOKINGS: {
+    ALL: ['jyotish-bookings'] as const,
+    MY_LIST: (filters: { page: number; limit: number; search?: string; type?: string; status?: string }) =>
+      ['jyotish-bookings', 'my', filters] as const,
+  },
+
   // Appointments
   APPOINTMENTS: {
     ALL: ['appointments'] as const,
@@ -19,6 +31,8 @@ export const QUERY_KEYS = {
       filters?.status
         ? (['appointments', 'list', { status: filters.status }] as const)
         : (['appointments', 'list'] as const),
+    MY_LIST: (filters: { page: number; limit: number; search?: string; status?: string }) =>
+      ['appointments', 'my', filters] as const,
     DETAIL: (id: string) => ['appointments', 'detail', id] as const,
     AVAILABILITY: (astrologerId: string, date: string) =>
       ['appointments', 'availability', astrologerId, date] as const,

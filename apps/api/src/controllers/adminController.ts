@@ -404,26 +404,43 @@ export async function addCoinsToUser(req: AuthRequest, res: Response, next: Next
     const coinService = await import('../services/coin.service');
     const { CoinTransactionReason } = await import('../types/coin.types');
 
+    // Ensure we only store valid enum reasons in DB
+    const reasonRaw = typeof reason === 'string' ? reason.trim() : '';
+    const validReasons = Object.values(CoinTransactionReason) as string[];
+    const resolvedReason = validReasons.includes(reasonRaw)
+      ? (reasonRaw as (typeof CoinTransactionReason)[keyof typeof CoinTransactionReason])
+      : CoinTransactionReason.ADMIN_ADJUSTMENT;
+
     const result = await coinService.addCoins(
       id,
       amount,
-      reason || CoinTransactionReason.ADMIN_ADJUSTMENT,
+      resolvedReason,
       adminId
     );
 
     // Log admin action (do not fail main flow if this fails)
-    await auditService.logAction({
-      adminId,
-      action: AuditAction.ADMIN_ACTION,
-      resource: 'User',
-      resourceId: id,
-      details: {
-        action: 'ADD_COINS',
-        amount,
-        reason: reason || 'ADMIN_ADJUSTMENT',
-        newBalance: result.balance,
-      },
-    });
+    try {
+      await auditService.logAction({
+        // Target user (FK-safe)
+        userId: id,
+        // Actor admin
+        adminId,
+        action: AuditAction.ADMIN_ACTION,
+        resource: 'User',
+        resourceId: id,
+        details: {
+          action: 'ADD_COINS',
+          amount,
+          reason: resolvedReason,
+          ...(reasonRaw && resolvedReason === CoinTransactionReason.ADMIN_ADJUSTMENT
+            ? { reasonInput: reasonRaw }
+            : {}),
+          newBalance: result.balance,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to log audit action:', err);
+    }
 
     return sendSuccess(res, result, HTTP_STATUS.OK);
   } catch (error) {

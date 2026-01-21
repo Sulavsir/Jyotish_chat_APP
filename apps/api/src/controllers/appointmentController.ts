@@ -79,17 +79,25 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const status = req.query.status as AppointmentStatus | undefined;
+    const { page, limit, search, status } = req.query as unknown as {
+      page: number;
+      limit: number;
+      search?: string;
+      status?: AppointmentStatus;
+    };
 
-    const appointments = await appointmentService.getAppointments(
+    const result = await appointmentService.listAppointments({
       userId,
-      userRole === UserRole.CLIENT ? UserRole.CLIENT : UserRole.ASTROLOGER,
-      status
-    );
+      role: userRole === UserRole.CLIENT ? UserRole.CLIENT : UserRole.ASTROLOGER,
+      page,
+      limit,
+      search,
+      status,
+    });
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: appointments,
+      data: result,
     });
   } catch (error: any) {
     console.error('Get appointments error:', error);

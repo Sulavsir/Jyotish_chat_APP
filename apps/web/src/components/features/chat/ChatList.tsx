@@ -6,7 +6,7 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
-import { MessageCircle, Search } from 'lucide-react';
+import { MessageCircle, Search, User } from 'lucide-react';
 import { getImageUrl } from '@/utils/image.utils';
 import { UserRole } from '@/types';
 import { useStore } from '@/store';
@@ -130,7 +130,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                 <h3 className="font-semibold text-white truncate">Channel Jyotish</h3>
               </div>
               <p className="text-sm text-gray-400 truncate">
-                Broadcast to all online astrologers
+                Request Message to all online astrologers
               </p>
             </div>
           </button>
@@ -152,6 +152,8 @@ export const ChatList: React.FC<ChatListProps> = ({
                 ? chat.astrologerParticipant 
                 : chat.clientParticipant;
             const isActive = activeChat === chat.id;
+            const showClientIconFallback =
+              otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
 
             return (
               <button
@@ -169,7 +171,11 @@ export const ChatList: React.FC<ChatListProps> = ({
                       alt={otherUser.name || otherUser.phone || 'User'}
                     />
                     <AvatarFallback className="bg-purple-600 text-white font-bold">
-                      {(otherUser.name || otherUser.phone || 'U').charAt(0).toUpperCase()}
+                      {showClientIconFallback ? (
+                        <User className="h-5 w-5" />
+                      ) : (
+                        (otherUser.name || otherUser.phone || 'U').charAt(0).toUpperCase()
+                      )}
                     </AvatarFallback>
                   </Avatar>
                   {/* Online indicator */}

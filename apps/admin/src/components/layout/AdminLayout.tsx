@@ -28,12 +28,35 @@ interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
+type NavChildLink = {
+  name: string;
+  href: string;
+};
+
+type NavLinkItem = {
+  kind: 'link';
+  name: string;
+  href: string;
+  icon: React.ReactNode;
+};
+
+type NavGroupItem = {
+  kind: 'group';
+  name: string;
+  key: 'jyotish-bookings' | 'website' | 'chat-management';
+  icon: React.ReactNode;
+  children: NavChildLink[];
+};
+
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { admin, isAuthenticated, logout, setAdmin, _hasHydrated } = useAdminStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [openGroup, setOpenGroup] = useState<'jyotish-bookings' | 'website' | 'chat-management' | null>(
+    'chat-management'
+  );
   const [isValidatingSession, setIsValidatingSession] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [adminStatus, setAdminStatus] = useState<'available' | 'busy'>('available');
@@ -122,8 +145,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     setAdminStatus((prev) => (prev === 'available' ? 'busy' : 'available'));
   };
 
-  const navigation = [
+  const navigation: Array<NavLinkItem | NavGroupItem> = [
     {
+      kind: 'link',
       name: 'Dashboard',
       href: ADMIN_ROUTES.DASHBOARD,
       icon: (
@@ -138,40 +162,48 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ),
     },
     {
+      kind: 'group',
+      name: 'Jyotish Bookings',
+      key: 'jyotish-bookings' as const,
+      icon: <DocumentIcon className="w-5 h-5" />,
+      children: [
+        { name: 'Pandit Ji', href: ADMIN_ROUTES.JYOTISH_BOOKINGS_PANDIT },
+        { name: 'Vaastu Shastri', href: ADMIN_ROUTES.JYOTISH_BOOKINGS_VAASTU },
+        { name: 'Katha Vachak', href: ADMIN_ROUTES.JYOTISH_BOOKINGS_KATHA_VACHAK },
+      ],
+    },
+    {
+      kind: 'group',
+      name: 'Website',
+      key: 'website' as const,
+      icon: <DocumentIcon className="w-5 h-5" />,
+      children: [{ name: 'Website Contents', href: ADMIN_ROUTES.WEBSITE_DASHBOARD_COPY }],
+    },
+    {
+      kind: 'link',
       name: 'Astrologers',
       href: ADMIN_ROUTES.ASTROLOGERS,
       icon: <StarIcon className="w-5 h-5" />,
     },
     {
+      kind: 'link',
       name: 'Users',
       href: ADMIN_ROUTES.USERS,
       icon: <UsersIcon className="w-5 h-5" />,
     },
     {
-      name: 'Chat Monitor',
-      href: ADMIN_ROUTES.CHATS,
+      kind: 'group',
+      name: 'Chat Management',
+      key: 'chat-management' as const,
       icon: <ChatIcon className="w-5 h-5" />,
+      children: [
+        { name: 'Chat Monitor', href: ADMIN_ROUTES.CHATS },
+        { name: 'Chat Audit', href: ADMIN_ROUTES.CHAT_AUDIT },
+        { name: 'Admin Chats', href: ADMIN_ROUTES.ADMIN_CHATS },
+      ],
     },
     {
-      name: 'Chat Audit',
-      href: ADMIN_ROUTES.CHAT_AUDIT,
-      icon: <ChatIcon className="w-5 h-5" />,
-    },
-    {
-      name: 'Admin Chats',
-      href: ADMIN_ROUTES.ADMIN_CHATS,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-      ),
-    },
-    {
+      kind: 'link',
       name: 'Complaints',
       href: ADMIN_ROUTES.COMPLAINTS,
       icon: (
@@ -186,6 +218,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ),
     },
     {
+      kind: 'link',
       name: 'Appointments',
       href: ADMIN_ROUTES.APPOINTMENTS,
       icon: (
@@ -200,16 +233,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ),
     },
     {
+      kind: 'link',
       name: 'Audit Logs',
       href: ADMIN_ROUTES.AUDIT_LOGS,
       icon: <DocumentIcon className="w-5 h-5" />,
     },
     {
+      kind: 'link',
       name: 'Earnings',
       href: ADMIN_ROUTES.EARNINGS,
       icon: <MoneyIcon className="w-5 h-5" />,
     },
     {
+      kind: 'link',
       name: 'Pricing',
       href: ADMIN_ROUTES.PRICING,
       icon: (
@@ -262,8 +298,82 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 relative z-20">
           {navigation.map((item) => {
+            if (item.kind === 'group') {
+              const childActive = item.children.some((c) => pathname === c.href);
+              // Always keep the accordion open when one of its child routes is active.
+              const isOpen = childActive || openGroup === item.key;
+              return (
+                <div key={item.name} className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroup((prev) => (prev === item.key ? null : item.key))}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                      childActive
+                        ? 'bg-gradient-to-r from-cosmic-purple/40 to-nebula-pink/20 text-white'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <span className="relative">
+                      {item.icon}
+                      {item.key === 'chat-management' && unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                    </span>
+                    {sidebarOpen && (
+                      <>
+                        <span className="font-medium flex-1 min-w-0 text-left truncate" title={item.name}>
+                          {item.name}
+                        </span>
+                        <svg
+                          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+
+                  {sidebarOpen && isOpen && (
+                    <div className="ml-6 pl-3 border-l border-slate-700 space-y-1">
+                      {item.children.map((c) => {
+                        const active = pathname === c.href;
+                        const isAdminChats = c.href === ADMIN_ROUTES.ADMIN_CHATS;
+                        return (
+                          <Link
+                            key={c.href}
+                            href={c.href}
+                            className={`block px-3 py-2 rounded-md text-sm transition-colors ${
+                              active
+                                ? 'text-white bg-slate-800/60'
+                                : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                            }`}
+                            title={c.name}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate min-w-0">{c.name}</span>
+                              {isAdminChats && unreadCount > 0 && (
+                                <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                                  {unreadCount}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const isActive = pathname === item.href;
             const isAdminChats = item.href === ADMIN_ROUTES.ADMIN_CHATS;
+
             return (
               <Link
                 key={item.name}
@@ -273,11 +383,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     ? 'bg-gradient-to-r from-cosmic-purple to-nebula-pink text-white glow'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                 }`}
+                title={item.name}
               >
                 {item.icon}
                 {sidebarOpen && (
                   <div className="flex items-center justify-between w-full">
-                    <span className="font-medium">{item.name}</span>
+                    <span className="font-medium truncate min-w-0">{item.name}</span>
                     {isAdminChats && unreadCount > 0 && (
                       <span className="ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
                         {unreadCount}

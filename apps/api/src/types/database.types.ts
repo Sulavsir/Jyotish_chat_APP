@@ -23,6 +23,9 @@ export interface UserResponse {
   currentAddress?: string | null;
   permanentAddress?: string | null;
   zodiacSign?: string | null;
+  gender?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

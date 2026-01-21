@@ -18,6 +18,7 @@ import publicRoutes from './public.routes';
 import ratingRoutes from './rating.routes';
 import coinRoutes from './coin.routes';
 import adminChatRoutes from './adminChat.routes';
+import jyotishBookingRoutes from './jyotishBooking.routes';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.use('/complaints', complaintRoutes); // User complaints
 router.use('/ratings', ratingRoutes); // Astrologer ratings
 router.use('/coins', coinRoutes); // Coin management
 router.use('/admin-chat', adminChatRoutes); // Admin chat support widget
+router.use('/jyotish-bookings', jyotishBookingRoutes); // Pandit/Vaastu booking requests
 
 // Astrologer routes
 router.use('/astrologer', astrologerRoutes);

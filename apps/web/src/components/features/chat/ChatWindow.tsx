@@ -271,7 +271,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       socket.off('chat:receive', handleMessageReceived);
       socket.off('chat:newMessage', handleNewMessage);
     };
-  }, [socket, chat, user]);
+  }, [socket, chat, user, queryClient]);
 
   // Deduplicate messages to prevent React key warnings and merge with system messages
   const uniqueMessages = useMemo(() => {
@@ -447,6 +447,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     chat.clientParticipant.id === currentUserId
       ? chat.astrologerParticipant
       : chat.clientParticipant;
+  const showClientIconFallback =
+    otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -468,7 +470,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               alt={otherUser.name || otherUser.phone || 'User'}
             />
             <AvatarFallback className="font-bold">
-              {(otherUser.name || otherUser.phone || 'U').charAt(0).toUpperCase()}
+              {showClientIconFallback ? (
+                <User className="h-5 w-5" />
+              ) : (
+                (otherUser.name || otherUser.phone || 'U').charAt(0).toUpperCase()
+              )}
             </AvatarFallback>
           </Avatar>
 

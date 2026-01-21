@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/auth-store';
 import type { BroadcastMessage } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import { toast } from 'sonner';
-import { MessageSquare, X, Clock } from 'lucide-react';
+import { MessageSquare, X, Clock, User } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { useRouter } from 'next/navigation';
@@ -185,9 +185,13 @@ export function BroadcastMessageBar() {
                   alt={currentMessage.client?.name || 'Client'}
                 />
                 <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold text-xl">
-                  {(currentMessage.client?.name || currentMessage.client?.phone || 'C')
-                    .charAt(0)
-                    .toUpperCase()}
+                  {!currentMessage.client?.profilePhoto && !currentMessage.client?.name ? (
+                    <User className="h-7 w-7 text-white" />
+                  ) : (
+                    (currentMessage.client?.name || currentMessage.client?.phone || 'C')
+                      .charAt(0)
+                      .toUpperCase()
+                  )}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">

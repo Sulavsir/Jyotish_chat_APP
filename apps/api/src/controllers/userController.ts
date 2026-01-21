@@ -15,6 +15,25 @@ import { getZodiacSign, UserRole } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
 
+function isClientProfileCompleteForFlag(user: {
+  name?: string | null;
+  dateOfBirth?: Date | string | null;
+  timeOfBirth?: string | null;
+  placeOfBirth?: string | null;
+  gender?: unknown | null;
+}): boolean {
+  return (
+    !!user.name &&
+    user.name.trim().length > 0 &&
+    !!user.dateOfBirth &&
+    !!user.timeOfBirth &&
+    user.timeOfBirth.trim().length > 0 &&
+    !!user.placeOfBirth &&
+    user.placeOfBirth.trim().length > 0 &&
+    !!user.gender
+  );
+}
+
 /**
  * Get current user profile
  * GET /api/v1/users/me
@@ -63,8 +82,9 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
       ...astrologerWithoutSensitiveData,
       phoneNumber: phone,
       role: UserRole.ASTROLOGER,
+      zodiacSign: null,
       hasPassword: !!password,
-      profileCompleted: true, // Astrologers are always considered profile completed
+      profileCompleted: true, 
       astrologer: {
         id: astrologer.id,
         category,
@@ -121,7 +141,8 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
  * PATCH /api/v1/users/me
  */
 export async function updateProfile(req: AuthRequest, res: Response, next: NextFunction) {
-  const { name, email, phone, profilePhoto, bio, specialization, experience, languages, gender } = req.body;
+  const { name, email, phone, profilePhoto, bio, specialization, experience, languages, gender, zodiacSign } =
+    req.body;
   const userId = req.user!.id;
   const userRole = req.user!.role;
 
@@ -169,6 +190,8 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
       ...astrologerWithoutSensitiveData,
       phoneNumber: astrologerPhone,
       role: UserRole.ASTROLOGER,
+      // zodiacSign is client-only; keep it present for a consistent `/users/me` shape
+      zodiacSign: null,
       hasPassword: !!password,
     };
 
@@ -183,6 +206,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
         ...(phone && { phone }),
         ...(profilePhoto && { profilePhoto }),
         ...(gender && { gender }),
+        ...(zodiacSign !== undefined ? { zodiacSign: zodiacSign || null } : {}),
       },
       select: {
         id: true,
@@ -207,8 +231,39 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
       },
     });
 
+    // Keep profileCompleted in sync with actual required fields (same rule as frontend)
+    const shouldBeCompleted = isClientProfileCompleteForFlag(user);
+    const finalUser =
+      user.profileCompleted === shouldBeCompleted
+        ? user
+        : await prisma.user.update({
+            where: { id: userId },
+            data: { profileCompleted: shouldBeCompleted },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              phone: true,
+              role: true,
+              profilePhoto: true,
+              dateOfBirth: true,
+              timeOfBirth: true,
+              placeOfBirth: true,
+              currentAddress: true,
+              permanentAddress: true,
+              zodiacSign: true,
+              gender: true,
+              latitude: true,
+              longitude: true,
+              password: true,
+              profileCompleted: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          });
+
     // Format response
-    const { phone: userPhone, password, ...userWithoutSensitiveData } = user;
+    const { phone: userPhone, password, ...userWithoutSensitiveData } = finalUser;
     const formattedUser = {
       ...userWithoutSensitiveData,
       phoneNumber: userPhone,
@@ -226,6 +281,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
  */
 export async function updateBirthDetails(req: AuthRequest, res: Response, next: NextFunction) {
   const userRole = req.user!.role;
+  const debug = process.env.NODE_ENV !== 'production';
 
   // Birth details are only for clients
   if (userRole === UserRole.ASTROLOGER) {
@@ -236,12 +292,60 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
     );
   }
 
+  if (debug) {
+    console.log('[users/me/birth-details] incoming body:', req.body);
+  }
+
   const validatedData = birthDetailsSchema.parse(req.body);
   const dob = new Date(validatedData.dateOfBirth);
+  // Preserve existing zodiacSign unless the client explicitly provides it.
+  // This prevents clients (e.g. Flutter) that omit zodiacSign from unintentionally overwriting
+  // an already-selected sign with an auto-calculated one.
+  const existing = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { name: true, zodiacSign: true, gender: true },
+  });
+
+  if (!existing) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
+  }
+
+  if (debug) {
+    console.log('[users/me/birth-details] validated:', {
+      dateOfBirth: validatedData.dateOfBirth,
+      timeOfBirth: validatedData.timeOfBirth,
+      placeOfBirth: validatedData.placeOfBirth,
+      zodiacSign: validatedData.zodiacSign,
+      gender: validatedData.gender,
+    });
+    console.log('[users/me/birth-details] existing:', {
+      zodiacSign: existing.zodiacSign,
+      gender: existing.gender,
+      name: existing.name,
+    });
+  }
+
   const resolvedZodiacSign =
-    validatedData.zodiacSign === undefined || validatedData.zodiacSign === null
-      ? getZodiacSign(dob)
-      : validatedData.zodiacSign;
+    validatedData.zodiacSign !== undefined && validatedData.zodiacSign !== null
+      ? validatedData.zodiacSign
+      : existing.zodiacSign ?? getZodiacSign(dob);
+
+  const genderForCompletion =
+    validatedData.gender !== undefined ? validatedData.gender : existing.gender;
+  const computedProfileCompleted = isClientProfileCompleteForFlag({
+    name: existing.name,
+    dateOfBirth: dob,
+    timeOfBirth: validatedData.timeOfBirth,
+    placeOfBirth: validatedData.placeOfBirth,
+    gender: genderForCompletion,
+  });
+
+  if (debug) {
+    console.log('[users/me/birth-details] resolved:', {
+      resolvedZodiacSign,
+      computedProfileCompleted,
+    });
+  }
 
   const user = await prisma.user.update({
     where: { id: req.user!.id },
@@ -255,6 +359,7 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
       permanentAddress: validatedData.permanentAddress,
       zodiacSign: resolvedZodiacSign,
       ...(validatedData.gender !== undefined ? { gender: validatedData.gender } : {}),
+      profileCompleted: computedProfileCompleted,
     },
     select: {
       id: true,
@@ -287,6 +392,15 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
     hasPassword: !!password,
   };
 
+  if (debug) {
+    console.log('[users/me/birth-details] response:', {
+      id: formattedUser.id,
+      zodiacSign: formattedUser.zodiacSign,
+      gender: formattedUser.gender,
+      profileCompleted: formattedUser.profileCompleted,
+    });
+  }
+
   return sendSuccess(res, formattedUser);
 }
 
@@ -295,8 +409,32 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
  * POST /api/v1/users/upload-photo
  */
 export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFunction) {
-  // @ts-ignore - multer adds 'file' property
-  const file = req.file;
+  // Multer may attach the upload either to `req.file` (single) or `req.files` (fields)
+  const file =
+    // @ts-ignore - multer adds 'file' property
+    req.file ||
+    // @ts-ignore - multer adds 'files' property
+    (req.files?.['photo']?.[0] ||
+      // @ts-ignore
+      req.files?.['file']?.[0] ||
+      // @ts-ignore
+      req.files?.['image']?.[0]);
+  const debug = process.env.NODE_ENV !== 'production';
+
+  if (debug) {
+    console.log('[users/upload-photo] file mimetype:', (file as any)?.mimetype);
+  }
+
+  if (debug) {
+    console.log('[users/upload-photo] file:', file
+      ? {
+          originalname: (file as any).originalname,
+          mimetype: (file as any).mimetype,
+          size: (file as any).size,
+          filename: (file as any).filename,
+        }
+      : null);
+  }
 
   if (!file) {
     throw new AppError('No file uploaded', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
@@ -363,6 +501,8 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
       ...updatedUser,
       role: UserRole.ASTROLOGER,
       phoneNumber: updatedUser.phone,
+      // zodiacSign is client-only; keep it present for a consistent `/users/me` shape
+      zodiacSign: null,
     };
 
     return sendSuccess(res, formattedUser);

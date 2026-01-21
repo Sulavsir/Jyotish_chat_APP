@@ -8,6 +8,16 @@ export const ADMIN_ROUTES = {
   
   // Main Pages
   DASHBOARD: '/admin/dashboard',
+
+  // Website
+  WEBSITE: '/admin/website',
+  WEBSITE_DASHBOARD_COPY: '/admin/website/dashboard-copy',
+
+  // Jyotish Bookings
+  JYOTISH_BOOKINGS: '/admin/jyotish-bookings',
+  JYOTISH_BOOKINGS_PANDIT: '/admin/jyotish-bookings/pandit',
+  JYOTISH_BOOKINGS_VAASTU: '/admin/jyotish-bookings/vaastu',
+  JYOTISH_BOOKINGS_KATHA_VACHAK: '/admin/jyotish-bookings/katha-vachak',
   
   // Astrologers
   ASTROLOGERS: '/admin/astrologers',

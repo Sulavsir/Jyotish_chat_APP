@@ -3,7 +3,7 @@
  */
 
 import { prisma } from '@jyotish/database';
-import { UserRole } from '@jyotish/shared';
+import { UserRole, getZodiacSign } from '@jyotish/shared';
 import { authService } from './auth.service';
 import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
@@ -217,19 +217,44 @@ export class UserService {
    * Setup/complete user profile
    */
   async setupProfile(userId: string, data: ProfileSetupData): Promise<UserResponse> {
+    const isProfileComplete =
+      !!data.name &&
+      data.name.trim().length > 0 &&
+      !!data.dateOfBirth &&
+      !!data.timeOfBirth &&
+      data.timeOfBirth.trim().length > 0 &&
+      !!data.placeOfBirth &&
+      data.placeOfBirth.trim().length > 0 &&
+      !!data.gender;
+
+    // Accept common Flutter date formats like "YYYY/MM/DD" by normalizing to ISO-ish.
+    const dobRaw = data.dateOfBirth instanceof Date ? data.dateOfBirth : String(data.dateOfBirth);
+    const normalizedDob =
+      typeof dobRaw === 'string' && dobRaw.includes('/') ? dobRaw.replace(/\//g, '-') : dobRaw;
+    const dob = new Date(normalizedDob);
+    if (Number.isNaN(dob.getTime())) {
+      throw new Error('Invalid dateOfBirth. Expected YYYY-MM-DD.');
+    }
+
+    // IMPORTANT: For profile-setup, do NOT auto-calculate zodiacSign.
+    // If the client doesn't send it, keep it null (so we can detect missing payloads).
+    const resolvedZodiacSign = data.zodiacSign ?? null;
+
     // Update user profile
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         name: data.name,
         email: data.email || null, // Convert empty string to null for unique constraint
-        dateOfBirth: new Date(data.dateOfBirth),
+        dateOfBirth: dob,
+        zodiacSign: resolvedZodiacSign as any,
         timeOfBirth: data.timeOfBirth,
         placeOfBirth: data.placeOfBirth,
         currentAddress: data.currentAddress,
         permanentAddress: data.permanentAddress,
-        gender: data.gender ?? 'MALE',
-        profileCompleted: true,
+        // Don't force a default gender; keep null unless explicitly provided
+        gender: data.gender ?? null,
+        profileCompleted: isProfileComplete,
         ...(data.profilePhoto && { profilePhoto: data.profilePhoto }),
       },
       select: {

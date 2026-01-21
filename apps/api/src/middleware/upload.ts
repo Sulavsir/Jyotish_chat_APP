@@ -32,10 +32,24 @@ const storage = multer.diskStorage({
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   
+  const debug = process.env.NODE_ENV !== 'production';
+  if (debug) {
+    console.log('[upload] incoming file:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: (file as any).size,
+    });
+  }
+
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'));
+    cb(
+      new Error(
+        `Invalid file type "${file.mimetype}". Only JPEG, PNG, GIF, and WebP images are allowed.`
+      )
+    );
   }
 };
 
@@ -50,4 +64,13 @@ export const upload = multer({
 
 // Single file upload middleware
 export const uploadSingle = (fieldName: string = 'photo') => upload.single(fieldName);
+
+// Profile photo upload: accept common field names from web/mobile clients.
+// This prevents "MulterError: Unexpected field" when a client uses `file` or `image`.
+export const uploadProfilePhoto = () =>
+  upload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'image', maxCount: 1 },
+  ]);
 

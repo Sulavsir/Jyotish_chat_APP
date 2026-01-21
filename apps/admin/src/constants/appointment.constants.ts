@@ -18,6 +18,7 @@ export const ASTROLOGER_CATEGORY = {
   ORDINARY: AstrologerCategory.ORDINARY,
   PROFESSIONAL: AstrologerCategory.PROFESSIONAL,
   PREMIUM: AstrologerCategory.PREMIUM,
+  KATHA_VACHAK: AstrologerCategory.KATHA_VACHAK,
 } as const;
 
 export const APPOINTMENT_STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -42,4 +43,5 @@ export const ASTROLOGER_CATEGORY_COLORS: Record<AstrologerCategory, string> = {
   [AstrologerCategory.PREMIUM]: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   [AstrologerCategory.PROFESSIONAL]: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   [AstrologerCategory.ORDINARY]: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  [AstrologerCategory.KATHA_VACHAK]: 'bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20',
 };

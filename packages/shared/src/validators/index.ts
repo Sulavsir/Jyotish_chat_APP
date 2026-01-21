@@ -6,7 +6,10 @@ import {
   ConsultationType,
   ZodiacSign,
   NotificationType,
+  JyotishBookingType,
+  JyotishBookingStatus,
 } from '../types';
+import { PANDIT_BOOKING_CATEGORIES, VAASTU_BOOKING_CATEGORIES } from '../constants';
 
 // User validators
 export const userRegisterSchema = z.object({
@@ -78,7 +81,20 @@ export const verifyLoginOTPSchema = z.object({
   sessionId: z.string().uuid('Invalid session ID'),
 });
 
-export const profileSetupSchema = z.object({
+export const profileSetupSchema = z.preprocess((input) => {
+  // Support snake_case keys from some clients (e.g., Flutter FormData)
+  if (!input || typeof input !== 'object') return input;
+  const obj = input as Record<string, unknown>;
+  return {
+    ...obj,
+    dateOfBirth: obj.dateOfBirth ?? obj.date_of_birth,
+    timeOfBirth: obj.timeOfBirth ?? obj.time_of_birth,
+    placeOfBirth: obj.placeOfBirth ?? obj.place_of_birth,
+    currentAddress: obj.currentAddress ?? obj.current_address,
+    permanentAddress: obj.permanentAddress ?? obj.permanent_address,
+    zodiacSign: obj.zodiacSign ?? obj.zodiac_sign,
+  };
+}, z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   dateOfBirth: z.string().or(z.date()),
@@ -88,7 +104,7 @@ export const profileSetupSchema = z.object({
   permanentAddress: z.string().min(5, 'Permanent address is required'),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
   zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
-});
+}));
 
 export const birthDetailsSchema = z.object({
   dateOfBirth: z.string().or(z.date()),
@@ -193,3 +209,5 @@ export const changePasswordSchema = z
     message: 'New password must be different from current password',
     path: ['newPassword'],
   });
+
+export * from './jyotish-booking.validators';

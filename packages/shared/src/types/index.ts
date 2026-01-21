@@ -39,6 +39,7 @@ export enum AstrologerCategory {
   ORDINARY = 'ORDINARY',
   PROFESSIONAL = 'PROFESSIONAL',
   PREMIUM = 'PREMIUM',
+  KATHA_VACHAK = 'KATHA_VACHAK',
 }
 
 export enum UserRole {
@@ -63,6 +64,45 @@ export interface BirthDetails {
   placeOfBirth: string;
   latitude?: number;
   longitude?: number;
+}
+
+// Dashboard types
+export interface DashboardRotatingCopy {
+  id: string;
+  title: string;
+  subtitle: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Jyotish booking types
+export enum JyotishBookingType {
+  PANDIT = 'PANDIT',
+  VAASTU = 'VAASTU',
+  KATHA_VACHAK = 'KATHA_VACHAK',
+}
+
+export enum JyotishBookingStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
+export interface JyotishBookingRequest {
+  id: string;
+  clientId: string;
+  type: JyotishBookingType;
+  preferredAstrologerId?: string | null;
+  category: string;
+  bookingDate: Date;
+  details?: string | null;
+  status: JyotishBookingStatus;
+  adminNotes?: string | null;
+  decidedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Chat types

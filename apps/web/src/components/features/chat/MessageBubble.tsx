@@ -25,6 +25,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isAstrologerViewingClient =
     user?.role === UserRole.ASTROLOGER && !isOwn && message.sender?.role === UserRole.CLIENT;
   const clientId = message.senderId || message.sender?.id;
+  const showClientIconFallback =
+    message.sender?.role === UserRole.CLIENT && !message.sender?.profilePhoto && !message.sender?.name;
 
   // Check if message has file attachment
   const metadata = message.metadata as any;
@@ -43,7 +45,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             />
           ) : null}
           <AvatarFallback className="font-bold bg-purple-600 text-white">
-            {message.sender?.name?.charAt(0)?.toUpperCase() || 'U'}
+            {showClientIconFallback ? (
+              <User className="h-4 w-4" />
+            ) : (
+              message.sender?.name?.charAt(0)?.toUpperCase() || 'U'
+            )}
           </AvatarFallback>
         </Avatar>
       )}
