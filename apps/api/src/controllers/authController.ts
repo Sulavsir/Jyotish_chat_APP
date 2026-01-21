@@ -57,14 +57,16 @@ export async function sendOTP(req: AuthRequest, res: Response, next: NextFunctio
     );
   }
 
-  // Check rate limiting
-  const isRateLimited = await otpService.checkRateLimit(phoneNumber);
-  if (isRateLimited) {
-    throw new AppError(
-      'Too many OTP requests. Please try again later.',
-      HTTP_STATUS.TOO_MANY_REQUESTS,
-      ERROR_CODES.RATE_LIMIT_EXCEEDED
-    );
+  // Check rate limiting (production only)
+  if (process.env.NODE_ENV === 'production') {
+    const isRateLimited = await otpService.checkRateLimit(phoneNumber);
+    if (isRateLimited) {
+      throw new AppError(
+        'Too many OTP requests. Please try again later.',
+        HTTP_STATUS.TOO_MANY_REQUESTS,
+        ERROR_CODES.RATE_LIMIT_EXCEEDED
+      );
+    }
   }
 
   // Send OTP via service
@@ -263,14 +265,16 @@ export async function requestLoginOTP(req: AuthRequest, res: Response, next: Nex
     );
   }
 
-  // Check rate limiting
-  const isRateLimited = await otpService.checkRateLimit(phoneNumber);
-  if (isRateLimited) {
-    throw new AppError(
-      'Too many OTP requests. Please try again later.',
-      HTTP_STATUS.TOO_MANY_REQUESTS,
-      ERROR_CODES.RATE_LIMIT_EXCEEDED
-    );
+  // Check rate limiting 
+  if (process.env.NODE_ENV === 'production') {
+    const isRateLimited = await otpService.checkRateLimit(phoneNumber);
+    if (isRateLimited) {
+      throw new AppError(
+        'Too many OTP requests. Please try again later.',
+        HTTP_STATUS.TOO_MANY_REQUESTS,
+        ERROR_CODES.RATE_LIMIT_EXCEEDED
+      );
+    }
   }
 
   // Send OTP via service

@@ -575,7 +575,7 @@ export default function DashboardPage() {
                     <span>Your spiritual companion</span>
                   </div>
 
-                  <h2 className="mt-3 text-2xl md:text-3xl font-bold text-white leading-tight min-h-[56px]">
+                  <h2 className="mt-3 text-2xl md:text-3xl font-bold text-yellow-400 leading-tight min-h-[56px]">
                     {isRotatingCopyLoading ? (
                       <Skeleton className="h-8 w-[min(28rem,90%)] bg-white/10" />
                     ) : (
@@ -587,7 +587,7 @@ export default function DashboardPage() {
                       </>
                     )}
                   </h2>
-                  <p className="mt-0.5 text-gray-300 min-h-[40px]">
+                  <div className="mt-0.5 text-yellow-300 min-h-[40px]">
                     {isRotatingCopyLoading ? (
                       <Skeleton className="h-4 w-[min(34rem,95%)] bg-white/10" />
                     ) : (
@@ -598,17 +598,17 @@ export default function DashboardPage() {
                         )}
                       </>
                     )}
-                  </p>
+                  </div>
 
                   <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-                      <p className="text-sm font-semibold text-white">Instant Guidance</p>
+                      <p className="text-sm font-semibold text-yellow-300">Instant Guidance</p>
                       <p className="text-sm text-gray-400 mt-1">
                         Verified Jyotish सँग real-time chat गरेर तुरुन्त उत्तर पाउनुहोस्।
                       </p>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-                      <p className="text-sm font-semibold text-white">Personalized Insights</p>
+                      <p className="text-sm font-semibold text-yellow-300">Personalized Insights</p>
                       <p className="text-sm text-gray-400 mt-1">
                         जन्म विवरण अनुसार kundali review, match, र future predictions।
                       </p>

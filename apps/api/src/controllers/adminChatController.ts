@@ -139,7 +139,7 @@ export const getChatById = async (req: AuthRequest, res: Response) => {
 
     let chat;
     if (userRole === UserRole.ADMIN) {
-      chat = await adminChatService.getChatById(id, undefined, userId);
+      chat = await adminChatService.getChatById(id);
     } else {
       chat = await adminChatService.getChatById(id, userId);
     }

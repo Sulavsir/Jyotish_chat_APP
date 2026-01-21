@@ -22,6 +22,10 @@ interface AdminChatDetailModalProps {
   onClose: () => void;
 }
 
+function isNonNullMessage(m: AdminChatMessage | null | undefined): m is AdminChatMessage {
+  return !!m && typeof m === 'object' && typeof m.id === 'string';
+}
+
 export default function AdminChatDetailModal({
   chat,
   isOpen,
@@ -33,6 +37,8 @@ export default function AdminChatDetailModal({
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const autoScrollRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { socket, isConnected } = useAdminSocket();
@@ -50,7 +56,7 @@ export default function AdminChatDetailModal({
   // Update messages from query
   useEffect(() => {
     if (messagesData?.messages) {
-      setMessages(messagesData.messages);
+      setMessages(messagesData.messages.filter(isNonNullMessage));
     }
   }, [messagesData]);
 
@@ -62,7 +68,8 @@ export default function AdminChatDetailModal({
 
     const handleMessage = (data: { message: AdminChatMessage; chat: AdminChat }) => {
       if (data.chat.id === chat.id) {
-        setMessages((prev) => [...prev, data.message]);
+        if (!isNonNullMessage(data.message)) return;
+        setMessages((prev) => [...prev, data.message].filter(isNonNullMessage));
         queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ADMIN_CHAT.ALL });
       }
     };
@@ -92,8 +99,12 @@ export default function AdminChatDetailModal({
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!isOpen) return;
+    if (!autoScrollRef.current) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+  }, [messages, isOpen, isTyping]);
 
   // Mark as read mutation
   const markAsReadMutation = useMutation({
@@ -128,6 +139,7 @@ export default function AdminChatDetailModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ADMIN_CHAT.ALL });
       toast.success('Chat status updated');
+      onClose();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update status');
@@ -135,6 +147,14 @@ export default function AdminChatDetailModal({
   });
 
   // Mark-as-read is handled server-side on `admin-chat:join`.
+  // But if socket isn't connected, we still need to mark read via REST so the table/unread badge updates.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!chat?.id) return;
+    if (chat.adminRead) return;
+    markAsReadMutation.mutate(chat.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, chat?.id, chat?.adminRead]);
 
   const handleSendMessage = () => {
     if ((!message.trim() && !attachment) || !chat) return;
@@ -174,6 +194,35 @@ export default function AdminChatDetailModal({
         type: 'TEXT',
       });
       setMessage('');
+      return;
+    }
+
+    // REST fallback (supports attachments too)
+    if (attachment) {
+      setIsUploading(true);
+      adminApi.adminChat
+        .uploadFile(attachment)
+        .then((file) => {
+          return adminApi.adminChat.sendMessage(chat.id, {
+            content: message.trim() ? message.trim() : undefined,
+            type: file.type,
+            metadata: {
+              fileUrl: file.url,
+              fileName: file.originalName,
+              mimeType: file.mimeType,
+              fileSize: file.size,
+            },
+          });
+        })
+        .then(() => {
+          setMessage('');
+          setAttachment(null);
+          refetchMessages();
+        })
+        .catch((err: Error) => {
+          toast.error(err.message || 'Failed to send attachment');
+        })
+        .finally(() => setIsUploading(false));
       return;
     }
 
@@ -283,7 +332,16 @@ export default function AdminChatDetailModal({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto overflow-x-hidden p-4 scroll-smooth"
+          onScroll={() => {
+            const el = messagesContainerRef.current;
+            if (!el) return;
+            const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight);
+            autoScrollRef.current = distanceFromBottom < 120;
+          }}
+        >
           <div className="space-y-4">
             {messages.length === 0 ? (
               <div className="text-center py-8 text-slate-400">
@@ -292,7 +350,7 @@ export default function AdminChatDetailModal({
               </div>
             ) : (
               <>
-                {messages.map((msg) => (
+                {messages.filter(isNonNullMessage).map((msg) => (
                   <div
                     key={msg.id}
                     className={`flex ${msg.senderType === 'ADMIN' ? 'justify-end' : 'justify-start'}`}

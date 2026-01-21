@@ -534,7 +534,19 @@ export const adminApi = {
       return response;
     },
 
-    sendMessage: async (id: string, data: { content: string; type?: 'TEXT' | 'IMAGE' | 'FILE' }): Promise<{ message: AdminChatMessage }> => {
+    sendMessage: async (
+      id: string,
+      data: {
+        content?: string;
+        type?: 'TEXT' | 'IMAGE' | 'FILE' | 'AUDIO';
+        metadata?: {
+          fileUrl?: string;
+          fileName?: string;
+          mimeType?: string;
+          fileSize?: number;
+        };
+      }
+    ): Promise<{ message: AdminChatMessage }> => {
       const response = await apiClient.post<{ message: AdminChatMessage }>(
         API_ENDPOINTS.ADMIN_CHAT.SEND_MESSAGE(id),
         data

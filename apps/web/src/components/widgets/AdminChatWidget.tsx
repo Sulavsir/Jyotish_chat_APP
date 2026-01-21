@@ -21,6 +21,7 @@ type ViewMode = 'faq' | 'chat';
 
 const ACTIVE_CHAT_STORAGE_KEY = 'admin_chat_active_chat';
 const SESSION_MESSAGE_TTL_MS = 30 * 60 * 1000; // 30 minutes of inactivity
+const MAX_SESSION_MESSAGES = 15;
 
 function getMessagesStorageKey(chatId: string) {
   return `admin_chat_messages:${chatId}`;
@@ -47,6 +48,15 @@ export function AdminChatWidget() {
   const { socket, isConnected } = useSocket();
   const user = useAuthStore((state) => state.user);
 
+  // Clear any persisted chat when user logs out (prevents stale chat IDs across sessions)
+  useEffect(() => {
+    if (user) return;
+    if (typeof window === 'undefined') return;
+    sessionStorage.removeItem(ACTIVE_CHAT_STORAGE_KEY);
+    setActiveChat(null);
+    setMessages([]);
+  }, [user]);
+
   // Get FAQs and categories based on user role - no FAQ for astrologers
   const faqs: FAQItem[] = user?.role === UserRole.ADMIN ? ADMIN_FAQS : user?.role === UserRole.ASTROLOGER ? [] : CLIENT_FAQS;
   const faqCategories = user?.role === UserRole.ADMIN ? ADMIN_FAQ_CATEGORIES : user?.role === UserRole.ASTROLOGER ? [] : CLIENT_FAQ_CATEGORIES;
@@ -55,6 +65,10 @@ export function AdminChatWidget() {
   // Load active chat from sessionStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      if (!user) {
+        sessionStorage.removeItem(ACTIVE_CHAT_STORAGE_KEY);
+        return;
+      }
       const storedChat = sessionStorage.getItem(ACTIVE_CHAT_STORAGE_KEY);
       if (storedChat) {
         try {
@@ -73,6 +87,41 @@ export function AdminChatWidget() {
       }
     }
   }, [user?.role]);
+
+  // Load chat + message history from API (DB-backed), so history persists across logouts/sessions.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!user) return;
+    if (!activeChat?.id) return;
+
+    let cancelled = false;
+    const chatId = activeChat.id;
+
+    (async () => {
+      try {
+        const [{ chat }, msgs] = await Promise.all([
+          adminChatService.getChatById(chatId),
+          adminChatService.getChatMessages(chatId, { page: 1, limit: MAX_SESSION_MESSAGES }),
+        ]);
+        if (cancelled) return;
+        setActiveChat(chat);
+        setMessages(msgs.messages.slice(-MAX_SESSION_MESSAGES));
+        // Mark as read so unread badges stay correct
+        await adminChatService.markAsRead(chatId);
+      } catch (err) {
+        if (cancelled) return;
+        // Stale or invalid chat ID (e.g., after logout/login) → clear local state
+        sessionStorage.removeItem(ACTIVE_CHAT_STORAGE_KEY);
+        setActiveChat(null);
+        setMessages([]);
+        toast.error(err instanceof Error ? err.message : 'Chat not found');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, user, activeChat?.id]);
 
   // Save active chat to sessionStorage whenever it changes
   useEffect(() => {
@@ -106,7 +155,7 @@ export function AdminChatWidget() {
     if (!cached) return;
     try {
       const parsed = JSON.parse(cached) as AdminChatMessage[];
-      setMessages(parsed);
+      setMessages(parsed.slice(-MAX_SESSION_MESSAGES));
     } catch {
       sessionStorage.removeItem(getMessagesStorageKey(chatId));
     }
@@ -116,17 +165,15 @@ export function AdminChatWidget() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!activeChat?.id) return;
-    sessionStorage.setItem(getMessagesStorageKey(activeChat.id), JSON.stringify(messages));
+    const trimmed = messages.slice(-MAX_SESSION_MESSAGES);
+    sessionStorage.setItem(getMessagesStorageKey(activeChat.id), JSON.stringify(trimmed));
     // only update activity when we actually have messages
-    if (messages.length > 0) {
+    if (trimmed.length > 0) {
       sessionStorage.setItem(getLastActivityStorageKey(activeChat.id), String(Date.now()));
     }
   }, [messages, activeChat?.id]);
 
-  // No API calls for fetching chats or messages
-  // Chat history is stored on admin side only
-  // Users only see real-time messages via socket
-  // Chat session persists until session is closed (browser tab/window)
+  // We still keep a light session cache for snappy UX, but the source of truth is the API (database).
 
   // Socket event handlers
   useEffect(() => {
@@ -134,7 +181,7 @@ export function AdminChatWidget() {
 
     const handleMessage = (data: { message: AdminChatMessage; chat: AdminChat }) => {
       if (data.chat.id === activeChat.id) {
-        setMessages((prev) => [...prev, data.message]);
+        setMessages((prev) => [...prev, data.message].slice(-MAX_SESSION_MESSAGES));
         setActiveChat(data.chat);
         if (typeof window !== 'undefined') {
           sessionStorage.setItem(getLastActivityStorageKey(activeChat.id), String(Date.now()));

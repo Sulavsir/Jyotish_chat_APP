@@ -69,8 +69,8 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
   try {
     const {
       category,
+      forAppointments,
       minRating,
-      maxChatFee,
       maxAppointmentFee,
       isOnline,
       search,
@@ -87,6 +87,14 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
 
     if (category) {
       where.category = category as AstrologerCategory;
+    }
+
+    // If requesting astrologers for appointment booking,
+    // filter to PROFESSIONAL and PREMIUM only (ORDINARY cannot accept appointments).
+    if (forAppointments === 'true') {
+      where.category = {
+        in: [AstrologerCategory.PROFESSIONAL, AstrologerCategory.PREMIUM],
+      };
     }
 
     if (minRating) {

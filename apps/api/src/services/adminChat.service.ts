@@ -277,17 +277,15 @@ class AdminChatService {
    * Get chat by ID
    */
   async getChatById(chatId: string, userId?: string, adminId?: string): Promise<AdminChatResponse> {
-    const where: { id: string; userId?: string; adminId?: string } = { id: chatId };
-
-    if (userId) {
-      where.userId = userId;
-    }
-    if (adminId) {
-      where.adminId = adminId;
-    }
-
-    const chat = await prisma.adminChat.findUnique({
-      where,
+    // Admins can view any chat; assignment (adminId) is optional.
+    // For non-admin participants, allow either `userId` OR `astrologerId` ownership.
+    const chat = await prisma.adminChat.findFirst({
+      where: userId
+        ? ({
+            id: chatId,
+            OR: [{ userId }, { astrologerId: userId }],
+          } as any)
+        : ({ id: chatId } as any),
       include: {
         user: {
           select: {
@@ -456,7 +454,10 @@ class AdminChatService {
 
     const updateData: { userRead?: boolean; adminRead?: boolean } = {};
 
-    if (userId && chat.userId === userId) {
+    const isUserOwner =
+      !!userId && (chat.userId === userId || (chat as any).astrologerId === userId);
+
+    if (isUserOwner) {
       updateData.userRead = true;
       // Mark user messages as read
       await prisma.adminChatMessage.updateMany({

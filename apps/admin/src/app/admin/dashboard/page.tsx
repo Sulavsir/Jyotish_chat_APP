@@ -181,10 +181,58 @@ export default function DashboardPage() {
       route: ADMIN_ROUTES.ASTROLOGERS_CREATE,
     },
     {
+      title: 'Manage Astrologers',
+      description: 'View & update astrologer profiles',
+      icon: <StarIcon className="w-6 h-6 text-purple-300" />,
+      route: ADMIN_ROUTES.ASTROLOGERS,
+    },
+    {
+      title: 'Users',
+      description: 'Manage registered clients',
+      icon: <UsersIcon className="w-6 h-6 text-emerald-300" />,
+      route: ADMIN_ROUTES.USERS,
+    },
+    {
       title: 'View Chats',
       description: 'Monitor active conversations',
       icon: <ChatIcon className="w-6 h-6 text-green-400" />,
       route: ADMIN_ROUTES.CHATS,
+    },
+    {
+      title: 'Admin Chats',
+      description: 'Support widget conversations',
+      icon: <ChatIcon className="w-6 h-6 text-rose-300" />,
+      route: ADMIN_ROUTES.ADMIN_CHATS,
+    },
+    {
+      title: 'Chat Audit',
+      description: 'Review chat activities',
+      icon: <DocumentIcon className="w-6 h-6 text-sky-300" />,
+      route: ADMIN_ROUTES.CHAT_AUDIT,
+    },
+    {
+      title: 'Appointments',
+      description: 'Monitor appointment audits',
+      icon: <DocumentIcon className="w-6 h-6 text-indigo-300" />,
+      route: ADMIN_ROUTES.APPOINTMENTS,
+    },
+    {
+      title: 'Jyotish Bookings',
+      description: 'Pandit, Vaastu & Katha requests',
+      icon: <DocumentIcon className="w-6 h-6 text-fuchsia-300" />,
+      route: ADMIN_ROUTES.JYOTISH_BOOKINGS,
+    },
+    {
+      title: 'Website Contents',
+      description: 'Manage dashboard copy & pages',
+      icon: <DocumentIcon className="w-6 h-6 text-amber-300" />,
+      route: ADMIN_ROUTES.WEBSITE_DASHBOARD_COPY,
+    },
+    {
+      title: 'Complaints',
+      description: 'Handle user issues & reports',
+      icon: <DocumentIcon className="w-6 h-6 text-orange-300" />,
+      route: ADMIN_ROUTES.COMPLAINTS,
     },
     {
       title: 'Audit Logs',
