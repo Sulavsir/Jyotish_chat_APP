@@ -102,9 +102,10 @@ export const getClients = async (limit = 10) => {
 export const getChatableUsers = async (userId: string, userRole: string) => {
   if (userRole === 'ASTROLOGER') {
     // Astrologers can chat with clients
-    return getClients(20);
+    return getClients(50);
   } else {
     // Clients can chat with astrologers
-    return getAstrologers(20);
+    // Return active astrologers (online + offline); real-time presence comes from sockets on the client.
+    return getAstrologers(50, false);
   }
 };

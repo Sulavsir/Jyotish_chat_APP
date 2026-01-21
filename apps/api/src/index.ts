@@ -48,17 +48,13 @@ const httpServer = createServer(app);
 // Function to check if origin is allowed
 const isOriginAllowed = (origin: string | undefined): boolean => {
   if (!origin) {
-    console.log('✅ CORS: Allowing request with no origin');
     return true; // Allow requests with no origin (like mobile apps)
   }
-
-  console.log('🔍 CORS: Checking origin:', origin);
 
   // In development, allow all localhost and local network origins
   if (process.env.NODE_ENV !== 'production') {
     // Allow localhost on any port
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      console.log('✅ CORS: Allowed localhost origin');
       return true;
     }
 
@@ -68,7 +64,6 @@ const isOriginAllowed = (origin: string | undefined): boolean => {
       origin.match(/^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}/) ||
       origin.match(/^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}/)
     ) {
-      console.log('✅ CORS: Allowed local network origin');
       return true;
     }
   }
@@ -87,12 +82,6 @@ const isOriginAllowed = (origin: string | undefined): boolean => {
   }
 
   const isAllowed = allowedOrigins.includes(origin);
-  if (isAllowed) {
-    console.log(`✅ CORS: Allowed origin: ${origin}`);
-  } else {
-    console.log(`❌ CORS: Origin not allowed: ${origin}`);
-    console.log(`   Allowed origins: ${allowedOrigins.join(', ') || 'none'}`);
-  }
   return isAllowed;
 };
 

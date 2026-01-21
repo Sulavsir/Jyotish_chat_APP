@@ -10,6 +10,9 @@ import { useAuthStore } from '@/store/auth-store';
 import { WS_BASE_URL, WS_EVENTS, QUERY_KEYS } from '@/constants';
 import type { ChatMessage, Notification } from '@/types';
 import { toast } from 'sonner';
+import type { AstrologerListResponse } from '@/types/astrologer';
+import type { ChatableUser } from '@/services/user.service';
+import type { PublicAstrologerProfile } from '@/types/astrologer';
 
 export function useSocket() {
   const queryClient = useQueryClient();
@@ -105,37 +108,31 @@ export function useSocket() {
 
     // Astrologer online/offline status changes (real-time updates for all users)
     socket.on(WS_EVENTS.ASTROLOGER_STATUS_CHANGED, ({ astrologerId, name, isOnline }) => {
-      console.log(`🔄 [SOCKET] Astrologer ${name} (${astrologerId}) is now ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
-      
       // Update online users store immediately
       if (isOnline) {
         addUserOnline(astrologerId);
-        console.log(`✅ [STORE] Added ${astrologerId} to online users`);
       } else {
         removeUserOnline(astrologerId);
-        console.log(`✅ [STORE] Removed ${astrologerId} from online users`);
       }
-      
-      // IMMEDIATELY refetch chatable users query with aggressive strategy
-      // Use exact: false to refetch all queries starting with this key
-      console.log(`🔄 [REFETCH] Triggering refetch for CHATABLE users...`);
-      queryClient.refetchQueries({ 
-        queryKey: QUERY_KEYS.USERS.CHATABLE,
-        exact: true, // Match exact key
-      }).then((results) => {
-        console.log(`✅ [REFETCH] Chatable users refetched! Results:`, results);
-      }).catch((error) => {
-        console.error(`❌ [REFETCH] Error refetching:`, error);
+
+      // Keep cached lists in sync without hammering `/users/chatable`.
+      queryClient.setQueryData<ChatableUser[] | undefined>(QUERY_KEYS.USERS.CHATABLE, (prev) => {
+        if (!prev) return prev;
+        return prev.map((u) => (u.id === astrologerId ? { ...u, isOnline } : u));
       });
-      
-      // Also invalidate to force refetch on next access
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.USERS.CHATABLE,
-        refetchType: 'active', // Refetch if query is currently active
-      });
-      
-      // Also invalidate astrologer lists
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ASTROLOGERS.LIST() });
+
+      queryClient.setQueriesData<AstrologerListResponse | undefined>(
+        { queryKey: ['astrologers', 'list'] },
+        (prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            astrologers: prev.astrologers.map((a) =>
+              a.id === astrologerId ? { ...a, isOnline } : a
+            ),
+          };
+        }
+      );
       
       // Show toast notification
       const user = useAuthStore.getState().user;
@@ -145,6 +142,63 @@ export function useSocket() {
         });
       }
     });
+
+    // Astrologer profile updates (name/photo/etc) for real-time UI updates
+    socket.on(
+      WS_EVENTS.ASTROLOGER_UPDATED,
+      (payload: { astrologerId: string; name?: string | null; profilePhoto?: string | null }) => {
+        const { astrologerId, name, profilePhoto } = payload;
+
+        // Update chatable list cache
+        queryClient.setQueryData<ChatableUser[] | undefined>(QUERY_KEYS.USERS.CHATABLE, (prev) => {
+          if (!prev) return prev;
+          return prev.map((u) =>
+            u.id === astrologerId
+              ? {
+                  ...u,
+                  ...(name !== undefined ? { name } : {}),
+                  ...(profilePhoto !== undefined ? { profilePhoto } : {}),
+                }
+              : u
+          );
+        });
+
+        // Update astrologer list caches
+        queryClient.setQueriesData<AstrologerListResponse | undefined>(
+          { queryKey: ['astrologers', 'list'] },
+          (prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              astrologers: prev.astrologers.map((a) =>
+                a.id === astrologerId
+                  ? {
+                      ...a,
+                      ...(name !== undefined ? { name: name ?? a.name } : {}),
+                      ...(profilePhoto !== undefined ? { profilePhoto } : {}),
+                    }
+                  : a
+              ),
+            };
+          }
+        );
+
+        // Update astrologer detail cache if present
+        queryClient.setQueryData<{ astrologer: PublicAstrologerProfile } | undefined>(
+          QUERY_KEYS.ASTROLOGERS.DETAIL(astrologerId),
+          (prev) => {
+            if (!prev) return prev;
+            return {
+              astrologer: {
+                ...prev.astrologer,
+                ...(name !== undefined ? { name: name ?? prev.astrologer.name } : {}),
+                ...(profilePhoto !== undefined ? { profilePhoto } : {}),
+              },
+            };
+          }
+        );
+      }
+    );
 
     // Notification events
     socket.on(WS_EVENTS.NOTIFICATION_NEW, (notification: Notification) => {

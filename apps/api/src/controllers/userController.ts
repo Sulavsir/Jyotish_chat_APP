@@ -14,6 +14,7 @@ import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { getZodiacSign, UserRole } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
+import { getSocketInstance } from '../utils/socket-instance';
 
 function isClientProfileCompleteForFlag(user: {
   name?: string | null;
@@ -171,6 +172,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
         bio: true,
         specialization: true,
         experience: true,
+        category: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -194,6 +196,19 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
       zodiacSign: null,
       hasPassword: !!password,
     };
+
+    // Broadcast profile updates so clients see changes immediately (name/photo/etc)
+    try {
+      const io = getSocketInstance();
+      io.emit('astrologer:updated', {
+        astrologerId: astrologer.id,
+        name: astrologer.name,
+        profilePhoto: astrologer.profilePhoto,
+        category: astrologer.category,
+      });
+    } catch {
+      // noop (socket may not be initialized in some environments)
+    }
 
     return sendSuccess(res, formattedAstrologer);
   } else {
@@ -491,6 +506,7 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
         name: true,
         email: true,
         phone: true,
+        category: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -504,6 +520,18 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
       // zodiacSign is client-only; keep it present for a consistent `/users/me` shape
       zodiacSign: null,
     };
+
+    try {
+      const io = getSocketInstance();
+      io.emit('astrologer:updated', {
+        astrologerId: updatedUser.id,
+        name: updatedUser.name,
+        profilePhoto: updatedUser.profilePhoto,
+        category: updatedUser.category,
+      });
+    } catch {
+      // noop
+    }
 
     return sendSuccess(res, formattedUser);
   } else {
@@ -604,6 +632,7 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
         name: true,
         phone: true,
         profilePhoto: true,
+        category: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -615,6 +644,18 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
       role: UserRole.ASTROLOGER,
       phoneNumber: updatedUser.phone,
     };
+
+    try {
+      const io = getSocketInstance();
+      io.emit('astrologer:updated', {
+        astrologerId: updatedUser.id,
+        name: updatedUser.name,
+        profilePhoto: updatedUser.profilePhoto,
+        category: updatedUser.category,
+      });
+    } catch {
+      // noop
+    }
 
     return sendSuccess(res, formattedUser);
   } else {

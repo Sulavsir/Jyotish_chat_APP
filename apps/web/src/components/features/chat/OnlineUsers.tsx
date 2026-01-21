@@ -58,14 +58,14 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
     data: users = [],
     isLoading,
     refetch,
-    dataUpdatedAt,
   } = useQuery({
     queryKey: QUERY_KEYS.USERS.CHATABLE,
     queryFn: userService.getChatableUsers,
-    staleTime: 0, // Always consider data stale for instant updates
-    refetchInterval: 30000, // Refetch every 30 seconds as backup
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-    refetchOnMount: 'always', // Always refetch on mount
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    placeholderData: (prev) => prev,
   });
 
   // Filter to show ONLY online users - NO LIMIT
@@ -90,13 +90,6 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
           const zodiac = (u.zodiacSign || '').toLowerCase();
           return name.includes(normalizedSearch) || category.includes(normalizedSearch) || zodiac.includes(normalizedSearch);
         });
-
-  // Debug: Log when data updates
-  React.useEffect(() => {
-    console.log(`📊 [OnlineUsers] Data updated at:`, new Date(dataUpdatedAt).toLocaleTimeString());
-    console.log(`📊 [OnlineUsers] Total users:`, users.length);
-    console.log(`📊 [OnlineUsers] Online users:`, onlineUsersFiltered.length);
-  }, [dataUpdatedAt, users.length, onlineUsersFiltered.length]);
 
   const handleChatNow = async (userId: string) => {
     // Check if client profile is complete before starting chat

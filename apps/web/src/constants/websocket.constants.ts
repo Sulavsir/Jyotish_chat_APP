@@ -16,6 +16,7 @@ export const WS_EVENTS = {
   NOTIFICATION_NEW: 'notification:new',
   USER_STATUS: 'user:status',
   ASTROLOGER_STATUS_CHANGED: 'astrologer:status_changed',
+  ASTROLOGER_UPDATED: 'astrologer:updated',
   CONSULTATION_UPDATE: 'consultation:update',
 } as const;
 
