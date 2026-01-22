@@ -507,6 +507,10 @@ export const getChatHistory = async (
             id: true,
             name: true,
             profilePhoto: true,
+            dateOfBirth: true,
+            timeOfBirth: true,
+            placeOfBirth: true,
+            role: true,
           },
         });
       } else if (message.senderType === ParticipantType.ASTROLOGER) {

@@ -61,6 +61,9 @@ export interface Message {
     email?: string;
     profilePhoto?: string;
     role?: string;
+    dateOfBirth?: Date | string | null;
+    timeOfBirth?: string | null;
+    placeOfBirth?: string | null;
   };
 }
 
@@ -97,6 +100,9 @@ export interface MessageBubbleProps {
       name: string;
       profilePhoto?: string;
       role?: string;
+      dateOfBirth?: Date | string | null;
+      timeOfBirth?: string | null;
+      placeOfBirth?: string | null;
     };
   };
   isOwn: boolean;

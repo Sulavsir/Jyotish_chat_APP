@@ -350,6 +350,10 @@ export function chatHandlers(io: Server, socket: Socket) {
               id: true,
               name: true,
               profilePhoto: true,
+              dateOfBirth: true,
+              timeOfBirth: true,
+              placeOfBirth: true,
+              role: true,
             },
           });
         } else if (user.role === UserRole.ASTROLOGER) {

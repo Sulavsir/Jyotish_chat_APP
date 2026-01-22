@@ -5,9 +5,9 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
-import { CheckCheck, Check, FileText, Download, User } from 'lucide-react';
+import { CheckCheck, Check, FileText, Download, User, Calendar, Clock, MapPin } from 'lucide-react';
 import { MessageBubbleProps } from '@/types/chat';
 import { getImageUrl } from '@/utils/image.utils';
 import { API_BASE_URL } from '@/constants';
@@ -27,6 +27,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const clientId = message.senderId || message.sender?.id;
   const showClientIconFallback =
     message.sender?.role === UserRole.CLIENT && !message.sender?.profilePhoto && !message.sender?.name;
+
+  // Format date of birth
+  const formatDateOfBirth = (date: Date | string | null | undefined): string => {
+    if (!date) return 'Not provided';
+    try {
+      return format(new Date(date), 'dd MMM, yyyy');
+    } catch {
+      return 'Invalid date';
+    }
+  };
+
+  // Check if birth details are available
+  const hasBirthDetails =
+    isAstrologerViewingClient &&
+    (message.sender?.dateOfBirth || message.sender?.timeOfBirth || message.sender?.placeOfBirth);
 
   // Check if message has file attachment
   const metadata = message.metadata as any;
@@ -138,17 +153,32 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* View Profile Badge - only for astrologers viewing client messages */}
-        {isAstrologerViewingClient && onViewProfile && clientId && (
-          <div className="mt-1">
-            <Badge
-              variant="outline"
-              className="cursor-pointer hover:bg-purple-50 border-purple-300 text-purple-700 hover:text-purple-800 transition-colors"
-              onClick={() => onViewProfile(clientId)}
-            >
-              <User className="h-3 w-3 mr-1" />
-              View Profile
-            </Badge>
+        {/* Birth Details - only for astrologers viewing client messages */}
+        {hasBirthDetails && (
+          <div className="mt-2 px-3 py-2 bg-blue-50/80 border border-blue-200/50 rounded-lg text-xs">
+            <div className="grid grid-cols-1 gap-1.5">
+              {message.sender?.dateOfBirth && (
+                <div className="flex items-center gap-1.5 text-blue-900">
+                  <Calendar className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                  <span className="font-medium">DOB:</span>
+                  <span>{formatDateOfBirth(message.sender.dateOfBirth)}</span>
+                </div>
+              )}
+              {message.sender?.timeOfBirth && (
+                <div className="flex items-center gap-1.5 text-blue-900">
+                  <Clock className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                  <span className="font-medium">TOB:</span>
+                  <span>{message.sender.timeOfBirth}</span>
+                </div>
+              )}
+              {message.sender?.placeOfBirth && (
+                <div className="flex items-center gap-1.5 text-blue-900">
+                  <MapPin className="h-3 w-3 text-blue-600 flex-shrink-0" />
+                  <span className="font-medium">POB:</span>
+                  <span className="truncate">{message.sender.placeOfBirth}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
