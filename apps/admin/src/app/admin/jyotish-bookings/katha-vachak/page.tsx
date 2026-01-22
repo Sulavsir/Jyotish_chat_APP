@@ -25,10 +25,13 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
 } from '@jyotish/ui';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { formatAdminDate } from '@/utils/helpers';
+import { formatAdminDate, getImageUrl } from '@/utils/helpers';
 import { generatePageNumbers } from '@/utils/helpers';
 import { RefreshCw } from 'lucide-react';
 
@@ -143,27 +146,6 @@ export default function KathaVachakBookingsPage() {
       width: '140px',
     },
     {
-      header: 'Booking reason',
-      accessor: (b) => (
-        <span className="text-white truncate block max-w-[260px]" title={b.category}>
-          {b.category}
-        </span>
-      ),
-    },
-    {
-      header: 'Remarks (Optional)',
-      accessor: (b) =>
-        b.details ? (
-          <span className="text-slate-200 truncate block max-w-[280px]" title={b.details}>
-            {b.details}
-          </span>
-        ) : (
-          <span className="text-slate-500">—</span>
-        ),
-      width: '320px',
-    },
-   
-    {
       header: 'Client',
       accessor: (b) => (
         <div className="space-y-1 min-w-0">
@@ -181,6 +163,59 @@ export default function KathaVachakBookingsPage() {
         </div>
       ),
       width: '260px',
+    },
+    {
+      header: 'Selected Jyotish',
+      accessor: (b) =>
+        b.preferredAstrologer ? (
+          <div className="flex items-center gap-2 min-w-0">
+            <Avatar className="h-8 w-8 flex-shrink-0">
+              <AvatarImage src={getImageUrl(b.preferredAstrologer.profilePhoto) || undefined} />
+              <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-white text-xs">
+                {(b.preferredAstrologer.name || 'A').charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-white truncate" title={b.preferredAstrologer.name}>
+              {b.preferredAstrologer.name}
+            </span>
+          </div>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
+      width: '200px',
+    },
+    {
+      header: 'Booking reason',
+      accessor: (b) => (
+        <span className="text-white truncate block max-w-[260px]" title={b.category}>
+          {b.category}
+        </span>
+      ),
+      width: '160px',
+    },
+    {
+      header: 'Location',
+      accessor: (b) =>
+        b.location ? (
+          <span className="text-slate-200 truncate block max-w-[200px]" title={b.location}>
+            {b.location}
+          </span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
+      width: '200px',
+    },
+    {
+      header: 'Remarks (Optional)',
+      accessor: (b) =>
+        b.details ? (
+          <span className="text-slate-200 truncate block max-w-[280px]" title={b.details}>
+            {b.details}
+          </span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
+      width: '320px',
     },
     {
       header: 'Status',

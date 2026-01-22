@@ -98,6 +98,7 @@ export interface JyotishBookingRequest {
   category: string;
   bookingDate: Date;
   details?: string | null;
+  location: string;
   status: JyotishBookingStatus;
   adminNotes?: string | null;
   decidedAt?: Date | null;

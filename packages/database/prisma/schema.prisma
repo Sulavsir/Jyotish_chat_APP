@@ -596,6 +596,7 @@ model JyotishBookingRequest {
   category   String
   bookingDate DateTime
   details    String?
+  location   String
   status     JyotishBookingStatus @default(PENDING)
   adminNotes String?
   decidedAt  DateTime?

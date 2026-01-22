@@ -66,6 +66,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
   const [bookingDate, setBookingDate] = useState<string>('');
   const [category, setCategory] = useState<string>('');
   const [details, setDetails] = useState<string>('');
+  const [location, setLocation] = useState<string>('');
   const [preferredAstrologerId, setPreferredAstrologerId] = useState<string | undefined>(undefined);
 
   const needsAstrologerSelection = type === JyotishBookingType.KATHA_VACHAK;
@@ -106,6 +107,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     setBookingDate(todayISO());
     setCategory(categories[0] ?? '');
     setDetails('');
+    setLocation('');
     setPreferredAstrologerId(undefined);
   }, [isOpen, categories]);
 
@@ -122,12 +124,22 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
       if (type === JyotishBookingType.KATHA_VACHAK && !preferredAstrologerId) {
         throw new Error('Please select a Jyotish');
       }
+      if (!location.trim()) {
+        throw new Error('Location is required');
+      }
+      if (!bookingDate) {
+        throw new Error('Booking date is required');
+      }
+      if (!category) {
+        throw new Error('Category is required');
+      }
       const parsed = createJyotishBookingRequestSchema.parse({
         type,
         preferredAstrologerId: type === JyotishBookingType.KATHA_VACHAK ? (preferredAstrologerId || undefined) : undefined,
         bookingDate,
         category,
         details: details.trim() ? details.trim() : undefined,
+        location: location.trim(),
       });
       return jyotishBookingService.create(parsed);
     },
@@ -187,30 +199,35 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
           >
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                  <Label className="text-white">Reason / Category</Label>
-                  <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a reason..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Label className="text-white">Select date</Label>
-                  <Input
-                    type="date"
-                    min={todayISO()}
-                    value={bookingDate}
-                    onChange={(e) => setBookingDate(e.target.value)}
-                  />
-                </div>
+          <div className="flex flex-col gap-2">
+            <Label className="text-white">
+              Reason / Category <span className="text-red-400">*</span>
+            </Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a reason..." />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label className="text-white">
+              Select date <span className="text-red-400">*</span>
+            </Label>
+            <Input
+              type="date"
+              min={todayISO()}
+              value={bookingDate}
+              onChange={(e) => setBookingDate(e.target.value)}
+              required
+            />
+          </div>
 
                
               </div>
@@ -284,11 +301,23 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
           ) : null}
 
           <div className="flex flex-col gap-2">
+            <Label className="text-white">
+              Location <span className="text-red-400">*</span>
+            </Label>
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Enter location/address..."
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
             <Label className="text-white">Booking reason / details (optional)</Label>
             <Textarea
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              placeholder="Write Short remarks(address, preferred time, specific puja, etc.)"
+              placeholder="Write Short remarks(preferred time, specific puja, etc.)"
               rows={4}
             />
           </div>

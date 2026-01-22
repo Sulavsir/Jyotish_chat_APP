@@ -13,6 +13,7 @@ export const jyotishBookingService = {
     category: string;
     bookingDate: Date;
     details?: string;
+    location: string;
   }) {
     return prisma.jyotishBookingRequest.create({
       data: {
@@ -22,6 +23,7 @@ export const jyotishBookingService = {
         category: input.category,
         bookingDate: input.bookingDate,
         details: input.details,
+        location: input.location,
         status: JyotishBookingStatus.PENDING,
       },
     });
@@ -47,6 +49,7 @@ export const jyotishBookingService = {
             OR: [
               { category: { contains: q, mode: 'insensitive' as const } },
               { details: { contains: q, mode: 'insensitive' as const } },
+              { location: { contains: q, mode: 'insensitive' as const } },
               { adminNotes: { contains: q, mode: 'insensitive' as const } },
               { preferredAstrologer: { name: { contains: q, mode: 'insensitive' as const } } },
             ],
@@ -104,6 +107,7 @@ export const jyotishBookingService = {
       OR?: Array<{
         category?: { contains: string; mode: 'insensitive' };
         details?: { contains: string; mode: 'insensitive' };
+        location?: { contains: string; mode: 'insensitive' };
         adminNotes?: { contains: string; mode: 'insensitive' };
         client?: {
           OR: Array<{
@@ -123,6 +127,7 @@ export const jyotishBookingService = {
       where.OR = [
         { category: { contains: q, mode: 'insensitive' } },
         { details: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
         { adminNotes: { contains: q, mode: 'insensitive' } },
         {
           client: {

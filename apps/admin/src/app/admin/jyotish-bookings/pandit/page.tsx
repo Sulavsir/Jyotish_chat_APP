@@ -149,29 +149,6 @@ export default function PanditBookingsPage() {
       width: '140px',
     },
     {
-      header: 'Booking reason',
-      accessor: (b) => (
-        <div className="space-y-1 min-w-0">
-          <div className="font-medium text-white truncate" title={b.category}>
-            {b.category}
-          </div>
-    
-        </div>
-      ),
-    },
-    {
-      header: 'Remarks (Optional)',
-      accessor: (b) =>
-        b.details ? (
-          <span className="text-slate-200 truncate block max-w-[280px]" title={b.details}>
-            {b.details}
-          </span>
-        ) : (
-         <span className="text-slate-500">—</span>
-        ),
-      width: '320px',
-    },
-    {
       header: 'Client',
       accessor: (b) => (
         <div className="space-y-1 min-w-0">
@@ -189,6 +166,40 @@ export default function PanditBookingsPage() {
         </div>
       ),
       width: '260px',
+    },
+    {
+      header: 'Booking reason',
+      accessor: (b) => (
+        <div className="space-y-1 min-w-0">
+          <div className="font-medium text-white truncate" title={b.category}>
+            {b.category}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Location',
+      accessor: (b) =>
+        b.location ? (
+          <span className="text-slate-200 truncate block max-w-[200px]" title={b.location}>
+            {b.location}
+          </span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
+      width: '200px',
+    },
+    {
+      header: 'Remarks (Optional)',
+      accessor: (b) =>
+        b.details ? (
+          <span className="text-slate-200 truncate block max-w-[280px]" title={b.details}>
+            {b.details}
+          </span>
+        ) : (
+         <span className="text-slate-500">—</span>
+        ),
+      width: '320px',
     },
     {
       header: 'Status',

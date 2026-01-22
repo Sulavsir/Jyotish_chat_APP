@@ -23,6 +23,7 @@ export const createJyotishBookingRequestSchema = z
       .refine(isValidISODate, 'Booking date must be a valid date (YYYY-MM-DD)'),
     category: z.string().min(1, 'Category is required'),
     details: z.string().max(2000, 'Details is too long').optional(),
+    location: z.string().min(1, 'Location is required').max(500, 'Location is too long'),
   })
   .superRefine((data, ctx) => {
     // Only Katha Vachak bookings can/should select a specific astrologer.
