@@ -27,10 +27,26 @@ type DashboardRotatingCopyEntity = {
 
 type DashboardRotatingCopyDelegate = {
   findMany: (args: {
-    where?: { isActive?: boolean };
+    where?: {
+      isActive?: boolean;
+      OR?: Array<{
+        title?: { contains: string; mode: 'insensitive' };
+        subtitle?: { contains: string; mode: 'insensitive' };
+      }>;
+    };
     orderBy?: Array<Record<string, 'asc' | 'desc'>>;
+    skip?: number;
+    take?: number;
   }) => Promise<DashboardRotatingCopyEntity[]>;
-  count: () => Promise<number>;
+  count: (args?: {
+    where?: {
+      isActive?: boolean;
+      OR?: Array<{
+        title?: { contains: string; mode: 'insensitive' };
+        subtitle?: { contains: string; mode: 'insensitive' };
+      }>;
+    };
+  }) => Promise<number>;
   create: (args: {
     data: {
       title: string;
@@ -70,10 +86,66 @@ export const dashboardRotatingCopyService = {
     });
   },
 
-  async listAdmin(): Promise<DashboardRotatingCopyEntity[]> {
-    return dashboardRotatingCopy.findMany({
+  async listAdmin(input?: { page?: number; limit?: number; search?: string }): Promise<{
+    items: DashboardRotatingCopyEntity[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const page = input?.page || 1;
+    const limit = input?.limit || 10;
+    const skip = (page - 1) * limit;
+    const q = input?.search?.trim();
+
+    const where: {
+      OR?: Array<{
+        title?: { contains: string; mode: 'insensitive' };
+        subtitle?: { contains: string; mode: 'insensitive' };
+      }>;
+    } = {};
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { subtitle: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const findManyArgs: {
+      where?: typeof where;
+      orderBy?: Array<Record<string, 'asc' | 'desc'>>;
+      skip: number;
+      take: number;
+    } = {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    });
+      skip,
+      take: limit,
+    };
+
+    if (Object.keys(where).length > 0) {
+      findManyArgs.where = where;
+    }
+
+    const countArgs: { where?: typeof where } | undefined =
+      Object.keys(where).length > 0 ? { where } : undefined;
+
+    const [items, total] = await Promise.all([
+      dashboardRotatingCopy.findMany(findManyArgs),
+      dashboardRotatingCopy.count(countArgs),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
   },
 
   async create(input: CreateDashboardRotatingCopyInput): Promise<DashboardRotatingCopyEntity> {

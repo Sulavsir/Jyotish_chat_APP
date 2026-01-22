@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { DASHBOARD_ROTATING_COPY } from '../constants';
+import { queryPaginationSchema } from './query.validators';
 
 export const createDashboardRotatingCopySchema = z.object({
   title: z
@@ -36,4 +37,8 @@ export const updateDashboardRotatingCopySchema = z
   .refine((obj) => Object.keys(obj).length > 0, {
     message: 'At least one field must be provided',
   });
+
+export const listAdminDashboardRotatingCopyQuerySchema = queryPaginationSchema.extend({
+  search: z.string().trim().min(1).optional(),
+});
 

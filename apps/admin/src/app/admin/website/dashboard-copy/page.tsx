@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,10 +18,31 @@ import {
   Search,
   Textarea,
   LoadingButton,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
 } from '@jyotish/ui';
 import type { DashboardRotatingCopy } from '@jyotish/shared';
 import { toast } from 'sonner';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { generatePageNumbers } from '@/utils/helpers';
+import { RefreshCw } from 'lucide-react';
+
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+interface DashboardRotatingCopyResponse {
+  items: DashboardRotatingCopy[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 type CopyFormState = {
   title: string;
@@ -41,27 +62,39 @@ function toFormDefaults(item?: DashboardRotatingCopy): CopyFormState {
 
 export default function DashboardCopyManagementPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DashboardRotatingCopy | null>(null);
   const [form, setForm] = useState<CopyFormState>(toFormDefaults());
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
-    queryFn: () => adminApi.dashboard.rotatingCopy.list(),
+  const {
+    data: itemsResponse,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery<DashboardRotatingCopyResponse>({
+    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(), currentPage, searchTerm],
+    queryFn: () =>
+      adminApi.dashboard.rotatingCopy.list({
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: searchTerm || undefined,
+      }),
   });
 
-  const items = data?.items ?? [];
+  const items = itemsResponse?.items ?? [];
+  const pagination = itemsResponse?.pagination || {
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 0,
+  };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => {
-      const t = i.title.toLowerCase();
-      const s = i.subtitle.toLowerCase();
-      return t.includes(q) || s.includes(q);
-    });
-  }, [items, search]);
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [searchTerm]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -72,7 +105,9 @@ export default function DashboardCopyManagementPage() {
         isActive: form.isActive,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY() });
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
+      });
       toast.success('Created successfully');
       setDialogOpen(false);
     },
@@ -90,7 +125,9 @@ export default function DashboardCopyManagementPage() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY() });
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
+      });
       toast.success('Updated successfully');
       setDialogOpen(false);
     },
@@ -100,7 +137,9 @@ export default function DashboardCopyManagementPage() {
   const toggleMutation = useMutation({
     mutationFn: (id: string) => adminApi.dashboard.rotatingCopy.toggle(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY() });
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
+      });
       toast.success('Status updated');
     },
     onError: (e: Error) => toast.error(e.message || 'Failed to toggle'),
@@ -109,7 +148,9 @@ export default function DashboardCopyManagementPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => adminApi.dashboard.rotatingCopy.remove(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY() });
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
+      });
       toast.success('Deleted successfully');
     },
     onError: (e: Error) => toast.error(e.message || 'Failed to delete'),
@@ -156,9 +197,11 @@ export default function DashboardCopyManagementPage() {
             <Button
               variant="outline"
               onClick={() => refetch()}
-              disabled={isFetching}
-              className="border-slate-700"
+              disabled={isLoading}
+              size="sm"
+              className="border-slate-700 text-white hover:bg-slate-800"
             >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <Button
@@ -172,19 +215,18 @@ export default function DashboardCopyManagementPage() {
 
         <Search
           placeholder="Search title/subtitle..."
-          value={search}
-          onSearch={setSearch}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchTerm}
+          onSearch={setSearchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
-            data={filtered}
+            data={items}
             loading={isLoading}
             keyExtractor={(item) => item.id}
             columns={
               [
-                
                 {
                   header: 'Title / Subtitle',
                   accessor: (item) => (
@@ -256,12 +298,68 @@ export default function DashboardCopyManagementPage() {
                   />
                 </svg>
               ),
-              title: 'No dashboard copy items',
-              description: 'Create the first rotating title/subtitle to show on the client dashboard.',
-              action: { label: 'Add copy', onClick: openCreate },
+              title: searchTerm ? 'No dashboard copy items found' : 'No dashboard copy items',
+              description: searchTerm
+                ? 'Try adjusting your search terms'
+                : 'Create the first rotating title/subtitle to show on the client dashboard.',
+              action: searchTerm ? undefined : { label: 'Add copy', onClick: openCreate },
             }}
           />
         </div>
+
+        {/* Pagination */}
+        {!isLoading && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                </span> to{' '}
+                <span className="text-purple-400">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of{' '}
+                <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
 
         <Dialog
           open={dialogOpen}

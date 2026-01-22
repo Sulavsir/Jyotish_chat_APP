@@ -26,8 +26,18 @@ export async function listPublic(req: Request, res: Response, next: NextFunction
  */
 export async function listAdmin(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const items = await dashboardRotatingCopyService.listAdmin();
-    return sendSuccess(res, { items });
+    const { page, limit, search } = req.query as unknown as {
+      page: number;
+      limit: number;
+      search?: string;
+    };
+
+    const result = await dashboardRotatingCopyService.listAdmin({
+      page,
+      limit,
+      search,
+    });
+    return sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

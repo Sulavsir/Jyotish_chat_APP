@@ -1,15 +1,65 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Label, Search, Textarea, LoadingButton } from '@jyotish/ui';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Search,
+  Textarea,
+  LoadingButton,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@jyotish/ui';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { formatAdminDate } from '@/utils/helpers';
+import { generatePageNumbers } from '@/utils/helpers';
+import { RefreshCw } from 'lucide-react';
+
+const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+interface JyotishBookingsResponse {
+  bookings: Array<
+    import('@jyotish/shared').JyotishBookingRequest & {
+      client: {
+        id: string;
+        phone: string;
+        name: string | null;
+        email: string | null;
+        profilePhoto: string | null;
+      };
+      preferredAstrologer?: {
+        id: string;
+        name: string;
+        category: import('@jyotish/shared').AstrologerCategory;
+        specialization: string[];
+        profilePhoto: string | null;
+      } | null;
+    }
+  >;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
 
 type ActionState =
   | { open: false }
@@ -27,34 +77,58 @@ function statusBadge(status: JyotishBookingStatus) {
 
 export default function KathaVachakBookingsPage() {
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
-    queryFn: () => adminApi.jyotishBookings.list({ type: JyotishBookingType.KATHA_VACHAK }),
+  const {
+    data: bookingsResponse,
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery<JyotishBookingsResponse>({
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
+      currentPage,
+      searchTerm,
+    ],
+    queryFn: () =>
+      adminApi.jyotishBookings.list({
+        type: JyotishBookingType.KATHA_VACHAK,
+        page: currentPage,
+        limit: ITEMS_PER_PAGE,
+        search: searchTerm || undefined,
+      }),
   });
 
-  const bookings = data?.bookings ?? [];
+  const bookings = bookingsResponse?.bookings ?? [];
+  const pagination = bookingsResponse?.pagination || {
+    page: 1,
+    limit: ITEMS_PER_PAGE,
+    total: 0,
+    totalPages: 0,
+  };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return bookings;
-    return bookings.filter((b) => {
-      const hay =
-        `${b.category} ${b.details ?? ''} ${b.adminNotes ?? ''} ${b.client?.phone ?? ''} ${b.client?.name ?? ''} ${
-          b.client?.email ?? ''
-        } ${b.preferredAstrologer?.name ?? ''}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [bookings, search]);
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [searchTerm]);
 
   const updateStatusMutation = useMutation({
-    mutationFn: (input: { id: string; status: JyotishBookingStatus.APPROVED | JyotishBookingStatus.REJECTED; adminNotes?: string }) =>
-      adminApi.jyotishBookings.updateStatus(input.id, { status: input.status, adminNotes: input.adminNotes }),
+    mutationFn: (input: {
+      id: string;
+      status: JyotishBookingStatus.APPROVED | JyotishBookingStatus.REJECTED;
+      adminNotes?: string;
+    }) =>
+      adminApi.jyotishBookings.updateStatus(input.id, {
+        status: input.status,
+        adminNotes: input.adminNotes,
+      }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }) });
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
+      });
       toast.success('Updated successfully');
       setAction({ open: false });
       setAdminNotes('');
@@ -62,7 +136,7 @@ export default function KathaVachakBookingsPage() {
     onError: (e: Error) => toast.error(e.message || 'Failed to update'),
   });
 
-  const columns: AdminTableColumn<(typeof filtered)[number]>[] = [
+  const columns: AdminTableColumn<(typeof bookings)[number]>[] = [
     {
       header: 'Date',
       accessor: (b) => <span className="text-slate-200">{formatAdminDate(b.bookingDate)}</span>,
@@ -154,23 +228,28 @@ export default function KathaVachakBookingsPage() {
             <h1 className="text-2xl font-bold text-white">Katha Vachak Requests</h1>
             <p className="text-slate-400">Approve or reject Katha Vachak booking requests</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-slate-700">
-              Refresh
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={() => refetch()}
+            disabled={isLoading}
+            size="sm"
+            className="border-slate-700 text-white hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         <Search
           placeholder="Search by reason, remarks, client....."
-          value={search}
-          onSearch={setSearch}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchTerm}
+          onSearch={setSearchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
-            data={filtered}
+            data={bookings}
             loading={isLoading}
             keyExtractor={(b) => b.id}
             columns={columns}
@@ -186,11 +265,67 @@ export default function KathaVachakBookingsPage() {
                   />
                 </svg>
               ),
-              title: 'No Katha Vachak booking requests',
-              description: 'Requests submitted by clients will appear here.',
+              title: searchTerm ? 'No Katha Vachak booking requests found' : 'No Katha Vachak booking requests',
+              description: searchTerm
+                ? 'Try adjusting your search terms'
+                : 'Requests submitted by clients will appear here.',
             }}
           />
         </div>
+
+        {/* Pagination */}
+        {!isLoading && pagination.totalPages > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-2 items-center justify-between">
+              <div className="text-sm text-white font-medium">
+                Showing <span className="text-purple-400">
+                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
+                </span> to{' '}
+                <span className="text-purple-400">
+                  {Math.min(pagination.page * pagination.limit, pagination.total)}
+                </span> of{' '}
+                <span className="text-purple-400">{pagination.total}</span> entries
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+
+                  {generatePageNumbers(
+                    currentPage,
+                    pagination.totalPages,
+                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                  ).map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      disabled={currentPage === pagination.totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </div>
+        )}
 
         <Dialog
           open={action.open}

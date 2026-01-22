@@ -82,23 +82,22 @@ export async function listMine(req: AuthRequest, res: Response, next: NextFuncti
  */
 export async function listAdmin(req: Request, res: Response, next: NextFunction) {
   try {
-    const { type, status } = req.query as { type?: string; status?: string };
+    const { type, status, page, limit, search } = req.query as unknown as {
+      type?: JyotishBookingType;
+      status?: JyotishBookingStatus;
+      page: number;
+      limit: number;
+      search?: string;
+    };
 
-    const parsedType =
-      type === JyotishBookingType.PANDIT ||
-      type === JyotishBookingType.VAASTU ||
-      type === JyotishBookingType.KATHA_VACHAK
-        ? (type as JyotishBookingType)
-        : undefined;
-    const parsedStatus =
-      status === JyotishBookingStatus.PENDING ||
-      status === JyotishBookingStatus.APPROVED ||
-      status === JyotishBookingStatus.REJECTED
-        ? (status as JyotishBookingStatus)
-        : undefined;
-
-    const bookings = await jyotishBookingService.listAdmin({ type: parsedType, status: parsedStatus });
-    return sendSuccess(res, { bookings });
+    const result = await jyotishBookingService.listAdmin({
+      type,
+      status,
+      page,
+      limit,
+      search,
+    });
+    return sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

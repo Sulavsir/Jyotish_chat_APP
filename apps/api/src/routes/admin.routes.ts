@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
-import { validateBody, validateParams } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { adminAddCoinsSchema } from '../validators/coin.validators';
 import { AuditAction } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
@@ -21,6 +21,8 @@ import {
   updateDashboardRotatingCopySchema,
   uuidParamSchema,
   adminUpdateJyotishBookingStatusSchema,
+  listAdminJyotishBookingsQuerySchema,
+  listAdminDashboardRotatingCopyQuerySchema,
 } from '../validators';
 import { jyotishBookingController } from '../controllers';
 
@@ -165,7 +167,11 @@ router.get('/dashboard/stats', adminController.getDashboardStats);
 router.get('/dashboard/recent-activities', adminController.getRecentActivities);
 
 // Dashboard rotating copy (managed by admin)
-router.get('/dashboard/rotating-copy', asyncHandler(dashboardRotatingCopyController.listAdmin));
+router.get(
+  '/dashboard/rotating-copy',
+  validateQuery(listAdminDashboardRotatingCopyQuerySchema),
+  asyncHandler(dashboardRotatingCopyController.listAdmin)
+);
 router.post(
   '/dashboard/rotating-copy',
   auditLogger(AuditAction.ADMIN_ACTION, 'DashboardRotatingCopy'),
@@ -193,7 +199,11 @@ router.delete(
 );
 
 // ==================== Jyotish Bookings (Pandit/Vaastu) ====================
-router.get('/jyotish-bookings', asyncHandler(jyotishBookingController.listAdmin));
+router.get(
+  '/jyotish-bookings',
+  validateQuery(listAdminJyotishBookingsQuerySchema),
+  asyncHandler(jyotishBookingController.listAdmin)
+);
 router.patch(
   '/jyotish-bookings/:id/status',
   auditLogger(AuditAction.ADMIN_ACTION, 'JyotishBookingRequest'),

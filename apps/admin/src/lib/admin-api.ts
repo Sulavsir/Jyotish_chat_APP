@@ -108,6 +108,12 @@ export interface LoginResponse {
 
 type ListDashboardRotatingCopyResponse = {
   items: DashboardRotatingCopy[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 type CreateDashboardRotatingCopyRequest = {
@@ -138,6 +144,12 @@ type ListJyotishBookingsResponse = {
       } | null;
     }
   >;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 };
 
 type UpdateJyotishBookingStatusRequest = {
@@ -376,9 +388,14 @@ export const adminApi = {
     },
 
     rotatingCopy: {
-      list: async (): Promise<ListDashboardRotatingCopyResponse> => {
+      list: async (params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+      }): Promise<ListDashboardRotatingCopyResponse> => {
         const response = await apiClient.get<ListDashboardRotatingCopyResponse>(
-          API_ENDPOINTS.DASHBOARD.ROTATING_COPY
+          API_ENDPOINTS.DASHBOARD.ROTATING_COPY,
+          { params }
         );
         return response;
       },
@@ -421,7 +438,13 @@ export const adminApi = {
   },
 
   jyotishBookings: {
-    list: async (params?: { type?: JyotishBookingType; status?: JyotishBookingStatus }) => {
+    list: async (params?: {
+      type?: JyotishBookingType;
+      status?: JyotishBookingStatus;
+      page?: number;
+      limit?: number;
+      search?: string;
+    }): Promise<ListJyotishBookingsResponse> => {
       const response = await apiClient.get<ListJyotishBookingsResponse>(API_ENDPOINTS.JYOTISH_BOOKINGS.LIST, {
         params,
       });

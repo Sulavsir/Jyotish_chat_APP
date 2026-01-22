@@ -23,11 +23,12 @@ export class AuditService {
    * Log an action to the audit log
    */
   async logAction(params: LogActionParams) {
+    // Only set userId/astrologerId/adminId if they are provided (to avoid foreign key violations)
     const auditLog = await prisma.auditLog.create({
       data: {
-        userId: params.userId,
-        astrologerId: params.astrologerId,
-        adminId: params.adminId,
+        ...(params.userId ? { userId: params.userId } : {}),
+        ...(params.astrologerId ? { astrologerId: params.astrologerId } : {}),
+        ...(params.adminId ? { adminId: params.adminId } : {}),
         action: params.action,
         resource: params.resource,
         resourceId: params.resourceId,

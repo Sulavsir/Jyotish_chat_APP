@@ -32,9 +32,19 @@ export function auditLogger(
       const userAgent = req.headers['user-agent'];
 
       // Determine who is performing the action
-      const userId = req.user?.id;
-      const astrologerId = (req as any).astrologer?.id;
-      const adminId = (req as any).admin?.id;
+      // IMPORTANT: Only set userId/astrologerId/adminId based on actual role to avoid foreign key violations
+      const userRole = req.user?.role;
+      let userId: string | undefined;
+      let astrologerId: string | undefined;
+      let adminId: string | undefined;
+
+      if (userRole === 'ADMIN') {
+        adminId = req.user?.id;
+      } else if (userRole === 'ASTROLOGER') {
+        astrologerId = req.user?.id;
+      } else if (userRole === 'CLIENT') {
+        userId = req.user?.id;
+      }
 
       // Log the action asynchronously (don't wait)
       auditService
