@@ -33,9 +33,11 @@ export async function createBroadcastMessage(req: AuthRequest, res: Response) {
       metadata,
     });
 
-    // Emit real-time event to all connected astrologers
+    // Emit real-time event to eligible astrologers only (excluding PREMIUM)
+    // Note: The socket handler already filters this, but we keep this for consistency
     const io = getSocketInstance();
     if (io) {
+      // The socket handler will filter out PREMIUM astrologers
       io.to('astrologers').emit('broadcast:newMessage', message);
     }
 
@@ -92,10 +94,15 @@ export async function getAllMessages(req: AuthRequest, res: Response) {
   try {
     // Validate user is an astrologer
     if (req.user!.role !== UserRole.ASTROLOGER) {
-      return sendError(res, 'Only astrologers can view all broadcast messages', HTTP_STATUS.FORBIDDEN);
+      return sendError(
+        res,
+        'Only astrologers can view all broadcast messages',
+        HTTP_STATUS.FORBIDDEN
+      );
     }
 
-    const messages = await broadcastMessageService.getAllBroadcastMessages();
+    const astrologerId = req.user!.id;
+    const messages = await broadcastMessageService.getAllBroadcastMessages(astrologerId);
 
     return sendSuccess(res, messages || []);
   } catch (error: any) {
@@ -122,7 +129,11 @@ export async function getMyMessages(req: AuthRequest, res: Response) {
 
     // Validate user is a client
     if (req.user!.role !== 'CLIENT') {
-      return sendError(res, 'Only clients can view their broadcast messages', HTTP_STATUS.FORBIDDEN);
+      return sendError(
+        res,
+        'Only clients can view their broadcast messages',
+        HTTP_STATUS.FORBIDDEN
+      );
     }
 
     const messages = await broadcastMessageService.getClientBroadcastMessages(clientId);
@@ -153,7 +164,11 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
 
     // Validate user is an astrologer
     if (req.user!.role !== UserRole.ASTROLOGER) {
-      return sendError(res, 'Only astrologers can accept broadcast messages', HTTP_STATUS.FORBIDDEN);
+      return sendError(
+        res,
+        'Only astrologers can accept broadcast messages',
+        HTTP_STATUS.FORBIDDEN
+      );
     }
 
     const result = await broadcastMessageService.acceptBroadcastMessage({
@@ -184,7 +199,11 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
     return sendSuccess(res, result);
   } catch (error: any) {
     console.error('Error accepting broadcast message:', error);
-    return sendError(res, error.message || 'Failed to accept broadcast message', HTTP_STATUS.BAD_REQUEST);
+    return sendError(
+      res,
+      error.message || 'Failed to accept broadcast message',
+      HTTP_STATUS.BAD_REQUEST
+    );
   }
 }
 
@@ -200,7 +219,11 @@ export async function dismissBroadcastMessage(req: AuthRequest, res: Response) {
 
     // Validate user is an astrologer
     if (req.user!.role !== UserRole.ASTROLOGER) {
-      return sendError(res, 'Only astrologers can dismiss broadcast messages', HTTP_STATUS.FORBIDDEN);
+      return sendError(
+        res,
+        'Only astrologers can dismiss broadcast messages',
+        HTTP_STATUS.FORBIDDEN
+      );
     }
 
     const result = await broadcastMessageService.dismissBroadcastMessage(messageId, astrologerId);
@@ -215,8 +238,8 @@ export async function dismissBroadcastMessage(req: AuthRequest, res: Response) {
       });
     }
 
-    return sendSuccess(res, { 
-      success: true, 
+    return sendSuccess(res, {
+      success: true,
       messageId,
       dismissedAt: result.dismissedAt,
     });
@@ -259,4 +282,3 @@ export async function getBroadcastMessage(req: AuthRequest, res: Response) {
     );
   }
 }
-

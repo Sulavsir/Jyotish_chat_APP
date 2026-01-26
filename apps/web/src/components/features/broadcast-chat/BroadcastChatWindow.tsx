@@ -13,17 +13,20 @@ import type { BroadcastMessage } from '@/types';
 import { BroadcastMessageStatus } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import chatService from '@/services/chat.service';
-import { Send, Users, Check, Lock, XCircle } from 'lucide-react';
+import { Send, Users, Check, Lock, XCircle, AlertCircle, Coins } from 'lucide-react';
 import { toast } from 'sonner';
 import { getImageUrl } from '@/utils/image.utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
-import { ROUTE_BUILDERS } from '@/constants';
+import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_CHAT_COIN_COST } from '@/constants/broadcastMessage.constants';
+import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
+import { CoinPurchaseModal } from '@/components/modals';
+// import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 
 interface BroadcastChatWindowProps {
   onChatCreated?: (chatId: string) => void;
@@ -33,15 +36,25 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   const user = useAuthStore((state) => state.user);
   const { socket, isConnected } = useSocket();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<BroadcastMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isWaitingForAcceptance, setIsWaitingForAcceptance] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
+  const [requiredCoins, setRequiredCoins] = useState(1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false); // ✅ Prevent duplicate loads
+
+  // Extract required coins from error message
+  const extractRequiredCoins = (errorMessage: string): number => {
+    const match = errorMessage.match(/Required:\s*(\d+)/i);
+    return match ? parseInt(match[1], 10) : 1;
+  };
 
   // Load broadcast messages and check for active chat
   useEffect(() => {
@@ -94,6 +107,11 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       console.log('✅ [BroadcastChatWindow] Broadcast message sent successfully');
       setMessages((prev) => [...prev, message]); // Add new message at the end (bottom)
       setIsSending(false);
+      // Start waiting for acceptance - modal should stay open
+      setIsWaitingForAcceptance(true);
+
+      // Invalidate coin balance query to reflect real-time deduction
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
 
       // Re-check active chat status after sending (in case this creates an active conversation)
       checkActiveChat();
@@ -107,6 +125,10 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     // Listen for message acceptance
     socket.on('broadcast:yourMessageAccepted', (data: any) => {
       const { message, chat, astrologer, initialMessages } = data;
+
+      // Close the modal immediately by clearing waiting state
+      setIsSending(false);
+      setIsWaitingForAcceptance(false);
 
       // Update the message status
       setMessages((prev) =>
@@ -132,9 +154,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
 
       // Navigate to the chat immediately
       // The chat will already have the initial messages (user's broadcast + astrologer's welcome)
-      setTimeout(() => {
-        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
-      }, 1500);
+      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
 
       // Notify parent callback
       if (onChatCreated && chat.id) {
@@ -146,17 +166,35 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     socket.on('broadcast:error', (error: any) => {
       const errorMessage = error.message || 'Something went wrong';
 
-      // Special handling for active chat error
+      // Special handling for different error types
       if (error.code === 'ACTIVE_CHAT_EXISTS') {
         toast.error(errorMessage, {
           duration: 5000,
           description: 'End your current chat before starting a new one.',
+        });
+      } else if (
+        errorMessage.toLowerCase().includes('insufficient coins') ||
+        errorMessage.toLowerCase().includes('required:')
+      ) {
+        // Extract required coins and open purchase modal
+        const coins = extractRequiredCoins(errorMessage);
+        setRequiredCoins(coins);
+        setShowCoinPurchaseModal(true);
+        toast.error(errorMessage, {
+          duration: 5000,
+          description: 'Please top up your coins to send a broadcast message.',
+        });
+      } else if (errorMessage.includes('complete your profile')) {
+        toast.error(errorMessage, {
+          duration: 5000,
+          description: 'Please complete your profile before sending a broadcast message.',
         });
       } else {
         toast.error(errorMessage);
       }
 
       setIsSending(false);
+      setIsWaitingForAcceptance(false);
     });
 
     return () => {
@@ -164,7 +202,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       socket.off('broadcast:yourMessageAccepted');
       socket.off('broadcast:error');
     };
-  }, [socket, isConnected, onChatCreated, router]);
+  }, [socket, isConnected, onChatCreated, router, queryClient]);
 
   async function loadMessages() {
     try {
@@ -192,6 +230,43 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     console.log('⏰ [BroadcastChatWindow] Message expired, reloading...');
     loadMessages();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Calculate time remaining for pending message
+  const getTimeRemaining = (message: BroadcastMessage): number => {
+    const createdAt = new Date(message.createdAt).getTime();
+    const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
+    const now = Date.now();
+    const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+    return remaining;
+  };
+
+  // Find the most recent pending message for modal (only show while waiting for acceptance)
+  const pendingMessage = isWaitingForAcceptance
+    ? messages.find((msg) => msg.status === BroadcastMessageStatus.PENDING)
+    : null;
+
+  // Also close modal if message expires
+  useEffect(() => {
+    if (pendingMessage) {
+      const createdAt = new Date(pendingMessage.createdAt).getTime();
+      const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
+      const now = Date.now();
+      const timeUntilExpiry = expiresAt - now;
+
+      if (timeUntilExpiry <= 0) {
+        setIsWaitingForAcceptance(false);
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        setIsWaitingForAcceptance(false);
+      }, timeUntilExpiry);
+
+      return () => clearTimeout(timeout);
+    } else {
+      setIsWaitingForAcceptance(false);
+    }
+  }, [pendingMessage]);
 
   async function handleSendMessage() {
     if (!inputText.trim() || isSending || !socket || !isConnected) return;
@@ -372,6 +447,24 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
             </p>
           </div>
         )}
+        {!hasActiveChat && (
+          <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                Coin Cost
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Sending a broadcast message will cost{' '}
+                <span className="font-semibold inline-flex items-center gap-1">
+                  <Coins className="h-3 w-3" />
+                  {BROADCAST_CHAT_COIN_COST} coin
+                </span>
+                . This will be deducted when you send the message.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             type="text"
@@ -416,6 +509,28 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         onClose={() => setShowProfileIncompleteDialog(false)}
         missingFields={missingProfileFields}
       />
+
+      {/* Coin Purchase Modal */}
+      <CoinPurchaseModal
+        isOpen={showCoinPurchaseModal}
+        onClose={() => setShowCoinPurchaseModal(false)}
+        requiredCoins={requiredCoins}
+        onPurchaseSuccess={() => {
+          setShowCoinPurchaseModal(false);
+          // After purchase, coins will be updated and user can retry sending message
+        }}
+        mode="insufficient"
+      />
+
+      {/* Jyotish Matching Modal - Show only while waiting for acceptance */}
+      {/* {isWaitingForAcceptance && pendingMessage && (
+        <JyotishMatchingModal
+          isOpen={isWaitingForAcceptance && !!pendingMessage}
+          timeRemaining={getTimeRemaining(pendingMessage)}
+          title="Searching for Available Jyotish"
+          subtitle="Your message has been broadcasted. Waiting for an astrologer to accept..."
+        />
+      )} */}
     </div>
   );
 }

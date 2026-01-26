@@ -6,85 +6,141 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@jyotish/ui';
-import { MessageSquare, X, Clock, Loader2 } from 'lucide-react';
+import { MessageSquare, X, Clock, Loader2, AlertCircle, Coins } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { LoadingButton } from '@/components/ui';
-import { ROUTE_BUILDERS, ROUTES } from '@/constants';
+import { ROUTE_BUILDERS, ROUTES, QUERY_KEYS } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
+import { AnimatedCursorButton } from '@/components/ui/AnimatedCursorButton';
+import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
+import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
+import { checkClientProfileCompletion } from '@/utils/profile-completion';
+import { BroadcastMessageStatus } from '@/types';
+import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_CHAT_COIN_COST } from '@/constants/broadcastMessage.constants';
+import { CoinPurchaseModal } from '@/components/modals';
 
 export const RequestInstantChatButton: React.FC = () => {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
+  const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [isRequesting, setIsRequesting] = useState(false);
-  const [activeRequest, setActiveRequest] = useState<any>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [isWaitingForAcceptance, setIsWaitingForAcceptance] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<any>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
+  const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
+  const [requiredCoins, setRequiredCoins] = useState(1);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Listen for socket events
+  // Extract required coins from error message
+  const extractRequiredCoins = (errorMessage: string): number => {
+    const match = errorMessage.match(/Required:\s*(\d+)/i);
+    return match ? parseInt(match[1], 10) : 1;
+  };
+
+  // Listen for socket events (using broadcast message flow)
   useEffect(() => {
     if (!socket || !isConnected) {
       console.log('Socket not ready yet');
       return;
     }
 
-    // Request created successfully
-    socket.on('instantChat:created', (data) => {
-      if (data.success) {
-        setActiveRequest(data.request);
-        setIsRequesting(false);
-        setIsModalOpen(false);
-        toast.success('Looking for available astrologers...');
-      }
+    // Broadcast message sent successfully
+    socket.on('broadcast:messageSent', (message: any) => {
+      console.log('✅ Broadcast message sent successfully');
+      setIsSending(false);
+      setIsWaitingForAcceptance(true);
+      setPendingMessage(message);
+      setIsModalOpen(false);
+      
+      // Invalidate coin balance query to reflect real-time deduction
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      
+      toast.success('Looking for available astrologers...');
     });
 
-    // Request accepted by astrologer
-    socket.on('instantChat:requestAccepted', (data) => {
-      setActiveRequest(null);
-      toast.success(`${data.astrologer?.name || 'An astrologer'} accepted your request!`);
-      // Navigate to chat
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chatId));
+    // Broadcast message accepted by astrologer
+    socket.on('broadcast:yourMessageAccepted', (data: any) => {
+      const { message, chat, astrologer } = data;
+      
+      // Close the modal immediately
+      setIsSending(false);
+      setIsWaitingForAcceptance(false);
+      setPendingMessage(null);
+
+      toast.success(
+        `${astrologer.name || 'An astrologer'} accepted your request! Opening chat...`,
+        {
+          description: 'You can now start chatting with your astrologer',
+          duration: 3000,
+        }
+      );
+
+      // Navigate to chat immediately
+      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
     });
 
     // Error occurred
-    socket.on('instantChat:error', (data) => {
-      setIsRequesting(false);
-      toast.error(data.message || 'Failed to create request');
-    });
-
-    // Request expired
-    socket.on('instantChat:requestsExpired', () => {
-      if (activeRequest) {
-        setActiveRequest(null);
-        toast.error('No astrologers available right now. Please try again.');
+    socket.on('broadcast:error', (error: any) => {
+      setIsSending(false);
+      setIsWaitingForAcceptance(false);
+      setPendingMessage(null);
+      
+      const errorMessage = error.message || 'Failed to send message';
+      
+      // Special handling for insufficient coins
+      if (
+        errorMessage.toLowerCase().includes('insufficient coins') ||
+        errorMessage.toLowerCase().includes('required:')
+      ) {
+        // Extract required coins and open purchase modal
+        const coins = extractRequiredCoins(errorMessage);
+        setRequiredCoins(coins);
+        setShowCoinPurchaseModal(true);
+        toast.error(errorMessage, {
+          duration: 5000,
+          description: 'Please top up your coins to send a broadcast message.',
+        });
+      } else {
+        toast.error(errorMessage);
       }
     });
 
     return () => {
-      socket.off('instantChat:created');
-      socket.off('instantChat:requestAccepted');
-      socket.off('instantChat:error');
-      socket.off('instantChat:requestsExpired');
+      socket.off('broadcast:messageSent');
+      socket.off('broadcast:yourMessageAccepted');
+      socket.off('broadcast:error');
     };
-  }, [socket, isConnected, router, activeRequest]);
+  }, [socket, isConnected, router, queryClient]);
 
-  // Update time remaining
+  // Update time remaining for pending message
   useEffect(() => {
-    if (!activeRequest) return;
+    if (!pendingMessage) {
+      setTimeRemaining(0);
+      return;
+    }
 
     const calculateTimeRemaining = () => {
-      const expiresAt = new Date(activeRequest.expiresAt).getTime();
+      const createdAt = new Date(pendingMessage.createdAt).getTime();
+      const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
       const now = Date.now();
       const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
-        setActiveRequest(null);
+        setIsWaitingForAcceptance(false);
+        setPendingMessage(null);
+        toast.error('No astrologers available right now. Please try again.');
       }
     };
 
@@ -92,7 +148,7 @@ export const RequestInstantChatButton: React.FC = () => {
     const interval = setInterval(calculateTimeRemaining, 1000);
 
     return () => clearInterval(interval);
-  }, [activeRequest]);
+  }, [pendingMessage]);
 
   const handleRequestChat = () => {
     if (!socket || !isConnected) {
@@ -100,57 +156,29 @@ export const RequestInstantChatButton: React.FC = () => {
       return;
     }
 
-    setIsRequesting(true);
-    socket.emit('instantChat:create', { message: message.trim() || undefined });
-  };
-
-  const handleCancelRequest = () => {
-    if (!socket || !isConnected || !activeRequest) {
+    // Check if client profile is complete before sending message
+    const profileCheck = checkClientProfileCompletion(user);
+    if (!profileCheck.isComplete) {
+      setMissingProfileFields(profileCheck.missingFields);
+      setShowProfileIncompleteDialog(true);
       return;
     }
 
-    socket.emit('instantChat:cancel', { requestId: activeRequest.id });
-    setActiveRequest(null);
-    toast.info('Request cancelled');
+    setIsSending(true);
+    // Use broadcast message flow instead of instant chat
+    socket.emit('broadcast:sendMessage', {
+      content: message.trim() || 'I would like to chat with an astrologer',
+      type: 'TEXT',
+    });
   };
 
-  // If there's an active request, show waiting status
-  if (activeRequest) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-lg shadow-2xl max-w-sm animate-pulse">
-          <div className="flex items-start gap-3">
-            <div className="relative">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-              </span>
-            </div>
-            <div className="flex-1">
-              <h4 className="font-semibold mb-1">Looking for Astrologers...</h4>
-              <p className="text-sm text-white/80 mb-2">
-                Waiting for an astrologer to accept your request
-              </p>
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4" />
-                <span>
-                  {Math.floor(timeRemaining / 60)}:
-                  {(timeRemaining % 60).toString().padStart(2, '0')}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={handleCancelRequest}
-              className="p-1 hover:bg-white/20 rounded transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleCancelRequest = () => {
+    // For broadcast messages, we can't cancel once sent
+    // But we can close the modal
+    setIsWaitingForAcceptance(false);
+    setPendingMessage(null);
+    toast.info('Request cancelled');
+  };
 
   const handleButtonClick = () => {
     if (!isAuthenticated) {
@@ -160,12 +188,52 @@ export const RequestInstantChatButton: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  // If waiting for acceptance, show matching modal
+  if (isWaitingForAcceptance && pendingMessage) {
+    return (
+      <>
+        {/* Main Button (hidden but keep for ref) */}
+        <Button
+          ref={buttonRef}
+          onClick={handleButtonClick}
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative opacity-0 pointer-events-none"
+          size="lg"
+          style={{ position: 'absolute', visibility: 'hidden' }}
+        >
+          <MessageSquare className="mr-2 h-5 w-5" />
+          Request Instant Chat
+        </Button>
+
+        {/* Jyotish Matching Modal */}
+        <JyotishMatchingModal
+          isOpen={isWaitingForAcceptance && !!pendingMessage}
+          onCancel={handleCancelRequest}
+          timeRemaining={timeRemaining}
+          title="Searching for Available Jyotish"
+          subtitle="Your message has been broadcasted. Waiting for an astrologer to accept..."
+        />
+      </>
+    );
+  }
+
   return (
     <>
+      {/* Animated Cursor Button - Always render for continuous animation */}
+      <AnimatedCursorButton
+        targetButtonRef={buttonRef}
+        delay={1500}
+        showOnce={false}
+        repeatInterval={6000}
+        startPosition="middle"
+        cursorColor="#FFFFFF"
+        highlightColor="#d8287c"
+      />
+
       {/* Main Button */}
       <Button
+        ref={buttonRef}
         onClick={handleButtonClick}
-        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg"
+        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative"
         size="lg"
       >
         <MessageSquare className="mr-2 h-5 w-5" />
@@ -191,6 +259,24 @@ export const RequestInstantChatButton: React.FC = () => {
               with you!
             </p>
 
+            {/* Coin Cost Alert */}
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
+                  Coin Cost
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  Sending a broadcast message will cost{' '}
+                  <span className="font-semibold inline-flex items-center gap-1">
+                    <Coins className="h-3 w-3" />
+                    {BROADCAST_CHAT_COIN_COST} coin
+                  </span>
+                  . This will be deducted when you send the message.
+                </p>
+              </div>
+            </div>
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Optional Message
@@ -211,14 +297,14 @@ export const RequestInstantChatButton: React.FC = () => {
                 onClick={() => setIsModalOpen(false)}
                 variant="outline"
                 className="flex-1"
-                disabled={isRequesting}
+                disabled={isSending}
               >
                 Cancel
               </Button>
               <LoadingButton
                 onClick={handleRequestChat}
-                isLoading={isRequesting}
-                disabled={isRequesting}
+                isLoading={isSending}
+                disabled={isSending}
                 className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
               >
                 Send Request
@@ -227,6 +313,25 @@ export const RequestInstantChatButton: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Profile Incomplete Dialog */}
+      <ProfileIncompleteDialog
+        isOpen={showProfileIncompleteDialog}
+        onClose={() => setShowProfileIncompleteDialog(false)}
+        missingFields={missingProfileFields}
+      />
+
+      {/* Coin Purchase Modal */}
+      <CoinPurchaseModal
+        isOpen={showCoinPurchaseModal}
+        onClose={() => setShowCoinPurchaseModal(false)}
+        requiredCoins={requiredCoins}
+        onPurchaseSuccess={() => {
+          setShowCoinPurchaseModal(false);
+          // After purchase, coins will be updated and user can retry sending message
+        }}
+        mode="insufficient"
+      />
     </>
   );
 };

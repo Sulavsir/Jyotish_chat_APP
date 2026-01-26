@@ -7,7 +7,7 @@ import { Server, Socket } from 'socket.io';
 import * as broadcastMessageService from '../services/broadcastMessage.service';
 import { prisma } from '@jyotish/database';
 import { NotificationService } from '../services/notification.service';
-import { NotificationType } from '@jyotish/shared';
+import { NotificationType, AstrologerCategory } from '@jyotish/shared';
 
 export function broadcastMessageHandlers(io: Server, socket: Socket) {
   const userId = socket.data.userId;
@@ -33,20 +33,34 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
       // Send confirmation to client
       socket.emit('broadcast:messageSent', message);
 
-      // Broadcast the new message to ALL astrologers in real-time
-      io.to('astrologers').emit('broadcast:newMessage', message);
-      console.log(`📢 Broadcasting new message to all astrologers:`, message.id);
-
-      // Create notifications for all astrologers (confidential - no message content shown)
-      const astrologers = await prisma.user.findMany({
-        where: { role: 'ASTROLOGER' },
+      // Broadcast the new message to astrologers (excluding PREMIUM) in real-time
+      // Get only ORDINARY and PROFESSIONAL astrologers
+      const eligibleAstrologers = await prisma.astrologer.findMany({
+        where: {
+          isActive: true,
+          category: {
+            in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+          },
+        },
         select: { id: true },
       });
+
+      // Emit to eligible astrologers only
+      eligibleAstrologers.forEach((astrologer) => {
+        io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
+      });
+      console.log(
+        `📢 Broadcasting new message to eligible astrologers (excluding PREMIUM):`,
+        message.id
+      );
+
+      // Create notifications for eligible astrologers only (confidential - no message content shown)
+      const astrologers = eligibleAstrologers;
 
       // Create notifications for each astrologer
       const notificationPromises = astrologers.map((astrologer) =>
         notificationService.createNotification({
-          userId: astrologer.id,
+          astrologerId: astrologer.id, // Use astrologerId instead of userId
           type: NotificationType.BROADCAST_MESSAGE,
           title: 'New Chat Request',
           message: 'A client is requesting to chat with an astrologer',
@@ -116,7 +130,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
       // Create notifications for all other astrologers
       const acceptNotificationPromises = otherAstrologers.map((astrologer) =>
         notificationService.createNotification({
-          userId: astrologer.id,
+          astrologerId: astrologer.id, // Use astrologerId instead of userId
           type: NotificationType.BROADCAST_ACCEPTED,
           title: 'Request No Longer Available',
           message:
@@ -159,7 +173,8 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         return;
       }
 
-      const messages = await broadcastMessageService.getPendingBroadcastMessages();
+      // Pass astrologerId to filter out PREMIUM astrologers
+      const messages = await broadcastMessageService.getPendingBroadcastMessages(userId);
       socket.emit('broadcast:pendingMessages', messages);
     } catch (error: any) {
       console.error('Error getting pending broadcast messages:', error);

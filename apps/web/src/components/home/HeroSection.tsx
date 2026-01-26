@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@jyotish/ui';
 import spaceImage from '@/assets/images/space.jpg';
-import horoscopeImage from '@/assets/images/horoscope.webp';
+import horoscopeImage from '@/assets/images/cj2.png';
 import { ROUTES } from '@/constants';
 import { TwinklingStars } from '@/components/ui/TwinklingStars';
 import { RotatingCopyTypewriter } from '@/components/ui/RotatingCopyTypewriter';
@@ -25,7 +25,7 @@ export function HeroSection() {
       </div>
 
       {/* Floating Horoscope Wheel */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-10 animate-spin-slow">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-15 animate-spin-slow">
         <Image src={horoscopeImage} alt="Horoscope Wheel" fill className="object-contain" />
       </div>
 

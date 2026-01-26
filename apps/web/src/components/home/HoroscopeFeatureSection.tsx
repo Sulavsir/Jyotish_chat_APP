@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import horoscopeImage from '@/assets/images/horoscope.webp';
+import horoscopeImage from '@/assets/images/cj2.png';
 import { TwinklingStars } from '@/components/ui/TwinklingStars';
 
 export function HoroscopeFeatureSection() {

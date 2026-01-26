@@ -21,6 +21,9 @@ import { LoadingScreenWithBackground } from '@/components/ui';
 import { OnlineUsers } from '@/components/features/chat';
 import { RequestInstantChatButton } from '@/components/features/instant-chat/RequestInstantChatButton';
 import { BookAppointmentButton, BookAppointmentModal } from '@/components/features/appointment';
+import { OnlineAstrologersCard } from '@/components/features/dashboard/OnlineAstrologersCard';
+import { AskQuestionsSection } from '@/components/features/dashboard/AskQuestionsSection';
+import { ServicesGrid } from '@/components/features/dashboard/ServicesGrid';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import Image from 'next/image';
 import horoscopeImage from '@/assets/images/cj2.png';
@@ -526,6 +529,25 @@ export default function DashboardPage() {
           </Alert>
         )}
 
+        {/* New Section: Online Astrologers & Ask Questions */}
+        <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-purple-500/50 via-indigo-500/20 to-amber-500/40">
+          <div className="relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-white/10">
+            <div className="p-6 md:p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                {/* Left Section: Online Astrologers Card */}
+                <div className="flex-1 border-r-0 lg:border-r lg:border-white/10 lg:pr-8">
+                  <OnlineAstrologersCard />
+                </div>
+
+                {/* Right Section: Ask Questions */}
+                <div className="flex-1 lg:pl-8">
+                  <AskQuestionsSection />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Info / Intro (Nepali) */}
         <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-purple-500/50 via-indigo-500/20 to-amber-500/40">
           <div className="relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-white/10">
@@ -613,7 +635,7 @@ export default function DashboardPage() {
                         जन्म विवरण अनुसार kundali review, match, र future predictions।
                       </p>
                     </div>
-                  </div> ``
+                  </div>
                 </div>
 
                 {!isProfileComplete && (
@@ -641,14 +663,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Online Astrologers - Who's Active Now */}
-        <OnlineUsers title="Online Astrologers - Start Chatting Now!" maxHeight="400px" />
+        {/* <OnlineUsers title="Online Astrologers - Start Chatting Now!" maxHeight="400px" /> */}
 
         {/* Services */}
         <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-purple-500/50 via-indigo-500/20 to-amber-500/40">
           <div className="relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 p-5 md:p-6">
             <div className="pointer-events-none absolute -top-24 -right-20 h-64 w-64 rounded-full bg-purple-500/15 blur-3xl motion-safe:animate-pulse" />
             <div className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl motion-safe:animate-pulse" />
-            <div className="flex items-end justify-between gap-4 mb-4">
+            <div className="flex items-end justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white">Services</h2>
                 <p className="text-gray-400 text-sm mb-2">
@@ -657,270 +679,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* Highlighted: Chat with Jyotish */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-purple-500/40 ring-1 ring-purple-500/20 shadow-[0_0_52px_rgba(168,85,247,0.18)] transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:shadow-[0_0_60px_rgba(168,85,247,0.22)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-purple-500/2 via-pink-500/3 to-indigo-500" />
-              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-purple-500/22 blur-2xl" />
-              <div className="pointer-events-none absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-fuchsia-500/10 blur-3xl" />
-              <div className="pointer-events-none absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-purple-500/80 via-fuchsia-500/30 to-transparent" />
-            
-             <CardHeader className="relative p-3 pb-1"> 
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
-                    <MessageCircle className="h-5 w-5 text-purple-300" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span>Chat with Jyotish</span>
-                    </div>
-                    <p className="text-xs text-gray-300/80 mt-1">Instant answers in real-time.</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="relative p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Verified Jyotish</p>
-                  <p>• Secure chat & fast replies</p>
-                </div>
-                <Button
-                  onClick={() => router.push(ROUTES.ASTROLOGERS)}
-                  className="w-full bg-purple-600 hover:bg-purple-500 text-white h-8"
-                >
-                  Start Chatting
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Book Appointment */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-indigo-400/30 hover:shadow-[0_0_40px_rgba(99,102,241,0.12)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-indigo-500/10 via-purple-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
-                    <CalendarDays className="h-5 w-5 text-blue-300" />
-                  </div>
-                  <div>
-                    <span>Book Appointment</span>
-                    <p className="text-xs text-gray-400 mt-1">Full kundali review</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Detailed kundali analysis</p>
-                  <p>• 1:1 consultation slots</p>
-                </div>
-                <Button
-                  onClick={() => setIsAppointmentModalOpen(true)}
-                  variant="outline"
-                  className="w-full border-white/10 text-white hover:bg-white/10 hover:border-indigo-400/30 h-8"
-                >
-                  Book Now
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Book Pandit Ji */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-amber-400/30 hover:shadow-[0_0_38px_rgba(252,211,77,0.10)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-amber-500/10 via-purple-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30">
-                    <ScrollText className="h-5 w-5 text-amber-300" />
-                  </div>
-                  <div>
-                    <span>Book Pandit Ji</span>
-                    <p className="text-xs text-gray-400 mt-1">Rituals, puja & ceremonies</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-              <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Puja & rituals booking</p>
-                  <p>• Verified pandit network</p>
-                </div>
-                <Button
-                  onClick={() => setIsPanditModalOpen(true)}
-                  variant="outline"
-                  className="w-full border-white/10 text-white hover:bg-white/10 hover:border-amber-400/30 h-8"
-                >
-                  Book now
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Book Vaastu Sastri */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-emerald-400/30 hover:shadow-[0_0_38px_rgba(16,185,129,0.10)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-emerald-500/10 via-indigo-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30">
-                    <BookOpen className="h-5 w-5 text-emerald-300" />
-                  </div>
-                  <div>
-                    <span>Book Vaastu Sastri</span>
-                    <p className="text-xs text-gray-400 mt-1">Home & office vaastu</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Vastu guidance</p>
-                  <p>• Home & office remedies</p>
-                </div>
-                <Button
-                  onClick={() => setIsVaastuModalOpen(true)}
-                  variant="outline"
-                  className="w-full border-white/10 text-white hover:bg-white/10 hover:border-emerald-400/30 h-8"
-                >
-                  Book now
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Katha Vachak */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-fuchsia-400/25 hover:shadow-[0_0_38px_rgba(217,70,239,0.10)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-fuchsia-500/10 via-purple-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-fuchsia-500/20 border border-fuchsia-500/30">
-                    <HeartHandshake className="h-5 w-5 text-fuchsia-300" />
-                  </div>
-                  <div>
-                    <span>Katha Vachak</span>
-                    <p className="text-xs text-gray-400 mt-1">Events & programs</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• कथा वाचन booking</p>
-                  <p>• Events & programs</p>
-                </div>
-                <Button
-                  onClick={() => setIsKathaModalOpen(true)}
-                  variant="outline"
-                  className="w-full border-white/10 text-white hover:bg-white/10 hover:border-fuchsia-400/30 h-8"
-                >
-                  Book now
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Daily Horoscope */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-purple-400/30 hover:shadow-[0_0_38px_rgba(168,85,247,0.12)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-purple-500/10 via-indigo-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
-                    <Sun className="h-5 w-5 text-purple-300" />
-                  </div>
-                  <div>
-                    <span>Daily Horoscope</span>
-                    <p className="text-xs text-gray-400 mt-1">Today’s forecast</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Love • Career • Health</p>
-                  <p>• Personalized by sign</p>
-                </div>
-                <Button
-                  onClick={() => router.push(ROUTES.HOROSCOPE)}
-                  variant="outline"
-                  className="w-full border-white/10 text-white hover:bg-white/10 hover:border-purple-500/30 h-8"
-                >
-                  View Horoscope
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Daily Subha Shahit */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-slate-300/20 hover:shadow-[0_0_34px_rgba(148,163,184,0.10)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-slate-500/10 via-purple-500/5 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-500/20 border border-slate-500/30">
-                    <Sparkles className="h-5 w-5 text-slate-200" />
-                  </div>
-                  <div>
-                    <span>Daily Subha Shahit</span>
-                    <p className="text-xs text-gray-400 mt-1">Coming soon</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Daily शुभ सन्देश</p>
-                  <p>• Positive guidance</p>
-                </div>
-                <Button
-                  disabled
-                  className="w-full bg-white/5 text-white/70 border border-white/10 h-8"
-                >
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Kundali Match */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-rose-400/25 hover:shadow-[0_0_38px_rgba(244,63,94,0.10)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-rose-500/10 via-purple-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-rose-500/20 border border-rose-500/30">
-                    <GitCompareArrows className="h-5 w-5 text-rose-300" />
-                  </div>
-                  <div>
-                    <span>Kundali match</span>
-                    <p className="text-xs text-gray-400 mt-1">Coming soon</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Compatibility insights</p>
-                  <p>• Dasha & remedies</p>
-                </div>
-                <Button
-                  disabled
-                  className="w-full bg-white/5 text-white/70 border border-white/10 h-8"
-                >
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Travel Prediction */}
-            <Card className="group relative overflow-hidden bg-black/45 backdrop-blur-md border-white/10 transition-all duration-300 motion-safe:hover:-translate-y-0.5 hover:border-cyan-400/25 hover:shadow-[0_0_38px_rgba(34,211,238,0.10)] aspect-[4/3] flex flex-col">
-              <div className="pointer-events-none absolute inset-0 opacity-100 bg-gradient-to-br from-cyan-500/10 via-indigo-500/6 to-transparent" />
-              <CardHeader className="p-3 pb-1">
-                <CardTitle className="text-white flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-cyan-500/20 border border-cyan-500/30">
-                    <MapPin className="h-5 w-5 text-cyan-300" />
-                  </div>
-                  <div>
-                    <span>Travel Prediction</span>
-                    <p className="text-xs text-gray-400 mt-1">Coming soon</p>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 mt-auto flex flex-col gap-2 flex-1">
-                <div className="text-sm text-gray-200/70 space-y-1 flex-1">
-                  <p>• Auspicious dates</p>
-                  <p>• Route & timing tips</p>
-                </div>
-                <Button
-                  disabled
-                  className="w-full bg-white/5 text-white/70 border border-white/10 h-8"
-                >
-                  Coming Soon
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+            <ServicesGrid
+              onOpenPanditModal={() => setIsPanditModalOpen(true)}
+              onOpenVaastuModal={() => setIsVaastuModalOpen(true)}
+              onOpenKathaModal={() => setIsKathaModalOpen(true)}
+            />
           </div>
         </div>
 

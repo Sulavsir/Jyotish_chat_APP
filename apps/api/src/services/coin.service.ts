@@ -257,6 +257,75 @@ export const deductCoinsForChat = async (params: CoinDeductionParams): Promise<C
 };
 
 /**
+ * Deduct coins for creating a broadcast message (1 coin upfront)
+ */
+export const deductCoinsForBroadcastMessage = async (userId: string): Promise<CoinBalance> => {
+  // Check if user has active unlimited plan - if yes, no deduction needed
+  const hasUnlimited = await hasActiveUnlimitedPlan(userId);
+  if (hasUnlimited) {
+    // Return current balance without deduction
+    const balance = await getCoinBalance(userId);
+    return { userId, balance };
+  }
+
+  const { getBroadcastChatCoinCost } = await import('../constants/coin.constants');
+  const coinCost = getBroadcastChatCoinCost(); // Always 1 coin for broadcast
+
+  // Get current balance
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { coins: true, id: true },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  // Check if user has enough coins
+  if (user.coins < coinCost) {
+    throw new AppError(
+      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.INSUFFICIENT_COINS
+    );
+  }
+
+  const balanceBefore = user.coins;
+  const balanceAfter = balanceBefore - coinCost;
+
+  // Deduct coins and create transaction record
+  const [updatedUser] = await Promise.all([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        coins: {
+          decrement: coinCost,
+        },
+      },
+      select: {
+        id: true,
+        coins: true,
+      },
+    }),
+    prisma.coinTransaction.create({
+      data: {
+        userId,
+        amount: -coinCost, // Negative for deduction
+        type: CoinTransactionType.DEDUCT,
+        reason: CoinTransactionReason.CHAT_ORDINARY, // Use ORDINARY reason for broadcast
+        balanceBefore,
+        balanceAfter,
+      },
+    }),
+  ]);
+
+  return {
+    userId: updatedUser.id,
+    balance: updatedUser.coins,
+  };
+};
+
+/**
  * Add coins to user balance
  */
 export const addCoins = async (

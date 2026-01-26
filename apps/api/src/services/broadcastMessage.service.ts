@@ -12,12 +12,12 @@ import {
   ChatStatus,
 } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '../constants';
+import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_ACCEPTANCE_LIMITS } from '../constants';
 import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
 import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import { deductCoinsForChat } from './coin.service';
+import { deductCoinsForChat, deductCoinsForBroadcastMessage } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 
 export interface CreateBroadcastMessageData {
@@ -137,6 +137,56 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     throw new Error('No astrologers are available at the moment. Please try again later.');
   }
 
+  // Check if client profile is completed before creating broadcast message
+  const clientProfile = await prisma.user.findUnique({
+    where: { id: data.clientId },
+    select: {
+      name: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+      profileCompleted: true,
+      coins: true,
+    },
+  });
+
+  if (!clientProfile) {
+    throw new Error('User not found');
+  }
+
+  // Check if all required fields are present (same logic as instant chat)
+  const missingFields: string[] = [];
+  if (!clientProfile.name || clientProfile.name.trim() === '') {
+    missingFields.push('Name');
+  }
+  if (!clientProfile.dateOfBirth) {
+    missingFields.push('Date of Birth');
+  }
+  if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
+    missingFields.push('Time of Birth');
+  }
+  if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
+    missingFields.push('Place of Birth');
+  }
+
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Please complete your profile before sending a broadcast message. Missing: ${missingFields.join(', ')}`
+    );
+  }
+
+  // Check coin balance and deduct 1 coin upfront for broadcast message
+  try {
+    await deductCoinsForBroadcastMessage(data.clientId);
+  } catch (error: any) {
+    if (error.code === 'INSUFFICIENT_COINS') {
+      throw new Error(
+        `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${clientProfile.coins} coins. Please top up your coins.`
+      );
+    }
+    throw error;
+  }
+
   const message = await prisma.broadcastMessage.create({
     data: {
       clientId: data.clientId,
@@ -214,11 +264,25 @@ export async function expireOldMessages() {
  * Get all pending broadcast messages (for astrologers)
  * Automatically expires old messages before returning
  * Filters out messages dismissed by the requesting astrologer
+ * PREMIUM astrologers should not see broadcast messages
  */
 export async function getPendingBroadcastMessages(astrologerId?: string) {
   // Graceful handling if table doesn't exist yet
   if (!(prisma as any).broadcastMessage) {
     return [];
+  }
+
+  // If astrologer ID is provided, check if they are PREMIUM
+  if (astrologerId) {
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { category: true },
+    });
+
+    // PREMIUM astrologers should not see broadcast messages
+    if (astrologer?.category === AstrologerCategory.PREMIUM) {
+      return [];
+    }
   }
 
   // First, expire old messages
@@ -268,11 +332,25 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
 /**
  * Get all broadcast messages for astrologers (including accepted ones)
  * Used for the "Everyone" view
+ * PREMIUM astrologers should not see broadcast messages
  */
-export async function getAllBroadcastMessages() {
+export async function getAllBroadcastMessages(astrologerId?: string) {
   // Graceful handling if table doesn't exist yet
   if (!(prisma as any).broadcastMessage) {
     return [];
+  }
+
+  // If astrologer ID is provided, check if they are PREMIUM
+  if (astrologerId) {
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { category: true },
+    });
+
+    // PREMIUM astrologers should not see broadcast messages
+    if (astrologer?.category === AstrologerCategory.PREMIUM) {
+      return [];
+    }
   }
 
   const messages = await prisma.broadcastMessage.findMany({
@@ -375,6 +453,55 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   if (astrologer.category === AstrologerCategory.PREMIUM) {
     throw new AppError(
       `${astrologer.name} is a Premium astrologer and only available through scheduled appointments. Please book an appointment to chat.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // Check if astrologer has reached their concurrent broadcast acceptance limit
+  const acceptanceLimit =
+    BROADCAST_ACCEPTANCE_LIMITS[astrologer.category as keyof typeof BROADCAST_ACCEPTANCE_LIMITS] ??
+    0;
+
+  if (acceptanceLimit === 0) {
+    throw new AppError(
+      `${astrologer.name} cannot accept broadcast messages based on their category.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // Count how many active broadcast chats this astrologer currently has
+  // (chats that were created from broadcast messages and are still active)
+  const acceptedBroadcastMessages = await prisma.broadcastMessage.findMany({
+    where: {
+      acceptedBy: astrologerId,
+      status: BroadcastMessageStatus.ACCEPTED,
+      chatId: { not: null },
+    },
+    select: { chatId: true },
+  });
+
+  const chatIds = acceptedBroadcastMessages
+    .map((msg) => msg.chatId)
+    .filter((id): id is string => id !== null);
+
+  const activeBroadcastChats =
+    chatIds.length > 0
+      ? await prisma.chat.count({
+          where: {
+            id: { in: chatIds },
+            status: 'ACTIVE',
+            isLocked: false,
+          },
+        })
+      : 0;
+
+  if (activeBroadcastChats >= acceptanceLimit) {
+    const categoryLabel =
+      astrologer.category === AstrologerCategory.ORDINARY ? 'Ordinary' : 'Professional';
+    throw new AppError(
+      `You have reached the maximum limit of ${acceptanceLimit} concurrent broadcast chats for ${categoryLabel} astrologers. Please complete or end some of your current chats before accepting new broadcast requests.`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );
