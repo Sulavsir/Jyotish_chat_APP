@@ -19,10 +19,7 @@ interface JyotishSelectorCardProps {
   isSelected?: boolean;
 }
 
-export function JyotishSelectorCard({
-  astrologer,
-  isSelected = false,
-}: JyotishSelectorCardProps) {
+export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishSelectorCardProps) {
   const router = useRouter();
 
   const handleViewProfilePointerDown = (e: React.PointerEvent) => {
@@ -138,7 +135,7 @@ export function JyotishSelectorCard({
                   FREE
                 </Badge>
               ) : (
-                <span className="text-xs text-white">
+                <span className="text-xs text-green-300">
                   Nrs.{astrologer.appointmentFee?.toLocaleString() || 'N/A'}
                 </span>
               )}

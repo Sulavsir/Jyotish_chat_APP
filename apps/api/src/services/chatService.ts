@@ -551,13 +551,15 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
   const receiverType =
     senderRole === UserRole.CLIENT ? ParticipantType.ASTROLOGER : ParticipantType.CLIENT;
 
-  // Get the chat to determine who is client and astrologer
+  // Get the chat to determine who is client and astrologer and current turn-based state
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
     select: {
       participant1Id: true,
       participant2Id: true,
       status: true,
+      turnBasedEnabled: true,
+      waitingForReply: true,
       astrologerParticipant: {
         select: {
           category: true,
@@ -569,6 +571,19 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
 
   if (!chat) {
     throw new Error('Chat not found');
+  }
+
+  // Turn-based messaging: prevent multiple client messages while waiting for reply
+  if (
+    chat.turnBasedEnabled &&
+    chat.waitingForReply &&
+    senderRole === UserRole.CLIENT
+  ) {
+    throw new AppError(
+      'Please wait for the astrologer to reply before sending another message.',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
   }
 
   // For PREMIUM astrologers, verify we're within appointment window
@@ -678,16 +693,31 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
     data: messageData,
   });
 
-  // Update chat's last message info
+  // Update chat's last message info and turn-based state
   // participant1 is client, participant2 is astrologer
+  const chatUpdateData: Prisma.ChatUpdateInput = {
+    lastMessageAt: new Date(),
+    lastMessageText: content.substring(0, 100),
+    participant1Read: senderId === chat.participant1Id, // Client read if client sent
+    participant2Read: senderId === chat.participant2Id, // Astrologer read if astrologer sent
+  };
+
+  // Apply turn-based updates if enabled
+  if (chat.turnBasedEnabled) {
+    if (senderRole === UserRole.CLIENT) {
+      // Client sent message - now waiting for astrologer reply
+      (chatUpdateData as any).waitingForReply = true;
+      (chatUpdateData as any).lastClientMessageAt = new Date();
+    } else if (senderRole === UserRole.ASTROLOGER) {
+      // Astrologer replied - client can send again
+      (chatUpdateData as any).waitingForReply = false;
+      (chatUpdateData as any).lastAstrologerReplyAt = new Date();
+    }
+  }
+
   await prisma.chat.update({
     where: { id: chatId },
-    data: {
-      lastMessageAt: new Date(),
-      lastMessageText: content.substring(0, 100),
-      participant1Read: senderId === chat.participant1Id, // Client read if client sent
-      participant2Read: senderId === chat.participant2Id, // Astrologer read if astrologer sent
-    },
+    data: chatUpdateData,
   });
 
   return message;
