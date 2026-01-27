@@ -356,7 +356,6 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
   }, [
     targetButtonRef,
     showOnce,
-    repeatInterval,
     onComplete,
     getStartPosition,
     highlightColor,

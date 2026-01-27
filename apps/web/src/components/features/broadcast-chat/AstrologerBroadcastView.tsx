@@ -123,7 +123,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       socket.off('broadcast:messageAccepted');
       socket.off('broadcast:error');
     };
-  }, [socket, isConnected, user, onChatCreated]);
+  }, [socket, isConnected, user, onChatCreated, router]);
 
   async function loadMessages() {
     try {

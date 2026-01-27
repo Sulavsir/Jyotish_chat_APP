@@ -510,7 +510,7 @@ export default function ChatPage() {
   };
 
   // Load messages for active chat (initial load)
-  const loadMessages = async (otherUserId: string, reset = true) => {
+  const loadMessages = React.useCallback(async (otherUserId: string, reset = true) => {
     try {
       setIsLoadingMessages(true);
       if (reset) {
@@ -534,7 +534,7 @@ export default function ChatPage() {
     } finally {
       setIsLoadingMessages(false);
     }
-  };
+  }, []);
 
   // Load more messages (pagination)
   const loadMoreMessages = async () => {
@@ -579,7 +579,7 @@ export default function ChatPage() {
   };
 
   // Handle chat selection
-  const handleSelectChat = async (chatId: string, otherUserId: string) => {
+  const handleSelectChat = React.useCallback(async (chatId: string, otherUserId: string) => {
     if (!chatId || !otherUserId) return;
 
     const selectedChat = chats.find((c) => c.id === chatId);
@@ -602,7 +602,7 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
-  };
+  }, [chats, loadMessages]);
 
   // Handle chat created from broadcast (memoized to prevent unnecessary re-renders)
   const handleChatCreatedFromBroadcast = React.useCallback(async (chatId: string) => {
@@ -616,7 +616,7 @@ export default function ChatPage() {
       const otherUser = selectedChat.astrologerParticipant;
       handleSelectChat(chatId, otherUser.id);
     }
-  }, []); // Empty dependencies - uses fresh data from loadConversations
+  }, [handleSelectChat]); // Include handleSelectChat in dependencies
 
   // Handle sending message
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {

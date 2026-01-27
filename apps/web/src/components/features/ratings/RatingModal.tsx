@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Star } from 'lucide-react';
+import Image from 'next/image';
 import { ratingService } from '@/services/rating.service';
 import { QUERY_KEYS } from '@/constants/query-keys.constants';
 import { toast } from 'sonner';
@@ -97,10 +98,12 @@ export function RatingModal({
           {/* Astrologer Info */}
           {astrologerPhoto && (
             <div className="flex justify-center">
-              <img
+              <Image
                 src={astrologerPhoto}
                 alt={astrologerName}
-                className="w-20 h-20 rounded-full border-2 border-purple-500"
+                width={80}
+                height={80}
+                className="w-20 h-20 rounded-full border-2 border-purple-500 object-cover"
               />
             </div>
           )}

@@ -9,8 +9,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { MessageCircle, X, Send, HelpCircle, MessageSquare, Paperclip } from 'lucide-react';
 import { Button, Input, Badge } from '@jyotish/ui';
-import { adminChatService, type AdminChat, type AdminChatMessage } from '@/services/adminChat.service';
-import { CLIENT_FAQS, ADMIN_FAQS, CLIENT_FAQ_CATEGORIES, ADMIN_FAQ_CATEGORIES, type FAQItem } from '@/constants/adminChat.constants';
+import {
+  adminChatService,
+  type AdminChat,
+  type AdminChatMessage,
+} from '@/services/adminChat.service';
+import {
+  CLIENT_FAQS,
+  ADMIN_FAQS,
+  CLIENT_FAQ_CATEGORIES,
+  ADMIN_FAQ_CATEGORIES,
+  type FAQItem,
+} from '@/constants/adminChat.constants';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types/user.types';
@@ -58,8 +68,18 @@ export function AdminChatWidget() {
   }, [user]);
 
   // Get FAQs and categories based on user role - no FAQ for astrologers
-  const faqs: FAQItem[] = user?.role === UserRole.ADMIN ? ADMIN_FAQS : user?.role === UserRole.ASTROLOGER ? [] : CLIENT_FAQS;
-  const faqCategories = user?.role === UserRole.ADMIN ? ADMIN_FAQ_CATEGORIES : user?.role === UserRole.ASTROLOGER ? [] : CLIENT_FAQ_CATEGORIES;
+  const faqs: FAQItem[] =
+    user?.role === UserRole.ADMIN
+      ? ADMIN_FAQS
+      : user?.role === UserRole.ASTROLOGER
+        ? []
+        : CLIENT_FAQS;
+  const faqCategories =
+    user?.role === UserRole.ADMIN
+      ? ADMIN_FAQ_CATEGORIES
+      : user?.role === UserRole.ASTROLOGER
+        ? []
+        : CLIENT_FAQ_CATEGORIES;
   const showFAQ = user?.role !== UserRole.ASTROLOGER; // Hide FAQ for astrologers
 
   // Load active chat from sessionStorage on mount
@@ -86,7 +106,7 @@ export function AdminChatWidget() {
         setViewMode('chat');
       }
     }
-  }, [user?.role]);
+  }, [user]);
 
   // Load chat + message history from API (DB-backed), so history persists across logouts/sessions.
   useEffect(() => {
@@ -288,7 +308,6 @@ export function AdminChatWidget() {
     },
   });
 
-
   const handleStartChat = () => {
     if (!message.trim()) {
       toast.error('Please enter a message to start the chat');
@@ -397,9 +416,8 @@ export function AdminChatWidget() {
     }
   };
 
-  const filteredFAQs = selectedCategory === 'All'
-    ? faqs
-    : faqs.filter((faq) => faq.category === selectedCategory);
+  const filteredFAQs =
+    selectedCategory === 'All' ? faqs : faqs.filter((faq) => faq.category === selectedCategory);
 
   // Marking as read is handled server-side on `admin-chat:join`.
 
@@ -514,7 +532,9 @@ export function AdminChatWidget() {
                               onClick={() => handleQuestionClick(index)}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <h4 className="font-semibold text-gray-900 flex-1">{faq.question}</h4>
+                                <h4 className="font-semibold text-gray-900 flex-1">
+                                  {faq.question}
+                                </h4>
                                 <span className="text-xs text-gray-500 mt-1">
                                   {isExpanded ? 'Show Less' : 'Show More'}
                                 </span>
@@ -533,7 +553,9 @@ export function AdminChatWidget() {
                               </div>
                             )}
                             {!isExpanded && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mt-2">{faq.answer}</p>
+                              <p className="text-sm text-gray-600 line-clamp-2 mt-2">
+                                {faq.answer}
+                              </p>
                             )}
                           </div>
                         );
@@ -568,15 +590,20 @@ export function AdminChatWidget() {
                                 {(() => {
                                   const metadata = msg.metadata as any;
                                   const hasFile = !!metadata?.fileUrl;
-                                  const fileUrl = hasFile ? `${API_BASE_URL}${metadata.fileUrl}` : null;
+                                  const fileUrl = hasFile
+                                    ? `${API_BASE_URL}${metadata.fileUrl}`
+                                    : null;
                                   const isImage =
                                     msg.type === 'IMAGE' ||
-                                    (metadata?.mimeType && String(metadata.mimeType).startsWith('image/'));
+                                    (metadata?.mimeType &&
+                                      String(metadata.mimeType).startsWith('image/'));
 
                                   if (fileUrl && isImage) {
                                     return (
                                       <div className="space-y-2">
-                                        {msg.content ? <p className="text-sm">{msg.content}</p> : null}
+                                        {msg.content ? (
+                                          <p className="text-sm">{msg.content}</p>
+                                        ) : null}
                                         <a href={fileUrl} target="_blank" rel="noreferrer">
                                           {/* eslint-disable-next-line @next/next/no-img-element */}
                                           <img
@@ -600,7 +627,9 @@ export function AdminChatWidget() {
                                   if (fileUrl) {
                                     return (
                                       <div className="space-y-2">
-                                        {msg.content ? <p className="text-sm">{msg.content}</p> : null}
+                                        {msg.content ? (
+                                          <p className="text-sm">{msg.content}</p>
+                                        ) : null}
                                         <a
                                           href={fileUrl}
                                           target="_blank"
@@ -629,8 +658,14 @@ export function AdminChatWidget() {
                               <div className="bg-gray-200 rounded-lg px-4 py-2">
                                 <div className="flex gap-1">
                                   <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                                  <div
+                                    className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: '0.1s' }}
+                                  />
+                                  <div
+                                    className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                                    style={{ animationDelay: '0.2s' }}
+                                  />
                                 </div>
                               </div>
                             </div>
@@ -699,7 +734,11 @@ export function AdminChatWidget() {
                         />
                         <Button
                           onClick={handleSendMessage}
-                          disabled={(!message.trim() && !attachment) || sendMessageMutation.isPending || isUploading}
+                          disabled={
+                            (!message.trim() && !attachment) ||
+                            sendMessageMutation.isPending ||
+                            isUploading
+                          }
                           className="bg-purple-600 hover:bg-purple-700"
                         >
                           <Send className="h-4 w-4" />

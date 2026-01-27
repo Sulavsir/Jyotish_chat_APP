@@ -29,6 +29,16 @@ interface JyotishNode {
   name?: string;
 }
 
+// Mock Jyotish images - using placeholder service with different seeds
+const mockJyotishImages = [
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish1&backgroundColor=b6e3ff',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish2&backgroundColor=c7f5d9',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish3&backgroundColor=ffdfbf',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish4&backgroundColor=ffd5dc',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish5&backgroundColor=e4d5f7',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish6&backgroundColor=fce7f3',
+];
+
 export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
   isOpen,
   onCancel,
@@ -47,16 +57,6 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const waitingStartTimeRef = useRef<number>(0);
-
-  // Mock Jyotish images - using placeholder service with different seeds
-  const mockJyotishImages = [
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish1&backgroundColor=b6e3ff',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish2&backgroundColor=c7f5d9',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish3&backgroundColor=ffdfbf',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish4&backgroundColor=ffd5dc',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish5&backgroundColor=e4d5f7',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=jyotish6&backgroundColor=fce7f3',
-  ];
 
   // Generate Jyotish nodes in a circle around the center
   const jyotishNodes: JyotishNode[] = React.useMemo(() => {
