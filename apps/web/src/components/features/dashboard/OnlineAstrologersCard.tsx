@@ -16,9 +16,11 @@ import userService from '@/services/user.service';
 import { USER_ROLES } from '@/constants/role.constants';
 import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
 import { SimpleRequestChatButton } from './SimpleRequestChatButton';
+import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
 
 export function OnlineAstrologersCard() {
   const onlineUsers = useStore((state) => state.onlineUsers);
+  const showExtraInfoCards = useAskQuestionsLayoutStore((state) => state.showExtraInfoCards);
 
   // Fetch chatable users
   const { data: users = [], isLoading } = useQuery({
@@ -76,24 +78,76 @@ export function OnlineAstrologersCard() {
         </div>
       </div>
 
-      {/* Additional Info Card with Enhanced Animations */}
-      <div className="relative rounded-xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 via-orange-500/5 to-transparent p-4 hover:border-yellow-500/40 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20 animate-in fade-in slide-in-from-bottom-4 delay-300 group overflow-hidden">
-        {/* Shimmer effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-        <div className="flex items-start gap-3 relative z-10">
-          <div className="p-2 rounded-lg bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 transition-all duration-300 hover:scale-110 group-hover:rotate-6">
-            <MessageSquare className="h-4 w-4 text-yellow-400 animate-pulse group-hover:animate-none group-hover:scale-110 transition-transform duration-300" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-white mb-1 group-hover:text-yellow-200 transition-colors duration-300">
-              Instant Connection
-            </p>
-            <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors duration-300">
-              Get instant answers from verified Jyotish. Start chatting now!
-            </p>
+      {/* Info Cards Column */}
+      <div className="flex flex-col gap-3">
+        {/* Instant Connection Card - always visible */}
+        <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-150 overflow-hidden">
+          {/* Shimmer effect always running */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
+          <div className="flex items-start gap-3 relative z-10">
+            <div className="p-2 rounded-lg bg-yellow-500/30 border border-yellow-500/50 scale-110 rotate-2">
+              <MessageSquare className="h-4 w-4 text-yellow-100" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-white mb-1">Instant Connection</p>
+              <p className="text-xs text-gray-200">
+                Get instant answers from verified Jyotish who are currently online and ready to
+                chat.
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Extra info cards only when triggered from AskQuestionsSection */}
+        {showExtraInfoCards && (
+          <>
+            {/* Private & Secure Card */}
+            <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-250 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
+              <div className="flex items-start gap-3 relative z-10">
+                <div className="p-2 rounded-lg bg-yellow-500/30 border border-yellow-500/50 scale-110 -rotate-2">
+                  <Circle className="h-4 w-4 text-yellow-100 fill-yellow-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white mb-1">Private & Secure</p>
+                  <p className="text-xs text-gray-200">
+                    Your conversations are confidential between you and your Jyotish – direct chats.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Verified Jyotish Card */}
+            <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-350 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
+              <div className="flex items-start gap-3 relative z-10">
+                <div className="p-2 rounded-lg bg-yellow-500/30 border border-yellow-500/50 scale-110">
+                  <Circle className="h-4 w-4 text-yellow-100 fill-yellow-300" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white mb-1">Verified Jyotish</p>
+                  <p className="text-xs text-gray-200">
+                    Only approved Jyotish with completed profiles and ratings appear here for
+                    instant chat.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Shimmer keyframes */}
+      <style jsx>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+      `}</style>
 
       {/* Astrologer Avatars Section */}
       {displayAstrologers.length > 0 ? (

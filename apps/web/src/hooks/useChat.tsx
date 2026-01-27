@@ -37,9 +37,14 @@ export function useChat() {
    * Start a chat with another user
    * @param otherUserId - The user ID to chat with
    * @param consultationId - Optional consultation ID to link
+   * @param initialMessage - Optional first message content to send after chat is created
    * @returns The chat ID
    */
-  const startChat = async (otherUserId: string, consultationId?: string) => {
+  const startChat = async (
+    otherUserId: string,
+    consultationId?: string,
+    initialMessage?: string
+  ) => {
     if (!user) {
       toast.error('Please login to start a chat');
       return null;
@@ -63,6 +68,23 @@ export function useChat() {
       if (!chat || !chat.id) {
         console.error('Invalid chat response from server');
         throw new Error('Invalid chat response from server');
+      }
+
+      // Optionally send an initial message if provided
+      const trimmedMessage = initialMessage?.trim();
+      if (trimmedMessage) {
+        try {
+          await chatService.sendMessage({
+            chatId: chat.id,
+            receiverId: otherUserId,
+            content: trimmedMessage,
+            type: 'TEXT',
+          });
+        } catch (sendError) {
+          // Log and show a non-blocking error; still navigate to chat
+          console.error('Error sending initial chat message:', sendError);
+          displayError(sendError, 'Chat started, but failed to send your first message.');
+        }
       }
 
       // Navigate to the appropriate chat page based on user role

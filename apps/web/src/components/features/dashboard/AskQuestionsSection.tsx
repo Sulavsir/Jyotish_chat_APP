@@ -6,9 +6,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { MessageSquare } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button, LoadingButton } from '@jyotish/ui';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Button,
+  LoadingButton,
+} from '@jyotish/ui';
 import { useRouter } from 'next/navigation';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
 import { JyotishSelector } from './JyotishSelector';
@@ -26,15 +33,25 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
 
 export function AskQuestionsSection() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { socket, isConnected } = useSocket();
+  const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
   const [selectedAstrologerId, setSelectedAstrologerId] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedQuestion, setSelectedQuestion] = useState<string>('');
-  const [customMessage, setCustomMessage] = useState('');
+  const { setShowExtraInfoCards } = useAskQuestionsLayoutStore();
+
+  // Direct-chat tab state
+  const [directCategory, setDirectCategory] = useState<string>('');
+  const [directQuestion, setDirectQuestion] = useState<string>('');
+  const [directMessage, setDirectMessage] = useState('');
+
+  // Broadcast tab state
+  const [broadcastCategory, setBroadcastCategory] = useState<string>('');
+  const [broadcastQuestion, setBroadcastQuestion] = useState<string>('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -48,38 +65,65 @@ export function AskQuestionsSection() {
   const queryClient = useQueryClient();
   const { startChat } = useChat();
 
-  const selectedCategoryData = QUESTION_CATEGORIES.find((c) => c.id === selectedCategory);
+  const directCategoryData = QUESTION_CATEGORIES.find((c) => c.id === directCategory);
+  const broadcastCategoryData = QUESTION_CATEGORIES.find((c) => c.id === broadcastCategory);
 
   const handleAstrologerSelect = (astrologerId: string) => {
     setSelectedAstrologerId(astrologerId);
     // Clear category and question when selecting a new astrologer
-    setSelectedCategory('');
-    setSelectedQuestion('');
-    setCustomMessage('');
+    setDirectCategory('');
+    setDirectQuestion('');
+    setDirectMessage('');
   };
 
   const handleAstrologerClear = () => {
     setSelectedAstrologerId('');
-    setSelectedCategory('');
-    setSelectedQuestion('');
-    setCustomMessage('');
+    setDirectCategory('');
+    setDirectQuestion('');
+    setDirectMessage('');
   };
 
-  const handleCategorySelect = (categoryId: string) => {
-    setSelectedCategory(categoryId);
-    setSelectedQuestion('');
-    setCustomMessage('');
+  // Direct tab handlers
+  const handleDirectCategorySelect = (categoryId: string) => {
+    setDirectCategory(categoryId);
+    setDirectQuestion('');
+    setDirectMessage('');
   };
 
-  const handleQuestionSelect = (question: string) => {
-    setSelectedQuestion(question);
-    setCustomMessage(question);
+  const handleDirectQuestionSelect = (question: string) => {
+    setDirectQuestion(question);
+    setDirectMessage(question);
   };
 
-  const handleCustomMessageChange = (value: string) => {
-    setCustomMessage(value);
-    setSelectedQuestion('');
+  const handleDirectMessageChange = (value: string) => {
+    setDirectMessage(value);
+    setDirectQuestion('');
   };
+
+  // Broadcast tab handlers
+  const handleBroadcastCategorySelect = (categoryId: string) => {
+    setBroadcastCategory(categoryId);
+    setBroadcastQuestion('');
+    setBroadcastMessage('');
+  };
+
+  const handleBroadcastQuestionSelect = (question: string) => {
+    setBroadcastQuestion(question);
+    setBroadcastMessage(question);
+  };
+
+  const handleBroadcastMessageChange = (value: string) => {
+    setBroadcastMessage(value);
+    setBroadcastQuestion('');
+  };
+
+  // Expose when extra info cards on the left side should be visible
+  React.useEffect(() => {
+    const shouldShow =
+      (mode === 'direct' && !!selectedAstrologerId) ||
+      mode === 'broadcast';
+    setShowExtraInfoCards(shouldShow);
+  }, [mode, selectedAstrologerId, setShowExtraInfoCards]);
 
   const handleStartChat = async () => {
     if (!selectedAstrologerId || !user) return;
@@ -92,11 +136,9 @@ export function AskQuestionsSection() {
       return;
     }
 
-    // Start chat
-    const chatId = await startChat(selectedAstrologerId);
-    if (chatId) {
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chatId));
-    }
+    // Start chat and send the selected/custom question as the first message
+    const messageToSend = directMessage.trim() || directQuestion.trim();
+    await startChat(selectedAstrologerId, undefined, messageToSend);
   };
 
   // Socket event handlers
@@ -135,9 +177,9 @@ export function AskQuestionsSection() {
     }) => {
       setIsWaitingForAcceptance(false);
       setPendingMessage(null);
-      setCustomMessage('');
-      setSelectedQuestion('');
-      setSelectedCategory('');
+      setBroadcastMessage('');
+      setBroadcastQuestion('');
+      setBroadcastCategory('');
       router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chatId));
     };
 
@@ -220,7 +262,7 @@ export function AskQuestionsSection() {
       return;
     }
 
-    const messageToSend = customMessage.trim() || selectedQuestion.trim();
+    const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
     if (!messageToSend) {
       toast.error('Please select a question or type your message');
       return;
@@ -247,7 +289,7 @@ export function AskQuestionsSection() {
     }
   };
 
-  const finalMessage = customMessage.trim() || selectedQuestion.trim();
+  const finalBroadcastMessage = broadcastMessage.trim() || broadcastQuestion.trim();
 
   // If waiting for acceptance, show matching modal
   if (isWaitingForAcceptance && pendingMessage) {
@@ -266,111 +308,289 @@ export function AskQuestionsSection() {
 
   return (
     <>
-      <div className={`flex flex-col gap-4 h-full transition-all duration-300 ${selectedAstrologerId ? '' : 'justify-center'}`}>
+      <div className="flex flex-col gap-4 h-full transition-all duration-300">
+        {/* Header */}
         <div className="animate-in fade-in slide-in-from-right-4 delay-100">
           <h3 className="text-xl font-bold text-white mb-2">तपाईंको प्रश्न राख्नुहोस्।</h3>
-          <p className="text-sm text-gray-400">Select a Jyotish first, then choose your question</p>
+          <p className="text-sm text-gray-400">
+            Choose how you want to reach Jyotish: one-on-one or broadcast to everyone.
+          </p>
         </div>
 
-        {/* Jyotish Selector - Must be selected first */}
-        <div className={`transition-all duration-300 ${selectedAstrologerId ? 'animate-in fade-in zoom-in-95' : ''}`}>
-          <JyotishSelector
-            selectedAstrologerId={selectedAstrologerId}
-            onSelect={handleAstrologerSelect}
-            onClear={handleAstrologerClear}
-          />
-        </div>
-
-        {/* Placeholder when no Jyotish selected */}
-        {!selectedAstrologerId && (
-          <div className="flex flex-col items-center justify-center py-8 px-4 rounded-xl border border-white/10 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-transparent animate-in fade-in delay-200">
-            <MessageSquare className="h-12 w-12 text-purple-400/50 mb-3 animate-pulse" />
-            <p className="text-sm text-gray-400 text-center">
-              Select a Jyotish from the dropdown above to start asking questions
-            </p>
+        {/* Mode Tabs */}
+        <div className="mt-1 mb-2">
+          <div className="inline-flex rounded-full bg-white/5 p-1 border border-white/10 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setMode('direct')}
+              className={`px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all duration-300 flex items-center gap-1.5 ${
+                mode === 'direct'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/40 scale-[1.02]'
+                  : 'text-gray-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.35)]" />
+              Chat with specific Jyotish
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('broadcast')}
+              className={`ml-1 px-4 py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all duration-300 flex items-center gap-1.5 ${
+                mode === 'broadcast'
+                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/40 scale-[1.02]'
+                  : 'text-gray-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-orange-500/20 border border-orange-400/60 text-[10px] text-orange-200">
+                All
+              </span>
+              Publish to all Jyotish
+            </button>
           </div>
-        )}
+        </div>
 
-        {/* Category and Question Selection - Only show after Jyotish is selected */}
-        {selectedAstrologerId && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
-            {/* Category Selection */}
-            <div className="w-full">
-              <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
-              <Select value={selectedCategory} onValueChange={handleCategorySelect}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {QUESTION_CATEGORIES.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{category.emoji}</span>
-                        <span>{category.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Direct Chat Mode */}
+        {mode === 'direct' && (
+          <>
+            {/* Jyotish Selector */}
+            <div
+              className={`transition-all duration-300 ${
+                selectedAstrologerId ? 'animate-in fade-in zoom-in-95' : ''
+              }`}
+            >
+              <JyotishSelector
+                selectedAstrologerId={selectedAstrologerId}
+                onSelect={handleAstrologerSelect}
+                onClear={handleAstrologerClear}
+              />
             </div>
 
-            {/* Question Selection (if category selected) */}
-            {selectedCategoryData && (
-              <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
-                <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
-                <Select value={selectedQuestion} onValueChange={handleQuestionSelect}>
+            {/* Placeholder when no Jyotish selected */}
+            {!selectedAstrologerId && (
+              <div className="flex flex-col items-center justify-center py-6 px-4 rounded-xl border border-white/10 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-transparent animate-in fade-in delay-200">
+                <MessageSquare className="h-10 w-10 text-purple-400/60 mb-2 animate-pulse" />
+                <p className="text-sm text-gray-300 text-center">
+                  Select a Jyotish from the dropdown above to start a private chat.
+                </p>
+              </div>
+            )}
+
+            {selectedAstrologerId && (
+              <>
+                {/* Category, Question & Message (direct tab) */}
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
+                  {/* Category Selection */}
+                  <div className="w-full">
+                    <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
+                    <Select
+                      value={directCategory}
+                      onValueChange={(value) =>
+                        value === 'CLEAR'
+                          ? handleDirectCategorySelect('')
+                          : handleDirectCategorySelect(value)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CLEAR">
+                          <span className="text-gray-400">Clear selection</span>
+                        </SelectItem>
+                        {QUESTION_CATEGORIES.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{category.emoji}</span>
+                              <span>{category.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Question Selection (if category selected) */}
+                  {directCategoryData && (
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
+                      <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
+                      <Select
+                        value={directQuestion}
+                        onValueChange={(value) => {
+                          if (value === 'CLEAR_QUESTION') {
+                            setDirectQuestion('');
+                            setDirectMessage('');
+                          } else {
+                            handleDirectQuestionSelect(value);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a question or type your own" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          <SelectItem value="CLEAR_QUESTION">
+                            <span className="text-gray-400">Clear question</span>
+                          </SelectItem>
+                          {directCategoryData.questions.map((question, index) => (
+                            <SelectItem key={index} value={question}>
+                              {question}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Custom Message Input */}
+                  <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
+                    <label className="text-sm text-gray-300 mb-2 block">
+                      {directQuestion
+                        ? 'Edit question before sending to this Jyotish'
+                        : 'Type your question for this Jyotish'}
+                    </label>
+                    <textarea
+                      value={directMessage}
+                      onChange={(e) => handleDirectMessageChange(e.target.value)}
+                      placeholder={
+                        directQuestion ? directQuestion : 'Type your question for this Jyotish...'
+                      }
+                      className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <div className="flex gap-2 mt-auto">
+                  <Button
+                    onClick={handleStartChat}
+                    disabled={!selectedAstrologerId}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Start Chat
+                  </Button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Broadcast Mode */}
+        {mode === 'broadcast' && (
+          <>
+            {/* Info card */}
+            <div className="flex flex-col gap-2 py-4 px-4 rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 via-red-500/10 to-transparent animate-in fade-in delay-150">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-orange-400 animate-pulse" />
+                <p className="text-sm font-medium text-orange-100">
+                  Your question will be published to all available Jyotish.
+                </p>
+              </div>
+              <p className="text-xs text-orange-200/80">
+                The first astrologer to accept will start a private chat with you. Make your
+                question clear so the right Jyotish can respond.
+              </p>
+            </div>
+
+            {/* Category, Question & Message (broadcast tab) */}
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
+              {/* Category Selection */}
+              <div className="w-full">
+                <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
+                <Select
+                  value={broadcastCategory}
+                  onValueChange={(value) =>
+                    value === 'CLEAR'
+                      ? handleBroadcastCategorySelect('')
+                      : handleBroadcastCategorySelect(value)
+                  }
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a question or type your own" />
+                    <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    {selectedCategoryData.questions.map((question, index) => (
-                      <SelectItem key={index} value={question}>
-                        {question}
+                  <SelectContent>
+                    <SelectItem value="CLEAR">
+                      <span className="text-gray-400">Clear selection</span>
+                    </SelectItem>
+                    {QUESTION_CATEGORIES.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{category.emoji}</span>
+                          <span>{category.name}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
 
-            {/* Custom Message Input */}
-            <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
-              <label className="text-sm text-gray-300 mb-2 block">
-                {selectedQuestion ? 'Edit Question' : 'Or Type Your Question'}
-              </label>
-              <textarea
-                value={customMessage}
-                onChange={(e) => handleCustomMessageChange(e.target.value)}
-                placeholder={selectedQuestion ? selectedQuestion : 'Type your question here...'}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
-              />
+              {/* Question Selection (if category selected) */}
+              {broadcastCategoryData && (
+                <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
+                  <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
+                  <Select
+                    value={broadcastQuestion}
+                    onValueChange={(value) => {
+                      if (value === 'CLEAR_QUESTION') {
+                        setBroadcastQuestion('');
+                        setBroadcastMessage('');
+                      } else {
+                        handleBroadcastQuestionSelect(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a question or type your own" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px]">
+                      <SelectItem value="CLEAR_QUESTION">
+                        <span className="text-gray-400">Clear question</span>
+                      </SelectItem>
+                      {broadcastCategoryData.questions.map((question, index) => (
+                        <SelectItem key={index} value={question}>
+                          {question}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Custom Message Input */}
+              <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
+                <label className="text-sm text-gray-300 mb-2 block">
+                  {broadcastQuestion
+                    ? 'Edit question before publishing to all Jyotish'
+                    : 'Type your question to publish to all Jyotish'}
+                </label>
+                <textarea
+                  value={broadcastMessage}
+                  onChange={(e) => handleBroadcastMessageChange(e.target.value)}
+                  placeholder={
+                    broadcastQuestion
+                      ? broadcastQuestion
+                      : 'Type your question to publish to all Jyotish...'
+                  }
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
+                />
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className={`flex gap-2 ${selectedAstrologerId ? 'mt-auto' : 'mt-4'}`}>
-          {selectedAstrologerId && (
-            <Button
-              onClick={handleStartChat}
-              disabled={!selectedAstrologerId}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Start Chat
-            </Button>
-          )}
-          <LoadingButton
-            onClick={handleSendBroadcast}
-            disabled={!finalMessage || !selectedAstrologerId}
-            loading={isSending}
-            loadingText="Sending..."
-            className={`${selectedAstrologerId ? 'flex-1' : 'w-full'} bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium`}
-          >
-            <MessageSquare className="h-4 w-4" />
-            Send Broadcast
-          </LoadingButton>
-        </div>
+            {/* Broadcast Button */}
+            <div className="flex gap-2 mt-auto">
+              <LoadingButton
+                onClick={handleSendBroadcast}
+                disabled={!finalBroadcastMessage}
+                loading={isSending}
+                loadingText="Sending..."
+                className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
+              >
+                <MessageSquare className="h-4 w-4" />
+                Publish Message to All Jyotish
+              </LoadingButton>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Profile Incomplete Dialog */}

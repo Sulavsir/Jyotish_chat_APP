@@ -17,24 +17,19 @@ import { useRouter } from 'next/navigation';
 interface JyotishSelectorCardProps {
   astrologer: PublicAstrologerProfile;
   isSelected?: boolean;
-  onSelect: (astrologerId: string) => void;
 }
 
 export function JyotishSelectorCard({
   astrologer,
   isSelected = false,
-  onSelect,
 }: JyotishSelectorCardProps) {
   const router = useRouter();
 
-  const handleViewProfile = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleViewProfilePointerDown = (e: React.PointerEvent) => {
+    // Completely bypass Radix Select's item selection by cancelling the pointer event
     e.preventDefault();
+    e.stopPropagation();
     router.push(ROUTE_BUILDERS.ASTROLOGER_PROFILE(astrologer.id));
-  };
-
-  const handleSelect = () => {
-    onSelect(astrologer.id);
   };
 
   const initials = astrologer.name
@@ -67,8 +62,7 @@ export function JyotishSelectorCard({
 
   return (
     <div
-      onClick={handleSelect}
-      className={`w-full min-w-full p-3 rounded-lg bg-gradient-to-br ${getGradient()} transition-all duration-300 hover:scale-[1.01] hover:shadow-lg cursor-pointer ${
+      className={`w-full min-w-full p-3 rounded-lg bg-gradient-to-br ${getGradient()} transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${
         isSelected ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-gray-900' : ''
       }`}
     >
@@ -173,7 +167,7 @@ export function JyotishSelectorCard({
         {/* View Profile Button - On the Right, Vertically Centered */}
         <div className="flex-shrink-0 self-center">
           <Button
-            onClick={handleViewProfile}
+            onPointerDown={handleViewProfilePointerDown}
             className={`bg-gradient-to-r ${getButtonGradient()} text-white text-xs py-1.5 px-3 h-auto shadow-lg`}
             size="sm"
           >

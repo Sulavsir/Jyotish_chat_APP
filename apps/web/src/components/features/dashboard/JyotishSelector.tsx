@@ -24,7 +24,6 @@ import {
 import { QUERY_KEYS } from '@/constants';
 import { getImageUrl } from '@/utils/image.utils';
 import astrologerService from '@/services/astrologer.service';
-import type { PublicAstrologerProfile } from '@/types/astrologer';
 import { ASTROLOGER_CATEGORY_LABELS } from '@/types/astrologer';
 import { JyotishSelectorCard } from './JyotishSelectorCard';
 
@@ -159,21 +158,22 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
                 {searchTerm ? 'No astrologers found' : 'No astrologers available'}
               </div>
             ) : (
-              <div className="space-y-2 p-2">
-                {filteredAstrologers.map((astrologer) => (
-                  <SelectItem
-                    key={astrologer.id}
-                    value={astrologer.id}
-                    className="!p-0 !m-0 !pl-0 !pr-0 !pt-0 !pb-0 h-auto focus:bg-transparent data-[highlighted]:bg-transparent cursor-pointer rounded-lg w-full [&>span:first-child]:hidden [&>span:last-child]:!w-full [&>span:last-child]:!block"
-                  >
-                    <div className="w-full min-w-full">
-                      <JyotishSelectorCard
-                        astrologer={astrologer}
-                        isSelected={selectedAstrologerId === astrologer.id}
-                        onSelect={onSelect}
-                      />
-                    </div>
-                  </SelectItem>
+              <div className="p-2">
+                {filteredAstrologers.map((astrologer, index) => (
+                  <React.Fragment key={astrologer.id}>
+                    {index > 0 && <div className="h-px bg-white/10 my-2 mx-1 rounded-full" />}
+                    <SelectItem
+                      value={astrologer.id}
+                      className="!p-0 !m-0 !pl-0 !pr-0 !pt-0 !pb-0 h-auto focus:bg-transparent data-[highlighted]:bg-transparent cursor-pointer w-full [&>span:first-child]:hidden [&>span:last-child]:!w-full [&>span:last-child]:!block"
+                    >
+                      <div className="w-full min-w-full">
+                        <JyotishSelectorCard
+                          astrologer={astrologer}
+                          isSelected={selectedAstrologerId === astrologer.id}
+                        />
+                      </div>
+                    </SelectItem>
+                  </React.Fragment>
                 ))}
               </div>
             )}
