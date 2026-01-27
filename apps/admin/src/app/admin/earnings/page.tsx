@@ -14,7 +14,11 @@ export default function EarningsPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch earnings with TanStack Query
-  const { data: rawEarnings = [], isLoading, refetch } = useQuery<Earning[]>({
+  const {
+    data: rawEarnings = [],
+    isLoading,
+    refetch,
+  } = useQuery<Earning[]>({
     queryKey: ADMIN_QUERY_KEYS.EARNINGS.LIST(),
     queryFn: async () => {
       const response: any = await adminApi.earnings.list();
@@ -56,18 +60,18 @@ export default function EarningsPage() {
     },
     {
       header: 'Amount',
-      accessor: (earning) => <span>₹{earning.amount.toFixed(2)}</span>,
+      accessor: (earning) => <span>Nrs.{earning.amount.toFixed(2)}</span>,
     },
     {
       header: 'Commission',
       accessor: (earning) => (
-        <span className="text-red-400">-₹{earning.commission.toFixed(2)}</span>
+        <span className="text-red-400">-Nrs.{earning.commission.toFixed(2)}</span>
       ),
     },
     {
       header: 'Net Earning',
       accessor: (earning) => (
-        <span className="text-green-400 font-semibold">₹{earning.netEarning.toFixed(2)}</span>
+        <span className="text-green-400 font-semibold">Nrs.{earning.netEarning.toFixed(2)}</span>
       ),
     },
     {

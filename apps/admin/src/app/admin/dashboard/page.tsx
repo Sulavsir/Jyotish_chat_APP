@@ -38,9 +38,7 @@ export default function DashboardPage() {
     };
 
     const handleNewUser = () => {
-      setStats((prev) =>
-        prev ? { ...prev, totalUsers: (prev.totalUsers || 0) + 1 } : prev
-      );
+      setStats((prev) => (prev ? { ...prev, totalUsers: (prev.totalUsers || 0) + 1 } : prev));
     };
 
     const handleNewAstrologer = () => {
@@ -51,9 +49,7 @@ export default function DashboardPage() {
 
     const handleNewChat = () => {
       console.log('📊 New chat created');
-      setStats((prev) =>
-        prev ? { ...prev, activeChats: (prev.activeChats || 0) + 1 } : prev
-      );
+      setStats((prev) => (prev ? { ...prev, activeChats: (prev.activeChats || 0) + 1 } : prev));
     };
 
     const handleChatEnded = () => {
@@ -66,9 +62,7 @@ export default function DashboardPage() {
     const handleNewEarning = (data: { amount: number }) => {
       console.log('📊 New earning:', data.amount);
       setStats((prev) =>
-        prev
-          ? { ...prev, totalEarnings: (prev.totalEarnings || 0) + data.amount }
-          : prev
+        prev ? { ...prev, totalEarnings: (prev.totalEarnings || 0) + data.amount } : prev
       );
     };
 
@@ -132,13 +126,13 @@ export default function DashboardPage() {
     },
     {
       title: 'Total Earnings',
-      value: `₹${stats?.totalEarnings || 0}`,
+      value: `Nrs.${stats?.totalEarnings || 0}`,
       icon: <MoneyIcon className="w-8 h-8 text-yellow-400" />,
       color: 'from-yellow-400 to-orange-500',
     },
     {
       title: 'Pending Payouts',
-      value: `₹${stats?.pendingPayouts || 0}`,
+      value: `Nrs.${stats?.pendingPayouts || 0}`,
       icon: (
         <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path

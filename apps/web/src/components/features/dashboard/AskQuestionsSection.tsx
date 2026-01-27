@@ -7,31 +7,20 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, MessageSquare, ChevronDown, X, XCircle } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-  Skeleton,
-  Button,
-} from '@jyotish/ui';
+import { MessageSquare } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button, LoadingButton } from '@jyotish/ui';
 import { useRouter } from 'next/navigation';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
-import { getImageUrl } from '@/utils/image.utils';
-import astrologerService from '@/services/astrologer.service';
-import type { PublicAstrologerProfile } from '@/types/astrologer';
-import { ASTROLOGER_CATEGORY_LABELS } from '@/types/astrologer';
+import { JyotishSelector } from './JyotishSelector';
 import { useChat } from '@/hooks/useChat';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { CoinPurchaseModal } from '@/components/modals';
-import { QUESTION_CATEGORIES, type QuestionCategory } from '@/constants/questionCategories.constants';
+import {
+  QUESTION_CATEGORIES,
+  type QuestionCategory,
+} from '@/constants/questionCategories.constants';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -46,46 +35,35 @@ export function AskQuestionsSection() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedQuestion, setSelectedQuestion] = useState<string>('');
   const [customMessage, setCustomMessage] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isWaitingForAcceptance, setIsWaitingForAcceptance] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState<any>(null);
+  const [pendingMessage, setPendingMessage] = useState<{ createdAt: string; id: string } | null>(
+    null
+  );
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [requiredCoins, setRequiredCoins] = useState(1);
   const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
   const queryClient = useQueryClient();
   const { startChat } = useChat();
 
-  // Fetch astrologers list
-  const { data: astrologersData, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.ASTROLOGERS.LIST({}), searchTerm],
-    queryFn: () =>
-      astrologerService.listAstrologers({
-        isOnline: true,
-        search: searchTerm || undefined,
-        limit: 50,
-      }),
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  const astrologers = astrologersData?.astrologers || [];
-  const selectedAstrologer = astrologers.find((a) => a.id === selectedAstrologerId);
   const selectedCategoryData = QUESTION_CATEGORIES.find((c) => c.id === selectedCategory);
 
-  // Filter astrologers based on search
-  const filteredAstrologers = astrologers.filter((astrologer) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      astrologer.name.toLowerCase().includes(search) ||
-      astrologer.category.toLowerCase().includes(search) ||
-      astrologer.specialization?.some((s) => s.toLowerCase().includes(search))
-    );
-  });
+  const handleAstrologerSelect = (astrologerId: string) => {
+    setSelectedAstrologerId(astrologerId);
+    // Clear category and question when selecting a new astrologer
+    setSelectedCategory('');
+    setSelectedQuestion('');
+    setCustomMessage('');
+  };
+
+  const handleAstrologerClear = () => {
+    setSelectedAstrologerId('');
+    setSelectedCategory('');
+    setSelectedQuestion('');
+    setCustomMessage('');
+  };
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -125,7 +103,7 @@ export function AskQuestionsSection() {
   React.useEffect(() => {
     if (!socket || !isConnected) return;
 
-    const handleMessageSent = (message: any) => {
+    const handleMessageSent = (message: { createdAt: string; id: string }) => {
       setIsSending(false);
       setIsWaitingForAcceptance(true);
       setPendingMessage(message);
@@ -138,7 +116,7 @@ export function AskQuestionsSection() {
       setIsWaitingForAcceptance(false);
       setPendingMessage(null);
       const errorMsg = error.message || 'Failed to send message';
-      
+
       // Check for insufficient coins
       if (errorMsg.includes('Insufficient coins') || errorMsg.includes('Required:')) {
         const coins = extractRequiredCoins(errorMsg);
@@ -151,7 +129,10 @@ export function AskQuestionsSection() {
       }
     };
 
-    const handleMessageAccepted = (data: { chatId: string; message: any }) => {
+    const handleMessageAccepted = (data: {
+      chatId: string;
+      message: { id: string; createdAt: string };
+    }) => {
       setIsWaitingForAcceptance(false);
       setPendingMessage(null);
       setCustomMessage('');
@@ -285,180 +266,90 @@ export function AskQuestionsSection() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 h-full">
-        <div>
-          <h3 className="text-xl font-bold text-white mb-2">Ask Questions?</h3>
-          <p className="text-sm text-gray-400">Select category, question, and Jyotish</p>
+      <div className={`flex flex-col gap-4 h-full transition-all duration-300 ${selectedAstrologerId ? '' : 'justify-center'}`}>
+        <div className="animate-in fade-in slide-in-from-right-4 delay-100">
+          <h3 className="text-xl font-bold text-white mb-2">तपाईंको प्रश्न राख्नुहोस्।</h3>
+          <p className="text-sm text-gray-400">Select a Jyotish first, then choose your question</p>
         </div>
 
-        {/* Category Selection */}
-        <div className="w-full">
-          <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
-          <Select value={selectedCategory} onValueChange={handleCategorySelect}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              {QUESTION_CATEGORIES.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{category.emoji}</span>
-                    <span>{category.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Question Selection (if category selected) */}
-        {selectedCategoryData && (
-          <div className="w-full">
-            <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
-            <Select value={selectedQuestion} onValueChange={handleQuestionSelect}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a question or type your own" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[200px]">
-                {selectedCategoryData.questions.map((question, index) => (
-                  <SelectItem key={index} value={question}>
-                    {question}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Custom Message Input */}
-        <div className="w-full">
-          <label className="text-sm text-gray-300 mb-2 block">
-            {selectedQuestion ? 'Edit Question' : 'Or Type Your Question'}
-          </label>
-          <textarea
-            value={customMessage}
-            onChange={(e) => handleCustomMessageChange(e.target.value)}
-            placeholder={selectedQuestion ? selectedQuestion : 'Type your question here...'}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
+        {/* Jyotish Selector - Must be selected first */}
+        <div className={`transition-all duration-300 ${selectedAstrologerId ? 'animate-in fade-in zoom-in-95' : ''}`}>
+          <JyotishSelector
+            selectedAstrologerId={selectedAstrologerId}
+            onSelect={handleAstrologerSelect}
+            onClear={handleAstrologerClear}
           />
         </div>
 
-        {/* Jyotish Selector with Search */}
-        <div className="w-full">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm text-gray-300 block">Select Jyotish</label>
-            {selectedAstrologerId && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedAstrologerId('');
-                }}
-                className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors"
-              >
-                <XCircle className="h-3 w-3" />
-                Clear
-              </button>
-            )}
+        {/* Placeholder when no Jyotish selected */}
+        {!selectedAstrologerId && (
+          <div className="flex flex-col items-center justify-center py-8 px-4 rounded-xl border border-white/10 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-transparent animate-in fade-in delay-200">
+            <MessageSquare className="h-12 w-12 text-purple-400/50 mb-3 animate-pulse" />
+            <p className="text-sm text-gray-400 text-center">
+              Select a Jyotish from the dropdown above to start asking questions
+            </p>
           </div>
-          <Select
-            value={selectedAstrologerId}
-            onValueChange={setSelectedAstrologerId}
-            onOpenChange={setIsDropdownOpen}
-          >
-            <SelectTrigger className="w-full">
-              {selectedAstrologer ? (
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Avatar className="h-6 w-6 flex-shrink-0">
-                    <AvatarImage
-                      src={getImageUrl(selectedAstrologer.profilePhoto) || undefined}
-                      alt={selectedAstrologer.name}
-                    />
-                    <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-xs">
-                      {selectedAstrologer.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm truncate">{selectedAstrologer.name}</span>
-                  <span className="text-xs text-gray-400 flex-shrink-0">
-                    ({ASTROLOGER_CATEGORY_LABELS[selectedAstrologer.category]})
-                  </span>
-                </div>
-              ) : (
-                <SelectValue placeholder="Select a Jyotish" />
-              )}
-            </SelectTrigger>
-            <SelectContent className="max-h-[400px]">
-              {/* Search Input inside Dropdown */}
-              <div className="sticky top-0 z-10 bg-slate-950 border-b border-white/10 p-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by name or category..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSearchTerm('');
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
+        )}
 
-              {/* Astrologers List */}
-              <div className="max-h-[300px] overflow-y-auto">
-                {isLoading ? (
-                  <div className="p-4">
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </div>
-                ) : filteredAstrologers.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-400 text-center">
-                    {searchTerm ? 'No astrologers found' : 'No astrologers available'}
-                  </div>
-                ) : (
-                  filteredAstrologers.map((astrologer) => (
-                    <SelectItem key={astrologer.id} value={astrologer.id} className="py-2">
-                      <div className="flex items-center gap-3 w-full">
-                        <Avatar className="h-8 w-8 flex-shrink-0">
-                          <AvatarImage
-                            src={getImageUrl(astrologer.profilePhoto) || undefined}
-                            alt={astrologer.name}
-                          />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-xs">
-                            {astrologer.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm truncate">{astrologer.name}</span>
-                            {astrologer.isOnline && (
-                              <div className="h-2 w-2 bg-green-400 rounded-full flex-shrink-0" />
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-400">
-                            {ASTROLOGER_CATEGORY_LABELS[astrologer.category]}
-                          </span>
-                        </div>
+        {/* Category and Question Selection - Only show after Jyotish is selected */}
+        {selectedAstrologerId && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
+            {/* Category Selection */}
+            <div className="w-full">
+              <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
+              <Select value={selectedCategory} onValueChange={handleCategorySelect}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUESTION_CATEGORIES.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{category.emoji}</span>
+                        <span>{category.name}</span>
                       </div>
                     </SelectItem>
-                  ))
-                )}
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Question Selection (if category selected) */}
+            {selectedCategoryData && (
+              <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
+                <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
+                <Select value={selectedQuestion} onValueChange={handleQuestionSelect}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a question or type your own" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {selectedCategoryData.questions.map((question, index) => (
+                      <SelectItem key={index} value={question}>
+                        {question}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </SelectContent>
-          </Select>
-        </div>
+            )}
+
+            {/* Custom Message Input */}
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
+              <label className="text-sm text-gray-300 mb-2 block">
+                {selectedQuestion ? 'Edit Question' : 'Or Type Your Question'}
+              </label>
+              <textarea
+                value={customMessage}
+                onChange={(e) => handleCustomMessageChange(e.target.value)}
+                placeholder={selectedQuestion ? selectedQuestion : 'Type your question here...'}
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
-        <div className="flex gap-2 mt-auto">
+        <div className={`flex gap-2 ${selectedAstrologerId ? 'mt-auto' : 'mt-4'}`}>
           {selectedAstrologerId && (
             <Button
               onClick={handleStartChat}
@@ -469,14 +360,16 @@ export function AskQuestionsSection() {
               Start Chat
             </Button>
           )}
-          <Button
+          <LoadingButton
             onClick={handleSendBroadcast}
-            disabled={!finalMessage || isSending}
+            disabled={!finalMessage || !selectedAstrologerId}
+            loading={isSending}
+            loadingText="Sending..."
             className={`${selectedAstrologerId ? 'flex-1' : 'w-full'} bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium`}
           >
             <MessageSquare className="h-4 w-4" />
-            {isSending ? 'Sending...' : 'Send Broadcast'}
-          </Button>
+            Send Broadcast
+          </LoadingButton>
         </div>
       </div>
 

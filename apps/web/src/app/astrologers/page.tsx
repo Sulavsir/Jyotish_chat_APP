@@ -366,7 +366,7 @@ function AstrologersContent() {
                           <div>
                             <p className="text-gray-400 text-xs">Appointment Fee</p>
                             <p className="text-white font-semibold">
-                              ₹{astrologer.appointmentFee || 0}
+                              Nrs.{astrologer.appointmentFee || 0}
                             </p>
                           </div>
                           <Button

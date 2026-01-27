@@ -129,4 +129,11 @@ export const QUERY_KEYS = {
         ? (['admin-chat', 'messages', chatId, params] as const)
         : (['admin-chat', 'messages', chatId] as const),
   },
+
+  // Jyotish Dashboard
+  JYOTISH_DASHBOARD: {
+    STATS: ['jyotish-dashboard', 'stats'] as const,
+    RECENT_ACTIVITY: (limit?: number) =>
+      limit ? (['jyotish-dashboard', 'recent-activity', limit] as const) : (['jyotish-dashboard', 'recent-activity'] as const),
+  },
 } as const;

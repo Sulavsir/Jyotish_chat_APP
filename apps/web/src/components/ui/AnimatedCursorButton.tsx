@@ -54,7 +54,7 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
 
   // Calculate start position based on prop
   const getStartPosition = useCallback(
-    (buttonCenterX: number, buttonCenterY: number) => {
+    (buttonCenterX: number, buttonCenterY: number, buttonRect?: DOMRect) => {
       if (typeof startPosition === 'object') {
         return { x: startPosition.x, y: startPosition.y };
       }
@@ -73,8 +73,14 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
           break;
         case 'middle':
         default:
-          startX = buttonCenterX;
-          startY = window.innerHeight / 2; // Middle of screen
+          // Position just below the button instead of middle of screen
+          if (buttonRect) {
+            startX = buttonCenterX;
+            startY = buttonRect.bottom + 20; // 20px below the button
+          } else {
+            startX = buttonCenterX;
+            startY = buttonCenterY + 50; // Fallback: 50px below button center
+          }
           break;
       }
 
@@ -286,33 +292,20 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
               button.style.boxShadow = originalBoxShadow || '';
               button.style.transition = originalTransition || '';
               button.style.zIndex = '';
-            }, 400);
 
-            // Instead of fading out, immediately restart animation from start position
-            // Keep cursor visible and move it back to start, then repeat
-            setTimeout(() => {
-              // Recalculate start position based on current button position
-              const resetButtonRect = button.getBoundingClientRect();
-              const resetTargetX = resetButtonRect.left + resetButtonRect.width / 2;
-              const resetTargetY = resetButtonRect.bottom;
-              const resetStartPos = getStartPosition(resetTargetX, resetTargetY);
+              // Hide cursor immediately after click (no movement below)
+              setIsVisible(false);
+              if (cursorRef.current) {
+                cursorRef.current.style.opacity = '0';
+                cursorRef.current.style.visibility = 'hidden';
+              }
 
-              // Smoothly move cursor back to start position
-              cursor.style.transition = 'left 0.3s ease, top 0.3s ease';
-              cursor.style.left = `${resetStartPos.x}px`;
-              cursor.style.top = `${resetStartPos.y}px`;
-
-              // Remove transition after movement
-              setTimeout(() => {
-                cursor.style.transition = '';
-              }, 300);
-
-              // Reset animation state but keep cursor visible
+              // Reset animation state
               isAnimatingRef.current = false;
               animationFrameRef.current = null;
               onComplete?.();
 
-              // If showOnce is false, schedule next animation immediately
+              // If showOnce is false, schedule next animation from start position
               if (!showOnce && isMountedRef.current) {
                 // Small delay before restarting to make it smooth
                 repeatTimeoutRef.current = setTimeout(() => {
@@ -321,12 +314,7 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
                   if (targetButtonRef.current && isButtonInViewport(targetButtonRef.current)) {
                     runAnimation();
                   } else {
-                    // Button not in viewport, hide cursor and try again later
-                    setIsVisible(false);
-                    if (cursorRef.current) {
-                      cursorRef.current.style.opacity = '0';
-                      cursorRef.current.style.visibility = 'hidden';
-                    }
+                    // Button not in viewport, try again later
                     repeatTimeoutRef.current = setTimeout(() => {
                       if (
                         isMountedRef.current &&
@@ -338,13 +326,8 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
                     }, 500);
                   }
                 }, 500); // Small delay before restart
-              } else {
-                // If showOnce is true, hide cursor after animation
-                setIsVisible(false);
-                cursor.style.opacity = '0';
-                cursor.style.visibility = 'hidden';
               }
-            }, 200);
+            }, 400);
           }, 400);
         }
       };

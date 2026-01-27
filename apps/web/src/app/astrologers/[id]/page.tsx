@@ -24,7 +24,7 @@ import {
   AvatarImage,
   Badge,
 } from '@jyotish/ui';
-import { RequestInstantChatButton } from '@/components/features/instant-chat/RequestInstantChatButton';
+import { SendMessageButton } from '@/components/features/astrologer-profile/SendMessageButton';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { getImageUrl } from '@/utils/image.utils';
 import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
@@ -96,36 +96,38 @@ function AstrologerProfileContent() {
           Back to Astrologers
         </Button>
 
-        {/* Profile Header */}
-        <Card className="bg-black/40 backdrop-blur-md border-white/10">
+        {/* Profile Header with Animations */}
+        <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-purple-500/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-start gap-6">
-              <Avatar className="h-32 w-32">
+              <Avatar className="h-32 w-32 ring-4 ring-purple-500/20 hover:ring-purple-500/40 transition-all duration-300 animate-in zoom-in-95 delay-75">
                 <AvatarImage src={getImageUrl(astrologer.profilePhoto) || undefined} />
                 <AvatarFallback className="bg-purple-600 text-white text-4xl">
                   {astrologer.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
-              <div className="flex-1">
+              <div className="flex-1 animate-in fade-in slide-in-from-left-4 delay-150">
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">{astrologer.name}</h1>
+                    <h1 className="text-3xl font-bold text-white mb-2 bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent animate-gradient">
+                      {astrologer.name}
+                    </h1>
                     <div className="flex items-center gap-3 flex-wrap">
                       <Badge
                         variant="outline"
-                        className={`${
+                        className={`transition-all duration-300 hover:scale-105 ${
                           astrologer.category === 'PREMIUM'
-                            ? 'border-yellow-500 text-yellow-500'
+                            ? 'border-yellow-500 text-yellow-500 hover:bg-yellow-500/10'
                             : astrologer.category === 'PROFESSIONAL'
-                              ? 'border-blue-500 text-blue-500'
-                              : 'border-gray-500 text-gray-500'
+                              ? 'border-blue-500 text-blue-500 hover:bg-blue-500/10'
+                              : 'border-gray-500 text-gray-500 hover:bg-gray-500/10'
                         }`}
                       >
                         {ASTROLOGER_CATEGORY_LABELS[astrologer.category]}
                       </Badge>
                       {astrologer.isOnline && (
-                        <Badge className="bg-green-600 text-white">
+                        <Badge className="bg-green-600 text-white animate-pulse hover:bg-green-500 transition-colors">
                           <div className="h-2 w-2 rounded-full bg-white animate-pulse mr-2" />
                           Online
                         </Badge>
@@ -133,19 +135,21 @@ function AstrologerProfileContent() {
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    {/* Show Request Instant Chat for ORDINARY and PROFESSIONAL astrologers (not PREMIUM) */}
-                    {astrologer.category !== ASTROLOGER_CATEGORY.PREMIUM && (
-                      <RequestInstantChatButton />
-                    )}
+                  {/* Action Buttons with Animations */}
+                  <div className="flex gap-3 animate-in fade-in slide-in-from-right-4 delay-300">
+                    {/* Show Send Message button for all astrologers */}
+                    <SendMessageButton
+                      astrologerId={astrologer.id}
+                      astrologerName={astrologer.name}
+                      className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-500 hover:via-pink-500 hover:to-red-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                    />
                     {/* Show Book Appointment only for PROFESSIONAL and PREMIUM astrologers (not ORDINARY) */}
                     {(astrologer.category === ASTROLOGER_CATEGORY.PROFESSIONAL ||
                       astrologer.category === ASTROLOGER_CATEGORY.PREMIUM) && (
                       <Button
-                        onClick={() => router.push(ROUTES.PRICING)}
+                        onClick={handleBookAppointment}
                         variant="outline"
-                        className="border-white/20 text-white hover:bg-white/10"
+                        className="border-white/20 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:border-white/40"
                       >
                         <Calendar className="h-4 w-4 mr-2" />
                         Book Appointment
@@ -155,16 +159,17 @@ function AstrologerProfileContent() {
                 </div>
 
                 {/* Rating */}
-                <div className="flex items-center gap-2 mt-4">
+                <div className="flex items-center gap-2 mt-4 animate-in fade-in slide-in-from-left-4 delay-300">
                   <div className="flex items-center gap-1">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
-                        className={`h-5 w-5 ${
+                        className={`h-5 w-5 transition-all duration-300 hover:scale-110 ${
                           i < Math.floor(astrologer.rating || 0)
-                            ? 'text-yellow-500 fill-yellow-500'
+                            ? 'text-yellow-500 fill-yellow-500 animate-pulse'
                             : 'text-gray-500'
                         }`}
+                        style={{ animationDelay: `${i * 100}ms` }}
                       />
                     ))}
                   </div>
@@ -175,38 +180,42 @@ function AstrologerProfileContent() {
 
                 {/* Bio */}
                 {astrologer.bio && (
-                  <p className="text-gray-300 mt-4 leading-relaxed">{astrologer.bio}</p>
+                  <p className="text-gray-300 mt-4 leading-relaxed animate-in fade-in slide-in-from-left-4 delay-500">
+                    {astrologer.bio}
+                  </p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stats Grid */}
+        {/* Stats Grid with Animations */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-purple-500/50 transition-all">
+          <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-purple-500/50 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-500/20 animate-in fade-in slide-in-from-bottom-4 delay-200">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-600/20 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-purple-400" />
+                <div className="p-3 bg-purple-600/20 rounded-lg hover:bg-purple-600/30 transition-all duration-300 hover:scale-110">
+                  <TrendingUp className="h-6 w-6 text-purple-400 animate-pulse" />
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm">Total Consultations</p>
-                  <p className="text-2xl font-bold text-white">{astrologer.totalConsultations}</p>
+                  <p className="text-2xl font-bold text-white bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+                    {astrologer.totalConsultations}
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-blue-500/50 transition-all">
+          <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-blue-500/50 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 animate-in fade-in slide-in-from-bottom-4 delay-300">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-blue-600/20 rounded-lg">
-                  <Clock className="h-6 w-6 text-blue-400" />
+                <div className="p-3 bg-blue-600/20 rounded-lg hover:bg-blue-600/30 transition-all duration-300 hover:scale-110">
+                  <Clock className="h-6 w-6 text-blue-400 animate-pulse" />
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm">Experience</p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-2xl font-bold text-white bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
                     {astrologer.experience || 0} years
                   </p>
                 </div>
@@ -214,15 +223,15 @@ function AstrologerProfileContent() {
             </CardContent>
           </Card>
 
-          <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-yellow-500/50 transition-all">
+          <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-yellow-500/50 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-yellow-500/20 animate-in fade-in slide-in-from-bottom-4 delay-400">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-yellow-600/20 rounded-lg">
-                  <Award className="h-6 w-6 text-yellow-400" />
+                <div className="p-3 bg-yellow-600/20 rounded-lg hover:bg-yellow-600/30 transition-all duration-300 hover:scale-110">
+                  <Award className="h-6 w-6 text-yellow-400 animate-pulse" />
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm">Rating</p>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-2xl font-bold text-white bg-gradient-to-r from-white to-yellow-200 bg-clip-text text-transparent">
                     {(astrologer.rating ?? 0).toFixed(1)}
                   </p>
                 </div>
@@ -290,7 +299,7 @@ function AstrologerProfileContent() {
             <CardContent>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-bold text-white">
-                  ₹{astrologer.appointmentFee || 0}
+                  Nrs.{astrologer.appointmentFee || 0}
                 </span>
                 <span className="text-gray-400">per session</span>
               </div>
