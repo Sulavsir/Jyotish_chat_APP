@@ -24,10 +24,9 @@ import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { CoinPurchaseModal } from '@/components/modals';
-import {
-  QUESTION_CATEGORIES,
-  type QuestionCategory,
-} from '@/constants/questionCategories.constants';
+import { useQuery } from '@tanstack/react-query';
+import type { QuestionnaireCategory } from '@jyotish/shared';
+import { questionnaireService } from '@/services/questionnaire.service';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -65,8 +64,17 @@ export function AskQuestionsSection() {
   const queryClient = useQueryClient();
   const { startChat } = useChat();
 
-  const directCategoryData = QUESTION_CATEGORIES.find((c) => c.id === directCategory);
-  const broadcastCategoryData = QUESTION_CATEGORIES.find((c) => c.id === broadcastCategory);
+  // Load question categories and questions from backend (admin-managed)
+  const { data: questionnairesData } = useQuery({
+    queryKey: [QUERY_KEYS.PUBLIC_QUESTIONNAIRES],
+    queryFn: () => questionnaireService.listPublic(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const questionCategories: QuestionnaireCategory[] = questionnairesData?.categories ?? [];
+
+  const directCategoryData = questionCategories.find((c) => c.id === directCategory);
+  const broadcastCategoryData = questionCategories.find((c) => c.id === broadcastCategory);
 
   const handleAstrologerSelect = (astrologerId: string) => {
     setSelectedAstrologerId(astrologerId);
@@ -397,10 +405,10 @@ export function AskQuestionsSection() {
                         <SelectItem value="CLEAR">
                           <span className="text-gray-400">Clear selection</span>
                         </SelectItem>
-                        {QUESTION_CATEGORIES.map((category) => (
+                        {questionCategories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
                             <div className="flex items-center gap-2">
-                              <span>{category.emoji}</span>
+                              {category.emoji && <span>{category.emoji}</span>}
                               <span>{category.name}</span>
                             </div>
                           </SelectItem>
@@ -427,13 +435,13 @@ export function AskQuestionsSection() {
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select a question or type your own" />
                         </SelectTrigger>
-                        <SelectContent className="max-h-[200px]">
+                        <SelectContent className="max-h-[200px] [&_[data-radix-select-scroll-up-button]]:hidden [&_[data-radix-select-scroll-down-button]]:hidden">
                           <SelectItem value="CLEAR_QUESTION">
                             <span className="text-gray-400">Clear question</span>
                           </SelectItem>
-                          {directCategoryData.questions.map((question, index) => (
-                            <SelectItem key={index} value={question}>
-                              {question}
+                          {directCategoryData.questions.map((question) => (
+                            <SelectItem key={question.id} value={question.text}>
+                              {question.text}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -509,17 +517,17 @@ export function AskQuestionsSection() {
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CLEAR">
-                      <span className="text-gray-400">Clear selection</span>
-                    </SelectItem>
-                    {QUESTION_CATEGORIES.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{category.emoji}</span>
-                          <span>{category.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                        <SelectItem value="CLEAR">
+                          <span className="text-gray-400">Clear selection</span>
+                        </SelectItem>
+                        {questionCategories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            <div className="flex items-center gap-2">
+                              {category.emoji && <span>{category.emoji}</span>}
+                              <span>{category.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -542,13 +550,13 @@ export function AskQuestionsSection() {
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select a question or type your own" />
                     </SelectTrigger>
-                    <SelectContent className="max-h-[200px]">
+                    <SelectContent className="max-h-[200px] [&_[data-radix-select-scroll-up-button]]:hidden [&_[data-radix-select-scroll-down-button]]:hidden">
                       <SelectItem value="CLEAR_QUESTION">
                         <span className="text-gray-400">Clear question</span>
                       </SelectItem>
-                      {broadcastCategoryData.questions.map((question, index) => (
-                        <SelectItem key={index} value={question}>
-                          {question}
+                      {broadcastCategoryData.questions.map((question) => (
+                        <SelectItem key={question.id} value={question.text}>
+                          {question.text}
                         </SelectItem>
                       ))}
                     </SelectContent>

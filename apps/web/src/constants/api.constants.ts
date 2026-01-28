@@ -88,6 +88,9 @@ export const API_ENDPOINTS = {
     SUBSCRIBE: '/api/v1/horoscopes/subscribe',
     UNSUBSCRIBE: '/api/v1/horoscopes/unsubscribe',
   },
+  QUESTIONNAIRES: {
+    PUBLIC_LIST: '/api/v1/public/questionnaires',
+  },
   NOTIFICATIONS: {
     LIST: '/api/v1/notifications',
     READ: (id: string) => `/api/v1/notifications/${id}/read`,

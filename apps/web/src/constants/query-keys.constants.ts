@@ -67,6 +67,9 @@ export const QUERY_KEYS = {
     GET: (sign: string, date: string) => ['horoscope', sign, date] as const,
   },
 
+  // Questionnaires (question categories and questions)
+  PUBLIC_QUESTIONNAIRES: ['public', 'questionnaires'] as const,
+
   // Astrologers
   ASTROLOGERS: {
     LIST: (filters?: AstrologerListParams) =>

@@ -12,6 +12,7 @@ export const ADMIN_ROUTES = {
   // Website
   WEBSITE: '/admin/website',
   WEBSITE_DASHBOARD_COPY: '/admin/website/dashboard-copy',
+  WEBSITE_QUESTIONNAIRES: '/admin/website/questionnaires',
 
   // Jyotish Bookings
   JYOTISH_BOOKINGS: '/admin/jyotish-bookings',

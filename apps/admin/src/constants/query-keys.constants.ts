@@ -66,6 +66,7 @@ export const ADMIN_QUERY_KEYS = {
   // Website
   WEBSITE: {
     DASHBOARD_ROTATING_COPY: () => ['admin', 'website', 'dashboard', 'rotating-copy'] as const,
+    QUESTIONNAIRES: () => ['admin', 'website', 'questionnaires'] as const,
   },
 
   // Jyotish Bookings

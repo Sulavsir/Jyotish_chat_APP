@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../utils';
 import * as publicAstrologerController from '../controllers/publicAstrologerController';
 import * as dashboardRotatingCopyController from '../controllers/dashboardRotatingCopyController';
+import * as questionnaireController from '../controllers/questionnaireController';
 
 const router = Router();
 
@@ -20,6 +21,9 @@ router.get(
   '/dashboard-rotating-copy',
   asyncHandler(dashboardRotatingCopyController.listPublic)
 );
+
+// ==================== Public Questionnaires (Question categories and questions) ====================
+router.get('/questionnaires', asyncHandler(questionnaireController.listPublicQuestionnaires));
 
 export default router;
 

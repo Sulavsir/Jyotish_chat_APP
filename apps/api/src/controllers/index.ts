@@ -13,3 +13,4 @@ export * as adminAppointmentController from './adminAppointmentController';
 export * as pricingController from './pricingController';
 export * as dashboardRotatingCopyController from './dashboardRotatingCopyController';
 export * as jyotishBookingController from './jyotishBookingController';
+export * as questionnaireController from './questionnaireController';

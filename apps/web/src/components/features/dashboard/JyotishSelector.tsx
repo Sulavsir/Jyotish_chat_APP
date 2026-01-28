@@ -24,7 +24,7 @@ import {
 import { QUERY_KEYS } from '@/constants';
 import { getImageUrl } from '@/utils/image.utils';
 import astrologerService from '@/services/astrologer.service';
-import { ASTROLOGER_CATEGORY_LABELS } from '@/types/astrologer';
+import { ASTROLOGER_CATEGORY_LABELS, AstrologerCategory, type AstrologerListParams } from '@/types/astrologer';
 import { JyotishSelectorCard } from './JyotishSelectorCard';
 
 interface JyotishSelectorProps {
@@ -37,15 +37,17 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  // Fetch astrologers list
+  // Common filters for astrologer list
+  const listFilters: AstrologerListParams = {
+    isOnline: true,
+    search: searchTerm || undefined,
+    limit: 50,
+  };
+
+  // Fetch astrologers list (only online, non-premium handled via filtering)
   const { data: astrologersData, isLoading } = useQuery({
-    queryKey: [QUERY_KEYS.ASTROLOGERS.LIST({}), searchTerm],
-    queryFn: () =>
-      astrologerService.listAstrologers({
-        isOnline: true,
-        search: searchTerm || undefined,
-        limit: 50,
-      }),
+    queryKey: QUERY_KEYS.ASTROLOGERS.LIST(listFilters),
+    queryFn: () => astrologerService.listAstrologers(listFilters),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -53,8 +55,16 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
   const astrologers = astrologersData?.astrologers || [];
   const selectedAstrologer = astrologers.find((a) => a.id === selectedAstrologerId);
 
-  // Filter astrologers based on search
+  // - Exclude PREMIUM category from client dashboard dropdown
   const filteredAstrologers = astrologers.filter((astrologer) => {
+    if (astrologer.category === AstrologerCategory.PREMIUM) {
+      return false;
+    }
+
+    if (!astrologer.isOnline) {
+      return false;
+    }
+
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (

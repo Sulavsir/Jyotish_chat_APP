@@ -594,6 +594,37 @@ model DashboardRotatingCopy {
   @@index([isActive, sortOrder])
 }
 
+// Questionnaires - Question categories and their questions
+model QuestionCategory {
+  id        String          @id @default(uuid())
+  name      String
+  emoji     String?
+  isActive  Boolean         @default(true)
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  questions QuestionItem[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@index([isActive, sortOrder])
+}
+
+model QuestionItem {
+  id          String           @id @default(uuid())
+  categoryId  String
+  text        String
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  category    QuestionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
 // Jyotish service booking requests (Pandit Ji / Vaastu Shastri) created by clients and handled by admin
 model JyotishBookingRequest {
   id         String              @id @default(uuid())

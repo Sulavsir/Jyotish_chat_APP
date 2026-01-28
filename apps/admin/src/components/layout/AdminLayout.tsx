@@ -177,7 +177,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Website',
       key: 'website' as const,
       icon: <DocumentIcon className="w-5 h-5" />,
-      children: [{ name: 'Website Contents', href: ADMIN_ROUTES.WEBSITE_DASHBOARD_COPY }],
+      children: [
+        { name: 'Website Contents', href: ADMIN_ROUTES.WEBSITE_DASHBOARD_COPY },
+        { name: 'Questionnaires', href: ADMIN_ROUTES.WEBSITE_QUESTIONNAIRES },
+      ],
     },
     {
       kind: 'group',

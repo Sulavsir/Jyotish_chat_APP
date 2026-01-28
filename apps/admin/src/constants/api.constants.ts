@@ -76,6 +76,11 @@ export const API_ENDPOINTS = {
     ROTATING_COPY_TOGGLE: (id: string) => `/api/v1/admin/dashboard/rotating-copy/${id}/toggle`,
   },
 
+  WEBSITE: {
+    QUESTIONNAIRES: '/api/v1/admin/questionnaires',
+    QUESTIONNAIRE_BY_ID: (id: string) => `/api/v1/admin/questionnaires/${id}`,
+  },
+
   JYOTISH_BOOKINGS: {
     LIST: '/api/v1/admin/jyotish-bookings',
     UPDATE_STATUS: (id: string) => `/api/v1/admin/jyotish-bookings/${id}/status`,

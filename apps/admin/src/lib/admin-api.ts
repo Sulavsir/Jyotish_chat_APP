@@ -12,6 +12,7 @@ import {
   JyotishBookingStatus,
   JyotishBookingType,
   type JyotishBookingRequest,
+  type QuestionnaireCategory,
 } from '@jyotish/shared';
 import type { Admin, Astrologer } from '@/types';
 import type { RegistrationRequest, CreateAstrologerRequest, UpdateAstrologerRequest } from '@/types/astrologer.types';
@@ -466,6 +467,63 @@ export const adminApi = {
       remove: async (id: string): Promise<{ message: string }> => {
         const response = await apiClient.delete<{ message: string }>(
           API_ENDPOINTS.DASHBOARD.ROTATING_COPY_BY_ID(id)
+        );
+        return response;
+      },
+    },
+  },
+
+  website: {
+    questionnaires: {
+      list: async (params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+      }): Promise<{
+        categories: QuestionnaireCategory[];
+        pagination: { page: number; limit: number; total: number; totalPages: number };
+      }> => {
+        const response = await apiClient.get<{
+          categories: QuestionnaireCategory[];
+          pagination: { page: number; limit: number; total: number; totalPages: number };
+        }>(API_ENDPOINTS.WEBSITE.QUESTIONNAIRES, { params });
+        return response;
+      },
+
+      create: async (data: {
+        name: string;
+        emoji?: string;
+        isActive?: boolean;
+        sortOrder?: number;
+        questions: string[];
+      }): Promise<{ category: QuestionnaireCategory }> => {
+        const response = await apiClient.post<{ category: QuestionnaireCategory }>(
+          API_ENDPOINTS.WEBSITE.QUESTIONNAIRES,
+          data
+        );
+        return response;
+      },
+
+      update: async (
+        id: string,
+        data: {
+          name?: string;
+          emoji?: string;
+          isActive?: boolean;
+          sortOrder?: number;
+          questions?: string[];
+        }
+      ): Promise<{ category: QuestionnaireCategory }> => {
+        const response = await apiClient.patch<{ category: QuestionnaireCategory }>(
+          API_ENDPOINTS.WEBSITE.QUESTIONNAIRE_BY_ID(id),
+          data
+        );
+        return response;
+      },
+
+      remove: async (id: string): Promise<{ message: string }> => {
+        const response = await apiClient.delete<{ message: string }>(
+          API_ENDPOINTS.WEBSITE.QUESTIONNAIRE_BY_ID(id)
         );
         return response;
       },

@@ -229,6 +229,28 @@ export enum PaymentStatus {
   REFUNDED = 'REFUNDED',
 }
 
+// Questionnaires (Question categories and questions)
+export interface QuestionnaireQuestion {
+  id: string;
+  categoryId: string;
+  text: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+export interface QuestionnaireCategory {
+  id: string;
+  name: string;
+  emoji?: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  questions: QuestionnaireQuestion[];
+}
+
 // WebSocket event types
 export interface SocketEvents {
   // Client to server

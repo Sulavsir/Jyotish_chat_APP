@@ -18,6 +18,7 @@ import {
   adminAppointmentController,
   pricingController,
   dashboardRotatingCopyController,
+  questionnaireController,
 } from '../controllers';
 import { asyncHandler } from '../utils';
 import { adminAstrologerUpload } from '../middleware/adminAstrologerUpload';
@@ -29,6 +30,11 @@ import {
   listAdminJyotishBookingsQuerySchema,
   listAdminDashboardRotatingCopyQuerySchema,
 } from '../validators';
+import {
+  createQuestionCategorySchema,
+  updateQuestionCategorySchema,
+  listQuestionCategoriesQuerySchema,
+} from '@jyotish/shared';
 import { jyotishBookingController } from '../controllers';
 
 const router = Router();
@@ -222,6 +228,35 @@ router.delete(
   auditLogger(AuditAction.ADMIN_ACTION, 'DashboardRotatingCopy'),
   validateParams(uuidParamSchema),
   asyncHandler(dashboardRotatingCopyController.remove)
+);
+
+// ==================== Questionnaires (Question Categories & Questions) ====================
+router.get(
+  '/questionnaires',
+  validateQuery(listQuestionCategoriesQuerySchema),
+  asyncHandler(questionnaireController.listAdminQuestionnaires)
+);
+
+router.post(
+  '/questionnaires',
+  auditLogger(AuditAction.ADMIN_ACTION, 'QuestionCategory'),
+  validateBody(createQuestionCategorySchema),
+  asyncHandler(questionnaireController.createQuestionCategory)
+);
+
+router.patch(
+  '/questionnaires/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'QuestionCategory'),
+  validateParams(uuidParamSchema),
+  validateBody(updateQuestionCategorySchema),
+  asyncHandler(questionnaireController.updateQuestionCategory)
+);
+
+router.delete(
+  '/questionnaires/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'QuestionCategory'),
+  validateParams(uuidParamSchema),
+  asyncHandler(questionnaireController.removeQuestionCategory)
 );
 
 // ==================== Jyotish Bookings (Pandit/Vaastu) ====================

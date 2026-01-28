@@ -213,6 +213,53 @@ export const changePasswordSchema = z
     path: ['newPassword'],
   });
 
+// Questionnaires (Question categories and questions)
+export const createQuestionCategorySchema = z.object({
+  name: z
+    .string()
+    .min(2, 'Category name must be at least 2 characters')
+    .max(100, 'Category name is too long'),
+  emoji: z
+    .string()
+    .max(8, 'Emoji or icon is too long')
+    .optional()
+    .or(z.literal('')),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  questions: z
+    .array(
+      z
+        .string()
+        .min(3, 'Question must be at least 3 characters')
+        .max(300, 'Question is too long')
+    )
+    .min(1, 'Please add at least one question'),
+});
+
+export const updateQuestionCategorySchema = createQuestionCategorySchema.partial();
+
+export const listQuestionCategoriesQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((value) => (value ? parseInt(value, 10) : 1)),
+  limit: z
+    .string()
+    .optional()
+    .transform((value) => (value ? parseInt(value, 10) : 10)),
+  search: z.string().optional(),
+  includeInactive: z
+    .preprocess(
+      (value) => {
+        if (typeof value === 'string') {
+          return value === 'true';
+        }
+        return value;
+      },
+      z.boolean().optional()
+    ),
+});
+
 // Astrologer registration validators
 // Reuse the phoneValidation from above (lines 24-28)
 export const astrologerRegistrationSchema = z.object({
