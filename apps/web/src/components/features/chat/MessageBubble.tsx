@@ -13,6 +13,7 @@ import { getImageUrl } from '@/utils/image.utils';
 import { API_BASE_URL } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types/user.types';
+import { QUESTION_CATEGORIES } from '@/constants/questionCategories.constants';
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -44,10 +45,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     (message.sender?.dateOfBirth || message.sender?.timeOfBirth || message.sender?.placeOfBirth);
 
   // Check if message has file attachment
-  const metadata = message.metadata as any;
-  const hasFile = metadata?.fileUrl;
-  const isImage = message.type === 'IMAGE' || metadata?.mimeType?.startsWith('image/');
-  const fileUrl = hasFile ? `${API_BASE_URL}${metadata.fileUrl}` : null;
+  const metadata = message.metadata as Record<string, unknown> | undefined;
+  const hasFile = !!metadata?.fileUrl;
+  const mimeType = typeof metadata?.mimeType === 'string' ? metadata.mimeType : '';
+  const isImage = message.type === 'IMAGE' || mimeType.startsWith('image/');
+  const fileUrl = hasFile && typeof metadata?.fileUrl === 'string' ? `${API_BASE_URL}${metadata.fileUrl}` : null;
+  
+  // Extract file metadata with proper type checking
+  const fileName = typeof metadata?.fileName === 'string' ? metadata.fileName : 'File';
+  const fileSize = typeof metadata?.fileSize === 'number' ? metadata.fileSize : null;
+  
+  // Check if message has question category (only for client messages)
+  const questionCategoryId = typeof metadata?.questionCategory === 'string' ? metadata.questionCategory : undefined;
 
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start items-end'} mb-1`}>
@@ -73,6 +82,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {!isOwn && !showAvatar && <div className="w-8 mr-2 flex-shrink-0" />}
 
       <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
+        {/* Category Badge - Only show for client messages with category */}
+        {isOwn && questionCategoryId && (
+          <div className="mb-1">
+            {(() => {
+              const category = QUESTION_CATEGORIES.find((c) => c.id === questionCategoryId);
+              if (!category) return null;
+              return (
+                <Badge variant="outline" className="text-xs bg-purple-50 border-purple-200 text-purple-700">
+                  {category.emoji} {category.name}
+                </Badge>
+              );
+            })()}
+          </div>
+        )}
         <div
           className={`rounded-2xl overflow-hidden ${
             hasFile && isImage ? 'p-1' : hasFile && !message.content?.trim() ? 'p-2' : 'px-4 py-2'
@@ -85,20 +108,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* File Attachment */}
           {hasFile && (
             <div className={message.content?.trim() ? 'mb-2' : ''}>
-              {isImage ? (
+              {isImage && fileUrl ? (
                 // Image Preview
                 <div className="relative group">
                   <Image
-                    src={fileUrl!}
-                    alt={metadata.fileName || 'Image'}
+                    src={fileUrl}
+                    alt={fileName}
                     width={300}
                     height={200}
                     className="rounded-lg max-w-full h-auto"
                     unoptimized
                   />
                   <a
-                    href={fileUrl!}
-                    download={metadata.fileName}
+                    href={fileUrl}
+                    download={fileName}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
@@ -107,11 +130,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <Download className="h-4 w-4 text-white" />
                   </a>
                 </div>
-              ) : (
+              ) : fileUrl ? (
                 // Document/File Link
                 <a
-                  href={fileUrl!}
-                  download={metadata.fileName}
+                  href={fileUrl}
+                  download={fileName}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
@@ -131,19 +154,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <p
                       className={`text-sm font-medium truncate ${isOwn ? 'text-white' : 'text-gray-900'}`}
                     >
-                      {metadata.fileName || 'File'}
+                      {fileName}
                     </p>
                     <p className={`text-xs ${isOwn ? 'text-indigo-200' : 'text-gray-500'}`}>
-                      {metadata.fileSize
-                        ? `${(metadata.fileSize / 1024).toFixed(1)} KB`
-                        : 'Download'}
+                      {fileSize ? `${(fileSize / 1024).toFixed(1)} KB` : 'Download'}
                     </p>
                   </div>
                   <Download
                     className={`h-4 w-4 flex-shrink-0 ${isOwn ? 'text-indigo-200' : 'text-gray-400'}`}
                   />
                 </a>
-              )}
+              ) : null}
             </div>
           )}
 

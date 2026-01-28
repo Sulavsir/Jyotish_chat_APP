@@ -27,6 +27,7 @@ export interface Astrologer {
   bio?: string;
   languages?: string[];
   profilePhoto?: string;
+  proofOfAstrology?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,7 +84,7 @@ export interface Message {
   receiverType: 'CLIENT' | 'ASTROLOGER';
   content: string;
   type: 'TEXT' | 'IMAGE' | 'FILE' | 'AUDIO';
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   isRead: boolean;
   isDeleted: boolean;
   createdAt: string;
@@ -97,7 +98,7 @@ export interface AuditLog {
   entityId: string;
   actorId: string;
   actorType: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   createdAt: string;
 }
 

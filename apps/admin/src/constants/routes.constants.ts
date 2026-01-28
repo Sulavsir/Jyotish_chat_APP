@@ -24,6 +24,7 @@ export const ADMIN_ROUTES = {
   ASTROLOGERS_CREATE: '/admin/astrologers/create',
   ASTROLOGERS_EDIT: (id: string) => `/admin/astrologers/${id}/edit`,
   ASTROLOGERS_VIEW: (id: string) => `/admin/astrologers/${id}`,
+  ASTROLOGERS_REGISTRATION_REQUESTS: '/admin/astrologers/registration-requests',
   
   // Users
   USERS: '/admin/users',

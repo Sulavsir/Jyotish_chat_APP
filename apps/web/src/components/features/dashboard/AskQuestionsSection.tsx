@@ -138,7 +138,7 @@ export function AskQuestionsSection() {
 
     // Start chat and send the selected/custom question as the first message
     const messageToSend = directMessage.trim() || directQuestion.trim();
-    await startChat(selectedAstrologerId, undefined, messageToSend);
+    await startChat(selectedAstrologerId, undefined, messageToSend, directCategory || undefined);
   };
 
   // Socket event handlers

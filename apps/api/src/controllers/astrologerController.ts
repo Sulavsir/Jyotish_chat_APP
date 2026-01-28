@@ -12,6 +12,7 @@ import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { prisma } from '@jyotish/database';
 import { AstrologerCategory } from '@prisma/client';
 import { getSocketInstance } from '../utils/socket-instance';
+import { astrologerRegistrationSchema } from '@jyotish/shared';
 
 /**
  * Astrologer login with phone/email and password
@@ -302,6 +303,88 @@ export async function changeAstrologerPassword(
       message: 'Password changed successfully',
       astrologer: updatedAstrologer,
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Register as astrologer (self-registration request)
+ * POST /api/v1/astrologer/register
+ */
+export async function registerAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    // Handle FormData - multer parses form fields into req.body
+    // Arrays come as either arrays or single values depending on how they're sent
+    let specialization: string[] = [];
+    if (Array.isArray(req.body.specialization)) {
+      specialization = req.body.specialization;
+    } else if (typeof req.body.specialization === 'string') {
+      specialization = [req.body.specialization];
+    }
+
+    let languages: string[] = [];
+    if (Array.isArray(req.body.languages)) {
+      languages = req.body.languages;
+    } else if (typeof req.body.languages === 'string') {
+      languages = [req.body.languages];
+    }
+
+    const { name, phone, email, password, bio, experience, gender } = req.body;
+
+    // Get uploaded files (now supports multiple)
+    const proofFiles = req.files as Express.Multer.File[] | undefined;
+    if (!proofFiles || proofFiles.length === 0) {
+      throw new AppError(
+        'At least one proof of astrology certificate is required',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Construct file URLs array and store as JSON string
+    const proofUrls = proofFiles.map((file) => `/uploads/astrologer-registrations/${file.filename}`);
+    const proofUrl = JSON.stringify(proofUrls); // Store as JSON array string
+
+    // Prepare data for validation (convert to expected format)
+    const registrationData = {
+      name,
+      phone,
+      email: email || '',
+      password,
+      bio: bio || undefined,
+      specialization,
+      experience: experience ? parseInt(experience, 10) : undefined,
+      languages,
+      gender: gender || null,
+    };
+
+    // Validate using the schema (this will throw if invalid)
+    const validatedData = astrologerRegistrationSchema.parse(registrationData);
+
+    // Register via service
+    const astrologer = await astrologerService.registerRequest({
+      name: validatedData.name,
+      phone: validatedData.phone,
+      email: validatedData.email || undefined,
+      password: validatedData.password,
+      bio: validatedData.bio,
+      specialization: validatedData.specialization,
+      experience: validatedData.experience,
+      languages: validatedData.languages,
+      gender: validatedData.gender || undefined,
+      proofOfAstrology: proofUrl,
+    });
+
+    return sendSuccess(
+      res,
+      {
+        message:
+          'Registration request submitted successfully. Please wait for admin approval.',
+        astrologer,
+      },
+      201
+    );
   } catch (error) {
     next(error);
   }

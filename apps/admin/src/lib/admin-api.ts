@@ -13,6 +13,8 @@ import {
   JyotishBookingType,
   type JyotishBookingRequest,
 } from '@jyotish/shared';
+import type { Admin, Astrologer } from '@/types';
+import type { RegistrationRequest, CreateAstrologerRequest, UpdateAstrologerRequest } from '@/types/astrologer.types';
 
 export interface AdminChat {
   id: string;
@@ -184,8 +186,8 @@ export const adminApi = {
   /**
    * Get current admin profile
    */
-  getProfile: async () => {
-    const response = await apiClient.get<{ admin: any }>(API_ENDPOINTS.ADMIN.ME);
+  getProfile: async (): Promise<{ admin: Admin }> => {
+    const response = await apiClient.get<{ admin: Admin }>(API_ENDPOINTS.ADMIN.ME);
     return response;
   },
 
@@ -198,8 +200,13 @@ export const adminApi = {
       return response;
     },
 
-    create: async (data: any) => {
-      const response = await apiClient.post(API_ENDPOINTS.ASTROLOGERS.CREATE, data);
+    create: async (data: CreateAstrologerRequest): Promise<{ astrologer: Astrologer }> => {
+      const response = await apiClient.post<{ astrologer: Astrologer }>(API_ENDPOINTS.ASTROLOGERS.CREATE, data);
+      return response;
+    },
+
+    createWithFile: async (formData: FormData): Promise<{ astrologer: Astrologer }> => {
+      const response = await apiClient.uploadFile<{ astrologer: Astrologer }>(API_ENDPOINTS.ASTROLOGERS.CREATE, formData);
       return response;
     },
 
@@ -208,8 +215,8 @@ export const adminApi = {
       return response;
     },
 
-    update: async (id: string, data: any) => {
-      const response = await apiClient.patch(API_ENDPOINTS.ASTROLOGERS.UPDATE(id), data);
+    update: async (id: string, data: UpdateAstrologerRequest): Promise<{ astrologer: Astrologer }> => {
+      const response = await apiClient.patch<{ astrologer: Astrologer }>(API_ENDPOINTS.ASTROLOGERS.UPDATE(id), data);
       return response;
     },
 
@@ -220,6 +227,34 @@ export const adminApi = {
 
     toggleStatus: async (id: string) => {
       const response = await apiClient.post(API_ENDPOINTS.ASTROLOGERS.TOGGLE_STATUS(id));
+      return response;
+    },
+
+    getRegistrationRequests: async (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    }): Promise<{ requests: RegistrationRequest[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.search) queryParams.append('search', params.search);
+      
+      const url = queryParams.toString()
+        ? `${API_ENDPOINTS.ASTROLOGERS.REGISTRATION_REQUESTS}?${queryParams.toString()}`
+        : API_ENDPOINTS.ASTROLOGERS.REGISTRATION_REQUESTS;
+      
+      const response = await apiClient.get<{ requests: RegistrationRequest[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(url);
+      return response;
+    },
+
+    approveRegistration: async (id: string, data: { category: string; appointmentFee?: number; commissionRate?: number }) => {
+      const response = await apiClient.post(API_ENDPOINTS.ASTROLOGERS.APPROVE_REGISTRATION(id), data);
+      return response;
+    },
+
+    rejectRegistration: async (id: string, data: { rejectionReason: string }) => {
+      const response = await apiClient.post(API_ENDPOINTS.ASTROLOGERS.REJECT_REGISTRATION(id), data);
       return response;
     },
   },
@@ -252,7 +287,7 @@ export const adminApi = {
   /**
    * Generic GET request helper
    */
-  get: async (path: string, config?: any) => {
+  get: async (path: string, config?: { params?: Record<string, unknown>; headers?: Record<string, string> }) => {
     const response = await apiClient.get(`/admin${path}`, config);
     return response;
   },

@@ -3,6 +3,7 @@
  */
 
 export { smsService } from './sms.service';
+export { emailService } from './email.service';
 export { otpService } from './otp.service';
 export { authService } from './auth.service';
 export { userService } from './user.service';

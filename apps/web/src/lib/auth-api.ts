@@ -22,6 +22,7 @@ import type {
   ProfileSetupResponse,
   User,
 } from '@/types/auth';
+import { UserRole } from '@/types';
 
 export const authApi = {
   checkPhone: async (data: CheckPhoneRequest): Promise<CheckPhoneResponse> => {
@@ -215,15 +216,19 @@ export const authApi = {
       false
     );
 
-    // Tokens are automatically stored as httpOnly cookies by server
-    // No manual token management needed
-
-    return response;
+    // Ensure returned astrologer includes the correct role
+    return {
+      astrologer: {
+        ...response.astrologer,
+        role: UserRole.ASTROLOGER,
+      },
+    };
   },
 
   getAstrologerProfile: async (): Promise<User> => {
     const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
-    return response.astrologer;
+    const astrologer = response.astrologer;
+    return { ...astrologer, role: UserRole.ASTROLOGER };
   },
 
   logoutAstrologer: async (): Promise<void> => {

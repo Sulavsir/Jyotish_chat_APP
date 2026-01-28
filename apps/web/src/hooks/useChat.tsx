@@ -38,12 +38,14 @@ export function useChat() {
    * @param otherUserId - The user ID to chat with
    * @param consultationId - Optional consultation ID to link
    * @param initialMessage - Optional first message content to send after chat is created
+   * @param categoryId - Optional category ID for the question (to display as badge)
    * @returns The chat ID
    */
   const startChat = async (
     otherUserId: string,
     consultationId?: string,
-    initialMessage?: string
+    initialMessage?: string,
+    categoryId?: string
   ) => {
     if (!user) {
       toast.error('Please login to start a chat');
@@ -79,6 +81,11 @@ export function useChat() {
             receiverId: otherUserId,
             content: trimmedMessage,
             type: 'TEXT',
+            metadata: categoryId
+              ? {
+                  questionCategory: categoryId,
+                }
+              : undefined,
           });
         } catch (sendError) {
           // Log and show a non-blocking error; still navigate to chat

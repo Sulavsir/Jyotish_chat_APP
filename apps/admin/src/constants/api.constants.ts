@@ -23,6 +23,10 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/v1/admin/astrologers/${id}`,
     DELETE: (id: string) => `/api/v1/admin/astrologers/${id}`,
     TOGGLE_STATUS: (id: string) => `/api/v1/admin/astrologers/${id}/toggle-status`,
+    // Registration Requests
+    REGISTRATION_REQUESTS: '/api/v1/admin/astrologers/registration-requests',
+    APPROVE_REGISTRATION: (id: string) => `/api/v1/admin/astrologers/${id}/approve-registration`,
+    REJECT_REGISTRATION: (id: string) => `/api/v1/admin/astrologers/${id}/reject-registration`,
   },
 
   USERS: {

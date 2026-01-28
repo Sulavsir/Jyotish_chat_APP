@@ -372,12 +372,11 @@ export default function ComplaintsPage() {
       accessor: (complaint) => (
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost"
           onClick={() => handleViewDetail(complaint)}
           className="border-slate-700 text-white hover:bg-slate-800"
         >
           <Eye className="w-4 h-4 mr-1" />
-          View
         </Button>
       ),
     },

@@ -9,6 +9,7 @@ export const ADMIN_QUERY_KEYS = {
     ALL: ['admin', 'astrologers'] as const,
     LIST: () => ['admin', 'astrologers', 'list'] as const,
     DETAIL: (id: string) => ['admin', 'astrologers', 'detail', id] as const,
+    REGISTRATION_REQUESTS: () => ['admin', 'astrologers', 'registration-requests'] as const,
   },
 
   // Users

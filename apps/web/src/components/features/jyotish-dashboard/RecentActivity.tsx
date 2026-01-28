@@ -99,7 +99,7 @@ export function RecentActivity({ activities, isLoading = false }: RecentActivity
                 >
                   {activity.avatar ? (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={getImageUrl(activity.avatar)} alt={activity.clientName} />
+                      <AvatarImage src={getImageUrl(activity.avatar) || undefined} alt={activity.clientName} />
                       <AvatarFallback className="bg-gradient-to-br from-purple-600 to-pink-600 text-white text-xs">
                         {initials}
                       </AvatarFallback>

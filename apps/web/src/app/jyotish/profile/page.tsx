@@ -34,6 +34,7 @@ export default function JyotishProfilePage() {
   const { setUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const astrologer = user as any; // Astrologer-specific fields (experience, specialization, languages, bio)
 
   // React Hook Form
   const {
@@ -266,41 +267,34 @@ export default function JyotishProfilePage() {
                     ) : (
                       <div className="px-3 py-2 bg-white/5 border-2 border-white/10 rounded-md text-white text-sm">
                         {user?.gender ? (
-                          user.gender === GenderEnum.MALE ? 'Male' : user.gender === GenderEnum.FEMALE ? 'Female' : 'Other'
+                          user.gender === GenderEnum.MALE ? (
+                            'Male'
+                          ) : user.gender === GenderEnum.FEMALE ? (
+                            'Female'
+                          ) : (
+                            'Other'
+                          )
                         ) : (
                           <span className="text-gray-500 italic">Not set</span>
                         )}
                       </div>
                     )}
                   </div>
+                </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="experience" className="text-white">
-                        Years of Experience
-                      </Label>
-                      <Input
-                        id="experience"
-                        type="number"
-                        defaultValue="10"
-                        disabled={!isEditing}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="specialization" className="text-white">
-                      Specialization
+                    <Label htmlFor="experience" className="text-white">
+                      Years of Experience
                     </Label>
                     <Input
-                      id="specialization"
-                      type="text"
-                      defaultValue="Vedic Astrology, Numerology, Palmistry"
-                      disabled={!isEditing}
+                      id="experience"
+                      type="number"
+                      value={astrologer?.experience ?? ''}
+                      disabled
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
                     />
                   </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="languages" className="text-white">
                       Languages
@@ -308,58 +302,79 @@ export default function JyotishProfilePage() {
                     <Input
                       id="languages"
                       type="text"
-                      defaultValue="Nepali, English, Hindi"
-                      disabled={!isEditing}
+                      value={
+                        Array.isArray(astrologer?.languages)
+                          ? astrologer.languages.join(', ')
+                          : astrologer?.languages || ''
+                      }
+                      disabled
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="specialization" className="text-white">
+                    Specialization
+                  </Label>
+                  <Input
+                    id="specialization"
+                    type="text"
+                    value={
+                      Array.isArray(astrologer?.specialization)
+                        ? astrologer.specialization.join(', ')
+                        : astrologer?.specialization || ''
+                    }
+                    disabled
+                    className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
+                  />
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="bio" className="text-white">
-                      Bio
-                    </Label>
-                    {isEditing ? (
-                      <textarea
-                        id="bio"
-                        rows={4}
-                        defaultValue={(user?.astrologer as { bio?: string } | undefined)?.bio || ''}
-                        disabled={!isEditing}
-                        className="w-full px-3 py-2 bg-white/10 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                        placeholder="Tell us about your expertise and background..."
-                      />
-                    ) : (
-                      <div className="w-full px-3 py-2 bg-white/5 border-2 border-white/10 rounded-md text-white text-sm min-h-[100px]">
-                        {(user?.astrologer as any)?.bio || (
-                          <span className="text-gray-500 italic">No bio provided</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {isEditing && (
-                    <div className="flex gap-4 pt-4">
-                      <LoadingButton
-                        type="submit"
-                        color="primary"
-                        size="lg"
-                        className="flex-1"
-                        isLoading={updateProfileMutation.isPending}
-                        loadingText="Saving..."
-                      >
-                        Save Changes
-                      </LoadingButton>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="lg"
-                        onClick={handleCancel}
-                        className="flex-1"
-                        disabled={updateProfileMutation.isPending}
-                      >
-                        Cancel
-                      </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="bio" className="text-white">
+                    Bio
+                  </Label>
+                  {isEditing ? (
+                    <textarea
+                      id="bio"
+                      rows={4}
+                      defaultValue={astrologer?.bio || ''}
+                      disabled={!isEditing}
+                      className="w-full px-3 py-2 bg-white/10 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                      placeholder="Tell us about your expertise and background..."
+                    />
+                  ) : (
+                    <div className="w-full px-3 py-2 bg-white/5 border-2 border-white/10 rounded-md text-white text-sm min-h-[100px]">
+                      {astrologer?.bio || (
+                        <span className="text-gray-500 italic">No bio provided</span>
+                      )}
                     </div>
                   )}
+                </div>
+
+                {isEditing && (
+                  <div className="flex gap-4 pt-4">
+                    <LoadingButton
+                      type="submit"
+                      color="primary"
+                      size="lg"
+                      className="flex-1"
+                      isLoading={updateProfileMutation.isPending}
+                      loadingText="Saving..."
+                    >
+                      Save Changes
+                    </LoadingButton>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      onClick={handleCancel}
+                      className="flex-1"
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </form>
             </CardContent>
           </Card>

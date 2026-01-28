@@ -180,9 +180,31 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
       throw new AppError('Admin ID not found', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
+    // Handle file upload for proof of astrology - REQUIRED
+    if (!req.file) {
+      throw new AppError(
+        'Proof of astrology certificate is required',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Construct the file URL path
+    // File is saved to uploads/astrologer-registrations/
+    const proofOfAstrology = `/uploads/astrologer-registrations/${req.file.filename}`;
+
+    // Parse numeric fields from form data (they come as strings)
+    const experience = req.body.experience ? parseInt(req.body.experience, 10) : null;
+    const commissionRate = req.body.commissionRate ? parseFloat(req.body.commissionRate) : 0;
+    const appointmentFee = req.body.appointmentFee ? parseFloat(req.body.appointmentFee) : null;
+
     const astrologer = await astrologerService.create({
       ...req.body,
+      experience,
+      commissionRate,
+      appointmentFee,
       createdBy: adminId,
+      proofOfAstrology,
     });
 
     // Emit real-time stats update to admin
@@ -275,6 +297,118 @@ export async function getAstrologerEarnings(req: AuthRequest, res: Response, nex
     });
 
     return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get all pending astrologer registration requests
+ * GET /api/v1/admin/astrologers/registration-requests
+ */
+export async function getRegistrationRequests(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { page = '1', limit = '10', search } = req.query;
+
+    const result = await astrologerService.getPendingRegistrations({
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+      search: search as string | undefined,
+    });
+
+    return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Approve an astrologer registration request
+ * POST /api/v1/admin/astrologers/:id/approve-registration
+ */
+export async function approveRegistration(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    const adminId = req.user!.id;
+    const { category, appointmentFee, commissionRate } = req.body;
+
+    const astrologer = await astrologerService.approveRegistration(id, adminId, {
+      category,
+      appointmentFee: appointmentFee ? parseFloat(appointmentFee) : null,
+      commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
+    });
+
+    // Log audit event
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.ASTROLOGER_UPDATE,
+      resource: 'Astrologer',
+      resourceId: id,
+      details: {
+        action: 'approve_registration',
+        category,
+        appointmentFee,
+        commissionRate,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    return sendSuccess(res, {
+      message: 'Registration approved successfully',
+      astrologer,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Reject an astrologer registration request
+ * POST /api/v1/admin/astrologers/:id/reject-registration
+ */
+export async function rejectRegistration(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    const adminId = req.user!.id;
+    const { rejectionReason } = req.body;
+
+    const astrologer = await astrologerService.rejectRegistration(
+      id,
+      adminId,
+      rejectionReason
+    );
+
+    // Log audit event
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.ASTROLOGER_UPDATE,
+      resource: 'Astrologer',
+      resourceId: id,
+      details: {
+        action: 'reject_registration',
+        rejectionReason,
+      },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+
+    return sendSuccess(res, {
+      message: 'Registration rejected successfully',
+      astrologer,
+    });
   } catch (error) {
     next(error);
   }

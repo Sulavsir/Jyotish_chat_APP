@@ -186,6 +186,9 @@ importers:
       multer:
         specifier: ^2.0.2
         version: 2.0.2
+      nodemailer:
+        specifier: ^7.0.13
+        version: 7.0.13
       redis:
         specifier: ^4.6.12
         version: 4.7.1
@@ -223,6 +226,9 @@ importers:
       '@types/node':
         specifier: ^20.19.27
         version: 20.19.27
+      '@types/nodemailer':
+        specifier: ^6.4.14
+        version: 6.4.22
       '@types/swagger-jsdoc':
         specifier: ^6.0.4
         version: 6.0.4
@@ -423,6 +429,9 @@ importers:
       '@radix-ui/react-label':
         specifier: ^2.1.8
         version: 2.1.8(@types/react-dom@18.3.7)(@types/react@18.3.27)(react-dom@18.3.1)(react@18.3.1)
+      '@radix-ui/react-select':
+        specifier: ^2.2.6
+        version: 2.2.6(@types/react-dom@18.3.7)(@types/react@18.3.27)(react-dom@18.3.1)(react@18.3.1)
       '@radix-ui/react-slot':
         specifier: ^1.0.2
         version: 1.2.4(@types/react@18.3.27)(react@18.3.1)
@@ -2251,6 +2260,12 @@ packages:
     resolution: {integrity: sha512-N2clP5pJhB2YnZJ3PIHFk5RkygRX5WO/5f0WC08tp0wd+sv0rsJk3MqWn3CbNmT2J505a5336jaQj4ph1AdMug==}
     dependencies:
       undici-types: 6.21.0
+
+  /@types/nodemailer@6.4.22:
+    resolution: {integrity: sha512-HV16KRsW7UyZBITE07B62k8PRAKFqRSFXn1T7vslurVjN761tMDBhk5Lbt17ehyTzK6XcyJnAgUpevrvkcVOzw==}
+    dependencies:
+      '@types/node': 20.19.27
+    dev: true
 
   /@types/prop-types@15.7.15:
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -5117,6 +5132,11 @@ packages:
   /node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
     dev: true
+
+  /nodemailer@7.0.13:
+    resolution: {integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==}
+    engines: {node: '>=6.0.0'}
+    dev: false
 
   /normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}

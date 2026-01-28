@@ -43,7 +43,7 @@ type NavLinkItem = {
 type NavGroupItem = {
   kind: 'group';
   name: string;
-  key: 'jyotish-bookings' | 'website' | 'chat-management';
+  key: 'jyotish-bookings' | 'website' | 'chat-management' | 'astrologers';
   icon: React.ReactNode;
   children: NavChildLink[];
 };
@@ -54,7 +54,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const queryClient = useQueryClient();
   const { admin, isAuthenticated, logout, setAdmin, _hasHydrated } = useAdminStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [openGroup, setOpenGroup] = useState<'jyotish-bookings' | 'website' | 'chat-management' | null>(
+  const [openGroup, setOpenGroup] = useState<'jyotish-bookings' | 'website' | 'chat-management' | 'astrologers' | null>(
     'chat-management'
   );
   const [isValidatingSession, setIsValidatingSession] = useState(true);
@@ -180,10 +180,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       children: [{ name: 'Website Contents', href: ADMIN_ROUTES.WEBSITE_DASHBOARD_COPY }],
     },
     {
-      kind: 'link',
+      kind: 'group',
+      key: 'astrologers' as const,
       name: 'Astrologers',
-      href: ADMIN_ROUTES.ASTROLOGERS,
       icon: <StarIcon className="w-5 h-5" />,
+      children: [
+        { name: 'All Astrologers', href: ADMIN_ROUTES.ASTROLOGERS },
+        { name: 'Registration Requests', href: ADMIN_ROUTES.ASTROLOGERS_REGISTRATION_REQUESTS },
+      ],
     },
     {
       kind: 'link',

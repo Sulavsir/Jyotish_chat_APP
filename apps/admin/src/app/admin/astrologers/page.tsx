@@ -18,15 +18,19 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
 } from '@jyotish/ui';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Eye, X, Download, FileText } from 'lucide-react';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { useAdminSocket } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
-import { generatePageNumbers } from '@/utils/helpers';
-
+import { generatePageNumbers, getImageUrl } from '@/utils/helpers';
+import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 interface AstrologersResponse {
@@ -46,6 +50,7 @@ export default function AstrologersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
+  const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
 
   // Debug: Log socket connection status
   useEffect(() => {
@@ -134,6 +139,18 @@ export default function AstrologersPage() {
     };
   }, [on, off, isConnected]);
 
+  // Close attachment viewer modal on Escape key
+  useEffect(() => {
+    if (!viewingAttachment) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setViewingAttachment(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewingAttachment]);
+
   // Initialize online status from database
   useEffect(() => {
     if (astrologers.length > 0) {
@@ -193,13 +210,13 @@ export default function AstrologersPage() {
                 : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
           }`}
         >
-         {astrologer.category === AstrologerCategory.PREMIUM
-  ? '👑 Premium'
-  : astrologer.category === AstrologerCategory.PROFESSIONAL
-    ? '💎 Professional'
-    : astrologer.category === AstrologerCategory.KATHA_VACHAK
-      ? '📖 Katha Vachak'
-      : '⭐ Ordinary'}
+          {astrologer.category === AstrologerCategory.PREMIUM
+            ? '👑 Premium'
+            : astrologer.category === AstrologerCategory.PROFESSIONAL
+              ? '💎 Professional'
+              : astrologer.category === AstrologerCategory.KATHA_VACHAK
+                ? '📖 Katha Vachak'
+                : '⭐ Ordinary'}
         </span>
       ),
     },
@@ -241,6 +258,19 @@ export default function AstrologersPage() {
           </div>
         );
       },
+    },
+    {
+      header: 'Attachments',
+      accessor: (astrologer) => (
+        <div className="flex justify-center">
+          <AttachmentPreview
+            attachmentUrl={astrologer.proofOfAstrology}
+            onView={() => setViewingAttachment(astrologer.proofOfAstrology || null)}
+            size="md"
+          />
+        </div>
+      ),
+      className: 'text-center',
     },
     {
       header: 'Actions',
@@ -317,13 +347,15 @@ export default function AstrologersPage() {
           <div className="rounded-xl p-4">
             <div className="flex flex-col gap-2 items-center justify-between">
               <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
+                Showing{' '}
+                <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
+                </span>{' '}
+                to{' '}
                 <span className="text-purple-400">
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
               <Pagination>
@@ -356,13 +388,101 @@ export default function AstrologersPage() {
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                      }
                       disabled={currentPage === pagination.totalPages}
                     />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
             </div>
+          </div>
+        )}
+
+        {/* Attachment Viewer Modal */}
+        {viewingAttachment && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+            onClick={() => setViewingAttachment(null)}
+          >
+            <Card
+              className="bg-slate-900 border-slate-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-white">Proof of Astrology Certificates</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setViewingAttachment(null)}
+                  className="text-white hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Handle JSON array or single file
+                  let fileUrls: string[] = [];
+                  try {
+                    const parsed = JSON.parse(viewingAttachment);
+                    fileUrls = Array.isArray(parsed) ? parsed : [viewingAttachment];
+                  } catch {
+                    fileUrls = [viewingAttachment];
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {fileUrls.map((fileUrl, index) => {
+                        const fullUrl = getImageUrl(fileUrl);
+                        if (!fullUrl) return null;
+
+                        const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileUrl);
+                        const isPdf = fileUrl.toLowerCase().endsWith('.pdf');
+                        const fileName = fileUrl.split('/').pop() || `Document ${index + 1}`;
+
+                        return (
+                          <div key={index} className="space-y-3">
+                            {fileUrls.length > 1 && (
+                              <p className="text-sm text-slate-400">
+                                File {index + 1} of {fileUrls.length}
+                              </p>
+                            )}
+
+                            {isImage ? (
+                              <img
+                                src={fullUrl}
+                                alt={fileName}
+                                className="w-full h-auto rounded-lg border border-slate-700"
+                              />
+                            ) : (
+                              <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
+                                <div className="flex items-center gap-3">
+                                  <FileText className={`w-6 h-6 ${isPdf ? 'text-red-400' : 'text-blue-400'}`} />
+                                  <span className="text-slate-100 text-sm break-all">{fileName}</span>
+                                </div>
+                                <a
+                                  href={fullUrl}
+                                  download={fileName}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

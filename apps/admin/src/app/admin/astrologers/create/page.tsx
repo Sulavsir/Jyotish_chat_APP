@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Input, Textarea } from '@jyotish/ui';
+import { Button, Input, Textarea, LoadingButton } from '@jyotish/ui';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import {
   Form,
   FormControl,
@@ -29,9 +30,14 @@ import { toast } from 'sonner';
 export default function CreateAstrologerPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CreateAstrologerFormData>({
     resolver: zodResolver(createAstrologerSchema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     defaultValues: {
       name: '',
       email: '',
@@ -52,25 +58,45 @@ export default function CreateAstrologerPage() {
     setIsSubmitting(true);
 
     try {
-      // Transform data to match backend expectations
-      const transformedData = {
-        name: data.name.trim(),
-        email: data.email.trim(),
-        phone: data.phone.trim(),
-        password: data.password,
-        gender: data.gender || 'MALE',
-        specialization: Array.isArray(data.specialization) ? data.specialization : [],
-        experience: Number(data.experience) || 0,
-        commissionRate: Number(data.commissionRate) || 10,
-        category: data.category,
-        appointmentFee: data.appointmentFee ? Number(data.appointmentFee) : null,
-        languages: Array.isArray(data.languages) ? data.languages : [],
-        bio: data.bio?.trim() || '',
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
 
-      
+      // Add all form fields
+      formData.append('name', data.name.trim());
+      formData.append('email', data.email.trim());
+      formData.append('phone', data.phone.trim());
+      formData.append('password', data.password);
+      formData.append('gender', data.gender || 'MALE');
+      formData.append('experience', String(Number(data.experience) || 0));
+      formData.append('commissionRate', String(Number(data.commissionRate) || 10));
+      formData.append('category', data.category);
+      if (data.appointmentFee) {
+        formData.append('appointmentFee', String(Number(data.appointmentFee)));
+      }
+      if (data.bio) {
+        formData.append('bio', data.bio.trim());
+      }
 
-      const response = await adminApi.astrologers.create(transformedData);
+      // Add arrays
+      const specialization = Array.isArray(data.specialization) ? data.specialization : [];
+      specialization.forEach((item) => {
+        formData.append('specialization[]', item);
+      });
+
+      const languages = Array.isArray(data.languages) ? data.languages : [];
+      languages.forEach((item) => {
+        formData.append('languages[]', item);
+      });
+
+      // Add proof file - REQUIRED
+      if (!proofFile) {
+        toast.error('Proof of astrology certificate is required');
+        setIsSubmitting(false);
+        return;
+      }
+      formData.append('proofOfAstrology', proofFile);
+
+      const response = await adminApi.astrologers.createWithFile(formData);
 
       toast.success('✅ Astrologer created successfully!');
       router.push(ADMIN_ROUTES.ASTROLOGERS);
@@ -89,6 +115,52 @@ export default function CreateAstrologerPage() {
       toast.error(`❌ Error: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+      ];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Invalid file type. Please upload an image (JPEG, PNG, GIF, WebP) or PDF.');
+        return;
+      }
+
+      // Validate file size (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB.');
+        return;
+      }
+
+      setProofFile(file);
+
+      // Create preview for images
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setProofPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setProofPreview(null);
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setProofFile(null);
+    setProofPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -167,7 +239,16 @@ export default function CreateAstrologerPage() {
                       <FormItem>
                         <FormLabel>Password *</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="Enter password" {...field} />
+                          <PasswordInput
+                            name={field.name}
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            placeholder="Enter password"
+                            disabled={isSubmitting}
+                            className="w-full"
+                            autoComplete="new-password"
+                          />
                         </FormControl>
                         <FormDescription>
                           Min 8 chars, 1 uppercase, 1 number, 1 special
@@ -384,20 +465,76 @@ export default function CreateAstrologerPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* Proof of Astrology Upload */}
+                <div className="space-y-2">
+                  <FormLabel>
+                    Proof of Astrology <span className="text-red-400">*</span>
+                  </FormLabel>
+                  <FormDescription>
+                    Upload certificates or documents proving astrology expertise (Images or PDF, max 10MB)
+                  </FormDescription>
+                  <div className="space-y-3">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="proof-upload"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isSubmitting}
+                      >
+                        {proofFile ? 'Change File' : 'Upload File'}
+                      </Button>
+                      {proofFile && (
+                        <div className="flex items-center gap-2 text-sm text-slate-400">
+                          <span>{proofFile.name}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveFile}
+                            disabled={isSubmitting}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                      {!proofFile && (
+                        <span className="text-sm text-red-400">Proof of astrology is required</span>
+                      )}
+                    </div>
+                    {proofPreview && (
+                      <div className="mt-3">
+                        <img
+                          src={proofPreview}
+                          alt="Proof preview"
+                          className="max-w-xs max-h-48 rounded-md border border-slate-700"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Actions */}
               <div className="flex items-center gap-4 pt-6 border-t border-slate-700">
-                <Button type="submit" disabled={isSubmitting} className="flex items-center gap-2">
-                  {isSubmitting ? (
-                    <>Creating...</>
-                  ) : (
-                    <>
-                      <CheckIcon className="w-5 h-5" />
-                      Create Astrologer
-                    </>
-                  )}
-                </Button>
+                <LoadingButton
+                  type="submit"
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2"
+                >
+                  <CheckIcon className="w-5 h-5" />
+                  Create Astrologer
+                </LoadingButton>
                 <Button
                   type="button"
                   variant="outline"

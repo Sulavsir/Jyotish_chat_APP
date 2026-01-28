@@ -16,7 +16,25 @@ import routes from './routes';
 
 // Load environment variables from the API directory
 const envPath = path.resolve(__dirname, '../.env');
-dotenv.config({ path: envPath });
+const envResult = dotenv.config({ path: envPath });
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+if (envResult.error) {
+  if (isDevelopment) {
+    console.warn('⚠️ Warning: Could not load .env file:', envResult.error.message);
+  }
+} else if (isDevelopment) {
+  console.log('✅ Environment variables loaded from:', envPath);
+  // Verify SMTP config is loaded (only in development)
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPassword = process.env.SMTP_PASSWORD;
+  if (smtpHost && smtpUser && smtpPassword) {
+    console.log('✅ SMTP configuration detected in environment');
+  } else {
+    console.warn('⚠️ SMTP configuration not found in environment variables');
+  }
+}
 
 // Construct DATABASE_URL from individual DB variables if not set
 if (!process.env.DATABASE_URL && process.env.DB_HOST) {
@@ -68,8 +86,7 @@ const isOriginAllowed = (origin: string | undefined): boolean => {
     }
   }
 
-  // Production: only allow specific origins from CORS_ORIGIN env variable
-  // CORS_ORIGIN can be comma-separated: "https://domain1.com,https://domain2.com"
+
   const corsOrigin = process.env.CORS_ORIGIN || '';
   const allowedOrigins = corsOrigin
     .split(',')

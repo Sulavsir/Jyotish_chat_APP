@@ -7,6 +7,10 @@ import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { adminAddCoinsSchema } from '../validators/coin.validators';
+import {
+  approveAstrologerRegistrationSchema,
+  rejectAstrologerRegistrationSchema,
+} from '@jyotish/shared';
 import { AuditAction } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
 import {
@@ -16,6 +20,7 @@ import {
   dashboardRotatingCopyController,
 } from '../controllers';
 import { asyncHandler } from '../utils';
+import { adminAstrologerUpload } from '../middleware/adminAstrologerUpload';
 import {
   createDashboardRotatingCopySchema,
   updateDashboardRotatingCopySchema,
@@ -46,7 +51,14 @@ router.get('/astrologers', adminController.listAstrologers);
 router.post(
   '/astrologers',
   auditLogger(AuditAction.ASTROLOGER_CREATE, 'Astrologer'),
+  adminAstrologerUpload.single('proofOfAstrology'),
   adminController.createAstrologer
+);
+
+// ==================== Astrologer Registration Requests ====================
+router.get(
+  '/astrologers/registration-requests',
+  adminController.getRegistrationRequests
 );
 
 router.get('/astrologers/:id', adminController.getAstrologer);
@@ -76,6 +88,20 @@ router.post(
 );
 
 router.get('/astrologers/:id/earnings', adminController.getAstrologerEarnings);
+
+router.post(
+  '/astrologers/:id/approve-registration',
+  auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
+  validateBody(approveAstrologerRegistrationSchema),
+  asyncHandler(adminController.approveRegistration)
+);
+
+router.post(
+  '/astrologers/:id/reject-registration',
+  auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
+  validateBody(rejectAstrologerRegistrationSchema),
+  asyncHandler(adminController.rejectRegistration)
+);
 
 // ==================== User Management ====================
 router.get('/users', adminController.listUsers);

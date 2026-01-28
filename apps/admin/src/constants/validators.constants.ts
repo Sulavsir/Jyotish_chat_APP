@@ -52,10 +52,16 @@ export const createAstrologerSchema = z.object({
     .max(10, 'Maximum 10 specializations allowed'),
   
   experience: z
-    .number()
-    .int('Experience must be a whole number')
-    .min(0, 'Experience cannot be negative')
-    .max(100, 'Experience seems unrealistic'),
+    .preprocess((value) => {
+      if (value === '' || value === null || value === undefined) {
+        return undefined;
+      }
+      if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? value : parsed;
+      }
+      return value;
+    }, z.number().int('Experience must be a whole number').min(0, 'Experience cannot be negative').max(100, 'Experience seems unrealistic')),
   
   commissionRate: z
     .number()

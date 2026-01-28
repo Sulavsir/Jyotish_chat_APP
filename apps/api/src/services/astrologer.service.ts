@@ -3,13 +3,17 @@
  * Astrologers can only be created by admins, not through signup
  */
 
-import { prisma } from '@jyotish/database';
+import { prisma, Gender } from '@jyotish/database';
 import { UserRole, AstrologerCategory } from '@jyotish/shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES } from '../constants';
+import { ASTROLOGER_ACCOUNT_STATUS, ASTROLOGER_CREATED_BY } from '../constants/astrologer.constants';
 import { AppError } from '../middleware/error-handler';
 import { sessionService } from './session.service';
+import { emailService } from './email.service';
+import { smsService } from './sms.service';
+import { isNepaliPhoneNumber } from '../utils/phone.utils';
 
 export class AstrologerService {
   /**
@@ -129,8 +133,9 @@ export class AstrologerService {
     appointmentFee?: number;
     commissionRate: number;
     languages: string[];
-    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    gender?: Gender;
     createdBy: string; // Admin ID
+    proofOfAstrology?: string; // File URL for proof document
   }) {
     // Check if phone number is already used by a CLIENT
     const existingUser = await prisma.user.findUnique({
@@ -191,8 +196,10 @@ export class AstrologerService {
         languages: data.languages,
         gender: data.gender ?? null,
         createdBy: data.createdBy,
+        proofOfAstrology: data.proofOfAstrology || null,
+        accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
         isActive: true,
-        isVerified: false, // Must be verified by admin
+        isVerified: false, 
       },
       select: {
         id: true,
@@ -248,6 +255,7 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
+        accountStatus: true,
         commissionRate: true,
         languages: true,
         gender: true,
@@ -263,6 +271,23 @@ export class AstrologerService {
     }
 
     console.log('✅ Astrologer found:', astrologer.email, 'Active:', astrologer.isActive);
+
+    // Check account status
+    if (astrologer.accountStatus === ASTROLOGER_ACCOUNT_STATUS.PENDING) {
+      throw new AppError(
+        'Your registration is pending approval. Please wait for admin approval.',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
+    }
+
+    if (astrologer.accountStatus === ASTROLOGER_ACCOUNT_STATUS.REJECTED) {
+      throw new AppError(
+        'Your registration has been rejected. Please contact support for more information.',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
+    }
 
     if (!astrologer.isActive) {
       throw new AppError('Account is deactivated', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
@@ -466,7 +491,10 @@ export class AstrologerService {
     const { page = 1, limit = 10, search, isActive, isVerified, isOnline } = params;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      // Only show approved astrologers in the list
+      accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
+    };
 
     if (search) {
       where.OR = [
@@ -512,6 +540,7 @@ export class AstrologerService {
           commissionRate: true,
           languages: true,
           gender: true,
+          proofOfAstrology: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -610,6 +639,306 @@ export class AstrologerService {
       where: { id: astrologerId },
       data: { password: hashedPassword },
     });
+  }
+
+  /**
+   * Register a new astrologer (self-registration request)
+   * Creates an account with PENDING status, waiting for admin approval
+   */
+  async registerRequest(data: {
+    name: string;
+    phone: string;
+    email?: string;
+    password: string;
+    bio?: string;
+    specialization: string[];
+    experience?: number;
+    languages: string[];
+    gender?: Gender;
+    proofOfAstrology: string; // File URL
+  }) {
+    // Check if phone already exists
+    const existingByPhone = await prisma.astrologer.findUnique({
+      where: { phone: data.phone },
+    });
+
+    if (existingByPhone) {
+      throw new AppError(
+        'An astrologer with this phone number already exists',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Check if email already exists (if provided)
+    if (data.email) {
+      const existingByEmail = await prisma.astrologer.findUnique({
+        where: { email: data.email },
+      });
+
+      if (existingByEmail) {
+        throw new AppError(
+          'An astrologer with this email already exists',
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    // Create astrologer with PENDING status
+    const astrologer = await prisma.astrologer.create({
+      data: {
+        name: data.name,
+        phone: data.phone,
+        email: data.email || null,
+        password: hashedPassword,
+        bio: data.bio || null,
+        specialization: data.specialization,
+        experience: data.experience || null,
+        languages: data.languages,
+        gender: (data.gender as Gender) || null,
+        proofOfAstrology: data.proofOfAstrology,
+        accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING,
+        registrationRequestedAt: new Date(),
+        createdBy: ASTROLOGER_CREATED_BY.SELF_REGISTERED,
+        isActive: false, 
+        category: AstrologerCategory.ORDINARY, 
+        commissionRate: 0.0,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        accountStatus: true,
+        registrationRequestedAt: true,
+        createdAt: true,
+      },
+    });
+
+    return astrologer;
+  }
+
+  /**
+cle   * Get all pending registration requests with pagination and search
+   */
+  async getPendingRegistrations(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }) {
+    const { page = 1, limit = 10, search } = params || {};
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [requests, total] = await Promise.all([
+      prisma.astrologer.findMany({
+        where,
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          bio: true,
+          specialization: true,
+          experience: true,
+          languages: true,
+          gender: true,
+          proofOfAstrology: true,
+          registrationRequestedAt: true,
+          createdAt: true,
+        },
+        orderBy: {
+          registrationRequestedAt: 'desc',
+        },
+      }),
+      prisma.astrologer.count({ where }),
+    ]);
+
+    return {
+      requests,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Approve an astrologer registration request
+   */
+  async approveRegistration(
+    astrologerId: string,
+    adminId: string,
+    data: {
+      category: string;
+      appointmentFee?: number | null;
+      commissionRate?: number;
+    }
+  ) {
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: {
+        id: true,
+        accountStatus: true,
+        email: true,
+        phone: true,
+        name: true,
+      },
+    });
+
+    if (!astrologer) {
+      throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    if (astrologer.accountStatus !== ASTROLOGER_ACCOUNT_STATUS.PENDING) {
+      throw new AppError(
+        'This registration request has already been processed',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Update astrologer to APPROVED status
+    const updated = await prisma.astrologer.update({
+      where: { id: astrologerId },
+      data: {
+        accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+        isActive: true,
+        category: data.category as AstrologerCategory,
+        appointmentFee: data.appointmentFee ?? null,
+        commissionRate: data.commissionRate ?? 0.0,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        accountStatus: true,
+        category: true,
+        appointmentFee: true,
+        commissionRate: true,
+        approvedBy: true,
+        approvedAt: true,
+      },
+    });
+
+    // Send notifications (email and SMS if Nepali phone)
+    try {
+      // Send email notification
+      if (updated.email) {
+        await emailService.sendRegistrationApprovalEmail(
+          updated.name,
+          updated.email,
+          updated.category,
+          updated.appointmentFee
+        );
+      }
+
+      // Send SMS if phone is Nepali
+      if (updated.phone && isNepaliPhoneNumber(updated.phone)) {
+        const smsMessage = `Namaste ${updated.name}! Your astrologer registration has been approved. You can now log in to Chat Jyotish and start providing consultations. Category: ${updated.category}.`;
+        await smsService.sendNotification(updated.phone, smsMessage);
+      }
+    } catch (error) {
+      // Log error but don't fail the approval process
+      console.error('❌ Failed to send approval notifications:', error);
+    }
+
+    return updated;
+  }
+
+  /**
+   * Reject an astrologer registration request
+   */
+  async rejectRegistration(astrologerId: string, adminId: string, rejectionReason: string) {
+    const astrologer = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: {
+        id: true,
+        accountStatus: true,
+        email: true,
+        phone: true,
+        name: true,
+      },
+    });
+
+    if (!astrologer) {
+      throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    if (astrologer.accountStatus !== ASTROLOGER_ACCOUNT_STATUS.PENDING) {
+      throw new AppError(
+        'This registration request has already been processed',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    // Update astrologer to REJECTED status
+    const updated = await prisma.astrologer.update({
+      where: { id: astrologerId },
+      data: {
+        accountStatus: ASTROLOGER_ACCOUNT_STATUS.REJECTED,
+        approvedBy: adminId,
+        approvedAt: new Date(),
+        rejectionReason: rejectionReason,
+        isActive: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        accountStatus: true,
+        rejectionReason: true,
+        approvedBy: true,
+        approvedAt: true,
+      },
+    });
+
+    // Send notifications (email and SMS if Nepali phone)
+    try {
+      // Send email notification
+      if (updated.email) {
+        await emailService.sendRegistrationRejectionEmail(
+          updated.name,
+          updated.email,
+          rejectionReason
+        );
+      }
+
+      // Send SMS if phone is Nepali
+      if (updated.phone && isNepaliPhoneNumber(updated.phone)) {
+        const smsMessage = `Namaste ${updated.name}! Your astrologer registration request has been reviewed. Unfortunately, we are unable to approve it at this time. Please check your email for details or contact support.`;
+        await smsService.sendNotification(updated.phone, smsMessage);
+      }
+    } catch (error) {
+      // Log error but don't fail the rejection process
+      console.error('❌ Failed to send rejection notifications:', error);
+    }
+
+    return updated;
   }
 }
 

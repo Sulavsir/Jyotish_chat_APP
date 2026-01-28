@@ -20,12 +20,15 @@ export const userRegisterSchema = z.object({
   role: z.nativeEnum(UserRole).default(UserRole.CLIENT),
 });
 
-// Phone number validation helper (Nepali format: 98XXXXXXXX)
+// Phone number validation helper (Nepali format: 98XXXXXXXX or 97XXXXXXXX)
 const nepaliPhoneRegex = /^(98|97)\d{8}$/;
 const phoneValidation = z
   .string()
   .min(1, 'Phone number is required')
-  .regex(nepaliPhoneRegex, 'Phone number must be valid Nepali number (98XXXXXXXX or 97XXXXXXXX)');
+  .regex(
+    nepaliPhoneRegex,
+    'Phone number must be a valid 10-digit Nepali number (98XXXXXXXX or 97XXXXXXXX)'
+  );
 
 // New phone-based auth validators
 export const checkPhoneSchema = z.object({
@@ -209,5 +212,34 @@ export const changePasswordSchema = z
     message: 'New password must be different from current password',
     path: ['newPassword'],
   });
+
+// Astrologer registration validators
+// Reuse the phoneValidation from above (lines 24-28)
+export const astrologerRegistrationSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
+  phone: phoneValidation,
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/(?=.*[a-z])/, 'Password must contain at least one lowercase letter')
+    .regex(/(?=.*[A-Z])/, 'Password must contain at least one uppercase letter')
+    .regex(/(?=.*\d)/, 'Password must contain at least one number'),
+  bio: z.string().max(500, 'Bio is too long').optional(),
+  specialization: z.array(z.string()).min(1, 'Please enter at least one specialization'),
+  experience: z.number().int().min(0, 'Experience cannot be negative').optional(),
+  languages: z.array(z.string()).min(1, 'Please enter at least one language').default(['English', 'Nepali']),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+});
+
+export const approveAstrologerRegistrationSchema = z.object({
+  category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']),
+  appointmentFee: z.number().positive().optional().nullable(),
+  commissionRate: z.number().min(0).max(100, 'Commission rate must be between 0 and 100').optional(),
+});
+
+export const rejectAstrologerRegistrationSchema = z.object({
+  rejectionReason: z.string().min(10, 'Rejection reason must be at least 10 characters').max(500, 'Rejection reason is too long'),
+});
 
 export * from './jyotish-booking.validators';

@@ -76,13 +76,19 @@ model Astrologer {
   isActive                     Boolean               @default(true)
   isOnline                     Boolean               @default(false)
   isVerified                   Boolean               @default(false)
+  accountStatus                AstrologerAccountStatus @default(PENDING) // Registration approval status
+  proofOfAstrology              String? // URL to certificate/proof document
+  registrationRequestedAt       DateTime? // When registration was requested
+  approvedBy                    String? // Admin ID who approved/rejected
+  approvedAt                    DateTime? // When approval/rejection happened
+  rejectionReason               String? // Reason if rejected
   commissionRate               Float                 @default(0.0) // Percentage (e.g., 20.0 for 20%)
   bankAccountDetails           Json? // Store bank info securely
   documentVerification         Json? // Store verification documents metadata
   availabilitySchedule         Json? // Store weekly schedule
   languages                    String[]              @default(["English", "Nepali"])
   gender                       Gender?
-  createdBy                    String // Admin ID who created this astrologer
+  createdBy                    String // Admin ID who created this astrologer (or "SELF_REGISTERED" for self-registrations)
   createdAt                    DateTime              @default(now())
   updatedAt                    DateTime              @updatedAt
   consultationsAsAstrologer    Consultation[]        @relation("AstrologerConsultations")
@@ -107,6 +113,7 @@ model Astrologer {
   @@index([isOnline])
   @@index([rating])
   @@index([category])
+  @@index([accountStatus])
 }
 
 // Admin users for managing the platform
@@ -887,6 +894,12 @@ enum AstrologerCategory {
   PROFESSIONAL // Can receive chat requests and appointments, lower fee
   PREMIUM // Only appointments, no direct chat (higher fee)
   KATHA_VACHAK // Only Bookings
+}
+
+enum AstrologerAccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AppointmentStatus {

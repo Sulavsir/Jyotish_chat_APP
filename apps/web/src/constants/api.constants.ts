@@ -95,6 +95,7 @@ export const API_ENDPOINTS = {
   },
   ASTROLOGER: {
     LOGIN: '/api/v1/astrologer/auth/login',
+    REGISTER: '/api/v1/astrologer/register',
     LOGOUT: '/api/v1/astrologer/auth/logout',
     ME: '/api/v1/astrologer/auth/me',
     CHANGE_PASSWORD: '/api/v1/astrologer/auth/change-password',
