@@ -620,10 +620,6 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         status: 'ACTIVE',
         endedBy: null,
         endedAt: null,
-        // Reset turn-based state when reopening chat from a broadcast
-        waitingForReply: false,
-        lastClientMessageAt: null,
-        lastAstrologerReplyAt: null,
       },
     });
     console.log(`✅ Chat ${chat.id} reactivated successfully`);
@@ -697,8 +693,8 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       );
     }
 
-    // Create new chat (client=participant1, astrologer=participant2)
-    chat = await prisma.chat.create({
+    // Create new chat (client=participant1, astrologer=participant2).
+       chat = await prisma.chat.create({
       data: {
         participant1Id: message.clientId,
         participant2Id: astrologerId,
@@ -706,6 +702,9 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         participant2Type: 'ASTROLOGER',
         status: 'ACTIVE',
         isLocked: false,
+        turnBasedEnabled: true,
+        waitingForReply: true,
+        lastClientMessageAt: new Date(),
       },
     });
 
@@ -795,16 +794,12 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     },
   });
 
-  // Update chat with last message info and turn-based state so it shows in conversation list
-  // and the client is allowed to reply after the astrologer's auto welcome message.
+  // Update chat with last message info so it shows in conversation list
   await prisma.chat.update({
     where: { id: chat.id },
     data: {
       lastMessageText: welcomeMessageContent,
       lastMessageAt: new Date(),
-      // Astrologer has (auto-)replied, so client should NOT be in "waiting for reply" state
-      waitingForReply: false,
-      lastAstrologerReplyAt: new Date(),
     },
   });
 

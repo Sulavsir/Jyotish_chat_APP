@@ -574,6 +574,7 @@ export default function ChatPage() {
         id: syntheticChatId,
         participant1Id: user.id,
         participant2Id: astrologer.id,
+
         status: 'ACTIVE',
         isLocked: false,
         // No messages yet, both sides are "read"
