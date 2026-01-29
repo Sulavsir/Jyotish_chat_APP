@@ -569,33 +569,35 @@ export default function ChatPage() {
     try {
       const { astrologer } = await astrologerService.getPublicProfile(astrologerId);
       const syntheticChatId = `new-${astrologerId}`;
+      const now = new Date();
       const syntheticChat: Chat = {
         id: syntheticChatId,
         participant1Id: user.id,
         participant2Id: astrologer.id,
-        participant1Type: 'CLIENT',
-        participant2Type: 'ASTROLOGER',
         status: 'ACTIVE',
         isLocked: false,
-        lastMessageAt: null,
-        lastMessageText: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        // No messages yet, both sides are "read"
+        participant1Read: true,
+        participant2Read: true,
+        createdAt: now,
+        updatedAt: now,
         clientParticipant: {
           id: user.id,
-          name: user.name ?? '',
+          name: user.name ?? null,
           email: user.email ?? null,
-          phone: user.phone ?? null,
-          profilePhoto: user.profilePhoto ?? null,
+          phone: user.phone ?? undefined,
+          profilePhoto: user.profilePhoto ?? undefined,
           role: 'CLIENT',
         },
         astrologerParticipant: {
           id: astrologer.id,
-          name: astrologer.name ?? '',
-          phone: astrologer.phone ?? null,
-          profilePhoto: astrologer.profilePhoto ?? null,
+          name: astrologer.name ?? null,
+          email: astrologer.email ?? null,
+          phone: astrologer.phone ?? undefined,
+          profilePhoto: astrologer.profilePhoto ?? undefined,
+          role: 'ASTROLOGER',
         },
-      } as Chat;
+      };
       setMessages([]);
       setActiveChat(syntheticChat);
       setActiveChatId(syntheticChatId);
