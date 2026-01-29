@@ -25,6 +25,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 import { RefreshCw, Check, X, Eye, FileText, UserIcon, Paperclip, Download } from 'lucide-react';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { AstrologerCategory } from '@jyotish/shared';
@@ -194,17 +195,19 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
               >
                 Cancel
               </Button>
-              <Button
+
+              <LoadingButton
                 type="submit"
-                disabled={isSubmitting}
+                isLoading={isSubmitting}
+                loadingText={type === 'approve' ? 'Approving...' : 'Rejecting...'}
                 className={`flex-1 ${
                   type === 'approve'
                     ? 'bg-green-600 hover:bg-green-700'
                     : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
-                {isSubmitting ? 'Processing...' : type === 'approve' ? 'Approve' : 'Reject'}
-              </Button>
+                {type === 'approve' ? 'Approve' : 'Reject'}
+              </LoadingButton>
             </div>
           </form>
         </CardContent>
@@ -251,7 +254,12 @@ export default function RegistrationRequestsPage() {
   };
 
   const approveMutation = useMutation({
-    mutationFn: async (data: { id: string; category: string; appointmentFee?: number; commissionRate?: number }) => {
+    mutationFn: async (data: {
+      id: string;
+      category: string;
+      appointmentFee?: number;
+      commissionRate?: number;
+    }) => {
       return await adminApi.astrologers.approveRegistration(data.id, {
         category: data.category,
         appointmentFee: data.appointmentFee,
@@ -259,7 +267,9 @@ export default function RegistrationRequestsPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS() });
+      queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(),
+      });
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.LIST() });
     },
   });
@@ -271,7 +281,9 @@ export default function RegistrationRequestsPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS() });
+      queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(),
+      });
     },
   });
 
@@ -319,7 +331,9 @@ export default function RegistrationRequestsPage() {
     {
       header: 'Experience',
       accessor: (request) => (
-        <span className="text-slate-300">{request.experience ? `${request.experience} years` : 'N/A'}</span>
+        <span className="text-slate-300">
+          {request.experience ? `${request.experience} years` : 'N/A'}
+        </span>
       ),
     },
     {
@@ -400,7 +414,9 @@ export default function RegistrationRequestsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-white">Account Creation Requests</h2>
-            <p className="text-slate-400 mt-1">Review and manage astrologer registration requests</p>
+            <p className="text-slate-400 mt-1">
+              Review and manage astrologer registration requests
+            </p>
           </div>
           <Button
             onClick={() => refetch()}
@@ -449,13 +465,15 @@ export default function RegistrationRequestsPage() {
           <div className="rounded-xl p-4">
             <div className="flex flex-col gap-2 items-center justify-between">
               <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
+                Showing{' '}
+                <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
+                </span>{' '}
+                to{' '}
                 <span className="text-purple-400">
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
               <Pagination>
@@ -488,7 +506,9 @@ export default function RegistrationRequestsPage() {
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                      }
                       disabled={currentPage === pagination.totalPages}
                     />
                   </PaginationItem>
@@ -570,8 +590,12 @@ export default function RegistrationRequestsPage() {
                             ) : (
                               <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
                                 <div className="flex items-center gap-3">
-                                  <FileText className={`w-6 h-6 ${isPdf ? 'text-red-400' : 'text-blue-400'}`} />
-                                  <span className="text-slate-100 text-sm break-all">{fileName}</span>
+                                  <FileText
+                                    className={`w-6 h-6 ${isPdf ? 'text-red-400' : 'text-blue-400'}`}
+                                  />
+                                  <span className="text-slate-100 text-sm break-all">
+                                    {fileName}
+                                  </span>
                                 </div>
                                 <a
                                   href={fullUrl}

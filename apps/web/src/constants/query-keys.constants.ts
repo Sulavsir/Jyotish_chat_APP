@@ -20,8 +20,13 @@ export const QUERY_KEYS = {
   // Jyotish Bookings
   JYOTISH_BOOKINGS: {
     ALL: ['jyotish-bookings'] as const,
-    MY_LIST: (filters: { page: number; limit: number; search?: string; type?: string; status?: string }) =>
-      ['jyotish-bookings', 'my', filters] as const,
+    MY_LIST: (filters: {
+      page: number;
+      limit: number;
+      search?: string;
+      type?: string;
+      status?: string;
+    }) => ['jyotish-bookings', 'my', filters] as const,
   },
 
   // Appointments
@@ -55,9 +60,7 @@ export const QUERY_KEYS = {
   // Notifications
   NOTIFICATIONS: {
     LIST: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>
-      params
-        ? (['notifications', 'list', params] as const)
-        : (['notifications', 'list'] as const),
+      params ? (['notifications', 'list', params] as const) : (['notifications', 'list'] as const),
     UNREAD_COUNT: ['notifications', 'unread-count'] as const,
   },
 
@@ -110,6 +113,13 @@ export const QUERY_KEYS = {
       ['ratings', 'astrologer-stats', astrologerId] as const,
   },
 
+  // Broadcast messages (Channel Jyotish)
+  BROADCAST: {
+    MY_MESSAGES: ['broadcast', 'my-messages'] as const,
+    PENDING: ['broadcast', 'pending'] as const,
+    ALL: ['broadcast', 'all'] as const,
+  },
+
   // Coins
   COINS: {
     BALANCE: ['coins', 'balance'] as const,
@@ -137,6 +147,8 @@ export const QUERY_KEYS = {
   JYOTISH_DASHBOARD: {
     STATS: ['jyotish-dashboard', 'stats'] as const,
     RECENT_ACTIVITY: (limit?: number) =>
-      limit ? (['jyotish-dashboard', 'recent-activity', limit] as const) : (['jyotish-dashboard', 'recent-activity'] as const),
+      limit
+        ? (['jyotish-dashboard', 'recent-activity', limit] as const)
+        : (['jyotish-dashboard', 'recent-activity'] as const),
   },
 } as const;

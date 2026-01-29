@@ -19,12 +19,12 @@ import {
 import { useRouter } from 'next/navigation';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
 import { JyotishSelector } from './JyotishSelector';
-import { useChat } from '@/hooks/useChat';
+import { useChat, CoinPurchaseModalWrapper } from '@/hooks/useChat';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { CoinPurchaseModal } from '@/components/modals';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import type { QuestionnaireCategory } from '@jyotish/shared';
 import { questionnaireService } from '@/services/questionnaire.service';
 import { useSocket } from '@/hooks/useSocket';
@@ -33,6 +33,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
+import broadcastMessageService from '@/services/broadcastMessage.service';
 
 export function AskQuestionsSection() {
   const router = useRouter();
@@ -59,10 +60,34 @@ export function AskQuestionsSection() {
     null
   );
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [requiredCoins, setRequiredCoins] = useState(1);
-  const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
+  // Broadcast-coin state (for broadcast tab errors)
+  const [broadcastRequiredCoins, setBroadcastRequiredCoins] = useState(1);
+  const [isBroadcastCoinModalOpen, setIsBroadcastCoinModalOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { startChat } = useChat();
+  // Direct-chat coin state comes from useChat
+  const {
+    startChat,
+    showCoinPurchaseModal: showDirectCoinModal,
+    requiredCoins: directRequiredCoins,
+    retryChat,
+    setShowCoinPurchaseModal: setShowDirectCoinModal,
+  } = useChat();
+
+  const cancelBroadcastMutation = useMutation({
+    mutationFn: (messageId: string) => broadcastMessageService.cancelMessage(messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+      toast.success('Request cancelled. Your coin has been refunded.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to cancel request. You can try again.');
+    },
+    onSettled: () => {
+      setIsWaitingForAcceptance(false);
+      setPendingMessage(null);
+    },
+  });
 
   // Load question categories and questions from backend (admin-managed)
   const { data: questionnairesData } = useQuery({
@@ -127,9 +152,7 @@ export function AskQuestionsSection() {
 
   // Expose when extra info cards on the left side should be visible
   React.useEffect(() => {
-    const shouldShow =
-      (mode === 'direct' && !!selectedAstrologerId) ||
-      mode === 'broadcast';
+    const shouldShow = (mode === 'direct' && !!selectedAstrologerId) || mode === 'broadcast';
     setShowExtraInfoCards(shouldShow);
   }, [mode, selectedAstrologerId, setShowExtraInfoCards]);
 
@@ -170,8 +193,12 @@ export function AskQuestionsSection() {
       // Check for insufficient coins
       if (errorMsg.includes('Insufficient coins') || errorMsg.includes('Required:')) {
         const coins = extractRequiredCoins(errorMsg);
-        setRequiredCoins(coins);
-        setShowCoinPurchaseModal(true);
+        setBroadcastRequiredCoins(coins);
+        setIsBroadcastCoinModalOpen(true);
+        toast.error(errorMsg, {
+          duration: 5000,
+          description: 'Please top up your coins to send a broadcast message.',
+        });
       } else if (errorMsg.includes('complete your profile')) {
         toast.error('Please complete your profile first');
       } else {
@@ -200,7 +227,7 @@ export function AskQuestionsSection() {
       socket.off('broadcast:error', handleError);
       socket.off('broadcast:yourMessageAccepted', handleMessageAccepted);
     };
-  }, [socket, isConnected, router, queryClient, setShowCoinPurchaseModal]);
+  }, [socket, isConnected, router, queryClient]);
 
   const extractRequiredCoins = (errorMessage: string): number => {
     const match = errorMessage.match(/Required:\s*(\d+)/i);
@@ -259,9 +286,13 @@ export function AskQuestionsSection() {
   }, [pendingMessage]);
 
   const handleCancelRequest = () => {
-    setIsWaitingForAcceptance(false);
-    setPendingMessage(null);
-    toast.info('Request cancelled');
+    if (pendingMessage?.id) {
+      cancelBroadcastMutation.mutate(pendingMessage.id);
+    } else {
+      setIsWaitingForAcceptance(false);
+      setPendingMessage(null);
+      toast.info('Request cancelled');
+    }
   };
 
   const handleSendBroadcast = async () => {
@@ -517,17 +548,17 @@ export function AskQuestionsSection() {
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
-                        <SelectItem value="CLEAR">
-                          <span className="text-gray-400">Clear selection</span>
-                        </SelectItem>
-                        {questionCategories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            <div className="flex items-center gap-2">
-                              {category.emoji && <span>{category.emoji}</span>}
-                              <span>{category.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
+                    <SelectItem value="CLEAR">
+                      <span className="text-gray-400">Clear selection</span>
+                    </SelectItem>
+                    {questionCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <div className="flex items-center gap-2">
+                          {category.emoji && <span>{category.emoji}</span>}
+                          <span>{category.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -608,15 +639,23 @@ export function AskQuestionsSection() {
         missingFields={missingProfileFields}
       />
 
-      {/* Coin Purchase Modal */}
+      {/* Broadcast Coin Purchase Modal (for broadcast tab insufficient coins) */}
       <CoinPurchaseModal
-        isOpen={showCoinPurchaseModal}
-        onClose={() => setShowCoinPurchaseModal(false)}
-        requiredCoins={requiredCoins}
+        isOpen={isBroadcastCoinModalOpen}
+        onClose={() => setIsBroadcastCoinModalOpen(false)}
+        requiredCoins={broadcastRequiredCoins}
         onPurchaseSuccess={() => {
-          setShowCoinPurchaseModal(false);
+          setIsBroadcastCoinModalOpen(false);
         }}
         mode="insufficient"
+      />
+
+      {/* Direct-chat coin purchase modal (for starting chat with specific Jyotish) */}
+      <CoinPurchaseModalWrapper
+        isOpen={showDirectCoinModal}
+        onClose={() => setShowDirectCoinModal(false)}
+        requiredCoins={directRequiredCoins}
+        onPurchaseSuccess={retryChat}
       />
     </>
   );

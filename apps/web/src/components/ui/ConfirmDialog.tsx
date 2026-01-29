@@ -47,7 +47,7 @@ export function ConfirmDialog({
           color={isDestructive ? 'danger' : 'primary'}
           onClick={onConfirm}
           isLoading={isLoading}
-          loadingText="Processing..."
+          loadingText="Confirming..."
         >
           {confirmText}
         </LoadingButton>

@@ -11,6 +11,12 @@ import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import { getSocketInstance } from '../utils/socket-instance';
 
+type BroadcastMessageControllerError = Error & {
+  code?: string;
+  message?: string;
+  statusCode?: number;
+};
+
 /**
  * POST /api/v1/broadcast-messages
  * Create a new broadcast message (client only)
@@ -42,10 +48,11 @@ export async function createBroadcastMessage(req: AuthRequest, res: Response) {
     }
 
     return sendSuccess(res, message, HTTP_STATUS.CREATED);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
     console.error('Error creating broadcast message:', error);
     // Provide helpful message if table doesn't exist yet
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
       return sendError(
         res,
         'Database not ready. Please run: cd packages/database && pnpm exec prisma db push',
@@ -72,10 +79,11 @@ export async function getPendingMessages(req: AuthRequest, res: Response) {
     const messages = await broadcastMessageService.getPendingBroadcastMessages(astrologerId);
 
     return sendSuccess(res, messages || []);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
     console.error('Error getting pending broadcast messages:', error);
     // Return empty array if table doesn't exist yet (before migration)
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
       return sendSuccess(res, []);
     }
     return sendError(
@@ -105,10 +113,11 @@ export async function getAllMessages(req: AuthRequest, res: Response) {
     const messages = await broadcastMessageService.getAllBroadcastMessages(astrologerId);
 
     return sendSuccess(res, messages || []);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
     console.error('Error getting all broadcast messages:', error);
     // Return empty array if table doesn't exist yet (before migration)
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
       return sendSuccess(res, []);
     }
     return sendError(
@@ -139,10 +148,11 @@ export async function getMyMessages(req: AuthRequest, res: Response) {
     const messages = await broadcastMessageService.getClientBroadcastMessages(clientId);
 
     return sendSuccess(res, messages || []);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
     console.error('Error getting client broadcast messages:', error);
     // Return empty array if table doesn't exist yet (before migration)
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
       return sendSuccess(res, []);
     }
     return sendError(
@@ -197,13 +207,56 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
     }
 
     return sendSuccess(res, result);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
     console.error('Error accepting broadcast message:', error);
     return sendError(
       res,
-      error.message || 'Failed to accept broadcast message',
+      err?.message || 'Failed to accept broadcast message',
       HTTP_STATUS.BAD_REQUEST
     );
+  }
+}
+
+/**
+ * POST /api/v1/broadcast-messages/:messageId/cancel
+ * Cancel a pending broadcast message (client only). Refunds coin and notifies astrologers.
+ */
+export async function cancelBroadcastMessage(req: AuthRequest, res: Response) {
+  try {
+    const { messageId } = req.params;
+    const clientId = req.user!.id;
+
+    if (req.user!.role !== UserRole.CLIENT) {
+      return sendError(
+        res,
+        'Only clients can cancel their broadcast messages',
+        HTTP_STATUS.FORBIDDEN
+      );
+    }
+
+    const message = await broadcastMessageService.cancelBroadcastMessage(messageId, clientId);
+
+    const io = getSocketInstance();
+    if (io) {
+      io.to('astrologers').emit('broadcast:messageCancelled', {
+        messageId: message.id,
+        cancelledAt: message.updatedAt,
+      });
+    }
+
+    return sendSuccess(res, {
+      success: true,
+      message,
+      messageId: message.id,
+    });
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
+    console.error('Error cancelling broadcast message:', error);
+    const status =
+      err?.statusCode ??
+      (err?.code === 'NOT_FOUND' ? HTTP_STATUS.NOT_FOUND : HTTP_STATUS.BAD_REQUEST);
+    return sendError(res, err?.message || 'Failed to cancel broadcast message', status);
   }
 }
 
@@ -243,11 +296,12 @@ export async function dismissBroadcastMessage(req: AuthRequest, res: Response) {
       messageId,
       dismissedAt: result.dismissedAt,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as BroadcastMessageControllerError;
     console.error('Error dismissing broadcast message:', error);
     return sendError(
       res,
-      error.message || 'Failed to dismiss broadcast message',
+      err?.message || 'Failed to dismiss broadcast message',
       HTTP_STATUS.BAD_REQUEST
     );
   }

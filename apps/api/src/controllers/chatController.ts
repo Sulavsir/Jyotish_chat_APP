@@ -26,7 +26,7 @@ export const getConversations = async (req: AuthRequest, res: Response, next: Ne
 };
 
 /**
- * Get or create a chat with another user
+ * Chat is only created when the client sends the first message (via socket), so no chat row exists until then.
  */
 export const getOrCreateChat = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -38,37 +38,37 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response, next: Nex
       return sendError(res, 'Other user ID is required', 400);
     }
 
-    const chat = await chatService.findOrCreateChat({
+    const chat = await chatService.findChatOnly({
       participant1Id: userId,
       participant2Id: otherUserId,
       consultationId,
       currentUserRole: userRole,
     });
 
-    // Emit real-time event to both participants when chat is active
-    try {
-      const io = getSocketInstance();
-      if (io && chat.status === 'ACTIVE' && !chat.isLocked) {
-        // Notify both participants that the chat is active/reopened
-        io.to(`user:${chat.participant1Id}`).emit('chat:reopened', {
-          chatId: chat.id,
-          status: chat.status,
-          isLocked: chat.isLocked,
-          chat: chat,
-        });
-        io.to(`user:${chat.participant2Id}`).emit('chat:reopened', {
-          chatId: chat.id,
-          status: chat.status,
-          isLocked: chat.isLocked,
-          chat: chat,
-        });
+    if (chat) {
+      // Emit real-time event to both participants when chat is active/reopened
+      try {
+        const io = getSocketInstance();
+        if (io && chat.status === 'ACTIVE' && !chat.isLocked) {
+          io.to(`user:${chat.participant1Id}`).emit('chat:reopened', {
+            chatId: chat.id,
+            status: chat.status,
+            isLocked: chat.isLocked,
+            chat: chat,
+          });
+          io.to(`user:${chat.participant2Id}`).emit('chat:reopened', {
+            chatId: chat.id,
+            status: chat.status,
+            isLocked: chat.isLocked,
+            chat: chat,
+          });
+        }
+      } catch (socketError) {
+        console.error('Error broadcasting chat reopen:', socketError);
       }
-    } catch (socketError) {
-      console.error('Error broadcasting chat reopen:', socketError);
-      // Don't fail the request if socket fails
     }
 
-    return sendSuccess(res, chat);
+    return sendSuccess(res, { chat });
   } catch (error) {
     next(error);
   }

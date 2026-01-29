@@ -25,10 +25,11 @@ export const getConversations = async (): Promise<Chat[]> => {
 };
 
 /**
- * Get or create a chat with another user
+ * Get chat with another user (or null if no chat yet).
+ * Chat is only created when the client sends the first message (via socket).
  */
-export const getOrCreateChat = async (params: CreateChatParams): Promise<Chat> => {
-  const response = await apiClient.post<Chat>(API_ENDPOINTS.CHAT.CHATS, params);
+export const getOrCreateChat = async (params: CreateChatParams): Promise<{ chat: Chat | null }> => {
+  const response = await apiClient.post<{ chat: Chat | null }>(API_ENDPOINTS.CHAT.CHATS, params);
   return response;
 };
 
@@ -104,7 +105,9 @@ export const searchMessages = async (searchTerm: string, limit = 20): Promise<Me
 /**
  * Upload file for chat
  */
-export const uploadChatFile = async (file: File): Promise<{
+export const uploadChatFile = async (
+  file: File
+): Promise<{
   url: string;
   originalName: string;
   mimeType: string;

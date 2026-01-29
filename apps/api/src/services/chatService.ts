@@ -18,30 +18,45 @@ import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 
-/**
- * Find or create a chat between client and astrologer
- */
-export const findOrCreateChat = async (
-  params: CreateChatParams & { currentUserRole: UserRole }
-) => {
-  const { participant1Id, participant2Id, currentUserRole } = params;
-  let { consultationId } = params;
+const chatInclude = {
+  clientParticipant: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      profilePhoto: true,
+      role: true,
+    },
+  },
+  astrologerParticipant: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      profilePhoto: true,
+    },
+  },
+} as const;
 
-  // Determine who is client and who is astrologer
-  // We need to check both tables to determine the correct IDs
+/**
+ * Resolve client and astrologer IDs from request params (participant1Id, participant2Id, currentUserRole).
+ * participant1 is ALWAYS client, participant2 is ALWAYS astrologer.
+ */
+async function resolveClientAndAstrologerIds(
+  participant1Id: string,
+  participant2Id: string,
+  currentUserRole: UserRole
+): Promise<{ clientId: string; astrologerId: string }> {
   let clientId: string;
   let astrologerId: string;
 
   if (currentUserRole === UserRole.CLIENT) {
-    // Current user is client
     clientId = participant1Id;
-
-    // Check if other user is in Astrologer table or User table
     const [otherAsAstrologer, otherAsUser] = await Promise.all([
       prisma.astrologer.findUnique({ where: { id: participant2Id }, select: { id: true } }),
       prisma.user.findUnique({ where: { id: participant2Id }, select: { id: true, role: true } }),
     ]);
-
     if (otherAsAstrologer) {
       astrologerId = participant2Id;
     } else if (otherAsUser) {
@@ -49,22 +64,14 @@ export const findOrCreateChat = async (
     } else {
       throw new Error('User not found');
     }
-
-    // Verify client exists
     const client = await prisma.user.findUnique({ where: { id: clientId }, select: { id: true } });
-    if (!client) {
-      throw new Error('Client user not found');
-    }
+    if (!client) throw new Error('Client user not found');
   } else if (currentUserRole === UserRole.ASTROLOGER) {
-    // Current user is astrologer
     astrologerId = participant1Id;
-
-    // Check if other user is in User table (client)
     const otherAsUser = await prisma.user.findUnique({
       where: { id: participant2Id },
       select: { id: true, role: true },
     });
-
     if (otherAsUser && otherAsUser.role === UserRole.CLIENT) {
       clientId = participant2Id;
     } else if (otherAsUser) {
@@ -72,15 +79,11 @@ export const findOrCreateChat = async (
     } else {
       throw new Error('Client not found');
     }
-
-    // Verify astrologer exists
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
       select: { id: true },
     });
-    if (!astrologer) {
-      throw new Error('Astrologer not found');
-    }
+    if (!astrologer) throw new Error('Astrologer not found');
   } else {
     throw new AppError(
       `Invalid user role for chat. Only CLIENT and ASTROLOGER can chat. Current role: ${currentUserRole}`,
@@ -88,9 +91,23 @@ export const findOrCreateChat = async (
       ERROR_CODES.FORBIDDEN
     );
   }
+  return { clientId, astrologerId };
+}
 
-  // participant1 is ALWAYS client, participant2 is ALWAYS astrologer
-  // Find existing chat between these participants (locked or unlocked)
+/**
+ * Find chat between client and astrologer only. Optionally unlock if locked (client).
+ * Does NOT create a chat. Use this so chat is only created when the first message is sent (socket).
+ */
+export const findChatOnly = async (
+  params: CreateChatParams & { currentUserRole: UserRole }
+): Promise<Awaited<ReturnType<typeof prisma.chat.findUnique>> | null> => {
+  const { participant1Id, participant2Id, currentUserRole } = params;
+  const { clientId, astrologerId } = await resolveClientAndAstrologerIds(
+    participant1Id,
+    participant2Id,
+    currentUserRole
+  );
+
   let chat = await prisma.chat.findUnique({
     where: {
       participant1Id_participant2Id: {
@@ -98,36 +115,15 @@ export const findOrCreateChat = async (
         participant2Id: astrologerId,
       },
     },
-    include: {
-      clientParticipant: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          profilePhoto: true,
-          role: true,
-        },
-      },
-      astrologerParticipant: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          profilePhoto: true,
-        },
-      },
-    },
+    include: chatInclude,
   });
 
-  // If chat exists and is locked
-  if (chat && chat.isLocked) {
-    // Only CLIENTS can unlock (reopen) the chat
+  if (!chat) return null;
+
+  if (chat.isLocked) {
     if (currentUserRole === UserRole.ASTROLOGER) {
       throw new Error('This chat is locked. Only the client can reopen the conversation.');
     }
-
-    // Client is trying to chat again - unlock the chat
     chat = await prisma.chat.update({
       where: { id: chat.id },
       data: {
@@ -136,30 +132,58 @@ export const findOrCreateChat = async (
         endedBy: null,
         endedAt: null,
       },
-      include: {
-        clientParticipant: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            profilePhoto: true,
-            role: true,
-          },
-        },
-        astrologerParticipant: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            profilePhoto: true,
-          },
-        },
-      },
+      include: chatInclude,
     });
   }
 
-  // Create if doesn't exist
+  return chat;
+};
+
+/**
+ * Find or create a chat between client and astrologer.
+ * @deprecated Prefer findChatOnly + creating chat on first message (socket). Chats should only be created when actual text is sent.
+ */
+export const findOrCreateChat = async (
+  params: CreateChatParams & { currentUserRole: UserRole }
+) => {
+  const { participant1Id, participant2Id, currentUserRole } = params;
+  let { consultationId } = params;
+
+  const { clientId, astrologerId } = await resolveClientAndAstrologerIds(
+    participant1Id,
+    participant2Id,
+    currentUserRole
+  );
+
+  // participant1 is ALWAYS client, participant2 is ALWAYS astrologer
+  let chat = await prisma.chat.findUnique({
+    where: {
+      participant1Id_participant2Id: {
+        participant1Id: clientId,
+        participant2Id: astrologerId,
+      },
+    },
+    include: chatInclude,
+  });
+
+  // If chat exists and is locked
+  if (chat && chat.isLocked) {
+    if (currentUserRole === UserRole.ASTROLOGER) {
+      throw new Error('This chat is locked. Only the client can reopen the conversation.');
+    }
+    chat = await prisma.chat.update({
+      where: { id: chat.id },
+      data: {
+        isLocked: false,
+        status: ChatStatus.ACTIVE,
+        endedBy: null,
+        endedAt: null,
+      },
+      include: chatInclude,
+    });
+  }
+
+  // Create if doesn't exist - only when explicitly using findOrCreateChat (e.g. internal flows)
   if (!chat) {
     // Only CLIENTS can create new chats
     if (currentUserRole === UserRole.ASTROLOGER) {
@@ -282,30 +306,10 @@ export const findOrCreateChat = async (
         participant1Type: ParticipantType.CLIENT,
         participant2Type: ParticipantType.ASTROLOGER,
         consultationId,
-        // ✅ Start as ACTIVE - chat is active when created
         status: ChatStatus.ACTIVE,
         isLocked: false,
       },
-      include: {
-        clientParticipant: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            profilePhoto: true,
-            role: true,
-          },
-        },
-        astrologerParticipant: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            profilePhoto: true,
-          },
-        },
-      },
+      include: chatInclude,
     });
   }
 
@@ -574,11 +578,7 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
   }
 
   // Turn-based messaging: prevent multiple client messages while waiting for reply
-  if (
-    chat.turnBasedEnabled &&
-    chat.waitingForReply &&
-    senderRole === UserRole.CLIENT
-  ) {
+  if (chat.turnBasedEnabled && chat.waitingForReply && senderRole === UserRole.CLIENT) {
     throw new AppError(
       'Please wait for the astrologer to reply before sending another message.',
       HTTP_STATUS.BAD_REQUEST,

@@ -6,6 +6,8 @@
 import express from 'express';
 import { authenticate } from '@/middleware/auth';
 import { asyncHandler } from '@/utils';
+import { validateParams } from '../middleware/validate';
+import { messageIdParamSchema } from '../validators/broadcastMessage.validators';
 import * as broadcastMessageController from '../controllers/broadcastMessageController';
 
 const router = express.Router();
@@ -26,12 +28,31 @@ router.get('/all', asyncHandler(broadcastMessageController.getAllMessages));
 router.get('/my-messages', asyncHandler(broadcastMessageController.getMyMessages));
 
 // Accept a broadcast message (astrologer only)
-router.post('/:messageId/accept', asyncHandler(broadcastMessageController.acceptMessage));
+router.post(
+  '/:messageId/accept',
+  validateParams(messageIdParamSchema),
+  asyncHandler(broadcastMessageController.acceptMessage)
+);
+
+// Cancel a pending broadcast message (client only)
+router.post(
+  '/:messageId/cancel',
+  validateParams(messageIdParamSchema),
+  asyncHandler(broadcastMessageController.cancelBroadcastMessage)
+);
 
 // Dismiss/Reject a broadcast message (astrologer only)
-router.post('/:messageId/dismiss', asyncHandler(broadcastMessageController.dismissBroadcastMessage));
+router.post(
+  '/:messageId/dismiss',
+  validateParams(messageIdParamSchema),
+  asyncHandler(broadcastMessageController.dismissBroadcastMessage)
+);
 
 // Get specific broadcast message
-router.get('/:messageId', asyncHandler(broadcastMessageController.getBroadcastMessage));
+router.get(
+  '/:messageId',
+  validateParams(messageIdParamSchema),
+  asyncHandler(broadcastMessageController.getBroadcastMessage)
+);
 
 export default router;

@@ -153,7 +153,13 @@ export function chatHandlers(io: Server, socket: Socket) {
           return;
         }
 
-        // Create new chat if doesn't exist
+        // Get astrologer once (needed for premium check and coin deduction)
+        const astrologer = await prisma.astrologer.findUnique({
+          where: { id: astrologerId },
+          select: { category: true, id: true },
+        });
+
+        // Create new chat only when first message is sent (after validations and coin deduction)
         if (!chat) {
           // Only CLIENTS can create new chats
           if (user.role === UserRole.ASTROLOGER) {
@@ -181,7 +187,6 @@ export function chatHandlers(io: Server, socket: Socket) {
             return;
           }
 
-          // Check if all required fields are present (same logic as frontend)
           const missingFields: string[] = [];
           if (!clientProfile.name || clientProfile.name.trim() === '') {
             missingFields.push('Name');
@@ -203,40 +208,14 @@ export function chatHandlers(io: Server, socket: Socket) {
             return;
           }
 
-          chat = await prisma.chat.create({
-            data: {
-              participant1Id: clientId,
-              participant2Id: astrologerId,
-              participant1Type: ParticipantType.CLIENT,
-              participant2Type: ParticipantType.ASTROLOGER,
-              // ✅ Start as ACTIVE - chat is active when created
-              status: ChatStatus.ACTIVE,
-              isLocked: false,
-            },
-          });
-
-          // Emit new chat event to admin for real-time stats
-          AdminStatsEmitter.emitNewChat();
-        }
-
-        // For PREMIUM astrologers, verify we're within appointment window
-        if (user.role === UserRole.CLIENT) {
-          // Get astrologer category
-          const astrologer = await prisma.astrologer.findUnique({
-            where: { id: astrologerId },
-            select: { category: true, id: true },
-          });
-
+          // PREMIUM: verify appointment window before creating chat
           if (astrologer?.category === AstrologerCategory.PREMIUM) {
             const now = new Date();
-            // Find the most recent appointment for this client-astrologer pair
             const appointment = await prisma.appointment.findFirst({
               where: {
                 clientId,
                 astrologerId,
-                scheduledAt: {
-                  lte: now, // Appointment has started
-                },
+                scheduledAt: { lte: now },
                 status: {
                   in: [
                     AppointmentStatus.CONFIRMED,
@@ -245,9 +224,7 @@ export function chatHandlers(io: Server, socket: Socket) {
                   ],
                 },
               },
-              orderBy: {
-                scheduledAt: 'desc',
-              },
+              orderBy: { scheduledAt: 'desc' },
             });
 
             if (!appointment) {
@@ -259,12 +236,10 @@ export function chatHandlers(io: Server, socket: Socket) {
               return;
             }
 
-            // Check if we're within the appointment window (duration minutes from scheduledAt)
             const appointmentStart = new Date(appointment.scheduledAt);
             const appointmentEnd = new Date(
               appointmentStart.getTime() + appointment.duration * 60 * 1000
             );
-
             if (now < appointmentStart || now > appointmentEnd) {
               socket.emit('chat:error', {
                 message: `You can only chat during your appointment window (${appointment.duration} minutes starting from ${appointmentStart.toLocaleString()}).`,
@@ -274,28 +249,132 @@ export function chatHandlers(io: Server, socket: Socket) {
             }
           }
 
-          // Deduct coins per message (only for ORDINARY and PROFESSIONAL, not PREMIUM)
-          if (astrologer?.category) {
+          // Deduct coins BEFORE creating chat so we never leave an ACTIVE chat with no message
+          if (astrologer?.category && user.role === UserRole.CLIENT) {
             const { requiresCoinsForChat, toSharedAstrologerCategory } =
               await import('../constants/coin.constants');
             if (requiresCoinsForChat(astrologer.category)) {
-              // Check if this chat is from a broadcast message
+              const { deductCoinsForMessage } = await import('../services/coin.service');
+              // Use a temporary placeholder chatId for first message; coin service only needs it for transaction record.
+              // We'll create the chat after deduction succeeds. So we need to either pass a temp id or create chat after deduct.
+              // deductCoinsForMessage requires chatId - create chat first, deduct, on failure delete chat.
+              const newChat = await prisma.chat.create({
+                data: {
+                  participant1Id: clientId,
+                  participant2Id: astrologerId,
+                  participant1Type: ParticipantType.CLIENT,
+                  participant2Type: ParticipantType.ASTROLOGER,
+                  status: ChatStatus.ACTIVE,
+                  isLocked: false,
+                },
+              });
+              try {
+                await deductCoinsForMessage(
+                  user.id,
+                  toSharedAstrologerCategory(astrologer.category),
+                  newChat.id,
+                  false
+                );
+                chat = newChat;
+              } catch (error: any) {
+                await prisma.chat.delete({ where: { id: newChat.id } });
+                socket.emit('chat:error', {
+                  message: error.message || 'Insufficient coins to send message',
+                  code: 'INSUFFICIENT_COINS',
+                  requiredCoins: error.requiredCoins,
+                });
+                return;
+              }
+              AdminStatsEmitter.emitNewChat();
+            } else {
+              chat = await prisma.chat.create({
+                data: {
+                  participant1Id: clientId,
+                  participant2Id: astrologerId,
+                  participant1Type: ParticipantType.CLIENT,
+                  participant2Type: ParticipantType.ASTROLOGER,
+                  status: ChatStatus.ACTIVE,
+                  isLocked: false,
+                },
+              });
+              AdminStatsEmitter.emitNewChat();
+            }
+          } else {
+            chat = await prisma.chat.create({
+              data: {
+                participant1Id: clientId,
+                participant2Id: astrologerId,
+                participant1Type: ParticipantType.CLIENT,
+                participant2Type: ParticipantType.ASTROLOGER,
+                status: ChatStatus.ACTIVE,
+                isLocked: false,
+              },
+            });
+            AdminStatsEmitter.emitNewChat();
+          }
+        } else {
+          // Existing chat: PREMIUM window check and coin deduction
+          if (
+            user.role === UserRole.CLIENT &&
+            astrologer?.category === AstrologerCategory.PREMIUM
+          ) {
+            const now = new Date();
+            const appointment = await prisma.appointment.findFirst({
+              where: {
+                clientId,
+                astrologerId,
+                scheduledAt: { lte: now },
+                status: {
+                  in: [
+                    AppointmentStatus.CONFIRMED,
+                    AppointmentStatus.IN_PROGRESS,
+                    AppointmentStatus.COMPLETED,
+                  ],
+                },
+              },
+              orderBy: { scheduledAt: 'desc' },
+            });
+
+            if (!appointment) {
+              socket.emit('chat:error', {
+                message:
+                  'You can only chat with Premium astrologers during your scheduled appointment time. Please book an appointment first.',
+                code: 'APPOINTMENT_REQUIRED',
+              });
+              return;
+            }
+
+            const appointmentStart = new Date(appointment.scheduledAt);
+            const appointmentEnd = new Date(
+              appointmentStart.getTime() + appointment.duration * 60 * 1000
+            );
+            if (now < appointmentStart || now > appointmentEnd) {
+              socket.emit('chat:error', {
+                message: `You can only chat during your appointment window.`,
+                code: 'APPOINTMENT_WINDOW_EXPIRED',
+              });
+              return;
+            }
+          }
+
+          if (user.role === UserRole.CLIENT && astrologer?.category) {
+            const { requiresCoinsForChat, toSharedAstrologerCategory } =
+              await import('../constants/coin.constants');
+            if (requiresCoinsForChat(astrologer.category)) {
               const broadcastMessage = await prisma.broadcastMessage.findFirst({
-                where: { chatId: chat.id },
+                where: { chatId: chat!.id },
                 select: { id: true },
               });
               const isBroadcastChat = !!broadcastMessage;
-
               const { deductCoinsForMessage } = await import('../services/coin.service');
               try {
                 await deductCoinsForMessage(
                   user.id,
                   toSharedAstrologerCategory(astrologer.category),
-                  chat.id,
+                  chat!.id,
                   isBroadcastChat
                 );
               } catch (error: any) {
-                // Emit insufficient coins error to client
                 socket.emit('chat:error', {
                   message: error.message || 'Insufficient coins to send message',
                   code: 'INSUFFICIENT_COINS',

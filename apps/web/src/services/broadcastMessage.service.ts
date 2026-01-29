@@ -10,6 +10,7 @@ import type {
   CreateBroadcastMessageRequest,
   AcceptBroadcastMessageResponse,
   DismissBroadcastMessageResponse,
+  CancelBroadcastMessageResponse,
   MessageType,
 } from '@/types';
 
@@ -18,10 +19,7 @@ const broadcastMessageService = {
    * Send a broadcast message to all astrologers (client only)
    */
   async sendMessage(data: CreateBroadcastMessageRequest): Promise<BroadcastMessage> {
-    const response = await apiClient.post<BroadcastMessage>(
-      API_ENDPOINTS.BROADCAST.MESSAGES,
-      data
-    );
+    const response = await apiClient.post<BroadcastMessage>(API_ENDPOINTS.BROADCAST.MESSAGES, data);
     return response;
   },
 
@@ -46,9 +44,7 @@ const broadcastMessageService = {
    * Get my broadcast messages (client only)
    */
   async getMyMessages(): Promise<BroadcastMessage[]> {
-    const response = await apiClient.get<BroadcastMessage[]>(
-      API_ENDPOINTS.BROADCAST.MY_MESSAGES
-    );
+    const response = await apiClient.get<BroadcastMessage[]>(API_ENDPOINTS.BROADCAST.MY_MESSAGES);
     return response;
   },
 
@@ -58,6 +54,17 @@ const broadcastMessageService = {
   async acceptMessage(messageId: string): Promise<AcceptBroadcastMessageResponse> {
     const response = await apiClient.post<AcceptBroadcastMessageResponse>(
       API_ENDPOINTS.BROADCAST.ACCEPT(messageId)
+    );
+    return response;
+  },
+
+  /**
+   * Cancel a pending broadcast message (client only).
+   * Refunds coin and notifies astrologers so the request is removed from their list.
+   */
+  async cancelMessage(messageId: string): Promise<CancelBroadcastMessageResponse> {
+    const response = await apiClient.post<CancelBroadcastMessageResponse>(
+      API_ENDPOINTS.BROADCAST.CANCEL(messageId)
     );
     return response;
   },

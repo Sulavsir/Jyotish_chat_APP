@@ -19,6 +19,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { useRouter } from 'next/navigation';
 import { ROUTE_BUILDERS } from '@/constants';
+import { CountdownTimer } from '@/components/ui/CountdownTimer';
+import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 
 export function BroadcastMessageBar() {
   const { socket, isConnected } = useSocket();
@@ -50,31 +52,52 @@ export function BroadcastMessageBar() {
       toast.info(`New broadcast from ${message.client?.name || message.client?.phone || 'Client'}`);
     });
 
-    // Message was accepted (by someone)
-    socket.on('broadcast:messageNoLongerAvailable', (data: { messageId: string }) => {
+    // Message was accepted by an astrologer - remove immediately
+    socket.on(
+      'broadcast:messageAcceptedByAstrologer',
+      (data: {
+        messageId: string;
+        acceptedBy: { id: string; name?: string };
+        acceptedAt: string;
+        clientName: string;
+      }) => {
+        // Remove message immediately - it's no longer available
+        setPendingMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+        if (data.acceptedBy.id !== user?.id) {
+          toast.info('This request was accepted by another astrologer');
+        }
+      }
+    );
+
+    // Client cancelled their broadcast - remove immediately
+    socket.on('broadcast:messageCancelled', (data: { messageId: string }) => {
       setPendingMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     });
 
-    // My acceptance was successful
-    socket.on('broadcast:messageAccepted', (data: any) => {
-      if (data.message && data.chat) {
-        setPendingMessages((prev) => prev.filter((m) => m.id !== data.message.id));
+    // My acceptance was successful - remove immediately
+    socket.on(
+      'broadcast:messageAccepted',
+      (data: { message?: { id: string }; chat?: { id: string } }) => {
+        if (data.message?.id) {
+          setPendingMessages((prev) => prev.filter((m) => m.id !== data.message!.id));
+        }
         setAccepting(null);
-        toast.success('Chat started successfully!');
-        // Navigate to the new chat
-        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(data.chat.id));
+        if (data.chat) {
+          toast.success('Chat started successfully!');
+          router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(data.chat.id));
+        }
       }
-    });
+    );
 
-    // Error handling
-    socket.on('broadcast:error', (error: any) => {
+    socket.on('broadcast:error', (error: { message?: string }) => {
       toast.error(error.message || 'Something went wrong');
       setAccepting(null);
     });
 
     return () => {
       socket.off('broadcast:newMessage');
-      socket.off('broadcast:messageNoLongerAvailable');
+      socket.off('broadcast:messageAcceptedByAstrologer');
+      socket.off('broadcast:messageCancelled');
       socket.off('broadcast:messageAccepted');
       socket.off('broadcast:error');
     };
@@ -200,7 +223,16 @@ export function BroadcastMessageBar() {
                 </p>
                 <div className="flex items-center gap-2 text-gray-600 text-sm">
                   <Clock className="h-4 w-4" />
-                  <span className="font-medium">{getTimeRemaining(currentMessage.createdAt)}</span>
+                  <CountdownTimer
+                    createdAt={currentMessage.createdAt}
+                    expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+                    showIcon={false}
+                    onExpire={() => {
+                      // Remove expired message immediately
+                      setPendingMessages((prev) => prev.filter((m) => m.id !== currentMessage.id));
+                      toast.info('This request has expired');
+                    }}
+                  />
                 </div>
               </div>
             </div>

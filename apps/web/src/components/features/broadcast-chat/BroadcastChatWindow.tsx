@@ -13,6 +13,7 @@ import type { BroadcastMessage } from '@/types';
 import { BroadcastMessageStatus } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import chatService from '@/services/chat.service';
+import coinService from '@/services/coin.service';
 import { Send, Users, Check, Lock, XCircle, AlertCircle, Coins } from 'lucide-react';
 import { toast } from 'sonner';
 import { getImageUrl } from '@/utils/image.utils';
@@ -20,8 +21,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { LoadingButton } from '@/components/ui';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
-import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_CHAT_COIN_COST } from '@/constants/broadcastMessage.constants';
+import {
+  BROADCAST_MESSAGE_EXPIRY_MS,
+  BROADCAST_CHAT_COIN_COST,
+} from '@/constants/broadcastMessage.constants';
 import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
@@ -122,48 +128,62 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       }, 100);
     });
 
-    // Listen for message acceptance
-    socket.on('broadcast:yourMessageAccepted', (data: any) => {
-      const { message, chat, astrologer, initialMessages } = data;
+    socket.on(
+      'broadcast:yourMessageAccepted',
+      (data: {
+        message: BroadcastMessage;
+        chat: { id: string };
+        astrologer: BroadcastMessage['acceptedAstrologer'];
+        initialMessages?: unknown[];
+      }) => {
+        const { message, chat, astrologer } = data;
 
-      // Close the modal immediately by clearing waiting state
-      setIsSending(false);
-      setIsWaitingForAcceptance(false);
+        setIsSending(false);
+        setIsWaitingForAcceptance(false);
 
-      // Update the message status
+        const acceptedAstrologer = astrologer ?? undefined;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === message.id
+              ? ({
+                  ...msg,
+                  status: BroadcastMessageStatus.ACCEPTED,
+                  acceptedAstrologer: acceptedAstrologer ?? msg.acceptedAstrologer,
+                  chatId: chat.id,
+                } as BroadcastMessage)
+              : msg
+          )
+        );
+
+        toast.success(
+          `${astrologer?.name || 'An astrologer'} accepted your request! Opening chat...`,
+          {
+            description: 'You can now start chatting with your astrologer',
+            duration: 3000,
+          }
+        );
+
+        // Navigate to the chat immediately
+        // The chat will already have the initial messages (user's broadcast + astrologer's welcome)
+        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
+
+        // Notify parent callback
+        if (onChatCreated && chat.id) {
+          onChatCreated(chat.id);
+        }
+      }
+    );
+
+    socket.on('broadcast:messageCancelled', (data: { messageId: string }) => {
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === message.id
-            ? {
-                ...msg,
-                status: BroadcastMessageStatus.ACCEPTED,
-                acceptedAstrologer: astrologer,
-                chatId: chat.id,
-              }
-            : msg
+        prev.map((m) =>
+          m.id === data.messageId ? { ...m, status: BroadcastMessageStatus.CANCELLED } : m
         )
       );
-
-      toast.success(
-        `${astrologer.name || 'An astrologer'} accepted your request! Opening chat...`,
-        {
-          description: 'You can now start chatting with your astrologer',
-          duration: 3000,
-        }
-      );
-
-      // Navigate to the chat immediately
-      // The chat will already have the initial messages (user's broadcast + astrologer's welcome)
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
-
-      // Notify parent callback
-      if (onChatCreated && chat.id) {
-        onChatCreated(chat.id);
-      }
+      setIsWaitingForAcceptance(false);
     });
 
-    // Listen for errors
-    socket.on('broadcast:error', (error: any) => {
+    socket.on('broadcast:error', (error: { message?: string; code?: string }) => {
       const errorMessage = error.message || 'Something went wrong';
 
       // Special handling for different error types
@@ -200,6 +220,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     return () => {
       socket.off('broadcast:messageSent');
       socket.off('broadcast:yourMessageAccepted');
+      socket.off('broadcast:messageCancelled');
       socket.off('broadcast:error');
     };
   }, [socket, isConnected, onChatCreated, router, queryClient]);
@@ -225,9 +246,28 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     }
   }
 
+  const cancelBroadcastMutation = useMutation({
+    mutationFn: (messageId: string) => broadcastMessageService.cancelMessage(messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+      toast.success('Request cancelled. Your coin has been refunded.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to cancel request.');
+    },
+    onSettled: (_data, _error, messageId) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, status: BroadcastMessageStatus.CANCELLED } : m
+        )
+      );
+      setIsWaitingForAcceptance(false);
+    },
+  });
+
   // Memoize the onExpire callback to prevent unnecessary re-creations
   const handleMessageExpire = React.useCallback(() => {
-    console.log('⏰ [BroadcastChatWindow] Message expired, reloading...');
     loadMessages();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -288,6 +328,21 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       return;
     }
 
+    // Pre-check coins before initiating broadcast (don't send if insufficient)
+    try {
+      const { balance } = await coinService.getBalance();
+      if (balance < BROADCAST_CHAT_COIN_COST) {
+        const backendStyleMessage = `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${balance} coins. c`;
+        toast.error(backendStyleMessage);
+        setRequiredCoins(BROADCAST_CHAT_COIN_COST);
+        setShowCoinPurchaseModal(true);
+        return;
+      }
+    } catch (err) {
+      toast.error('Failed to check coin balance. Please try again.');
+      return;
+    }
+
     try {
       setIsSending(true);
 
@@ -308,6 +363,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   function renderMessage(message: BroadcastMessage) {
     const isAccepted = message.status === BroadcastMessageStatus.ACCEPTED;
     const isExpired = message.status === BroadcastMessageStatus.EXPIRED;
+    const isCancelled = message.status === BroadcastMessageStatus.CANCELLED;
 
     return (
       <div key={message.id} className="mb-6">
@@ -377,14 +433,41 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           </div>
         )}
 
-        {/* Pending status */}
-        {message.status === BroadcastMessageStatus.PENDING && (
+        {/* Cancelled status */}
+        {isCancelled && (
           <div className="flex justify-start">
+            <div className="max-w-[75%] bg-slate-50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 shadow-sm">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-slate-500" />
+                <p className="text-sm text-slate-800 dark:text-slate-200 font-medium">
+                  Request cancelled
+                </p>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                Your coin has been refunded.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Pending status + Cancel button */}
+        {message.status === BroadcastMessageStatus.PENDING && (
+          <div className="flex justify-start gap-2 flex-wrap items-center">
             <div className="max-w-[75%] bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg px-4 py-2 shadow-sm">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
                 Waiting for an astrologer to accept...
               </p>
             </div>
+            <LoadingButton
+              variant="outline"
+              size="sm"
+              onClick={() => cancelBroadcastMutation.mutate(message.id)}
+              isLoading={cancelBroadcastMutation.isPending}
+              disabled={cancelBroadcastMutation.isPending}
+              className="border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
+            >
+              Cancel request
+            </LoadingButton>
           </div>
         )}
       </div>
@@ -451,9 +534,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">
-                Coin Cost
-              </p>
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">Coin Cost</p>
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 Sending a broadcast message will cost{' '}
                 <span className="font-semibold inline-flex items-center gap-1">

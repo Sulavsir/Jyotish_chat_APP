@@ -185,7 +185,7 @@ export function AddCoinsModal({
                 className="flex-1 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white"
                 disabled={!form.watch('amount')}
                 isLoading={addCoinsMutation.isPending}
-                loadingText="Processing..."
+                loadingText="Adding Coins..."
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Coins

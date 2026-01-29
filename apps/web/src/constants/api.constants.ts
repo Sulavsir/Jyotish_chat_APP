@@ -74,6 +74,7 @@ export const API_ENDPOINTS = {
     ALL: '/api/v1/broadcast-messages/all',
     MY_MESSAGES: '/api/v1/broadcast-messages/my-messages',
     ACCEPT: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/accept`,
+    CANCEL: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/cancel`,
     DISMISS: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/dismiss`,
     MESSAGE_BY_ID: (messageId: string) => `/api/v1/broadcast-messages/${messageId}`,
   },

@@ -37,3 +37,4 @@ export * from './notification.validators';
 export * from './appointment.validators';
 export * from './dashboardRotatingCopy.validators';
 export * from './jyotishBooking.validators';
+export * from './broadcastMessage.validators';

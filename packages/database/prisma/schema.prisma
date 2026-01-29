@@ -750,9 +750,10 @@ enum InstantChatRequestStatus {
 }
 
 enum BroadcastMessageStatus {
-  PENDING // Message sent, waiting for astrologer to accept
-  ACCEPTED // Astrologer accepted, chat created
-  EXPIRED // Message expired (no response in reasonable time)
+  PENDING   // Message sent, waiting for astrologer to accept
+  ACCEPTED  // Astrologer accepted, chat created
+  EXPIRED   // Message expired (no response in reasonable time)
+  CANCELLED // Client cancelled the broadcast request
 }
 
 enum ComplaintStatus {

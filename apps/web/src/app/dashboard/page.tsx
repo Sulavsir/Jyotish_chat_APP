@@ -377,22 +377,22 @@ export default function DashboardPage() {
             left: 52%;
             animation-delay: 4.1s;
           }
-              :global(.spark--19) {
+          :global(.spark--19) {
             top: 12%;
             left: 30%;
             animation-delay: 0.9s;
           }
-              :global(.spark--20) {
+          :global(.spark--20) {
             top: 12%;
             left: 30%;
             animation-delay: 0.9s;
           }
-            :global(.spark--21) {
+          :global(.spark--21) {
             top: 12%;
             left: 30%;
             animation-delay: 0.9s;
           }
-            :global(.spark--22) {
+          :global(.spark--22) {
             top: 12%;
             left: 30%;
             animation-delay: 0.9s;
@@ -497,8 +497,8 @@ export default function DashboardPage() {
               Welcome, {user?.name || 'User'}! 🌟
             </h1>
             <p className="text-gray-400">
-              Your cosmic journey begins here. Explore your horoscope, chat with astrologers, or book
-              a consultation.
+              Your cosmic journey begins here. Explore your horoscope, chat with astrologers, or
+              book a consultation.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -642,7 +642,9 @@ export default function DashboardPage() {
                   <div className="hidden lg:flex flex-col gap-3 min-w-[240px]">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                       <p className="text-xs text-gray-400">Quick tip</p>
-                      <p className="text-sm text-white font-semibold mt-1">Profile पूरा गर्नुहोस्</p>
+                      <p className="text-sm text-white font-semibold mt-1">
+                        Profile पूरा गर्नुहोस्
+                      </p>
                       <p className="text-sm text-gray-400 mt-1">
                         Accurate insights को लागि जन्म विवरण र प्रोफाइल पूरा गर्नुहोस्।
                       </p>
@@ -683,6 +685,7 @@ export default function DashboardPage() {
               onOpenPanditModal={() => setIsPanditModalOpen(true)}
               onOpenVaastuModal={() => setIsVaastuModalOpen(true)}
               onOpenKathaModal={() => setIsKathaModalOpen(true)}
+              onOpenAppointmentModal={() => setIsAppointmentModalOpen(true)}
             />
           </div>
         </div>

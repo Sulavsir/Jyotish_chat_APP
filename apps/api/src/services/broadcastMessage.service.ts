@@ -17,8 +17,8 @@ import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../u
 import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import { deductCoinsForChat, deductCoinsForBroadcastMessage } from './coin.service';
-import { requiresCoinsForChat } from '../constants/coin.constants';
+import { deductCoinsForChat, deductCoinsForBroadcastMessage, refundCoins } from './coin.service';
+import { requiresCoinsForChat, getBroadcastChatCoinCost } from '../constants/coin.constants';
 
 export interface CreateBroadcastMessageData {
   clientId: string;
@@ -37,7 +37,7 @@ export interface AcceptBroadcastMessageData {
  */
 export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   // Graceful handling if table doesn't exist yet
-  if (!(prisma as any).broadcastMessage) {
+  if (!('broadcastMessage' in prisma)) {
     throw new Error('BroadcastMessage table not found. Please run: prisma db push');
   }
 
@@ -178,8 +178,9 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   // Check coin balance and deduct 1 coin upfront for broadcast message
   try {
     await deductCoinsForBroadcastMessage(data.clientId);
-  } catch (error: any) {
-    if (error.code === 'INSUFFICIENT_COINS') {
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === 'INSUFFICIENT_COINS') {
       throw new Error(
         `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${clientProfile.coins} coins. Please top up your coins.`
       );
@@ -232,7 +233,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
  */
 export async function expireOldMessages() {
   // Graceful handling if table doesn't exist yet
-  if (!(prisma as any).broadcastMessage) {
+  if (!('broadcastMessage' in prisma)) {
     return { count: 0 };
   }
 
@@ -252,12 +253,79 @@ export async function expireOldMessages() {
     });
 
     return result;
-  } catch (error: any) {
-    if (error?.code === 'P2021' || error?.message?.includes('does not exist')) {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
       return { count: 0 };
     }
     throw error;
   }
+}
+
+/**
+ * Cancel a pending broadcast message (client only).
+ * Sets status to CANCELLED, refunds the coin, and notifies astrologers so they remove it from their list.
+ */
+export async function cancelBroadcastMessage(messageId: string, clientId: string) {
+  if (!('broadcastMessage' in prisma)) {
+    throw new Error('BroadcastMessage table not found. Please run: prisma db push');
+  }
+
+  const message = await prisma.broadcastMessage.findUnique({
+    where: { id: messageId },
+  });
+
+  if (!message) {
+    throw new AppError('Broadcast message not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  if (message.clientId !== clientId) {
+    throw new AppError(
+      'You can only cancel your own broadcast message',
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODES.FORBIDDEN
+    );
+  }
+
+  if (message.status !== BroadcastMessageStatus.PENDING) {
+    throw new AppError(
+      'Only pending broadcast messages can be cancelled',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const refundAmount = getBroadcastChatCoinCost();
+  await refundCoins(clientId, refundAmount);
+
+  const updatedMessage = await prisma.broadcastMessage.update({
+    where: { id: messageId },
+    data: { status: 'CANCELLED' as BroadcastMessageStatus },
+    include: {
+      client: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          profilePhoto: true,
+        },
+      },
+    },
+  });
+
+  await auditService.logAction({
+    action: AuditAction.BROADCAST_MESSAGE_CREATE, // Reuse or add BROADCAST_MESSAGE_CANCEL if needed
+    resource: 'BroadcastMessage',
+    resourceId: messageId,
+    userId: clientId,
+    details: {
+      messageId,
+      action: 'CANCELLED',
+      refundAmount,
+    },
+  });
+
+  return updatedMessage;
 }
 
 /**
@@ -268,7 +336,7 @@ export async function expireOldMessages() {
  */
 export async function getPendingBroadcastMessages(astrologerId?: string) {
   // Graceful handling if table doesn't exist yet
-  if (!(prisma as any).broadcastMessage) {
+  if (!('broadcastMessage' in prisma)) {
     return [];
   }
 
@@ -336,7 +404,7 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
  */
 export async function getAllBroadcastMessages(astrologerId?: string) {
   // Graceful handling if table doesn't exist yet
-  if (!(prisma as any).broadcastMessage) {
+  if (!('broadcastMessage' in prisma)) {
     return [];
   }
 
@@ -354,6 +422,9 @@ export async function getAllBroadcastMessages(astrologerId?: string) {
   }
 
   const messages = await prisma.broadcastMessage.findMany({
+    where: {
+      status: { not: 'CANCELLED' as BroadcastMessageStatus },
+    },
     include: {
       client: {
         select: {
@@ -386,7 +457,7 @@ export async function getAllBroadcastMessages(astrologerId?: string) {
  */
 export async function getClientBroadcastMessages(clientId: string) {
   // Graceful handling if table doesn't exist yet
-  if (!(prisma as any).broadcastMessage) {
+  if (!('broadcastMessage' in prisma)) {
     return [];
   }
 

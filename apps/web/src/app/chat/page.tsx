@@ -17,6 +17,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { ChatList, ChatWindow, OnlineUsers } from '@/components/features/chat';
 import { BroadcastChatWindow } from '@/components/features/broadcast-chat/BroadcastChatWindow';
 import chatService from '@/services/chat.service';
+import astrologerService from '@/services/astrologer.service';
 import { toast } from 'sonner';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
@@ -34,6 +35,7 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const chatIdFromUrl = searchParams?.get('chatId');
+  const otherUserIdFromUrl = searchParams?.get('otherUserId');
 
   const user = useAuthStore((state) => state.user);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -53,6 +55,7 @@ export default function ChatPage() {
   const [requiredCoins, setRequiredCoins] = useState(1);
   const initializedRef = useRef(false);
   const currentOtherUserId = useRef<string | null>(null);
+  const pendingMessageSentRef = useRef<string | null>(null);
 
   const { sendMessage, sendTypingIndicator, isConnected, socket } = useSocket();
   const typingUsers = useStore((state) => state.typingUsers);
@@ -73,8 +76,10 @@ export default function ChatPage() {
 
       // If we have a chatId in URL, try to select it
       if (chatIdFromUrl) {
-        // Pass loaded chats to avoid timing issues
         await loadAndSelectChatFromUrl(chatIdFromUrl, loadedChats);
+      } else if (otherUserIdFromUrl) {
+        // No chat yet: open "new conversation" with this astrologer (chat is created on first message)
+        await loadAndSelectChatByOtherUserId(otherUserIdFromUrl);
       }
     };
 
@@ -82,38 +87,68 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Handle URL changes after initial mount (when chatId query param changes)
+  // Handle URL changes after initial mount (when chatId or otherUserId query param changes)
   useEffect(() => {
-    // Only run after initial mount
     if (!initializedRef.current || !user) return;
 
-    // If chatId is removed from URL (navigating to broadcast), skip
-    if (!chatIdFromUrl) {
-      console.log('📍 [ChatPage] No chatId in URL, staying in current mode');
+    if (chatIdFromUrl) {
+      if (activeChatId === chatIdFromUrl && !isBroadcastChatActive) return;
+      if (isBroadcastChatActive) {
+        setIsBroadcastChatActive(false);
+        loadAndSelectChatFromUrl(chatIdFromUrl, chats, true);
+        return;
+      }
+      loadAndSelectChatFromUrl(chatIdFromUrl, chats);
       return;
     }
 
-    console.log('📍 [ChatPage] URL changed, loading chat:', chatIdFromUrl);
-
-    // If this chat is already active, don't reload
-    if (activeChatId === chatIdFromUrl && !isBroadcastChatActive) {
-      console.log('✅ [ChatPage] Chat already active, skipping');
-      return;
+    if (otherUserIdFromUrl) {
+      const newChatId = `new-${otherUserIdFromUrl}`;
+      if (activeChatId === newChatId) return;
+      pendingMessageSentRef.current = null;
+      loadAndSelectChatByOtherUserId(otherUserIdFromUrl);
     }
-
-    // ✅ Clear broadcast mode if switching from broadcast to regular chat
-    if (isBroadcastChatActive) {
-      console.log('🔄 [ChatPage] Switching from broadcast to regular chat');
-      setIsBroadcastChatActive(false);
-      // ✅ Skip mobile toggle to preserve scroll position
-      loadAndSelectChatFromUrl(chatIdFromUrl, chats, true);
-      return;
-    }
-
-    // Load the chat from URL (normal flow)
-    loadAndSelectChatFromUrl(chatIdFromUrl, chats);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatIdFromUrl]);
+  }, [chatIdFromUrl, otherUserIdFromUrl]);
+
+  // Send pending initial message when opening "new conversation" from dashboard (e.g. Ask Questions → specific Jyotish)
+  useEffect(() => {
+    if (
+      !otherUserIdFromUrl ||
+      !activeChatId ||
+      activeChatId !== `new-${otherUserIdFromUrl}` ||
+      !isConnected ||
+      !user
+    ) {
+      return;
+    }
+    if (pendingMessageSentRef.current === otherUserIdFromUrl) return;
+
+    try {
+      const raw =
+        typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('pendingChatMessage') : null;
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as {
+        otherUserId: string;
+        content: string;
+        categoryId?: string;
+      };
+      if (parsed.otherUserId !== otherUserIdFromUrl || !parsed.content?.trim()) return;
+
+      pendingMessageSentRef.current = otherUserIdFromUrl;
+      sessionStorage.removeItem('pendingChatMessage');
+
+      const metadata = parsed.categoryId ? { questionCategory: parsed.categoryId } : undefined;
+      const sent = sendMessage(otherUserIdFromUrl, parsed.content.trim(), 'TEXT', metadata);
+      if (!sent) {
+        pendingMessageSentRef.current = null;
+        toast.error('Failed to send message. Please try again.');
+      }
+    } catch {
+      // Ignore parse errors or missing storage
+    }
+  }, [otherUserIdFromUrl, activeChatId, isConnected, user, sendMessage]);
 
   // Real-time conversation updates from socket
   useEffect(() => {
@@ -401,16 +436,35 @@ export default function ChatPage() {
     // Listen to both receive and sent events
     socket.on('chat:receive', handleNewMessage);
     socket.on('chat:sent', handleNewMessage);
+    // When we were in "new conversation" mode and our first message created the chat, switch to real chat
+    const handleSentInNewMode = async (message: any) => {
+      if (
+        activeChatId?.startsWith('new-') &&
+        message.chatId &&
+        message.senderId === user?.id &&
+        message.receiverId === activeChatId.replace('new-', '')
+      ) {
+        const realChatId = message.chatId;
+        router.replace(`/chat?chatId=${realChatId}`);
+        const freshConversations = await loadConversations();
+        await loadAndSelectChatFromUrl(realChatId, freshConversations);
+      } else {
+        handleNewMessage(message);
+      }
+    };
+
     socket.on('chat:ended', handleChatEnded);
     socket.on('chat:reopened', handleChatReopened);
     socket.on('chat:abandoned', handleChatAbandoned);
     socket.on('chat:unblocked', handleChatUnblocked);
     socket.on('chat:error', handleChatError);
-    socket.on('broadcast:yourMessageAccepted', handleYourBroadcastAccepted); // ✅ Listen for broadcast acceptance
+    socket.on('broadcast:yourMessageAccepted', handleYourBroadcastAccepted);
+    socket.on('chat:sent', handleSentInNewMode);
+    socket.on('chat:receive', handleNewMessage);
 
     return () => {
       socket.off('chat:receive', handleNewMessage);
-      socket.off('chat:sent', handleNewMessage);
+      socket.off('chat:sent', handleSentInNewMode);
       socket.off('chat:ended', handleChatEnded);
       socket.off('chat:reopened', handleChatReopened);
       socket.off('chat:abandoned', handleChatAbandoned);
@@ -509,6 +563,51 @@ export default function ChatPage() {
     }
   };
 
+  // Open "new conversation" with astrologer (no chat row yet; chat is created when first message is sent)
+  const loadAndSelectChatByOtherUserId = async (astrologerId: string) => {
+    if (!user) return;
+    try {
+      const { astrologer } = await astrologerService.getPublicProfile(astrologerId);
+      const syntheticChatId = `new-${astrologerId}`;
+      const syntheticChat: Chat = {
+        id: syntheticChatId,
+        participant1Id: user.id,
+        participant2Id: astrologer.id,
+        participant1Type: 'CLIENT',
+        participant2Type: 'ASTROLOGER',
+        status: 'ACTIVE',
+        isLocked: false,
+        lastMessageAt: null,
+        lastMessageText: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        clientParticipant: {
+          id: user.id,
+          name: user.name ?? '',
+          email: user.email ?? null,
+          phone: user.phone ?? null,
+          profilePhoto: user.profilePhoto ?? null,
+          role: 'CLIENT',
+        },
+        astrologerParticipant: {
+          id: astrologer.id,
+          name: astrologer.name ?? '',
+          phone: astrologer.phone ?? null,
+          profilePhoto: astrologer.profilePhoto ?? null,
+        },
+      } as Chat;
+      setMessages([]);
+      setActiveChat(syntheticChat);
+      setActiveChatId(syntheticChatId);
+      currentOtherUserId.current = astrologerId;
+      setShowMobileChat(true);
+      await loadMessages(astrologerId);
+    } catch (error) {
+      console.error('Failed to open new conversation:', error);
+      toast.error('Failed to load astrologer');
+    }
+  };
+
   // Load messages for active chat (initial load)
   const loadMessages = React.useCallback(async (otherUserId: string, reset = true) => {
     try {
@@ -579,44 +678,50 @@ export default function ChatPage() {
   };
 
   // Handle chat selection
-  const handleSelectChat = React.useCallback(async (chatId: string, otherUserId: string) => {
-    if (!chatId || !otherUserId) return;
+  const handleSelectChat = React.useCallback(
+    async (chatId: string, otherUserId: string) => {
+      if (!chatId || !otherUserId) return;
 
-    const selectedChat = chats.find((c) => c.id === chatId);
-    if (!selectedChat) return;
+      const selectedChat = chats.find((c) => c.id === chatId);
+      if (!selectedChat) return;
 
-    // Clear messages first to prevent duplicates from store merge
-    setMessages([]);
+      // Clear messages first to prevent duplicates from store merge
+      setMessages([]);
 
-    setIsBroadcastChatActive(false); // Clear broadcast chat state
-    setActiveChat(selectedChat);
-    setActiveChatId(chatId);
-    setShowMobileChat(true);
-    await loadMessages(otherUserId);
+      setIsBroadcastChatActive(false); // Clear broadcast chat state
+      setActiveChat(selectedChat);
+      setActiveChatId(chatId);
+      setShowMobileChat(true);
+      await loadMessages(otherUserId);
 
-    // Mark messages as read
-    try {
-      await chatService.markMessagesAsRead(chatId);
-      // Update unread count in chat list
-      setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
-    } catch (error) {
-      console.error('Error marking messages as read:', error);
-    }
-  }, [chats, loadMessages]);
+      // Mark messages as read
+      try {
+        await chatService.markMessagesAsRead(chatId);
+        // Update unread count in chat list
+        setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
+      } catch (error) {
+        console.error('Error marking messages as read:', error);
+      }
+    },
+    [chats, loadMessages]
+  );
 
   // Handle chat created from broadcast (memoized to prevent unnecessary re-renders)
-  const handleChatCreatedFromBroadcast = React.useCallback(async (chatId: string) => {
-    // Reload conversations to get the new chat
-    await loadConversations();
-    // Select the new chat - use fresh chats from loadConversations
-    const freshChats = await loadConversations();
-    const selectedChat = freshChats.find((c: Chat) => c.id === chatId);
-    if (selectedChat) {
-      // For clients, the other user is always the astrologer
-      const otherUser = selectedChat.astrologerParticipant;
-      handleSelectChat(chatId, otherUser.id);
-    }
-  }, [handleSelectChat]); // Include handleSelectChat in dependencies
+  const handleChatCreatedFromBroadcast = React.useCallback(
+    async (chatId: string) => {
+      // Reload conversations to get the new chat
+      await loadConversations();
+      // Select the new chat - use fresh chats from loadConversations
+      const freshChats = await loadConversations();
+      const selectedChat = freshChats.find((c: Chat) => c.id === chatId);
+      if (selectedChat) {
+        // For clients, the other user is always the astrologer
+        const otherUser = selectedChat.astrologerParticipant;
+        handleSelectChat(chatId, otherUser.id);
+      }
+    },
+    [handleSelectChat]
+  ); // Include handleSelectChat in dependencies
 
   // Handle sending message
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {
@@ -687,7 +792,7 @@ export default function ChatPage() {
 
   // Handle input focus - mark messages as read
   const handleInputFocus = async () => {
-    if (!activeChatId) return;
+    if (!activeChatId || activeChatId.startsWith('new-')) return;
 
     try {
       await chatService.markMessagesAsRead(activeChatId);

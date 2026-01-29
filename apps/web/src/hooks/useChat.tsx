@@ -6,12 +6,23 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import chatService from '@/services/chat.service';
+import coinService from '@/services/coin.service';
+import astrologerService from '@/services/astrologer.service';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types';
 import { displayError } from '@/utils/error-handler';
 import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
 import { CoinPurchaseModal } from '@/components/modals';
+import { AstrologerCategory } from '@/types/astrologer';
+
+/** Coin cost per first message for direct chat (matches backend). PREMIUM = 0 (appointment-only). */
+const DIRECT_CHAT_COIN_COSTS: Record<string, number> = {
+  [AstrologerCategory.ORDINARY]: 2,
+  [AstrologerCategory.PROFESSIONAL]: 2,
+  [AstrologerCategory.PREMIUM]: 0,
+  [AstrologerCategory.KATHA_VACHAK]: 0,
+};
 
 export function useChat() {
   const router = useRouter();
@@ -60,51 +71,73 @@ export function useChat() {
     try {
       setIsStartingChat(true);
 
-      // Get or create the chat
-      const chat = await chatService.getOrCreateChat({
+      // Get existing chat (or null if none yet – chat is created on first message)
+      const { chat } = await chatService.getOrCreateChat({
         otherUserId,
         consultationId,
       });
 
-      // Validate chat response
-      if (!chat || !chat.id) {
-        console.error('Invalid chat response from server');
-        throw new Error('Invalid chat response from server');
-      }
-
-      // Optionally send an initial message if provided
-      const trimmedMessage = initialMessage?.trim();
-      if (trimmedMessage) {
-        try {
-          await chatService.sendMessage({
-            chatId: chat.id,
-            receiverId: otherUserId,
-            content: trimmedMessage,
-            type: 'TEXT',
-            metadata: categoryId
-              ? {
-                  questionCategory: categoryId,
-                }
-              : undefined,
-          });
-        } catch (sendError) {
-          // Log and show a non-blocking error; still navigate to chat
-          console.error('Error sending initial chat message:', sendError);
-          displayError(sendError, 'Chat started, but failed to send your first message.');
+      if (chat?.id) {
+        // Existing chat: optionally send initial message and navigate
+        const trimmedMessage = initialMessage?.trim();
+        if (trimmedMessage) {
+          try {
+            await chatService.sendMessage({
+              chatId: chat.id,
+              receiverId: otherUserId,
+              content: trimmedMessage,
+              type: 'TEXT',
+              metadata: categoryId
+                ? {
+                    questionCategory: categoryId,
+                  }
+                : undefined,
+            });
+          } catch (sendError) {
+            console.error('Error sending initial chat message:', sendError);
+            displayError(sendError, 'Chat started, but failed to send your first message.');
+          }
         }
-      }
-
-      // Navigate to the appropriate chat page based on user role
-      if (user.role === UserRole.ASTROLOGER) {
-        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(chat.id));
+        if (user.role === UserRole.ASTROLOGER) {
+          router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(chat.id));
+        } else {
+          router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
+        }
       } else {
-        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
+        if (user.role === UserRole.CLIENT) {
+          const { balance } = await coinService.getBalance();
+          const { astrologer } = await astrologerService.getPublicProfile(otherUserId);
+          const requiredCoinsForChat = DIRECT_CHAT_COIN_COSTS[astrologer.category] ?? 2;
+          if (requiredCoinsForChat > 0 && balance < requiredCoinsForChat) {
+            toast.error(
+              `Insufficient coins. Required: ${requiredCoinsForChat} coin${requiredCoinsForChat === 1 ? '' : 's'} to send a message. Available: ${balance} coin${balance === 1 ? '' : 's'}. Please top up your coins.`
+            );
+            setPendingChatParams({ otherUserId, consultationId });
+            setRequiredCoins(requiredCoinsForChat);
+            setShowCoinPurchaseModal(true);
+            return null;
+          }
+          const trimmedMessage = initialMessage?.trim();
+          if (trimmedMessage && typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(
+              'pendingChatMessage',
+              JSON.stringify({
+                otherUserId,
+                content: trimmedMessage,
+                categoryId: categoryId ?? undefined,
+              })
+            );
+          }
+          router.push(`/chat?otherUserId=${otherUserId}`);
+        } else {
+          throw new Error('Invalid chat response from server');
+        }
       }
 
       // Invalidate coin balance so UI reflects deducted coins
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
 
-      return chat.id;
+      return chat?.id ?? null;
     } catch (error: unknown) {
       console.error('Error starting chat:', error);
 

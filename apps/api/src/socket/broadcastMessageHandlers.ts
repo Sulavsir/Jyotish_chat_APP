@@ -80,12 +80,12 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         title: 'New Chat Request',
         message: 'A client is requesting to chat with an astrologer',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       console.error('Error sending broadcast message:', error);
-      // Send specific error message (e.g., active chat exists)
       socket.emit('broadcast:error', {
-        message: error.message || 'Failed to send message',
-        code: error.message?.includes('active chat') ? 'ACTIVE_CHAT_EXISTS' : 'SEND_FAILED',
+        message: err?.message || 'Failed to send message',
+        code: err?.message?.includes('active chat') ? 'ACTIVE_CHAT_EXISTS' : 'SEND_FAILED',
       });
     }
   });
@@ -150,14 +150,14 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         message:
           'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       console.error('Error accepting broadcast message:', error);
-      // Send specific error code for active chat
-      const errorCode = error.message?.includes('active chat')
+      const errorCode = err?.message?.includes('active chat')
         ? 'ACTIVE_CHAT_EXISTS'
         : 'ACCEPT_FAILED';
       socket.emit('broadcast:error', {
-        message: error.message || 'Failed to accept message',
+        message: err?.message || 'Failed to accept message',
         code: errorCode,
       });
     }
@@ -176,7 +176,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
       // Pass astrologerId to filter out PREMIUM astrologers
       const messages = await broadcastMessageService.getPendingBroadcastMessages(userId);
       socket.emit('broadcast:pendingMessages', messages);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error getting pending broadcast messages:', error);
       socket.emit('broadcast:error', { message: 'Failed to load messages' });
     }
@@ -196,9 +196,51 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
 
       const messages = await broadcastMessageService.getClientBroadcastMessages(userId);
       socket.emit('broadcast:myMessages', messages);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error getting client broadcast messages:', error);
       socket.emit('broadcast:error', { message: 'Failed to load your messages' });
+    }
+  });
+
+  /**
+   * Client cancels a pending broadcast message.
+   * Backend cancels, refunds coin, and notifies astrologers to remove from list.
+   */
+  socket.on('broadcast:cancelMessage', async (data: { messageId: string }) => {
+    try {
+      if (userRole !== 'CLIENT') {
+        socket.emit('broadcast:error', {
+          message: 'Only clients can cancel their broadcast messages',
+        });
+        return;
+      }
+
+      const messageId = data?.messageId;
+      if (!messageId || typeof messageId !== 'string') {
+        socket.emit('broadcast:error', { message: 'Invalid message ID' });
+        return;
+      }
+
+      const message = await broadcastMessageService.cancelBroadcastMessage(messageId, userId);
+
+      socket.emit('broadcast:messageCancelled', {
+        messageId: message.id,
+        message,
+        cancelledAt: message.updatedAt,
+      });
+
+      // Notify all astrologers so they remove this message from their list
+      io.to('astrologers').emit('broadcast:messageCancelled', {
+        messageId: message.id,
+        cancelledAt: message.updatedAt,
+      });
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error('Error cancelling broadcast message:', error);
+      socket.emit('broadcast:error', {
+        message: err?.message || 'Failed to cancel broadcast message',
+        code: 'CANCEL_FAILED',
+      });
     }
   });
 }

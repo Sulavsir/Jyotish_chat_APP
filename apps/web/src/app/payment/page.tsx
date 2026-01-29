@@ -39,7 +39,7 @@ export default function PaymentPage() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
       setPaymentStatus('success');
-      
+
       // Show appropriate success message
       if (data?.isUnlimited) {
         toast.success('Unlimited plan activated successfully!');
@@ -64,14 +64,15 @@ export default function PaymentPage() {
           } else if (pendingChat.otherUserId) {
             // Use useChat hook to start chat after coins are added
             setTimeout(async () => {
-              // Import and use chat service to start chat
               const { default: chatService } = await import('@/services/chat.service');
               try {
-                const chat = await chatService.getOrCreateChat({
+                const { chat } = await chatService.getOrCreateChat({
                   otherUserId: pendingChat.otherUserId,
                 });
                 if (chat?.id) {
                   router.push(`/chat?chatId=${chat.id}`);
+                } else {
+                  router.push(`/chat?otherUserId=${pendingChat.otherUserId}`);
                 }
               } catch (error) {
                 console.error('Error starting chat after purchase:', error);
@@ -201,7 +202,9 @@ export default function PaymentPage() {
         {paymentStatus === 'success' && (
           <Card className="bg-gradient-to-br from-green-950 via-emerald-950/90 to-green-900 border border-green-500/40 shadow-[0_0_40px_rgba(34,197,94,0.5)]">
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-white mb-2">Payment Successful</CardTitle>
+              <CardTitle className="text-3xl font-bold text-white mb-2">
+                Payment Successful
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center py-12">

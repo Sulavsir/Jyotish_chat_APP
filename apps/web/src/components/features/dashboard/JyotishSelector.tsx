@@ -24,8 +24,13 @@ import {
 import { QUERY_KEYS } from '@/constants';
 import { getImageUrl } from '@/utils/image.utils';
 import astrologerService from '@/services/astrologer.service';
-import { ASTROLOGER_CATEGORY_LABELS, AstrologerCategory, type AstrologerListParams } from '@/types/astrologer';
+import {
+  ASTROLOGER_CATEGORY_LABELS,
+  AstrologerCategory,
+  type AstrologerListParams,
+} from '@/types/astrologer';
 import { JyotishSelectorCard } from './JyotishSelectorCard';
+import { useStore } from '@/store';
 
 interface JyotishSelectorProps {
   selectedAstrologerId: string;
@@ -36,6 +41,7 @@ interface JyotishSelectorProps {
 export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: JyotishSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const onlineUsers = useStore((state) => state.onlineUsers);
 
   // Common filters for astrologer list
   const listFilters: AstrologerListParams = {
@@ -55,13 +61,15 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
   const astrologers = astrologersData?.astrologers || [];
   const selectedAstrologer = astrologers.find((a) => a.id === selectedAstrologerId);
 
+  // Filter astrologers:
   // - Exclude PREMIUM category from client dashboard dropdown
+
   const filteredAstrologers = astrologers.filter((astrologer) => {
     if (astrologer.category === AstrologerCategory.PREMIUM) {
       return false;
     }
 
-    if (!astrologer.isOnline) {
+    if (!onlineUsers.has(astrologer.id)) {
       return false;
     }
 

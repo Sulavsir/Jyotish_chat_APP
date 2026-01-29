@@ -8,11 +8,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@jyotish/ui';
-import { MessageSquare, X, Clock, Loader2, AlertCircle, Coins } from 'lucide-react';
+import { MessageSquare, X, AlertCircle, Coins } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { LoadingButton } from '@/components/ui';
 import { ROUTE_BUILDERS, ROUTES, QUERY_KEYS } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
@@ -20,9 +21,13 @@ import { AnimatedCursorButton } from '@/components/ui/AnimatedCursorButton';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
-import { BroadcastMessageStatus } from '@/types';
-import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_CHAT_COIN_COST } from '@/constants/broadcastMessage.constants';
+import {
+  BROADCAST_MESSAGE_EXPIRY_MS,
+  BROADCAST_CHAT_COIN_COST,
+} from '@/constants/broadcastMessage.constants';
 import { CoinPurchaseModal } from '@/components/modals';
+import broadcastMessageService from '@/services/broadcastMessage.service';
+import type { BroadcastMessage } from '@/types';
 
 export const RequestInstantChatButton: React.FC = () => {
   const router = useRouter();
@@ -34,7 +39,7 @@ export const RequestInstantChatButton: React.FC = () => {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isWaitingForAcceptance, setIsWaitingForAcceptance] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState<any>(null);
+  const [pendingMessage, setPendingMessage] = useState<BroadcastMessage | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
@@ -48,56 +53,74 @@ export const RequestInstantChatButton: React.FC = () => {
     return match ? parseInt(match[1], 10) : 1;
   };
 
+  const cancelBroadcastMutation = useMutation({
+    mutationFn: (messageId: string) => broadcastMessageService.cancelMessage(messageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+      toast.success('Request cancelled. Your coin has been refunded.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to cancel request. You can try again.');
+    },
+    onSettled: () => {
+      setIsWaitingForAcceptance(false);
+      setPendingMessage(null);
+    },
+  });
+
   // Listen for socket events (using broadcast message flow)
   useEffect(() => {
     if (!socket || !isConnected) {
-      console.log('Socket not ready yet');
       return;
     }
 
-    // Broadcast message sent successfully
-    socket.on('broadcast:messageSent', (message: any) => {
-      console.log('✅ Broadcast message sent successfully');
+    socket.on('broadcast:messageSent', (msg: BroadcastMessage) => {
       setIsSending(false);
       setIsWaitingForAcceptance(true);
-      setPendingMessage(message);
+      setPendingMessage(msg);
       setIsModalOpen(false);
-      
+
       // Invalidate coin balance query to reflect real-time deduction
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      
+
       toast.success('Looking for available astrologers...');
     });
 
-    // Broadcast message accepted by astrologer
-    socket.on('broadcast:yourMessageAccepted', (data: any) => {
-      const { message, chat, astrologer } = data;
-      
-      // Close the modal immediately
+    socket.on(
+      'broadcast:yourMessageAccepted',
+      (data: {
+        message: BroadcastMessage;
+        chat: { id: string };
+        astrologer: { name?: string };
+      }) => {
+        const { message, chat, astrologer } = data;
+
+        // Close the modal immediately
+        setIsSending(false);
+        setIsWaitingForAcceptance(false);
+        setPendingMessage(null);
+
+        toast.success(
+          `${astrologer.name || 'An astrologer'} accepted your request! Opening chat...`,
+          {
+            description: 'You can now start chatting with your astrologer',
+            duration: 3000,
+          }
+        );
+
+        // Navigate to chat immediately
+        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
+      }
+    );
+
+    socket.on('broadcast:error', (error: { message?: string }) => {
       setIsSending(false);
       setIsWaitingForAcceptance(false);
       setPendingMessage(null);
 
-      toast.success(
-        `${astrologer.name || 'An astrologer'} accepted your request! Opening chat...`,
-        {
-          description: 'You can now start chatting with your astrologer',
-          duration: 3000,
-        }
-      );
-
-      // Navigate to chat immediately
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
-    });
-
-    // Error occurred
-    socket.on('broadcast:error', (error: any) => {
-      setIsSending(false);
-      setIsWaitingForAcceptance(false);
-      setPendingMessage(null);
-      
       const errorMessage = error.message || 'Failed to send message';
-      
+
       // Special handling for insufficient coins
       if (
         errorMessage.toLowerCase().includes('insufficient coins') ||
@@ -173,11 +196,13 @@ export const RequestInstantChatButton: React.FC = () => {
   };
 
   const handleCancelRequest = () => {
-    // For broadcast messages, we can't cancel once sent
-    // But we can close the modal
-    setIsWaitingForAcceptance(false);
-    setPendingMessage(null);
-    toast.info('Request cancelled');
+    if (pendingMessage?.id) {
+      cancelBroadcastMutation.mutate(pendingMessage.id);
+    } else {
+      setIsWaitingForAcceptance(false);
+      setPendingMessage(null);
+      toast.info('Request cancelled');
+    }
   };
 
   const handleButtonClick = () => {

@@ -11,6 +11,7 @@ export enum BroadcastMessageStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
   EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
 }
 
 export interface BroadcastMessageClient {
@@ -68,6 +69,12 @@ export interface DismissBroadcastMessageResponse {
   success: boolean;
   messageId: string;
   dismissedAt: Date | string;
+}
+
+export interface CancelBroadcastMessageResponse {
+  success: boolean;
+  messageId: string;
+  message: BroadcastMessage;
 }
 
 export interface BroadcastMessageListResponse {

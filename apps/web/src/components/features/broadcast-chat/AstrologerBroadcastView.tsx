@@ -62,57 +62,61 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       toast.info(`New broadcast from ${message.client?.name || message.client?.phone || 'Client'}`);
     });
 
-    // Message was accepted by an astrologer
+    // Message was accepted by an astrologer - remove immediately from list
     socket.on(
       'broadcast:messageAcceptedByAstrologer',
-      (data: { messageId: string; acceptedBy: any; acceptedAt: string; clientName: string }) => {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === data.messageId
-              ? {
-                  ...m,
-                  status: BroadcastMessageStatus.ACCEPTED,
-                  acceptedAstrologer: data.acceptedBy,
-                  acceptedAt: data.acceptedAt,
-                }
-              : m
-          )
-        );
-
-        // Show toast if it was me who accepted
+      (data: {
+        messageId: string;
+        acceptedBy: { id: string; name?: string };
+        acceptedAt: string;
+        clientName: string;
+      }) => {
+        // If accepted by current user, show success toast but still remove from list
+        // (they'll be navigated to chat anyway)
         if (data.acceptedBy.id === user?.id) {
           toast.success('Chat started successfully!');
+        } else {
+          // If accepted by another astrologer, remove immediately
+          toast.info('This request was accepted by another astrologer');
+        }
+
+        // Remove message immediately - it's no longer available
+        setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      }
+    );
+
+    // My acceptance was successful - remove from list immediately
+    socket.on(
+      'broadcast:messageAccepted',
+      (result: { message?: { id: string }; chat?: { id: string } }) => {
+        setAccepting(null);
+
+        // Remove message immediately - it's been accepted and chat is opening
+        if (result.message?.id) {
+          setMessages((prev) => prev.filter((m) => m.id !== result.message!.id));
+        }
+
+        // Navigate to chat immediately
+        if (result.chat) {
+          toast.success('Chat opened! Redirecting...', { duration: 1500 });
+
+          // Navigate to the chat page
+          router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));
+
+          // Also notify parent callback if provided
+          if (onChatCreated) {
+            onChatCreated(result.chat.id);
+          }
         }
       }
     );
 
-    // My acceptance was successful
-    socket.on('broadcast:messageAccepted', (result: any) => {
-      setAccepting(null);
-
-      // Update message status
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === result.message?.id ? { ...m, status: BroadcastMessageStatus.ACCEPTED } : m
-        )
-      );
-
-      // Navigate to chat immediately
-      if (result.chat) {
-        toast.success('Chat opened! Redirecting...', { duration: 1500 });
-
-        // Navigate to the chat page
-        router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));
-
-        // Also notify parent callback if provided
-        if (onChatCreated) {
-          onChatCreated(result.chat.id);
-        }
-      }
+    // Client cancelled their broadcast – remove from list
+    socket.on('broadcast:messageCancelled', (data: { messageId: string }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     });
 
-    // Error handling
-    socket.on('broadcast:error', (error: any) => {
+    socket.on('broadcast:error', (error: { message?: string }) => {
       toast.error(error.message || 'Something went wrong');
       setAccepting(null);
     });
@@ -121,6 +125,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       socket.off('broadcast:newMessage');
       socket.off('broadcast:messageAcceptedByAstrologer');
       socket.off('broadcast:messageAccepted');
+      socket.off('broadcast:messageCancelled');
       socket.off('broadcast:error');
     };
   }, [socket, isConnected, user, onChatCreated, router]);
@@ -198,9 +203,9 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
     return null;
   }
 
-  // Filter messages - only hide expired ones
-  // ✅ Astrologers can now see all messages even with active chats
-  const visibleMessages = messages.filter((m) => m.status !== 'EXPIRED'); // Hide expired messages from astrologers
+  // Filter messages - only show PENDING messages (remove expired, cancelled, and accepted)
+  // ✅ Astrologers should only see pending requests they can act on
+  const visibleMessages = messages.filter((m) => m.status === BroadcastMessageStatus.PENDING);
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-indigo-50">
@@ -284,8 +289,9 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                       expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
                       showIcon={true}
                       onExpire={() => {
-                        // Reload messages to remove expired ones
-                        loadMessages();
+                        // Remove expired message immediately from list
+                        setMessages((prev) => prev.filter((m) => m.id !== message.id));
+                        toast.info('This request has expired');
                       }}
                     />
                   )}
