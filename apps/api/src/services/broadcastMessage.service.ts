@@ -620,6 +620,10 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         status: 'ACTIVE',
         endedBy: null,
         endedAt: null,
+        // Reset turn-based state when reopening chat from a broadcast
+        waitingForReply: false,
+        lastClientMessageAt: null,
+        lastAstrologerReplyAt: null,
       },
     });
     console.log(`✅ Chat ${chat.id} reactivated successfully`);
@@ -791,12 +795,16 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     },
   });
 
-  // Update chat with last message info so it shows in conversation list
+  // Update chat with last message info and turn-based state so it shows in conversation list
+  // and the client is allowed to reply after the astrologer's auto welcome message.
   await prisma.chat.update({
     where: { id: chat.id },
     data: {
       lastMessageText: welcomeMessageContent,
       lastMessageAt: new Date(),
+      // Astrologer has (auto-)replied, so client should NOT be in "waiting for reply" state
+      waitingForReply: false,
+      lastAstrologerReplyAt: new Date(),
     },
   });
 
