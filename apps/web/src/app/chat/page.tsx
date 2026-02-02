@@ -714,7 +714,6 @@ export default function ChatPage() {
     async (chatId: string) => {
       // Reload conversations to get the new chat
       await loadConversations();
-      // Select the new chat - use fresh chats from loadConversations
       const freshChats = await loadConversations();
       const selectedChat = freshChats.find((c: Chat) => c.id === chatId);
       if (selectedChat) {
@@ -724,7 +723,7 @@ export default function ChatPage() {
       }
     },
     [handleSelectChat]
-  ); // Include handleSelectChat in dependencies
+  ); 
 
   // Handle sending message
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {
@@ -779,8 +778,6 @@ export default function ChatPage() {
       toast.error('Failed to send message. Please check your connection.');
     }
 
-    // Don't add optimistically - let WebSocket handle it
-    // This prevents duplicate messages
   };
 
   // Handle typing indicator

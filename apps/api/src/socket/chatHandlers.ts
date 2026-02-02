@@ -10,6 +10,7 @@ import {
 import { MessageType, UserRole, AstrologerCategory } from '@jyotish/shared';
 import { onlineUsers } from './index';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
+import { ERROR_CODES } from '@/constants/http.constants';
 
 export function chatHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
@@ -280,7 +281,7 @@ export function chatHandlers(io: Server, socket: Socket) {
                 await prisma.chat.delete({ where: { id: newChat.id } });
                 socket.emit('chat:error', {
                   message: error.message || 'Insufficient coins to send message',
-                  code: 'INSUFFICIENT_COINS',
+                  code: ERROR_CODES.INSUFFICIENT_COINS,
                   requiredCoins: error.requiredCoins,
                 });
                 return;
@@ -377,7 +378,7 @@ export function chatHandlers(io: Server, socket: Socket) {
               } catch (error: any) {
                 socket.emit('chat:error', {
                   message: error.message || 'Insufficient coins to send message',
-                  code: 'INSUFFICIENT_COINS',
+                  code: ERROR_CODES.INSUFFICIENT_COINS,
                   requiredCoins: error.requiredCoins,
                 });
                 return;

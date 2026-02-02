@@ -180,7 +180,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     await deductCoinsForBroadcastMessage(data.clientId);
   } catch (error: unknown) {
     const err = error as { code?: string };
-    if (err.code === 'INSUFFICIENT_COINS') {
+    if (err.code === ERROR_CODES.INSUFFICIENT_COINS) {
       throw new Error(
         `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${clientProfile.coins} coins. Please top up your coins.`
       );
