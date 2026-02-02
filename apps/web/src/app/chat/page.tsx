@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
+import { Card } from '@jyotish/ui';
 import { useStore } from '@/store';
 import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
@@ -179,9 +179,7 @@ export default function ChatPage() {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       }
 
-      // DON'T add message here - it's already added by useSocket hook to Zustand store
-      // The useEffect watching chatMessages will handle adding it to the active chat
-      // This prevents duplicate messages!
+    // This prevents duplicate messages!
 
       // Only update conversation list with new message
       setChats((prevChats) => {
@@ -843,12 +841,12 @@ export default function ChatPage() {
                 senderType: m.senderType,
                 receiverType: m.receiverType,
                 content: m.content,
-                type: m.type, // ✅ Include message type (TEXT, IMAGE, FILE, AUDIO)
-                metadata: m.metadata, // ✅ Include attachment metadata
+                type: m.type, 
+                metadata: m.metadata, 
                 createdAt: m.createdAt,
-                updatedAt: m.updatedAt || m.createdAt, // ✅ Add updatedAt
+                updatedAt: m.updatedAt || m.createdAt, 
                 isRead: m.isRead,
-                isDeleted: m.isDeleted || false, // ✅ Add isDeleted
+                isDeleted: m.isDeleted || false,
                 sender: m.sender || {
                   id: m.senderId,
                   name: 'Unknown',
