@@ -137,7 +137,14 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     throw new Error('No astrologers are available at the moment. Please try again later.');
   }
 
-  // Check if client profile is completed before creating broadcast message
+  // When birthDetails are provided in metadata (selected profile), skip client profile completeness
+  const hasSelectedProfileBirthDetails =
+    data.metadata &&
+    typeof data.metadata === 'object' &&
+    'birthDetails' in data.metadata &&
+    data.metadata.birthDetails &&
+    typeof (data.metadata.birthDetails as Record<string, unknown>) === 'object';
+
   const clientProfile = await prisma.user.findUnique({
     where: { id: data.clientId },
     select: {
@@ -154,25 +161,27 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     throw new Error('User not found');
   }
 
-  // Check if all required fields are present (same logic as instant chat)
-  const missingFields: string[] = [];
-  if (!clientProfile.name || clientProfile.name.trim() === '') {
-    missingFields.push('Name');
-  }
-  if (!clientProfile.dateOfBirth) {
-    missingFields.push('Date of Birth');
-  }
-  if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
-    missingFields.push('Time of Birth');
-  }
-  if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
-    missingFields.push('Place of Birth');
-  }
+  if (!hasSelectedProfileBirthDetails) {
+    // Check if all required fields are present (same logic as instant chat)
+    const missingFields: string[] = [];
+    if (!clientProfile.name || clientProfile.name.trim() === '') {
+      missingFields.push('Name');
+    }
+    if (!clientProfile.dateOfBirth) {
+      missingFields.push('Date of Birth');
+    }
+    if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '') {
+      missingFields.push('Time of Birth');
+    }
+    if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '') {
+      missingFields.push('Place of Birth');
+    }
 
-  if (missingFields.length > 0) {
-    throw new Error(
-      `Please complete your profile before sending a broadcast message. Missing: ${missingFields.join(', ')}`
-    );
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Please complete your profile before sending a broadcast message. Missing: ${missingFields.join(', ')}`
+      );
+    }
   }
 
   // Check coin balance and deduct 1 coin upfront for broadcast message
@@ -694,7 +703,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     }
 
     // Create new chat (client=participant1, astrologer=participant2).
-       chat = await prisma.chat.create({
+    chat = await prisma.chat.create({
       data: {
         participant1Id: message.clientId,
         participant2Id: astrologerId,
@@ -757,7 +766,9 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   });
 
   // Create automatic messages in the chat
-  // 1. User's original broadcast message
+  // 1. User's original broadcast message (include birthDetails from selected profile for Jyotish view)
+  const broadcastMeta = (message.metadata as Record<string, unknown>) || {};
+  const birthDetails = broadcastMeta.birthDetails as Record<string, unknown> | undefined;
   const originalMessage = await prisma.message.create({
     data: {
       chatId: chat.id,
@@ -770,7 +781,8 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       metadata: {
         originalBroadcast: true,
         broadcastMessageId: messageId,
-      },
+        ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
+      } as Prisma.InputJsonValue,
     },
   });
 

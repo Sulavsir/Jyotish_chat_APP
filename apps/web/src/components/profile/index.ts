@@ -3,4 +3,4 @@
  */
 
 export * from './ProfileImageUpload';
-
+export * from '../features/profile/SelectProfileSection';

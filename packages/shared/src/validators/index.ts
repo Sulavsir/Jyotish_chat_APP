@@ -84,30 +84,35 @@ export const verifyLoginOTPSchema = z.object({
   sessionId: z.string().uuid('Invalid session ID'),
 });
 
-export const profileSetupSchema = z.preprocess((input) => {
-  // Support snake_case keys from some clients (e.g., Flutter FormData)
-  if (!input || typeof input !== 'object') return input;
-  const obj = input as Record<string, unknown>;
-  return {
-    ...obj,
-    dateOfBirth: obj.dateOfBirth ?? obj.date_of_birth,
-    timeOfBirth: obj.timeOfBirth ?? obj.time_of_birth,
-    placeOfBirth: obj.placeOfBirth ?? obj.place_of_birth,
-    currentAddress: obj.currentAddress ?? obj.current_address,
-    permanentAddress: obj.permanentAddress ?? obj.permanent_address,
-    zodiacSign: obj.zodiacSign ?? obj.zodiac_sign,
-  };
-}, z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  dateOfBirth: z.string().or(z.date()),
-  timeOfBirth: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
-  placeOfBirth: z.string().min(2, 'Place of birth is required'),
-  currentAddress: z.string().min(5, 'Current address is required'),
-  permanentAddress: z.string().min(5, 'Permanent address is required'),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
-  zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
-}));
+export const profileSetupSchema = z.preprocess(
+  (input) => {
+    // Support snake_case keys from some clients (e.g., Flutter FormData)
+    if (!input || typeof input !== 'object') return input;
+    const obj = input as Record<string, unknown>;
+    return {
+      ...obj,
+      dateOfBirth: obj.dateOfBirth ?? obj.date_of_birth,
+      timeOfBirth: obj.timeOfBirth ?? obj.time_of_birth,
+      placeOfBirth: obj.placeOfBirth ?? obj.place_of_birth,
+      currentAddress: obj.currentAddress ?? obj.current_address,
+      permanentAddress: obj.permanentAddress ?? obj.permanent_address,
+      zodiacSign: obj.zodiacSign ?? obj.zodiac_sign,
+    };
+  },
+  z.object({
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
+    dateOfBirth: z.string().or(z.date()),
+    timeOfBirth: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
+    placeOfBirth: z.string().min(2, 'Place of birth is required'),
+    currentAddress: z.string().min(5, 'Current address is required'),
+    permanentAddress: z.string().min(5, 'Permanent address is required'),
+    gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+    zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
+  })
+);
 
 export const birthDetailsSchema = z.object({
   dateOfBirth: z.string().or(z.date()),
@@ -120,6 +125,23 @@ export const birthDetailsSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
   zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
 });
+
+// Client profile (family/friend) validators
+export const createClientProfileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
+  relationship: z.string().min(1, 'Relationship is required').max(50, 'Relationship is too long'),
+  dateOfBirth: z.string().or(z.date()).optional().nullable(),
+  timeOfBirth: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  placeOfBirth: z.string().max(200).optional().nullable().or(z.literal('')),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+});
+
+export const updateClientProfileSchema = createClientProfileSchema.partial();
 
 // Chat validators
 export const sendMessageSchema = z.object({
@@ -214,24 +236,20 @@ export const changePasswordSchema = z
   });
 
 // Questionnaires (Question categories and questions)
+const questionnaireLanguageSchema = z.enum(['NEPALI', 'HINDI', 'ENGLISH']);
+
 export const createQuestionCategorySchema = z.object({
   name: z
     .string()
     .min(2, 'Category name must be at least 2 characters')
     .max(100, 'Category name is too long'),
-  emoji: z
-    .string()
-    .max(8, 'Emoji or icon is too long')
-    .optional()
-    .or(z.literal('')),
+  emoji: z.string().max(8, 'Emoji or icon is too long').optional().or(z.literal('')),
+  language: questionnaireLanguageSchema.optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
   questions: z
     .array(
-      z
-        .string()
-        .min(3, 'Question must be at least 3 characters')
-        .max(300, 'Question is too long')
+      z.string().min(3, 'Question must be at least 3 characters').max(300, 'Question is too long')
     )
     .min(1, 'Please add at least one question'),
 });
@@ -248,16 +266,17 @@ export const listQuestionCategoriesQuerySchema = z.object({
     .optional()
     .transform((value) => (value ? parseInt(value, 10) : 10)),
   search: z.string().optional(),
-  includeInactive: z
-    .preprocess(
-      (value) => {
-        if (typeof value === 'string') {
-          return value === 'true';
-        }
-        return value;
-      },
-      z.boolean().optional()
-    ),
+  language: questionnaireLanguageSchema.optional(),
+  includeInactive: z.preprocess((value) => {
+    if (typeof value === 'string') {
+      return value === 'true';
+    }
+    return value;
+  }, z.boolean().optional()),
+});
+
+export const listPublicQuestionnairesQuerySchema = z.object({
+  language: questionnaireLanguageSchema.optional(),
 });
 
 // Astrologer registration validators
@@ -275,18 +294,28 @@ export const astrologerRegistrationSchema = z.object({
   bio: z.string().max(500, 'Bio is too long').optional(),
   specialization: z.array(z.string()).min(1, 'Please enter at least one specialization'),
   experience: z.number().int().min(0, 'Experience cannot be negative').optional(),
-  languages: z.array(z.string()).min(1, 'Please enter at least one language').default(['English', 'Nepali']),
+  languages: z
+    .array(z.string())
+    .min(1, 'Please enter at least one language')
+    .default(['English', 'Nepali']),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
 });
 
 export const approveAstrologerRegistrationSchema = z.object({
   category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']),
   appointmentFee: z.number().positive().optional().nullable(),
-  commissionRate: z.number().min(0).max(100, 'Commission rate must be between 0 and 100').optional(),
+  commissionRate: z
+    .number()
+    .min(0)
+    .max(100, 'Commission rate must be between 0 and 100')
+    .optional(),
 });
 
 export const rejectAstrologerRegistrationSchema = z.object({
-  rejectionReason: z.string().min(10, 'Rejection reason must be at least 10 characters').max(500, 'Rejection reason is too long'),
+  rejectionReason: z
+    .string()
+    .min(10, 'Rejection reason must be at least 10 characters')
+    .max(500, 'Rejection reason is too long'),
 });
 
 export * from './jyotish-booking.validators';

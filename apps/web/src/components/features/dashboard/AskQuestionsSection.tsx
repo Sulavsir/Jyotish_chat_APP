@@ -20,20 +20,26 @@ import { useRouter } from 'next/navigation';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
 import { JyotishSelector } from './JyotishSelector';
 import { useChat, CoinPurchaseModalWrapper } from '@/hooks/useChat';
+import { useBroadcastPending } from '@/hooks/useBroadcastPending';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { CoinPurchaseModal } from '@/components/modals';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { QuestionnaireCategory } from '@jyotish/shared';
 import { questionnaireService } from '@/services/questionnaire.service';
+import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
-import broadcastMessageService from '@/services/broadcastMessage.service';
+import chatService from '@/services/chat.service';
+import { clientProfileService } from '@/services/clientProfile.service';
+import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
+import { SelectProfileModal } from '@/components/modals';
+
+const ACTIVE_CHAT_ERROR =
+  'You have an active chat. End your current chat before starting a new one.';
 
 export function AskQuestionsSection() {
   const router = useRouter();
@@ -47,23 +53,21 @@ export function AskQuestionsSection() {
   const [directCategory, setDirectCategory] = useState<string>('');
   const [directQuestion, setDirectQuestion] = useState<string>('');
   const [directMessage, setDirectMessage] = useState('');
+  const [showDirectProfileModal, setShowDirectProfileModal] = useState(false);
 
   // Broadcast tab state
   const [broadcastCategory, setBroadcastCategory] = useState<string>('');
   const [broadcastQuestion, setBroadcastQuestion] = useState<string>('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [showBroadcastProfileModal, setShowBroadcastProfileModal] = useState(false);
+  const [directMessageError, setDirectMessageError] = useState<string>('');
+  const [broadcastMessageError, setBroadcastMessageError] = useState<string>('');
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
-  const [isSending, setIsSending] = useState(false);
-  const [isWaitingForAcceptance, setIsWaitingForAcceptance] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState<{ createdAt: string; id: string } | null>(
-    null
-  );
-  const [timeRemaining, setTimeRemaining] = useState(0);
   // Broadcast-coin state (for broadcast tab errors)
   const [broadcastRequiredCoins, setBroadcastRequiredCoins] = useState(1);
   const [isBroadcastCoinModalOpen, setIsBroadcastCoinModalOpen] = useState(false);
-  const queryClient = useQueryClient();
+  const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
   // Direct-chat coin state comes from useChat
   const {
     startChat,
@@ -73,30 +77,42 @@ export function AskQuestionsSection() {
     setShowCoinPurchaseModal: setShowDirectCoinModal,
   } = useChat();
 
-  const cancelBroadcastMutation = useMutation({
-    mutationFn: (messageId: string) => broadcastMessageService.cancelMessage(messageId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
-      toast.success('Request cancelled. Your coin has been refunded.');
+  const {
+    isSending,
+    setIsSending,
+    isWaitingForAcceptance,
+    pendingMessage,
+    timeRemaining,
+    markSending,
+    handleCancelRequest,
+  } = useBroadcastPending({
+    onAccepted: (data) => {
+      setBroadcastMessage('');
+      setBroadcastQuestion('');
+      setBroadcastCategory('');
+      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chat.id));
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to cancel request. You can try again.');
-    },
-    onSettled: () => {
-      setIsWaitingForAcceptance(false);
-      setPendingMessage(null);
+    onInsufficientCoins: (coins) => {
+      setBroadcastRequiredCoins(coins);
+      setIsBroadcastCoinModalOpen(true);
     },
   });
 
-  // Load question categories and questions from backend (admin-managed)
+  // Load question categories and questions from backend (admin-managed), filtered by selected language
   const { data: questionnairesData } = useQuery({
-    queryKey: [QUERY_KEYS.PUBLIC_QUESTIONNAIRES],
-    queryFn: () => questionnaireService.listPublic(),
+    queryKey: [QUERY_KEYS.PUBLIC_QUESTIONNAIRES(questionnaireLanguage)],
+    queryFn: () => questionnaireService.listPublic(questionnaireLanguage),
     staleTime: 5 * 60 * 1000,
   });
 
   const questionCategories: QuestionnaireCategory[] = questionnairesData?.categories ?? [];
+
+  // Client profiles (Me + family/friends) for profile selection in direct and broadcast
+  const { data: profilesData } = useQuery({
+    queryKey: QUERY_KEYS.USERS.PROFILES,
+    queryFn: () => clientProfileService.list(),
+  });
+  const familyProfiles = profilesData?.profiles ?? [];
 
   const directCategoryData = questionCategories.find((c) => c.id === directCategory);
   const broadcastCategoryData = questionCategories.find((c) => c.id === broadcastCategory);
@@ -124,6 +140,7 @@ export function AskQuestionsSection() {
   };
 
   const handleDirectQuestionSelect = (question: string) => {
+    setDirectMessageError('');
     setDirectQuestion(question);
     setDirectMessage(question);
   };
@@ -141,6 +158,7 @@ export function AskQuestionsSection() {
   };
 
   const handleBroadcastQuestionSelect = (question: string) => {
+    setBroadcastMessageError('');
     setBroadcastQuestion(question);
     setBroadcastMessage(question);
   };
@@ -156,171 +174,128 @@ export function AskQuestionsSection() {
     setShowExtraInfoCards(shouldShow);
   }, [mode, selectedAstrologerId, setShowExtraInfoCards]);
 
-  const handleStartChat = async () => {
+  const handleStartChat = () => {
+    if (!selectedAstrologerId || !user) return;
+    const messageToSend = directMessage.trim() || directQuestion.trim();
+    if (!messageToSend) {
+      setDirectMessageError('Message cannot be empty');
+      return;
+    }
+    setDirectMessageError('');
+    setShowDirectProfileModal(true);
+  };
+
+  const handleDirectProfileConfirm = async (profileId: string) => {
+    setShowDirectProfileModal(false);
     if (!selectedAstrologerId || !user) return;
 
-    // Check profile completion
-    const profileCheck = checkClientProfileCompletion(user);
-    if (!profileCheck.isComplete) {
-      setMissingProfileFields(profileCheck.missingFields);
-      setShowProfileIncompleteDialog(true);
-      return;
-    }
-
-    // Start chat and send the selected/custom question as the first message
     const messageToSend = directMessage.trim() || directQuestion.trim();
-    await startChat(selectedAstrologerId, undefined, messageToSend, directCategory || undefined);
-  };
-
-  // Socket event handlers
-  React.useEffect(() => {
-    if (!socket || !isConnected) return;
-
-    const handleMessageSent = (message: { createdAt: string; id: string }) => {
-      setIsSending(false);
-      setIsWaitingForAcceptance(true);
-      setPendingMessage(message);
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      // Don't clear the form yet - let user see what they sent
-    };
-
-    const handleError = (error: { message: string }) => {
-      setIsSending(false);
-      setIsWaitingForAcceptance(false);
-      setPendingMessage(null);
-      const errorMsg = error.message || 'Failed to send message';
-
-      // Check for insufficient coins
-      if (errorMsg.includes('Insufficient coins') || errorMsg.includes('Required:')) {
-        const coins = extractRequiredCoins(errorMsg);
-        setBroadcastRequiredCoins(coins);
-        setIsBroadcastCoinModalOpen(true);
-        toast.error(errorMsg, {
-          duration: 5000,
-          description: 'Please top up your coins to send a broadcast message.',
-        });
-      } else if (errorMsg.includes('complete your profile')) {
-        toast.error('Please complete your profile first');
-      } else {
-        toast.error(errorMsg);
-      }
-    };
-
-    const handleMessageAccepted = (data: {
-      chatId: string;
-      message: { id: string; createdAt: string };
-    }) => {
-      setIsWaitingForAcceptance(false);
-      setPendingMessage(null);
-      setBroadcastMessage('');
-      setBroadcastQuestion('');
-      setBroadcastCategory('');
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chatId));
-    };
-
-    socket.on('broadcast:messageSent', handleMessageSent);
-    socket.on('broadcast:error', handleError);
-    socket.on('broadcast:yourMessageAccepted', handleMessageAccepted);
-
-    return () => {
-      socket.off('broadcast:messageSent', handleMessageSent);
-      socket.off('broadcast:error', handleError);
-      socket.off('broadcast:yourMessageAccepted', handleMessageAccepted);
-    };
-  }, [socket, isConnected, router, queryClient]);
-
-  const extractRequiredCoins = (errorMessage: string): number => {
-    const match = errorMessage.match(/Required:\s*(\d+)/i);
-    return match ? parseInt(match[1], 10) : 1;
-  };
-
-  // Calculate time remaining for pending message
-  React.useEffect(() => {
-    if (!pendingMessage) {
-      setTimeRemaining(0);
+    if (!messageToSend) {
+      setDirectMessageError('Message cannot be empty');
       return;
     }
+    setDirectMessageError('');
 
-    const updateTimeRemaining = () => {
-      const createdAt = new Date(pendingMessage.createdAt).getTime();
-      const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-      setTimeRemaining(remaining);
-
-      if (remaining <= 0) {
-        setIsWaitingForAcceptance(false);
-        setPendingMessage(null);
-      }
-    };
-
-    updateTimeRemaining();
-    const interval = setInterval(updateTimeRemaining, 1000);
-
-    return () => clearInterval(interval);
-  }, [pendingMessage]);
-
-  // Close modal if message expires
-  React.useEffect(() => {
-    if (pendingMessage) {
-      const createdAt = new Date(pendingMessage.createdAt).getTime();
-      const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
-      const now = Date.now();
-      const timeUntilExpiry = expiresAt - now;
-
-      if (timeUntilExpiry <= 0) {
-        setIsWaitingForAcceptance(false);
-        setPendingMessage(null);
+    if (profileId === 'me') {
+      const profileCheck = checkClientProfileCompletion(user);
+      if (!profileCheck.isComplete) {
+        setMissingProfileFields(profileCheck.missingFields);
+        setShowProfileIncompleteDialog(true);
         return;
       }
-
-      const timeout = setTimeout(() => {
-        setIsWaitingForAcceptance(false);
-        setPendingMessage(null);
-      }, timeUntilExpiry);
-
-      return () => clearTimeout(timeout);
-    } else {
-      setIsWaitingForAcceptance(false);
     }
-  }, [pendingMessage]);
 
-  const handleCancelRequest = () => {
-    if (pendingMessage?.id) {
-      cancelBroadcastMutation.mutate(pendingMessage.id);
-    } else {
-      setIsWaitingForAcceptance(false);
-      setPendingMessage(null);
-      toast.info('Request cancelled');
-    }
+    const birthDetails = getBirthDetailsForProfile(user, familyProfiles, profileId);
+    const messageMetadata = {
+      questionCategory: directCategory || undefined,
+      ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
+    };
+    await startChat(
+      selectedAstrologerId,
+      undefined,
+      messageToSend,
+      directCategory || undefined,
+      Object.keys(messageMetadata).length > 0
+        ? {
+            questionCategory: messageMetadata.questionCategory,
+            ...(messageMetadata.birthDetails
+              ? { birthDetails: messageMetadata.birthDetails as Record<string, string> }
+              : {}),
+          }
+        : undefined,
+      profileId
+    );
   };
 
-  const handleSendBroadcast = async () => {
+  const handleOpenBroadcastProfileModal = async () => {
     if (!user || !socket || !isConnected) {
       toast.error('Not connected. Please refresh the page.');
       return;
     }
+    const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
+    if (!messageToSend) {
+      setBroadcastMessageError('Message cannot be empty');
+      return;
+    }
+    setBroadcastMessageError('');
+    try {
+      const activeChat = await chatService.getActiveChat();
+      if (activeChat) {
+        toast.error(ACTIVE_CHAT_ERROR, {
+          description: 'End your current chat before starting a new one.',
+          duration: 5000,
+        });
+        return;
+      }
+    } catch {
+      // Ignore; allow user to proceed
+    }
+    setShowBroadcastProfileModal(true);
+  };
+
+  const handleBroadcastProfileConfirm = async (profileId: string) => {
+    setShowBroadcastProfileModal(false);
+    if (!user || !socket || !isConnected) return;
 
     const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
     if (!messageToSend) {
-      toast.error('Please select a question or type your message');
+      setBroadcastMessageError('Message cannot be empty');
       return;
+    }
+    setBroadcastMessageError('');
+
+    try {
+      const activeChat = await chatService.getActiveChat();
+      if (activeChat) {
+        toast.error(ACTIVE_CHAT_ERROR, {
+          description: 'End your current chat before starting a new one.',
+          duration: 5000,
+        });
+        return;
+      }
+    } catch {
+      // Ignore; allow user to proceed
     }
 
-    // Check profile completion
-    const profileCheck = checkClientProfileCompletion(user);
-    if (!profileCheck.isComplete) {
-      setMissingProfileFields(profileCheck.missingFields);
-      setShowProfileIncompleteDialog(true);
-      return;
+    if (profileId === 'me') {
+      const profileCheck = checkClientProfileCompletion(user);
+      if (!profileCheck.isComplete) {
+        setMissingProfileFields(profileCheck.missingFields);
+        setShowProfileIncompleteDialog(true);
+        return;
+      }
     }
+
+    const birthDetails = getBirthDetailsForProfile(user, familyProfiles, profileId);
 
     try {
       setIsSending(true);
       socket.emit('broadcast:sendMessage', {
         content: messageToSend,
         type: 'TEXT',
+        ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
       });
+      markSending();
     } catch (error) {
       console.error('Error sending broadcast message:', error);
       toast.error('Failed to send message');
@@ -489,12 +464,18 @@ export function AskQuestionsSection() {
                     </label>
                     <textarea
                       value={directMessage}
-                      onChange={(e) => handleDirectMessageChange(e.target.value)}
+                      onChange={(e) => {
+                        setDirectMessageError('');
+                        handleDirectMessageChange(e.target.value);
+                      }}
                       placeholder={
                         directQuestion ? directQuestion : 'Type your question for this Jyotish...'
                       }
                       className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
                     />
+                    {directMessageError && (
+                      <p className="text-xs text-red-400 mt-1">{directMessageError}</p>
+                    )}
                   </div>
                 </div>
 
@@ -599,12 +580,15 @@ export function AskQuestionsSection() {
               <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
                 <label className="text-sm text-gray-300 mb-2 block">
                   {broadcastQuestion
-                    ? 'Edit question before publishing to all Jyotish'
-                    : 'Type your question to publish to all Jyotish'}
+                    ? 'Or edit question before publishing to all Jyotish'
+                    : 'Or type your question to publish to all Jyotish'}
                 </label>
                 <textarea
                   value={broadcastMessage}
-                  onChange={(e) => handleBroadcastMessageChange(e.target.value)}
+                  onChange={(e) => {
+                    setBroadcastMessageError('');
+                    handleBroadcastMessageChange(e.target.value);
+                  }}
                   placeholder={
                     broadcastQuestion
                       ? broadcastQuestion
@@ -612,13 +596,16 @@ export function AskQuestionsSection() {
                   }
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
                 />
+                {broadcastMessageError && (
+                  <p className="text-xs text-red-400 mt-1">{broadcastMessageError}</p>
+                )}
               </div>
             </div>
 
-            {/* Broadcast Button */}
+            {/* Broadcast Button - opens Select Profile modal, then sends on confirm */}
             <div className="flex gap-2 mt-auto">
               <LoadingButton
-                onClick={handleSendBroadcast}
+                onClick={handleOpenBroadcastProfileModal}
                 disabled={!finalBroadcastMessage}
                 loading={isSending}
                 loadingText="Sending..."
@@ -656,6 +643,25 @@ export function AskQuestionsSection() {
         onClose={() => setShowDirectCoinModal(false)}
         requiredCoins={directRequiredCoins}
         onPurchaseSuccess={retryChat}
+      />
+
+      {/* Select Profile modal - opens when user clicks Start Chat (direct) */}
+      <SelectProfileModal
+        isOpen={showDirectProfileModal}
+        onClose={() => setShowDirectProfileModal(false)}
+        onConfirm={handleDirectProfileConfirm}
+        title="Select profile"
+        confirmLabel="Start Chat"
+      />
+
+      {/* Select Profile modal - opens when user clicks Publish to All Jyotish (broadcast) */}
+      <SelectProfileModal
+        isOpen={showBroadcastProfileModal}
+        onClose={() => setShowBroadcastProfileModal(false)}
+        onConfirm={handleBroadcastProfileConfirm}
+        title="Select profile"
+        confirmLabel="Publish"
+        isLoading={isSending}
       />
     </>
   );

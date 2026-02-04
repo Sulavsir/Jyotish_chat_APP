@@ -26,9 +26,15 @@ import {
   PaginationNext,
   PaginationPrevious,
   Search,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@jyotish/ui';
 import type { QuestionnaireCategory } from '@jyotish/shared';
+import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import { toast } from 'sonner';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { generatePageNumbers } from '@/utils/helpers';
@@ -53,12 +59,9 @@ const questionnaireFormSchema = z.object({
     .min(2, 'Category name must be at least 2 characters')
     .max(100, 'Category name is too long'),
   emoji: z.string().max(8, 'Icon/emoji is too long').optional(),
+  language: z.enum(['NEPALI', 'HINDI', 'ENGLISH']).default('ENGLISH'),
   isActive: z.boolean().optional().default(true),
-  sortOrder: z
-    .number()
-    .int()
-    .min(0, 'Sort order cannot be negative')
-    .default(0),
+  sortOrder: z.number().int().min(0, 'Sort order cannot be negative').default(0),
   questions: z
     .array(
       z.object({
@@ -77,22 +80,23 @@ function toFormDefaults(item?: QuestionnaireCategory): QuestionnaireFormValues {
   return {
     name: item?.name ?? '',
     emoji: item?.emoji ?? '',
+    language: (item?.language ?? 'ENGLISH') as 'NEPALI' | 'HINDI' | 'ENGLISH',
     isActive: item?.isActive ?? true,
     sortOrder: item?.sortOrder ?? 0,
-    questions:
-      item?.questions.map((question) => ({
-        text: question.text,
-      })) ?? [
-        {
-          text: '',
-        },
-      ],
+    questions: item?.questions.map((question) => ({
+      text: question.text,
+    })) ?? [
+      {
+        text: '',
+      },
+    ],
   };
 }
 
 export default function QuestionnairesManagementPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [languageFilter, setLanguageFilter] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState(1);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<QuestionnaireCategory | null>(null);
@@ -113,12 +117,18 @@ export default function QuestionnairesManagementPage() {
     refetch,
     isFetching,
   } = useQuery<QuestionnairesListResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.QUESTIONNAIRES(), currentPage, searchTerm],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.WEBSITE.QUESTIONNAIRES(),
+      currentPage,
+      searchTerm,
+      languageFilter,
+    ],
     queryFn: () =>
       adminApi.website.questionnaires.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm || undefined,
+        language: languageFilter || undefined,
       }),
   });
 
@@ -132,13 +142,14 @@ export default function QuestionnairesManagementPage() {
 
   React.useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [searchTerm, languageFilter]);
 
   const createMutation = useMutation({
     mutationFn: (values: QuestionnaireFormValues) =>
       adminApi.website.questionnaires.create({
         name: values.name.trim(),
         emoji: values.emoji?.trim() || undefined,
+        language: values.language,
         isActive: values.isActive ?? true,
         sortOrder: values.sortOrder,
         questions: values.questions.map((question) => question.text.trim()),
@@ -163,6 +174,7 @@ export default function QuestionnairesManagementPage() {
       return adminApi.website.questionnaires.update(editing.id, {
         name: values.name.trim(),
         emoji: values.emoji?.trim() || undefined,
+        language: values.language,
         isActive: values.isActive ?? true,
         sortOrder: values.sortOrder,
         questions: values.questions.map((question) => question.text.trim()),
@@ -247,12 +259,32 @@ export default function QuestionnairesManagementPage() {
           </div>
         </div>
 
-        <Search
-          placeholder="Search categories..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="w-full flex-1">
+            <Search
+              placeholder="Search categories..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </div>
+          <Select
+            value={languageFilter || 'ALL'}
+            onValueChange={(value) => setLanguageFilter(value === 'ALL' ? '' : value)}
+          >
+            <SelectTrigger className="w-full sm:w-[180px] border-slate-700 bg-slate-900 text-white">
+              <SelectValue placeholder="Language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All languages</SelectItem>
+              {QUESTIONNAIRE_LANGUAGES.map((lang) => (
+                <SelectItem key={lang} value={lang}>
+                  {lang}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
@@ -278,6 +310,13 @@ export default function QuestionnairesManagementPage() {
                       </div>
                     </div>
                   ),
+                },
+                {
+                  header: 'Language',
+                  accessor: (item) => (
+                    <span className="text-sm text-slate-300">{item.language ?? 'ENGLISH'}</span>
+                  ),
+                  width: '100px',
                 },
                 {
                   header: 'Status',
@@ -456,6 +495,30 @@ export default function QuestionnairesManagementPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label>Language</Label>
+                <Select
+                  value={form.watch('language')}
+                  onValueChange={(value) =>
+                    form.setValue('language', value as 'NEPALI' | 'HINDI' | 'ENGLISH')
+                  }
+                >
+                  <SelectTrigger className="border-slate-700 bg-slate-900/80 text-white w-full md:max-w-[200px]">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QUESTIONNAIRE_LANGUAGES.map((lang) => (
+                      <SelectItem key={lang} value={lang}>
+                        {lang}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-300">
+                  Questions in this category will be shown when users select this language.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="sortOrder">Sort Order</Label>
@@ -477,7 +540,7 @@ export default function QuestionnairesManagementPage() {
                       type="button"
                       onClick={() => form.setValue('isActive', true)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                        form.watch('isActive') ?? true
+                        (form.watch('isActive') ?? true)
                           ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200'
                           : 'bg-slate-800 border-slate-600 text-slate-300'
                       }`}
@@ -581,4 +644,3 @@ export default function QuestionnairesManagementPage() {
     </AdminLayout>
   );
 }
-

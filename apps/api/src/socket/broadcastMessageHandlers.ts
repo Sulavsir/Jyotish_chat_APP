@@ -17,78 +17,99 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
   /**
    * Client sends a broadcast message to all astrologers
    */
-  socket.on('broadcast:sendMessage', async (data: { content: string; type?: string }) => {
-    try {
-      if (userRole !== 'CLIENT') {
-        socket.emit('broadcast:error', { message: 'Only clients can send broadcast messages' });
-        return;
-      }
+  socket.on(
+    'broadcast:sendMessage',
+    async (data: {
+      content: string;
+      type?: string;
+      birthDetails?: {
+        dateOfBirth?: string;
+        timeOfBirth?: string;
+        placeOfBirth?: string;
+        gender?: string;
+      };
+    }) => {
+      try {
+        if (userRole !== 'CLIENT') {
+          socket.emit('broadcast:error', { message: 'Only clients can send broadcast messages' });
+          return;
+        }
 
-      const message = await broadcastMessageService.createBroadcastMessage({
-        clientId: userId,
-        content: data.content,
-        type: data.type as any,
-      });
+        const metadata =
+          data.birthDetails &&
+          (data.birthDetails.dateOfBirth ||
+            data.birthDetails.timeOfBirth ||
+            data.birthDetails.placeOfBirth)
+            ? { birthDetails: data.birthDetails }
+            : undefined;
 
-      // Send confirmation to client
-      socket.emit('broadcast:messageSent', message);
+        const message = await broadcastMessageService.createBroadcastMessage({
+          clientId: userId,
+          content: data.content,
+          type: data.type as any,
+          metadata,
+        });
 
-      // Broadcast the new message to astrologers (excluding PREMIUM) in real-time
-      // Get only ORDINARY and PROFESSIONAL astrologers
-      const eligibleAstrologers = await prisma.astrologer.findMany({
-        where: {
-          isActive: true,
-          category: {
-            in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+        // Send confirmation to client
+        socket.emit('broadcast:messageSent', message);
+
+        // Broadcast the new message to astrologers (excluding PREMIUM) in real-time
+        // Get only ORDINARY and PROFESSIONAL astrologers
+        const eligibleAstrologers = await prisma.astrologer.findMany({
+          where: {
+            isActive: true,
+            category: {
+              in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+            },
           },
-        },
-        select: { id: true },
-      });
+          select: { id: true },
+        });
 
-      // Emit to eligible astrologers only
-      eligibleAstrologers.forEach((astrologer) => {
-        io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
-      });
-      console.log(
-        `📢 Broadcasting new message to eligible astrologers (excluding PREMIUM):`,
-        message.id
-      );
+        // Emit to eligible astrologers only
+        eligibleAstrologers.forEach((astrologer) => {
+          io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
+        });
+        console.log(
+          `📢 Broadcasting new message to eligible astrologers (excluding PREMIUM):`,
+          message.id
+        );
 
-      // Create notifications for eligible astrologers only (confidential - no message content shown)
-      const astrologers = eligibleAstrologers;
+        // Create notifications for eligible astrologers only (confidential - no message content shown)
+        const astrologers = eligibleAstrologers;
 
-      // Create notifications for each astrologer
-      const notificationPromises = astrologers.map((astrologer) =>
-        notificationService.createNotification({
-          astrologerId: astrologer.id, // Use astrologerId instead of userId
-          type: NotificationType.BROADCAST_MESSAGE,
+        // Create notifications for each astrologer
+        const notificationPromises = astrologers.map((astrologer) =>
+          notificationService.createNotification({
+            astrologerId: astrologer.id, // Use astrologerId instead of userId
+            type: NotificationType.BROADCAST_MESSAGE,
+            title: 'New Chat Request',
+            message: 'A client is requesting to chat with an astrologer',
+            metadata: {
+              broadcastMessageId: message.id,
+              clientId: message.clientId,
+              isConfidential: true, // Don't show message content
+            },
+          })
+        );
+
+        await Promise.all(notificationPromises);
+
+        // Notify all astrologers via socket about the new notification
+        io.to('astrologers').emit('notification:new', {
+          type: 'BROADCAST_MESSAGE',
           title: 'New Chat Request',
           message: 'A client is requesting to chat with an astrologer',
-          metadata: {
-            broadcastMessageId: message.id,
-            clientId: message.clientId,
-            isConfidential: true, // Don't show message content
-          },
-        })
-      );
-
-      await Promise.all(notificationPromises);
-
-      // Notify all astrologers via socket about the new notification
-      io.to('astrologers').emit('notification:new', {
-        type: 'BROADCAST_MESSAGE',
-        title: 'New Chat Request',
-        message: 'A client is requesting to chat with an astrologer',
-      });
-    } catch (error: unknown) {
-      const err = error as Error;
-      console.error('Error sending broadcast message:', error);
-      socket.emit('broadcast:error', {
-        message: err?.message || 'Failed to send message',
-        code: err?.message?.includes('active chat') ? 'ACTIVE_CHAT_EXISTS' : 'SEND_FAILED',
-      });
+        });
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.error('Error sending broadcast message:', error);
+        socket.emit('broadcast:error', {
+          message: err?.message || 'Failed to send message',
+          code: err?.message?.includes('active chat') ? 'ACTIVE_CHAT_EXISTS' : 'SEND_FAILED',
+        });
+      }
     }
-  });
+  );
 
   /**
    * Astrologer accepts a broadcast message

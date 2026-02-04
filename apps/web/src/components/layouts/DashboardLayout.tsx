@@ -4,13 +4,17 @@
 
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth, useRequireAuth } from '@/hooks';
 import { ROUTES } from '@/constants';
 import { cn } from '@/lib/utils';
+import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
+import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
+import { Popover, PopoverContent, PopoverTrigger } from '@jyotish/ui';
+import { ChevronDown } from 'lucide-react';
 import spaceImage from '@/assets/images/space.jpg';
 import { LogoutModal } from '@/components/modals';
 import { ProfileDropdown, NotificationBell, CoinDisplay } from '@/components/ui';
@@ -28,6 +32,53 @@ const navigation = [
   { name: 'Pricing', href: ROUTES.PRICING, icon: '💰' },
   { name: 'Profile', href: ROUTES.PROFILE, icon: '👤' },
 ];
+
+function LanguageDropdown() {
+  const language = useQuestionnaireLanguageStore((s) => s.language);
+  const setLanguage = useQuestionnaireLanguageStore((s) => s.setLanguage);
+  const [open, setOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalContainer(document.getElementById('dropdown-portal-root'));
+  }, []);
+
+  const handleSelect = (value: 'NEPALI' | 'HINDI' | 'ENGLISH') => {
+    setLanguage(value);
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <PopoverTrigger
+        type="button"
+        className="flex h-10 w-[120px] items-center justify-between gap-2 rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+      >
+        <span>{language}</span>
+        <ChevronDown className="h-4 w-4 opacity-70" />
+      </PopoverTrigger>
+      <PopoverContent
+        container={portalContainer}
+        align="end"
+        sideOffset={4}
+        className="z-[100000] pointer-events-auto w-[120px] rounded-lg border border-purple-500/30 bg-slate-950 p-1 text-white shadow-2xl shadow-purple-900/30"
+      >
+        <div className="flex flex-col">
+          {QUESTIONNAIRE_LANGUAGES.map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => handleSelect(lang)}
+              className="rounded-sm px-3 py-2 text-left text-sm outline-none hover:bg-purple-500/15 focus:bg-purple-500/15 focus:text-white"
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
@@ -68,7 +119,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <header className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
+        <header className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50 overflow-visible">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
               {/* Logo */}
@@ -135,7 +186,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </nav>
 
               {/* Notifications & User Menu */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 overflow-visible">
+                <LanguageDropdown />
                 <CoinDisplay themeColor="purple" />
                 <NotificationBell themeColor="purple" />
                 <ProfileDropdown

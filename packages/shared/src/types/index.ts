@@ -66,6 +66,20 @@ export interface BirthDetails {
   longitude?: number;
 }
 
+// Client profile (family/friend) for asking questions on behalf of someone
+export interface ClientProfile {
+  id: string;
+  userId: string;
+  name: string;
+  relationship: string;
+  dateOfBirth: Date | null;
+  timeOfBirth: string | null;
+  placeOfBirth: string | null;
+  gender: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
 // Dashboard types
 export interface DashboardRotatingCopy {
   id: string;
@@ -240,10 +254,13 @@ export interface QuestionnaireQuestion {
   updatedAt: Date | string;
 }
 
+export type QuestionnaireLanguage = 'NEPALI' | 'HINDI' | 'ENGLISH';
+
 export interface QuestionnaireCategory {
   id: string;
   name: string;
   emoji?: string | null;
+  language: QuestionnaireLanguage;
   isActive: boolean;
   sortOrder: number;
   createdAt: Date | string;

@@ -25,8 +25,11 @@ import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 import { CoinPurchaseModal } from '@/components/modals';
 import { ERROR_CODES, QUERY_KEYS } from '@/constants';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRole } from '@/types/user.types';
+import { clientProfileService } from '@/services/clientProfile.service';
+import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
+import { useChatProfileStore } from '@/store/chat-profile.store';
 
 export default function ChatPage() {
   // Require CLIENT role to access this page
@@ -36,6 +39,7 @@ export default function ChatPage() {
   const router = useRouter();
   const chatIdFromUrl = searchParams?.get('chatId');
   const otherUserIdFromUrl = searchParams?.get('otherUserId');
+  const profileIdFromUrl = searchParams?.get('profileId');
 
   const user = useAuthStore((state) => state.user);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -62,6 +66,22 @@ export default function ChatPage() {
   const chatMessages = useStore((state) => state.messages);
   const queryClient = useQueryClient();
 
+  const { data: profilesData } = useQuery({
+    queryKey: QUERY_KEYS.USERS.PROFILES,
+    queryFn: () => clientProfileService.list(),
+    enabled: !!user?.id,
+  });
+  const familyProfiles = profilesData?.profiles ?? [];
+
+  const setSelectedProfileForChat = useChatProfileStore((s) => s.setSelectedProfileForChat);
+  const getSelectedProfileForChat = useChatProfileStore((s) => s.getSelectedProfileForChat);
+  const getBirthDetailsForChat = useChatProfileStore((s) => s.getBirthDetailsForChat);
+  const setBirthDetailsForChat = useChatProfileStore((s) => s.setBirthDetailsForChat);
+  const migrateSelectionToChatId = useChatProfileStore((s) => s.migrateSelectionToChatId);
+  const selectedProfileByChatKey = useChatProfileStore((s) => s.selectedProfileByChatKey) ?? {};
+  const selectedProfileForActiveChat =
+    activeChatId != null ? (selectedProfileByChatKey[activeChatId] ?? 'me') : 'me';
+
   // Load conversations on initial mount
   useEffect(() => {
     // Prevent double initialization in React Strict Mode
@@ -86,6 +106,15 @@ export default function ChatPage() {
     initializeChat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Restore selected profile from URL when navigating from dashboard (Chat with specific Jyotish)
+  useEffect(() => {
+    if (!profileIdFromUrl?.trim()) return;
+    const chatKey = chatIdFromUrl || (otherUserIdFromUrl ? `new-${otherUserIdFromUrl}` : '');
+    if (chatKey) {
+      setSelectedProfileForChat(chatKey, profileIdFromUrl.trim());
+    }
+  }, [profileIdFromUrl, chatIdFromUrl, otherUserIdFromUrl, setSelectedProfileForChat]);
 
   // Handle URL changes after initial mount (when chatId or otherUserId query param changes)
   useEffect(() => {
@@ -133,14 +162,32 @@ export default function ChatPage() {
         otherUserId: string;
         content: string;
         categoryId?: string;
+        birthDetails?: Record<string, string>;
+        selectedProfileId?: string;
       };
       if (parsed.otherUserId !== otherUserIdFromUrl || !parsed.content?.trim()) return;
 
       pendingMessageSentRef.current = otherUserIdFromUrl;
       sessionStorage.removeItem('pendingChatMessage');
 
-      const metadata = parsed.categoryId ? { questionCategory: parsed.categoryId } : undefined;
-      const sent = sendMessage(otherUserIdFromUrl, parsed.content.trim(), 'TEXT', metadata);
+      if (parsed.selectedProfileId && parsed.selectedProfileId !== 'me') {
+        setSelectedProfileForChat(activeChatId, parsed.selectedProfileId);
+      }
+      if (parsed.birthDetails && Object.keys(parsed.birthDetails).length > 0) {
+        setBirthDetailsForChat(activeChatId, parsed.birthDetails as Record<string, string>);
+      }
+
+      const metadata = {
+        ...(parsed.categoryId && { questionCategory: parsed.categoryId }),
+        ...(parsed.birthDetails &&
+          Object.keys(parsed.birthDetails).length > 0 && { birthDetails: parsed.birthDetails }),
+      };
+      const sent = sendMessage(
+        otherUserIdFromUrl,
+        parsed.content.trim(),
+        'TEXT',
+        Object.keys(metadata).length > 0 ? metadata : undefined
+      );
       if (!sent) {
         pendingMessageSentRef.current = null;
         toast.error('Failed to send message. Please try again.');
@@ -179,7 +226,7 @@ export default function ChatPage() {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       }
 
-    // This prevents duplicate messages!
+      // This prevents duplicate messages!
 
       // Only update conversation list with new message
       setChats((prevChats) => {
@@ -443,7 +490,13 @@ export default function ChatPage() {
         message.receiverId === activeChatId.replace('new-', '')
       ) {
         const realChatId = message.chatId;
-        router.replace(`/chat?chatId=${realChatId}`);
+        migrateSelectionToChatId(activeChatId, realChatId);
+        const profileIdToKeep = getSelectedProfileForChat(realChatId);
+        const profileQuery =
+          profileIdToKeep && profileIdToKeep !== 'me'
+            ? `&profileId=${encodeURIComponent(profileIdToKeep)}`
+            : '';
+        router.replace(`/chat?chatId=${realChatId}${profileQuery}`);
         const freshConversations = await loadConversations();
         await loadAndSelectChatFromUrl(realChatId, freshConversations);
       } else {
@@ -721,37 +774,49 @@ export default function ChatPage() {
       }
     },
     [handleSelectChat]
-  ); 
+  );
 
-  // Handle sending message
+  // Handle sending message (profile from Zustand store per chat)
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {
-    if (!activeChat || !user) return;
+    if (!activeChat || !user || !activeChatId) return;
 
-    // Check if client profile is complete before sending message
-    const profileCheck = checkClientProfileCompletion(user);
-    if (!profileCheck.isComplete) {
-      setMissingProfileFields(profileCheck.missingFields);
-      setShowProfileIncompleteDialog(true);
-      return;
+    const profileIdToUse = getSelectedProfileForChat(activeChatId);
+    if (profileIdToUse === 'me') {
+      const profileCheck = checkClientProfileCompletion(user);
+      if (!profileCheck.isComplete) {
+        setMissingProfileFields(profileCheck.missingFields);
+        setShowProfileIncompleteDialog(true);
+        return;
+      }
     }
 
-    // For clients, the other user is always the astrologer
     const otherUser = activeChat.astrologerParticipant;
+    // Use cached birth details when available; otherwise compute and cache
+    let birthDetails = getBirthDetailsForChat(activeChatId);
+    if (!birthDetails || Object.keys(birthDetails).length === 0) {
+      birthDetails = getBirthDetailsForProfile(user, familyProfiles, profileIdToUse) as
+        | Record<string, string>
+        | undefined;
+      if (birthDetails && Object.keys(birthDetails).length > 0) {
+        setBirthDetailsForChat(activeChatId, birthDetails);
+      }
+    }
+    const baseMetadata =
+      birthDetails && Object.keys(birthDetails).length > 0 ? { birthDetails } : undefined;
 
     // Handle file upload if attachment exists
     if (attachment) {
       try {
         toast.loading('Uploading file...');
 
-        // Upload file first
         const fileData = await chatService.uploadChatFile(attachment.file);
 
         toast.dismiss();
         toast.success('File uploaded!');
 
-        // Send message with file URL - if no text, send empty string (UI will show file)
         const messageContent = content || '';
         const success = sendMessage(otherUser.id, messageContent, fileData.type, {
+          ...baseMetadata,
           fileUrl: fileData.url,
           fileName: fileData.originalName,
           fileSize: fileData.size,
@@ -769,13 +834,11 @@ export default function ChatPage() {
       return;
     }
 
-    // Send text message via WebSocket
-    const success = sendMessage(otherUser.id, content);
+    const success = sendMessage(otherUser.id, content, 'TEXT', baseMetadata);
 
     if (!success) {
       toast.error('Failed to send message. Please check your connection.');
     }
-
   };
 
   // Handle typing indicator
@@ -841,10 +904,10 @@ export default function ChatPage() {
                 senderType: m.senderType,
                 receiverType: m.receiverType,
                 content: m.content,
-                type: m.type, 
-                metadata: m.metadata, 
+                type: m.type,
+                metadata: m.metadata,
                 createdAt: m.createdAt,
-                updatedAt: m.updatedAt || m.createdAt, 
+                updatedAt: m.updatedAt || m.createdAt,
                 isRead: m.isRead,
                 isDeleted: m.isDeleted || false,
                 sender: m.sender || {
@@ -920,7 +983,7 @@ export default function ChatPage() {
                 <BroadcastChatWindow onChatCreated={handleChatCreatedFromBroadcast} />
               ) : (
                 <ChatWindow
-                  key={activeChat?.id || 'no-chat'} // Force re-mount when chat changes
+                  key={activeChat?.id || 'no-chat'}
                   chat={activeChat}
                   messages={messages}
                   currentUserId={user.id}
@@ -935,6 +998,11 @@ export default function ChatPage() {
                   isLoadingMore={isLoadingMore}
                   hasMore={hasMore}
                   isConnected={isConnected}
+                  selectedProfileId={selectedProfileForActiveChat}
+                  onProfileChange={(profileId) =>
+                    setSelectedProfileForChat(activeChatId!, profileId)
+                  }
+                  familyProfiles={familyProfiles}
                 />
               )}
             </div>

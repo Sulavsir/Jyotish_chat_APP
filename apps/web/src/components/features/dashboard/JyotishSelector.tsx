@@ -42,17 +42,16 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
   const [searchTerm, setSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const onlineUsers = useStore((state) => state.onlineUsers);
+  const onlineCount = useStore((state) => state.onlineUsers.size);
 
-  // Common filters for astrologer list
   const listFilters: AstrologerListParams = {
     isOnline: true,
     search: searchTerm || undefined,
     limit: 50,
   };
 
-  // Fetch astrologers list (only online, non-premium handled via filtering)
   const { data: astrologersData, isLoading } = useQuery({
-    queryKey: QUERY_KEYS.ASTROLOGERS.LIST(listFilters),
+    queryKey: [...QUERY_KEYS.ASTROLOGERS.LIST(listFilters), onlineCount],
     queryFn: () => astrologerService.listAstrologers(listFilters),
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,

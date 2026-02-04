@@ -53,6 +53,8 @@ export const API_ENDPOINTS = {
     REMOVE_PHOTO: '/api/v1/users/remove-photo',
     BIRTH_DETAILS: '/api/v1/users/me/birth-details',
     CHATABLE: '/api/v1/users/chatable',
+    PROFILES: '/api/v1/users/profiles',
+    PROFILE_BY_ID: (id: string) => `/api/v1/users/profiles/${id}`,
   },
   CHAT: {
     HISTORY: (userId: string) => `/api/v1/chat/history/${userId}`,

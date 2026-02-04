@@ -4,6 +4,8 @@
  */
 
 import { Router } from 'express';
+import { listPublicQuestionnairesQuerySchema } from '@jyotish/shared';
+import { validateQuery } from '../middleware/validate';
 import { asyncHandler } from '../utils';
 import * as publicAstrologerController from '../controllers/publicAstrologerController';
 import * as dashboardRotatingCopyController from '../controllers/dashboardRotatingCopyController';
@@ -17,13 +19,13 @@ router.get('/astrologers/stats', asyncHandler(publicAstrologerController.getAstr
 router.get('/astrologers/:id', asyncHandler(publicAstrologerController.getPublicAstrologerProfile));
 
 // ==================== Public Dashboard Routes ====================
-router.get(
-  '/dashboard-rotating-copy',
-  asyncHandler(dashboardRotatingCopyController.listPublic)
-);
+router.get('/dashboard-rotating-copy', asyncHandler(dashboardRotatingCopyController.listPublic));
 
 // ==================== Public Questionnaires (Question categories and questions) ====================
-router.get('/questionnaires', asyncHandler(questionnaireController.listPublicQuestionnaires));
+router.get(
+  '/questionnaires',
+  validateQuery(listPublicQuestionnairesQuerySchema),
+  asyncHandler(questionnaireController.listPublicQuestionnaires)
+);
 
 export default router;
-

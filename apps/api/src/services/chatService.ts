@@ -528,9 +528,30 @@ export const getChatHistory = async (
         });
       }
 
+      const baseSender = sender || {
+        id: message.senderId,
+        name: 'Unknown User',
+        profilePhoto: null,
+      };
+      const meta = message.metadata as Record<string, unknown> | null | undefined;
+      const birthDetails = meta?.birthDetails as Record<string, unknown> | undefined;
+      const baseBirth = baseSender as Record<string, unknown>;
+      const mergedSender =
+        message.senderType === ParticipantType.CLIENT &&
+        birthDetails &&
+        typeof birthDetails === 'object'
+          ? {
+              ...baseSender,
+              dateOfBirth: birthDetails.dateOfBirth ?? baseBirth.dateOfBirth,
+              timeOfBirth: birthDetails.timeOfBirth ?? baseBirth.timeOfBirth,
+              placeOfBirth: birthDetails.placeOfBirth ?? baseBirth.placeOfBirth,
+              gender: birthDetails.gender ?? baseBirth.gender,
+            }
+          : baseSender;
+
       return {
         ...message,
-        sender: sender || { id: message.senderId, name: 'Unknown User', profilePhoto: null },
+        sender: mergedSender,
       };
     })
   );

@@ -43,7 +43,7 @@ export const QUEUE_NAMES = {
 export const CACHE_KEYS = {
   USER_PROFILE: (userId: string) => `user:profile:${userId}`,
   HOROSCOPE_DAILY: (sign: string, date: string) => `horoscope:daily:${sign}:${date}`,
-  CHAT_HISTORY: (userId1: string, userId2: string) => 
+  CHAT_HISTORY: (userId1: string, userId2: string) =>
     `chat:history:${[userId1, userId2].sort().join(':')}`,
   ONLINE_USERS: 'users:online',
 } as const;
@@ -57,13 +57,20 @@ export const TIME = {
   ONE_WEEK: 7 * 24 * 60 * 60 * 1000,
 } as const;
 
+// Questionnaire languages (for question categories). Type QuestionnaireLanguage is in types/index.ts
+export const QUESTIONNAIRE_LANGUAGES = ['NEPALI', 'HINDI', 'ENGLISH'] as const;
+
 // File upload limits
 export const FILE_LIMITS = {
   IMAGE_MAX_SIZE: 5 * 1024 * 1024, // 5MB
   FILE_MAX_SIZE: 10 * 1024 * 1024, // 10MB
   AUDIO_MAX_SIZE: 20 * 1024 * 1024, // 20MB
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
-  ALLOWED_FILE_TYPES: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  ALLOWED_FILE_TYPES: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
   ALLOWED_AUDIO_TYPES: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
 } as const;
 

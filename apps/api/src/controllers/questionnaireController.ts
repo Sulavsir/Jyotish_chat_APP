@@ -7,14 +7,16 @@ import type { Request, Response } from 'express';
 import { questionnaireService } from '../services/questionnaire.service';
 import type { QuestionnaireCategory } from '@jyotish/shared';
 
-export const listPublicQuestionnaires = async (_req: Request, res: Response) => {
-  const categories = await questionnaireService.listPublic();
+export const listPublicQuestionnaires = async (req: Request, res: Response) => {
+  const language = typeof req.query.language === 'string' ? req.query.language : undefined;
+  const categories = await questionnaireService.listPublic(language);
 
   // Shape response using shared types
   const data: QuestionnaireCategory[] = categories.map((category) => ({
     id: category.id,
     name: category.name,
     emoji: category.emoji,
+    language: category.language as QuestionnaireCategory['language'],
     isActive: category.isActive,
     sortOrder: category.sortOrder,
     createdAt: category.createdAt,
@@ -39,7 +41,7 @@ export const listPublicQuestionnaires = async (_req: Request, res: Response) => 
 };
 
 export const listAdminQuestionnaires = async (req: Request, res: Response) => {
-  const { page, limit, search, includeInactive } = req.query;
+  const { page, limit, search, language, includeInactive } = req.query;
 
   const pageNumber = page ? Number(page) : undefined;
   const limitNumber = limit ? Number(limit) : undefined;
@@ -50,6 +52,7 @@ export const listAdminQuestionnaires = async (req: Request, res: Response) => {
     page: pageNumber,
     limit: limitNumber,
     search: typeof search === 'string' ? search : undefined,
+    language: typeof language === 'string' ? language : undefined,
     includeInactive: includeInactiveFlag,
   });
 
@@ -63,9 +66,10 @@ export const listAdminQuestionnaires = async (req: Request, res: Response) => {
 };
 
 export const createQuestionCategory = async (req: Request, res: Response) => {
-  const { name, emoji, isActive, sortOrder, questions } = req.body as {
+  const { name, emoji, language, isActive, sortOrder, questions } = req.body as {
     name: string;
     emoji?: string;
+    language?: string;
     isActive?: boolean;
     sortOrder?: number;
     questions: string[];
@@ -74,6 +78,7 @@ export const createQuestionCategory = async (req: Request, res: Response) => {
   const created = await questionnaireService.create({
     name,
     emoji,
+    language,
     isActive,
     sortOrder,
     questions,
@@ -89,9 +94,10 @@ export const createQuestionCategory = async (req: Request, res: Response) => {
 
 export const updateQuestionCategory = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, emoji, isActive, sortOrder, questions } = req.body as {
+  const { name, emoji, language, isActive, sortOrder, questions } = req.body as {
     name?: string;
     emoji?: string;
+    language?: string;
     isActive?: boolean;
     sortOrder?: number;
     questions?: string[];
@@ -100,6 +106,7 @@ export const updateQuestionCategory = async (req: Request, res: Response) => {
   const updated = await questionnaireService.update(id, {
     name,
     emoji,
+    language,
     isActive,
     sortOrder,
     questions,
@@ -125,4 +132,3 @@ export const removeQuestionCategory = async (req: Request, res: Response) => {
     },
   });
 };
-

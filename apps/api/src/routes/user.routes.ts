@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { validateBody } from '../middleware/validate';
+import { validateBody, validateParams } from '../middleware/validate';
 import { asyncHandler } from '../utils';
-import { userController } from '../controllers';
+import { userController, clientProfileController } from '../controllers';
 import { authController } from '../controllers';
-import { profileSetupSchema } from '../validators';
+import {
+  profileSetupSchema,
+  createClientProfileSchema,
+  updateClientProfileSchema,
+} from '../validators';
+import { uuidParamSchema } from '../validators/query.validators';
 import { uploadProfilePhoto } from '../middleware/upload';
 
 const router = Router();
@@ -39,6 +44,28 @@ router.delete('/remove-photo', authenticate, asyncHandler(userController.removeP
 
 // Get chatable users (astrologers for clients, clients for astrologers)
 router.get('/chatable', authenticate, asyncHandler(userController.getChatableUsers));
+
+// Client profiles (family/friends) for asking questions on behalf of someone (must be before /:id)
+router.get('/profiles', authenticate, asyncHandler(clientProfileController.list));
+router.post(
+  '/profiles',
+  authenticate,
+  validateBody(createClientProfileSchema),
+  asyncHandler(clientProfileController.create)
+);
+router.patch(
+  '/profiles/:id',
+  authenticate,
+  validateParams(uuidParamSchema),
+  validateBody(updateClientProfileSchema),
+  asyncHandler(clientProfileController.update)
+);
+router.delete(
+  '/profiles/:id',
+  authenticate,
+  validateParams(uuidParamSchema),
+  asyncHandler(clientProfileController.remove)
+);
 
 // Get client details by ID (for astrologers to view client profile)
 router.get('/:id/details', authenticate, asyncHandler(userController.getClientDetails));

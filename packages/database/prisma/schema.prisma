@@ -50,12 +50,30 @@ model User {
   ratingsGiven                 Rating[]               @relation("ClientRatings")
   coinTransactions             CoinTransaction[]      @relation("CoinTransactions")
   jyotishBookingRequests       JyotishBookingRequest[]
+  clientProfiles               ClientProfile[]
 
   @@index([phone])
   @@index([email])
   @@index([role])
   @@index([isOnline])
   @@index([zodiacSign])
+}
+
+// Client profiles (self = User; family/friends = ClientProfile) for questions/consultations
+model ClientProfile {
+  id           String     @id @default(uuid())
+  userId       String
+  name         String
+  relationship String   
+  dateOfBirth  DateTime?
+  timeOfBirth  String?
+  placeOfBirth String?
+  gender       Gender?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Astrologer (Jyotish) - Created and managed by admin only
@@ -594,20 +612,29 @@ model DashboardRotatingCopy {
   @@index([isActive, sortOrder])
 }
 
-// Questionnaires - Question categories and their questions
+// Questionnaires - Question categories and their questions (per language)
+enum QuestionnaireLanguage {
+  NEPALI
+  HINDI
+  ENGLISH
+}
+
 model QuestionCategory {
-  id        String          @id @default(uuid())
+  id        String                 @id @default(uuid())
   name      String
   emoji     String?
-  isActive  Boolean         @default(true)
-  sortOrder Int             @default(0)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  language  QuestionnaireLanguage  @default(ENGLISH)
+  isActive  Boolean                @default(true)
+  sortOrder Int                    @default(0)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
   questions QuestionItem[]
 
   @@index([isActive])
   @@index([sortOrder])
+  @@index([language])
   @@index([isActive, sortOrder])
+  @@index([isActive, language])
 }
 
 model QuestionItem {

@@ -27,7 +27,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     user?.role === UserRole.ASTROLOGER && !isOwn && message.sender?.role === UserRole.CLIENT;
   const clientId = message.senderId || message.sender?.id;
   const showClientIconFallback =
-    message.sender?.role === UserRole.CLIENT && !message.sender?.profilePhoto && !message.sender?.name;
+    message.sender?.role === UserRole.CLIENT &&
+    !message.sender?.profilePhoto &&
+    !message.sender?.name;
 
   // Format date of birth
   const formatDateOfBirth = (date: Date | string | null | undefined): string => {
@@ -39,24 +41,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  // Check if birth details are available
-  const hasBirthDetails =
-    isAstrologerViewingClient &&
-    (message.sender?.dateOfBirth || message.sender?.timeOfBirth || message.sender?.placeOfBirth);
+  // Birth details: prefer message metadata (selected profile) when present, else sender (user profile)
+  const metaBirth = message.metadata as Record<string, unknown> | undefined;
+  const birthDetails =
+    metaBirth?.birthDetails && typeof metaBirth.birthDetails === 'object'
+      ? (metaBirth.birthDetails as {
+          dateOfBirth?: string;
+          timeOfBirth?: string;
+          placeOfBirth?: string;
+        })
+      : null;
+  const displayDob = birthDetails?.dateOfBirth ?? message.sender?.dateOfBirth;
+  const displayTob = birthDetails?.timeOfBirth ?? message.sender?.timeOfBirth;
+  const displayPob = birthDetails?.placeOfBirth ?? message.sender?.placeOfBirth;
+  const hasBirthDetails = isAstrologerViewingClient && (displayDob || displayTob || displayPob);
 
   // Check if message has file attachment
   const metadata = message.metadata as Record<string, unknown> | undefined;
   const hasFile = !!metadata?.fileUrl;
   const mimeType = typeof metadata?.mimeType === 'string' ? metadata.mimeType : '';
   const isImage = message.type === 'IMAGE' || mimeType.startsWith('image/');
-  const fileUrl = hasFile && typeof metadata?.fileUrl === 'string' ? `${API_BASE_URL}${metadata.fileUrl}` : null;
-  
+  const fileUrl =
+    hasFile && typeof metadata?.fileUrl === 'string' ? `${API_BASE_URL}${metadata.fileUrl}` : null;
+
   // Extract file metadata with proper type checking
   const fileName = typeof metadata?.fileName === 'string' ? metadata.fileName : 'File';
   const fileSize = typeof metadata?.fileSize === 'number' ? metadata.fileSize : null;
-  
+
   // Check if message has question category (only for client messages)
-  const questionCategoryId = typeof metadata?.questionCategory === 'string' ? metadata.questionCategory : undefined;
+  const questionCategoryId =
+    typeof metadata?.questionCategory === 'string' ? metadata.questionCategory : undefined;
 
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start items-end'} mb-1`}>
@@ -89,7 +103,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               const category = QUESTION_CATEGORIES.find((c) => c.id === questionCategoryId);
               if (!category) return null;
               return (
-                <Badge variant="outline" className="text-xs bg-purple-50 border-purple-200 text-purple-700">
+                <Badge
+                  variant="outline"
+                  className="text-xs bg-purple-50 border-purple-200 text-purple-700"
+                >
                   {category.emoji} {category.name}
                 </Badge>
               );
@@ -174,29 +191,29 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Birth Details - only for astrologers viewing client messages */}
+        {/* Birth Details - only for astrologers viewing client messages (from selected profile or sender) */}
         {hasBirthDetails && (
           <div className="mt-2 px-3 py-2 bg-blue-50/80 border border-blue-200/50 rounded-lg text-xs">
             <div className="grid grid-cols-1 gap-1.5">
-              {message.sender?.dateOfBirth && (
+              {displayDob && (
                 <div className="flex items-center gap-1.5 text-blue-900">
                   <Calendar className="h-3 w-3 text-blue-600 flex-shrink-0" />
                   <span className="font-medium">DOB:</span>
-                  <span>{formatDateOfBirth(message.sender.dateOfBirth)}</span>
+                  <span>{formatDateOfBirth(displayDob)}</span>
                 </div>
               )}
-              {message.sender?.timeOfBirth && (
+              {displayTob && (
                 <div className="flex items-center gap-1.5 text-blue-900">
                   <Clock className="h-3 w-3 text-blue-600 flex-shrink-0" />
                   <span className="font-medium">TOB:</span>
-                  <span>{message.sender.timeOfBirth}</span>
+                  <span>{displayTob}</span>
                 </div>
               )}
-              {message.sender?.placeOfBirth && (
+              {displayPob && (
                 <div className="flex items-center gap-1.5 text-blue-900">
                   <MapPin className="h-3 w-3 text-blue-600 flex-shrink-0" />
                   <span className="font-medium">POB:</span>
-                  <span className="truncate">{message.sender.placeOfBirth}</span>
+                  <span className="truncate">{displayPob}</span>
                 </div>
               )}
             </div>

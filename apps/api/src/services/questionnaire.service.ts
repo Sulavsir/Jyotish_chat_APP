@@ -3,39 +3,24 @@
  * Manages question categories and their questions
  */
 
-import { prisma } from '@jyotish/database';
+import { prisma, Prisma, QuestionnaireLanguage } from '@jyotish/database';
 import { AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
 
-type QuestionCategoryEntity = {
-  id: string;
-  name: string;
-  emoji: string | null;
-  isActive: boolean;
-  sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
-  questions: QuestionItemEntity[];
-};
-
-type QuestionItemEntity = {
-  id: string;
-  categoryId: string;
-  text: string;
-  isActive: boolean;
-  sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
-};
+/** Category with questions included (matches Prisma findMany with include) */
+type QuestionCategoryWithQuestions = Prisma.QuestionCategoryGetPayload<{
+  include: { questions: true };
+}>;
 
 type ListInput = {
   page?: number;
   limit?: number;
   search?: string;
+  language?: string;
   includeInactive?: boolean;
 };
 
 type ListResult = {
-  items: QuestionCategoryEntity[];
+  items: QuestionCategoryWithQuestions[];
   pagination: {
     page: number;
     limit: number;
@@ -48,9 +33,13 @@ const questionCategoryDelegate = prisma.questionCategory;
 const questionItemDelegate = prisma.questionItem;
 
 export const questionnaireService = {
-  async listPublic(): Promise<QuestionCategoryEntity[]> {
+  async listPublic(language?: string): Promise<QuestionCategoryWithQuestions[]> {
+    const lang: QuestionnaireLanguage =
+      language && ['NEPALI', 'HINDI', 'ENGLISH'].includes(language)
+        ? (language as QuestionnaireLanguage)
+        : QuestionnaireLanguage.ENGLISH;
     return questionCategoryDelegate.findMany({
-      where: { isActive: true },
+      where: { isActive: true, language: lang },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
         questions: {
@@ -67,10 +56,7 @@ export const questionnaireService = {
     const skip = (page - 1) * limit;
     const q = input?.search?.trim();
 
-    const where: {
-      isActive?: boolean;
-      name?: { contains: string; mode: 'insensitive' };
-    } = {};
+    const where: Prisma.QuestionCategoryWhereInput = {};
 
     if (!input?.includeInactive) {
       where.isActive = true;
@@ -78,6 +64,10 @@ export const questionnaireService = {
 
     if (q) {
       where.name = { contains: q, mode: 'insensitive' };
+    }
+
+    if (input?.language && ['NEPALI', 'HINDI', 'ENGLISH'].includes(input.language)) {
+      where.language = input.language as QuestionnaireLanguage;
     }
 
     const [items, total] = await Promise.all([
@@ -109,14 +99,20 @@ export const questionnaireService = {
   async create(input: {
     name: string;
     emoji?: string;
+    language?: string;
     isActive?: boolean;
     sortOrder?: number;
     questions: string[];
-  }): Promise<QuestionCategoryEntity> {
+  }): Promise<QuestionCategoryWithQuestions> {
+    const lang: QuestionnaireLanguage =
+      input.language && ['NEPALI', 'HINDI', 'ENGLISH'].includes(input.language)
+        ? (input.language as QuestionnaireLanguage)
+        : QuestionnaireLanguage.ENGLISH;
     const created = await questionCategoryDelegate.create({
       data: {
         name: input.name,
         emoji: input.emoji ?? null,
+        language: lang,
         isActive: input.isActive ?? true,
         sortOrder: input.sortOrder ?? 0,
         questions: {
@@ -141,18 +137,23 @@ export const questionnaireService = {
     input: {
       name?: string;
       emoji?: string;
+      language?: string;
       isActive?: boolean;
       sortOrder?: number;
       questions?: string[];
     }
-  ): Promise<QuestionCategoryEntity> {
+  ): Promise<QuestionCategoryWithQuestions> {
     const existing = await questionCategoryDelegate.findUnique({
       where: { id },
       include: { questions: true },
     });
 
     if (!existing) {
-      throw new AppError('Question category not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      throw new AppError(
+        'Question category not found',
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODES.NOT_FOUND
+      );
     }
 
     // If questions are provided, replace the existing set with the new ordered list
@@ -171,11 +172,16 @@ export const questionnaireService = {
       });
     }
 
+    const lang: QuestionnaireLanguage | undefined =
+      input.language !== undefined && ['NEPALI', 'HINDI', 'ENGLISH'].includes(input.language)
+        ? (input.language as QuestionnaireLanguage)
+        : undefined;
     const updated = await questionCategoryDelegate.update({
       where: { id },
       data: {
         name: input.name ?? undefined,
         emoji: input.emoji !== undefined ? input.emoji : undefined,
+        ...(lang !== undefined && { language: lang }),
         isActive: input.isActive ?? undefined,
         sortOrder: input.sortOrder ?? undefined,
       },
@@ -186,16 +192,19 @@ export const questionnaireService = {
       },
     });
 
-    return updated;
+    return updated as QuestionCategoryWithQuestions;
   },
 
   async remove(id: string): Promise<void> {
     const existing = await questionCategoryDelegate.findUnique({ where: { id } });
     if (!existing) {
-      throw new AppError('Question category not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+      throw new AppError(
+        'Question category not found',
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODES.NOT_FOUND
+      );
     }
 
     await questionCategoryDelegate.delete({ where: { id } });
   },
 };
-

@@ -44,7 +44,8 @@ import complaintService from '@/services/complaint.service';
 import { ComplaintCategory, COMPLAINT_CATEGORY_LABELS } from '@/types/complaint';
 import { InlineChatRating } from '@/components/features/ratings';
 import { ERROR_CODES, QUERY_KEYS } from '@/constants';
-import { ClientDetailsModal } from '@/components/modals/ClientDetailsModal';
+import { ClientDetailsModal, SelectProfileModal } from '@/components/modals';
+import type { ClientProfile } from '@jyotish/shared';
 
 interface SystemMessage {
   id: string;
@@ -70,6 +71,12 @@ interface ChatWindowProps {
   isLoadingMore?: boolean;
   hasMore?: boolean;
   isConnected?: boolean;
+  /** Client only: selected profile for birth details shown to Jyotish */
+  selectedProfileId?: string;
+  /** Client only: called when user changes profile in Select Profile modal */
+  onProfileChange?: (profileId: string) => void;
+  /** Client only: family profiles for displaying current profile name */
+  familyProfiles?: ClientProfile[];
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -87,6 +94,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isLoadingMore = false,
   hasMore = false,
   isConnected = false,
+  selectedProfileId = 'me',
+  onProfileChange,
+  familyProfiles = [],
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +116,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [complaintAttachment, setComplaintAttachment] = useState<File | null>(null);
   const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [showSelectProfileModal, setShowSelectProfileModal] = useState(false);
   const onlineUsers = useStore((state) => state.onlineUsers);
   const user = useAuthStore((state) => state.user);
   const { socket } = useSocket();
@@ -495,6 +506,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Select Profile badge - only for clients: choose whose birth details to share with Jyotish */}
+          {user?.role === UserRole.CLIENT && onProfileChange && (
+            <Badge
+              variant="outline"
+              className="cursor-pointer bg-purple-500 hover:bg-pink-500 text-white border-purple-400/50 transition-all px-3 py-1.5 font-medium"
+              onClick={() => setShowSelectProfileModal(true)}
+            >
+              <User className="h-3.5 w-3.5 mr-1.5" />
+              Change Profile
+            </Badge>
+          )}
           {/* View Profile Badge - only for astrologers viewing client messages */}
           {user?.role === UserRole.ASTROLOGER && otherUser.role === UserRole.CLIENT && (
             <Badge
@@ -990,6 +1012,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Select Profile Modal - client only: choose whose birth details to share with Jyotish */}
+      {user?.role === UserRole.CLIENT && onProfileChange && (
+        <SelectProfileModal
+          isOpen={showSelectProfileModal}
+          onClose={() => setShowSelectProfileModal(false)}
+          onConfirm={(profileId) => {
+            onProfileChange(profileId);
+            setShowSelectProfileModal(false);
+          }}
+          defaultSelectedProfileId={selectedProfileId}
+          title="Select profile"
+          confirmLabel="Use this profile"
+        />
       )}
 
       {/* Client Details Modal */}

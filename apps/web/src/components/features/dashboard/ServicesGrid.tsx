@@ -87,7 +87,7 @@ export function ServicesGrid({
     },
     {
       id: 'instant',
-      name: 'Flight Predictions',
+      name: 'Travel Predictions',
       icon: <Plane className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.CHAT),
     },

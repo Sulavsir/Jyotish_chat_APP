@@ -71,7 +71,10 @@ export const QUERY_KEYS = {
   },
 
   // Questionnaires (question categories and questions)
-  PUBLIC_QUESTIONNAIRES: ['public', 'questionnaires'] as const,
+  PUBLIC_QUESTIONNAIRES: (language?: string) =>
+    language
+      ? (['public', 'questionnaires', language] as const)
+      : (['public', 'questionnaires'] as const),
 
   // Astrologers
   ASTROLOGERS: {
@@ -87,6 +90,7 @@ export const QUERY_KEYS = {
   USERS: {
     CHATABLE: ['users', 'chatable'] as const,
     CLIENT_DETAILS: (clientId: string) => ['users', 'client-details', clientId] as const,
+    PROFILES: ['users', 'profiles'] as const,
   },
 
   // Complaints

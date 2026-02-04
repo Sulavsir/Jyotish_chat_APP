@@ -77,6 +77,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
             <AdminChatWidget />
             <Toaster position="top-right" richColors />
+            {/* Fixed portal root for dropdowns (e.g. Language select) so they stay visible when scrolling */}
+            <div
+              id="dropdown-portal-root"
+              aria-hidden
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 99999,
+                pointerEvents: 'none',
+              }}
+            />
           </AuthProvider>
         </QueryProvider>
       </body>

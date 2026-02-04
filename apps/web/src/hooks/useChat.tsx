@@ -50,13 +50,17 @@ export function useChat() {
    * @param consultationId - Optional consultation ID to link
    * @param initialMessage - Optional first message content to send after chat is created
    * @param categoryId - Optional category ID for the question (to display as badge)
+   * @param messageMetadata - Optional metadata for first message (questionCategory, birthDetails from selected profile)
+   * @param selectedProfileId - Optional profile id ('me' or client profile id) so chat page can restore it for "Change Profile"
    * @returns The chat ID
    */
   const startChat = async (
     otherUserId: string,
     consultationId?: string,
     initialMessage?: string,
-    categoryId?: string
+    categoryId?: string,
+    messageMetadata?: { questionCategory?: string; birthDetails?: Record<string, string> },
+    selectedProfileId?: string
   ) => {
     if (!user) {
       toast.error('Please login to start a chat');
@@ -81,15 +85,23 @@ export function useChat() {
         // Existing chat: optionally send initial message and navigate
         const trimmedMessage = initialMessage?.trim();
         if (trimmedMessage) {
+          const metadata =
+            messageMetadata ?? (categoryId ? { questionCategory: categoryId } : undefined);
           try {
             await chatService.sendMessage({
               chatId: chat.id,
               receiverId: otherUserId,
               content: trimmedMessage,
               type: 'TEXT',
-              metadata: categoryId
+              metadata: metadata
                 ? {
-                    questionCategory: categoryId,
+                    ...(metadata.questionCategory && {
+                      questionCategory: metadata.questionCategory,
+                    }),
+                    ...(metadata.birthDetails &&
+                      Object.keys(metadata.birthDetails).length > 0 && {
+                        birthDetails: metadata.birthDetails,
+                      }),
                   }
                 : undefined,
             });
@@ -101,7 +113,12 @@ export function useChat() {
         if (user.role === UserRole.ASTROLOGER) {
           router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(chat.id));
         } else {
-          router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
+          const chatUrl = ROUTE_BUILDERS.CHAT_WITH_ID(chat.id);
+          const urlWithProfile =
+            selectedProfileId && selectedProfileId !== 'me'
+              ? `${chatUrl}${chatUrl.includes('?') ? '&' : '?'}profileId=${encodeURIComponent(selectedProfileId)}`
+              : chatUrl;
+          router.push(urlWithProfile);
         }
       } else {
         if (user.role === UserRole.CLIENT) {
@@ -125,10 +142,17 @@ export function useChat() {
                 otherUserId,
                 content: trimmedMessage,
                 categoryId: categoryId ?? undefined,
+                birthDetails: messageMetadata?.birthDetails,
+                selectedProfileId:
+                  selectedProfileId && selectedProfileId !== 'me' ? selectedProfileId : undefined,
               })
             );
           }
-          router.push(`/chat?otherUserId=${otherUserId}`);
+          const profileQuery =
+            selectedProfileId && selectedProfileId !== 'me'
+              ? `&profileId=${encodeURIComponent(selectedProfileId)}`
+              : '';
+          router.push(`/chat?otherUserId=${otherUserId}${profileQuery}`);
         } else {
           throw new Error('Invalid chat response from server');
         }

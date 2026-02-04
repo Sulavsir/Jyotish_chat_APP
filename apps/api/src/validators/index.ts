@@ -27,6 +27,8 @@ export {
   idParamSchema,
   createJyotishBookingRequestSchema,
   adminUpdateJyotishBookingStatusSchema,
+  createClientProfileSchema,
+  updateClientProfileSchema,
 } from '@jyotish/shared';
 
 // Export backend-specific validators
