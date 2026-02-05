@@ -78,13 +78,18 @@ export function getDecodedTokenFromCookies(): DecodedToken | null {
  */
 export function getAstrologerCategoryFromToken(): string | null {
   if (typeof document === 'undefined') return null;
-  
+
   const cookies = document.cookie.split(';');
   const categoryCookie = cookies.find((cookie) => cookie.trim().startsWith('astrologerCategory='));
-  
+
   if (!categoryCookie) return null;
-  
-  return categoryCookie.split('=')[1] || null;
+
+  return categoryCookie.split('=')[1]?.trim() || null;
+}
+
+export function clearAstrologerCategoryCookie(): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = 'astrologerCategory=; path=/; max-age=0';
 }
 
 /**

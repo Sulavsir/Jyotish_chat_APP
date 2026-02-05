@@ -10,6 +10,8 @@ import { broadcastMessageService } from '../services';
 import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import { getSocketInstance } from '../utils/socket-instance';
+import { prisma } from '@jyotish/database';
+import { AstrologerCategory } from '@prisma/client';
 
 type BroadcastMessageControllerError = Error & {
   code?: string;
@@ -197,12 +199,19 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
         initialMessages: result.initialMessages, // Include the auto-generated messages
       });
 
-      // Notify all astrologers (including acceptor) about the acceptance
-      io.to('astrologers').emit('broadcast:messageAcceptedByAstrologer', {
+      // Notify only ORDINARY and PROFESSIONAL astrologers (PREMIUM should not see broadcast toasts)
+      const payload = {
         messageId: result.message.id,
         acceptedBy: result.message.acceptedAstrologer,
         acceptedAt: result.message.acceptedAt,
         clientName: result.message.client?.name || result.message.client?.phone,
+      };
+      const eligibleAstrologers = await prisma.astrologer.findMany({
+        where: { category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] } },
+        select: { id: true },
+      });
+      eligibleAstrologers.forEach((a) => {
+        io.to(`user:${a.id}`).emit('broadcast:messageAcceptedByAstrologer', payload);
       });
     }
 

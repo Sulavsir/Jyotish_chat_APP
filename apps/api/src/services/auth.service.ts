@@ -335,7 +335,7 @@ export class AuthService {
 
     // Check if user exists
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
     // Check if user has password set
@@ -349,14 +349,14 @@ export class AuthService {
 
     // Ensure only CLIENT role users can login via this endpoint
     if (user.role !== UserRole.CLIENT) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
     // Verify password
     const isPasswordValid = await this.comparePassword(password, user.password);
 
     if (!isPasswordValid) {
-      throw new Error('Invalid credentials');
+      throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
     // Generate tokens

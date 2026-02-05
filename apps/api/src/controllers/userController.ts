@@ -85,7 +85,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
       role: UserRole.ASTROLOGER,
       zodiacSign: null,
       hasPassword: !!password,
-      profileCompleted: true, 
+      profileCompleted: true,
       astrologer: {
         id: astrologer.id,
         category,
@@ -142,8 +142,18 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
  * PATCH /api/v1/users/me
  */
 export async function updateProfile(req: AuthRequest, res: Response, next: NextFunction) {
-  const { name, email, phone, profilePhoto, bio, specialization, experience, languages, gender, zodiacSign } =
-    req.body;
+  const {
+    name,
+    email,
+    phone,
+    profilePhoto,
+    bio,
+    specialization,
+    experience,
+    languages,
+    gender,
+    zodiacSign,
+  } = req.body;
   const userId = req.user!.id;
   const userRole = req.user!.role;
 
@@ -343,7 +353,7 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
   const resolvedZodiacSign =
     validatedData.zodiacSign !== undefined && validatedData.zodiacSign !== null
       ? validatedData.zodiacSign
-      : existing.zodiacSign ?? getZodiacSign(dob);
+      : (existing.zodiacSign ?? getZodiacSign(dob));
 
   const genderForCompletion =
     validatedData.gender !== undefined ? validatedData.gender : existing.gender;
@@ -429,11 +439,11 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
     // @ts-ignore - multer adds 'file' property
     req.file ||
     // @ts-ignore - multer adds 'files' property
-    (req.files?.['photo']?.[0] ||
-      // @ts-ignore
-      req.files?.['file']?.[0] ||
-      // @ts-ignore
-      req.files?.['image']?.[0]);
+    req.files?.['photo']?.[0] ||
+    // @ts-ignore
+    req.files?.['file']?.[0] ||
+    // @ts-ignore
+    req.files?.['image']?.[0];
   const debug = process.env.NODE_ENV !== 'production';
 
   if (debug) {
@@ -441,14 +451,17 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
   }
 
   if (debug) {
-    console.log('[users/upload-photo] file:', file
-      ? {
-          originalname: (file as any).originalname,
-          mimetype: (file as any).mimetype,
-          size: (file as any).size,
-          filename: (file as any).filename,
-        }
-      : null);
+    console.log(
+      '[users/upload-photo] file:',
+      file
+        ? {
+            originalname: (file as any).originalname,
+            mimetype: (file as any).mimetype,
+            size: (file as any).size,
+            filename: (file as any).filename,
+          }
+        : null
+    );
   }
 
   if (!file) {

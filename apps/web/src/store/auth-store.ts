@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User } from '@/types/auth';
 import { SESSION_CONFIG } from '@/constants';
+import { USER_ROLES } from '@/constants';
 import { TokenManager } from '@/lib/auth';
 import { authApi } from '@/lib/auth-api';
+import { clearAstrologerCategoryCookie } from '@/lib/jwt-utils';
 
 interface AuthState {
   user: User | null;
@@ -95,7 +97,7 @@ export const useAuthStore = create<AuthState>()(
           const state = useAuthStore.getState();
 
           // Determine which endpoint to call based on current user role
-          if (state.user?.role === 'ASTROLOGER') {
+          if (state.user?.role === USER_ROLES.ASTROLOGER) {
             const astrologer = await authApi.getAstrologerProfile();
             set({ user: astrologer });
           } else {
@@ -110,12 +112,19 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         try {
-          // Call backend to clear cookies and revoke session
-          await authApi.logout();
+          const user = useAuthStore.getState().user;
+          if (user?.role === USER_ROLES.ASTROLOGER) {
+            await authApi.logoutAstrologer();
+          } else {
+            await authApi.logout();
+          }
         } catch (error) {
           console.error('Logout error:', error);
           // Continue with local logout even if backend call fails
         }
+
+        // Clear astrologer category cookie (set by frontend on jyotish login)
+        clearAstrologerCategoryCookie();
 
         // Clear local state
         TokenManager.clearTokens();

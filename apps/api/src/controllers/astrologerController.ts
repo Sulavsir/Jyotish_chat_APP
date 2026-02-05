@@ -343,7 +343,9 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
     }
 
     // Construct file URLs array and store as JSON string
-    const proofUrls = proofFiles.map((file) => `/uploads/astrologer-registrations/${file.filename}`);
+    const proofUrls = proofFiles.map(
+      (file) => `/uploads/astrologer-registrations/${file.filename}`
+    );
     const proofUrl = JSON.stringify(proofUrls); // Store as JSON array string
 
     // Prepare data for validation (convert to expected format)
@@ -379,8 +381,7 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
     return sendSuccess(
       res,
       {
-        message:
-          'Registration request submitted successfully. Please wait for admin approval.',
+        message: 'Registration request submitted successfully. Please wait for admin approval.',
         astrologer,
       },
       201

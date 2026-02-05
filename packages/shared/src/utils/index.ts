@@ -10,7 +10,7 @@ export function getZodiacSign(dateOfBirth: Date): ZodiacSign {
 
   for (const [sign, dates] of Object.entries(ZODIAC_DATES)) {
     const { start, end } = dates;
-    
+
     // Handle zodiac signs that span across year boundary (like Capricorn)
     if (start.month > end.month) {
       if (
@@ -137,4 +137,3 @@ export function getDateRangeForCategory(
 
   return { start, end };
 }
-

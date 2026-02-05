@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
-import { USER_ROLES } from '@/constants';
+import { USER_ROLES, ASTROLOGER_CATEGORY } from '@/constants';
 import { QUERY_KEYS } from '@/constants/query-keys.constants';
 import { LoadingScreenWithBackground, LoadingButton } from '@/components/ui';
 import appointmentService from '@/services/appointment.service';
@@ -57,7 +57,8 @@ export default function JyotishAppointmentsPage() {
   // Get category from JWT token (not from state)
   const astrologerCategory = getAstrologerCategoryFromToken();
   const hasAppointmentAccess =
-    astrologerCategory === 'PROFESSIONAL' || astrologerCategory === 'PREMIUM';
+    astrologerCategory === ASTROLOGER_CATEGORY.PROFESSIONAL ||
+    astrologerCategory === ASTROLOGER_CATEGORY.PREMIUM;
 
   // fetch appointments
   const {
@@ -114,7 +115,8 @@ export default function JyotishAppointmentsPage() {
     // Instead of showing inline message, redirect to unauthorized page
     if (typeof window !== 'undefined') {
       window.location.href =
-        '/unauthorized?reason=appointments&category=' + (astrologerCategory || 'ORDINARY');
+        '/unauthorized?reason=appointments&category=' +
+        (astrologerCategory || ASTROLOGER_CATEGORY.ORDINARY);
     }
     return <LoadingScreenWithBackground message="Redirecting..." />;
   }

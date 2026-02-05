@@ -9,8 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth, useRequireAuth } from '@/hooks';
-import { ROUTES, USER_ROLES } from '@/constants';
-import { Button } from '@jyotish/ui';
+import { ROUTES, USER_ROLES, ASTROLOGER_CATEGORY } from '@/constants';
 import { cn } from '@/lib/utils';
 import spaceImage from '@/assets/images/space.jpg';
 import { LogoutModal } from '@/components/modals';
@@ -34,7 +33,9 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   // Check if astrologer has access to appointments (Professional or Premium only)
   // Read category from JWT token instead of user state
   const astrologerCategory = getAstrologerCategoryFromToken();
-  const hasAppointmentAccess = astrologerCategory === 'PROFESSIONAL' || astrologerCategory === 'PREMIUM';
+  const hasAppointmentAccess =
+    astrologerCategory === ASTROLOGER_CATEGORY.PROFESSIONAL ||
+    astrologerCategory === ASTROLOGER_CATEGORY.PREMIUM;
 
   // Build navigation based on user's category
   const navigation = [
@@ -192,8 +193,9 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
       {/* Instant Chat Request Bar (only for astrologers) */}
       {user?.role === USER_ROLES.ASTROLOGER && <InstantChatRequestBar />}
 
-      {/* Broadcast Message Bar (only for astrologers) */}
-      {user?.role === USER_ROLES.ASTROLOGER && <BroadcastMessageBar />}
+      {/* Broadcast Message Bar (only for non-PREMIUM astrologers; premium is appointments-only) */}
+      {user?.role === USER_ROLES.ASTROLOGER &&
+        astrologerCategory !== ASTROLOGER_CATEGORY.PREMIUM && <BroadcastMessageBar />}
     </div>
   );
 }

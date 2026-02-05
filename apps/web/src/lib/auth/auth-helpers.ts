@@ -1,12 +1,21 @@
 /**
  * Auth Helper Functions
- * 
+ *
  * Utility functions for handling authentication responses and tokens
  */
 
-import type { LoginResponse, VerifyOTPResponse, VerifyLoginOTPResponse, SetPasswordResponse } from '@/types/auth';
+import type {
+  LoginResponse,
+  VerifyOTPResponse,
+  VerifyLoginOTPResponse,
+  SetPasswordResponse,
+} from '@/types/auth';
 
-type AuthResponse = LoginResponse | VerifyOTPResponse | VerifyLoginOTPResponse | SetPasswordResponse;
+type AuthResponse =
+  | LoginResponse
+  | VerifyOTPResponse
+  | VerifyLoginOTPResponse
+  | SetPasswordResponse;
 
 /**
  * Extract access and refresh tokens from auth response
@@ -41,7 +50,3 @@ export function extractTokens(response: AuthResponse): {
 export function hasNewTokenFormat(response: AuthResponse): boolean {
   return 'accessToken' in response && 'refreshToken' in response;
 }
-
-
-
-

@@ -6,6 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import multer from 'multer';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
 /**
@@ -207,6 +208,29 @@ export const errorHandler = (
       error: {
         message: 'Token expired',
         code: ERROR_CODES.UNAUTHORIZED,
+      },
+    });
+  }
+
+  // Handle Multer upload errors (file size, count, invalid field, etc.)
+  if (error instanceof multer.MulterError) {
+    const multerMessages: Record<string, string> = {
+      LIMIT_FILE_SIZE: 'File too large. Please upload a smaller file.',
+      LIMIT_FILE_COUNT: 'Too many files. Please reduce the number of files.',
+      LIMIT_UNEXPECTED_FILE: 'Unexpected file field. Please check the field name.',
+      LIMIT_PART_COUNT: 'Too many form parts.',
+      LIMIT_FIELD_KEY: 'Field name too long.',
+      LIMIT_FIELD_VALUE: 'Field value too long.',
+      LIMIT_FIELD_COUNT: 'Too many fields.',
+    };
+    const message =
+      multerMessages[error.code] || error.message || 'File upload failed. Please try again.';
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+      success: false,
+      error: {
+        message,
+        code: ERROR_CODES.VALIDATION_ERROR,
+        field: error.field,
       },
     });
   }

@@ -15,7 +15,7 @@ import { AUTH_CONFIG } from '../constants';
  */
 export function setAccessTokenCookie(res: Response, accessToken: string): void {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
     // In development: secure must be false for HTTP, sameSite must be 'lax' (not 'none' without HTTPS)
@@ -34,7 +34,7 @@ export function setAccessTokenCookie(res: Response, accessToken: string): void {
  */
 export function setRefreshTokenCookie(res: Response, refreshToken: string): void {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     // In development: secure must be false for HTTP, sameSite must be 'lax' (not 'none' without HTTPS)
@@ -54,7 +54,7 @@ export function setRefreshTokenCookie(res: Response, refreshToken: string): void
  */
 export function setCategoryCookie(res: Response, category: string | null): void {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   if (category) {
     res.cookie('astrologerCategory', category, {
       httpOnly: false, // Allow JavaScript to read this
@@ -75,14 +75,14 @@ export function setCategoryCookie(res: Response, category: string | null): void 
  * Optionally set category cookie for astrologers
  */
 export function setAuthCookies(
-  res: Response, 
-  accessToken: string, 
+  res: Response,
+  accessToken: string,
   refreshToken: string,
   category?: string | null
 ): void {
   setAccessTokenCookie(res, accessToken);
   setRefreshTokenCookie(res, refreshToken);
-  
+
   // Set category cookie if provided (for astrologers)
   if (category) {
     setCategoryCookie(res, category);
@@ -95,7 +95,7 @@ export function setAuthCookies(
  */
 export function clearAuthCookies(res: Response): void {
   const isProduction = process.env.NODE_ENV === 'production';
-  
+
   // Options must match the ones used when setting cookies
   const cookieOptions: any = {
     httpOnly: true,
@@ -113,7 +113,7 @@ export function clearAuthCookies(res: Response): void {
 
   res.clearCookie('accessToken', cookieOptions);
   res.clearCookie('refreshToken', cookieOptions);
-  
+
   // Clear category cookie (httpOnly: false)
   const categoryCookieOptions = { ...cookieOptions, httpOnly: false };
   res.clearCookie('astrologerCategory', categoryCookieOptions);

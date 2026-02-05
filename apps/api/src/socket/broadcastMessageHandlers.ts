@@ -139,19 +139,19 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         initialMessages: result.initialMessages, // Include the auto-generated messages
       });
 
-      // Get all other astrologers (excluding the one who accepted)
-      const otherAstrologers = await prisma.user.findMany({
+      // Get other astrologers who are ORDINARY or PROFESSIONAL only (exclude PREMIUM and the acceptor)
+      const otherEligibleAstrologers = await prisma.astrologer.findMany({
         where: {
-          role: 'ASTROLOGER',
-          id: { not: userId }, // Exclude the astrologer who accepted
+          id: { not: userId },
+          category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] },
         },
         select: { id: true },
       });
 
-      // Create notifications for all other astrologers
-      const acceptNotificationPromises = otherAstrologers.map((astrologer) =>
+      // Create notifications only for eligible astrologers (PREMIUM should not see broadcast-related notifications)
+      const acceptNotificationPromises = otherEligibleAstrologers.map((astrologer) =>
         notificationService.createNotification({
-          astrologerId: astrologer.id, // Use astrologerId instead of userId
+          astrologerId: astrologer.id,
           type: NotificationType.BROADCAST_ACCEPTED,
           title: 'Request No Longer Available',
           message:
@@ -165,11 +165,13 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
 
       await Promise.all(acceptNotificationPromises);
 
-      // Notify all other astrologers via socket
-      io.to('astrologers').emit('notification:requestAccepted', {
+      const requestAcceptedPayload = {
         messageId: result.message.id,
         message:
           'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
+      };
+      otherEligibleAstrologers.forEach((a) => {
+        io.to(`user:${a.id}`).emit('notification:requestAccepted', requestAcceptedPayload);
       });
     } catch (error: unknown) {
       const err = error as Error;
