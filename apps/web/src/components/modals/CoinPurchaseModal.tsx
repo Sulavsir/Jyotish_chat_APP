@@ -19,6 +19,7 @@ import {
   Alert,
   AlertTitle,
   AlertDescription,
+  Input,
 } from '@jyotish/ui';
 import { Coins, Loader2, Plus, Infinity as InfinityIcon } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -136,7 +137,9 @@ export function CoinPurchaseModal({
     }
 
     if (currentBalance < plan.coinPrice) {
-      toast.error(`Insufficient coins. You need ${plan.coinPrice} coins but have ${currentBalance}`);
+      toast.error(
+        `Insufficient coins. You need ${plan.coinPrice} coins but have ${currentBalance}`
+      );
       return;
     }
 
@@ -271,10 +274,25 @@ export function CoinPurchaseModal({
                       >
                         <span className="text-lg leading-none">-</span>
                       </Button>
-                      <div className="min-w-[3rem] text-center">
-                        <p className="text-xl font-bold text-yellow-300 drop-shadow-[0_0_8px_rgba(250,204,21,0.9)]">
-                          {customCoins}
-                        </p>
+                      <div className="flex flex-col items-center gap-1">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={9999}
+                          value={customCoins}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === '') {
+                              setCustomCoins(1);
+                              return;
+                            }
+                            const n = parseInt(v, 10);
+                            if (!Number.isNaN(n) && n >= 1) {
+                              setCustomCoins(Math.min(9999, n));
+                            }
+                          }}
+                          className="h-12 min-w-[5.5rem] w-20 px-3 text-center text-lg font-bold text-yellow-300 caret-yellow-300 border-purple-400/70 bg-purple-950/80 shadow-[0_0_12px_rgba(168,85,247,0.25)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
                         <p className="text-[10px] uppercase tracking-[0.18em] text-purple-200/80">
                           Coins
                         </p>
