@@ -8,14 +8,15 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
-import { USER_ROLES, ASTROLOGER_CATEGORY } from '@/constants';
+import { USER_ROLES } from '@/constants';
+import { AstrologerCategory } from '@jyotish/shared';
 import { QUERY_KEYS } from '@/constants/query-keys.constants';
 import { LoadingScreenWithBackground, LoadingButton } from '@/components/ui';
 import appointmentService from '@/services/appointment.service';
 import type { Appointment } from '@/types/appointment.types';
 import { AppointmentStatus } from '@/types/appointment.types';
 import { Button, Skeleton, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
-import { getAstrologerCategoryFromToken } from '@/lib/jwt-utils';
+import { getAstrologerPermissionsFromUser } from '@/lib/auth';
 import { showErrorToast, showSuccessToast, getSuccessMessage } from '@/lib/error-handler';
 import {
   CalendarDays,
@@ -54,11 +55,9 @@ export default function JyotishAppointmentsPage() {
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>('');
 
-  // Get category from JWT token (not from state)
-  const astrologerCategory = getAstrologerCategoryFromToken();
-  const hasAppointmentAccess =
-    astrologerCategory === ASTROLOGER_CATEGORY.PROFESSIONAL ||
-    astrologerCategory === ASTROLOGER_CATEGORY.PREMIUM;
+  // Permissions from /me stored in Zustand (works in production; no cookie dependency)
+  const { canAccessAppointments: hasAppointmentAccess, category: astrologerCategory } =
+    getAstrologerPermissionsFromUser(user);
 
   // fetch appointments
   const {
@@ -116,7 +115,7 @@ export default function JyotishAppointmentsPage() {
     if (typeof window !== 'undefined') {
       window.location.href =
         '/unauthorized?reason=appointments&category=' +
-        (astrologerCategory || ASTROLOGER_CATEGORY.ORDINARY);
+        encodeURIComponent(astrologerCategory ?? AstrologerCategory.ORDINARY);
     }
     return <LoadingScreenWithBackground message="Redirecting..." />;
   }

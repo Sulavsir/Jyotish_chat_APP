@@ -73,26 +73,6 @@ export function getDecodedTokenFromCookies(): DecodedToken | null {
 }
 
 /**
- * Get astrologer category from cookie
- * The category is stored in a separate non-httpOnly cookie for frontend access
- */
-export function getAstrologerCategoryFromToken(): string | null {
-  if (typeof document === 'undefined') return null;
-
-  const cookies = document.cookie.split(';');
-  const categoryCookie = cookies.find((cookie) => cookie.trim().startsWith('astrologerCategory='));
-
-  if (!categoryCookie) return null;
-
-  return categoryCookie.split('=')[1]?.trim() || null;
-}
-
-export function clearAstrologerCategoryCookie(): void {
-  if (typeof document === 'undefined') return;
-  document.cookie = 'astrologerCategory=; path=/; max-age=0';
-}
-
-/**
  * Check if token is expired
  */
 export function isTokenExpired(token: string): boolean {

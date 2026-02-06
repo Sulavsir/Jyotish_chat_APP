@@ -11,7 +11,12 @@ import { birthDetailsSchema } from '../validators';
 import { AuthRequest } from '../types';
 import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import { getZodiacSign, UserRole } from '@jyotish/shared';
+import {
+  getZodiacSign,
+  UserRole,
+  canAcceptAppointments,
+  canAcceptBroadcastMessages,
+} from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
 import { getSocketInstance } from '../utils/socket-instance';
@@ -90,6 +95,8 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
         id: astrologer.id,
         category,
         appointmentFee,
+        canAccessAppointments: canAcceptAppointments(category),
+        canAcceptBroadcastMessages: canAcceptBroadcastMessages(category),
       },
     };
 

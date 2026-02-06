@@ -49,44 +49,16 @@ export function setRefreshTokenCookie(res: Response, refreshToken: string): void
 }
 
 /**
- * Set category cookie (NOT httpOnly, so JavaScript can read it)
- * Used for permission checks on the frontend
- */
-export function setCategoryCookie(res: Response, category: string | null): void {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  if (category) {
-    res.cookie('astrologerCategory', category, {
-      httpOnly: false, // Allow JavaScript to read this
-      // In development: secure must be false for HTTP, sameSite must be 'lax' (not 'none' without HTTPS)
-      // In production: secure true with sameSite 'lax' for better security
-      secure: isProduction,
-      sameSite: 'lax', // Always use 'lax' - works for same-site and cross-site navigation
-      maxAge: AUTH_CONFIG.ACCESS_TOKEN_EXPIRES_IN_MS, // Same expiry as access token
-      path: '/',
-      // Don't set domain in development to allow cookies to work on both localhost and IP addresses
-      domain: isProduction ? process.env.COOKIE_DOMAIN : undefined,
-    });
-  }
-}
-
-/**
- * Set both access and refresh tokens as httpOnly cookies
- * Optionally set category cookie for astrologers
+ * Set both access and refresh tokens as httpOnly cookies.
+ * Category/permissions are not set as cookies; frontend gets them from GET /me (works cross-domain).
  */
 export function setAuthCookies(
   res: Response,
   accessToken: string,
-  refreshToken: string,
-  category?: string | null
+  refreshToken: string
 ): void {
   setAccessTokenCookie(res, accessToken);
   setRefreshTokenCookie(res, refreshToken);
-
-  // Set category cookie if provided (for astrologers)
-  if (category) {
-    setCategoryCookie(res, category);
-  }
 }
 
 /**
@@ -114,7 +86,7 @@ export function clearAuthCookies(res: Response): void {
   res.clearCookie('accessToken', cookieOptions);
   res.clearCookie('refreshToken', cookieOptions);
 
-  // Clear category cookie (httpOnly: false)
+  // Clear legacy astrologerCategory cookie if present (no longer set, but clear for old clients)
   const categoryCookieOptions = { ...cookieOptions, httpOnly: false };
   res.clearCookie('astrologerCategory', categoryCookieOptions);
 }

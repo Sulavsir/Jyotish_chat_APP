@@ -28,6 +28,9 @@ export interface User {
     id: string;
     category: AstrologerCategory;
     appointmentFee?: number | null;
+    /** Set by API from category; use for UI (avoids cookie/cross-origin issues) */
+    canAccessAppointments?: boolean;
+    canAcceptBroadcastMessages?: boolean;
   };
 
   birthDetails?: BirthDetails;

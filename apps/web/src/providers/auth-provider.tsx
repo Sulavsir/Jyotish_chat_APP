@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { authApi } from '@/lib/auth-api';
+import { hasAstrologerPermissionData } from '@/lib/auth';
 import { LoadingScreen } from '@/components/ui';
 import { ROUTES, USER_ROLES } from '@/constants';
+import type { User } from '@/types/auth';
 
 // Public routes that don't need authentication check
 const PUBLIC_ROUTES = [
@@ -57,7 +59,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           (currentUser.role === USER_ROLES.CLIENT && !isAstrologerRoute);
 
         if (userRoleMatchesRoute) {
-          // Role matches route, all good
+          // On jyotish routes, ensure we have profile with permissions (from /me) so nav/access work in production
+          if (isAstrologerRoute && currentUser.role === USER_ROLES.ASTROLOGER) {
+            if (!hasAstrologerPermissionData(currentUser as User)) {
+              try {
+                const astrologer = await authApi.getAstrologerProfile();
+                if (isMounted) setAuth(astrologer);
+              } catch (e) {
+                console.warn('Failed to refresh astrologer profile for permissions:', e);
+              }
+            }
+          }
           if (isMounted) setIsInitialized(true);
           return;
         } else {
@@ -109,9 +121,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         }
-      } catch (error: any) {
-        // Check if this is a session expired error (401/403)
-        const isAuthError = error?.response?.status === 401 || error?.response?.status === 403;
+      } catch (error: unknown) {
+        const status =
+          error && typeof error === 'object' && 'response' in error
+            ? (error as { response?: { status?: number } }).response?.status
+            : undefined;
+        const isAuthError = status === 401 || status === 403;
 
         if (isAuthError) {
           console.log('❌ Session expired or invalid');
@@ -125,7 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         // For other errors, log and continue
-        console.log('No active session or error fetching profile:', error?.message);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.log('No active session or error fetching profile:', message);
       }
 
       if (isMounted) setIsInitialized(true);

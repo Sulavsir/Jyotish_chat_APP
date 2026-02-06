@@ -1,6 +1,8 @@
 import { ZodiacSign } from '../types';
 import { ZODIAC_DATES } from '../constants';
 
+export { canAcceptAppointments, canAcceptBroadcastMessages } from './astrologer.utils';
+
 /**
  * Get zodiac sign from date of birth
  */

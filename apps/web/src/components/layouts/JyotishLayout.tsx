@@ -9,7 +9,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth, useRequireAuth } from '@/hooks';
-import { ROUTES, USER_ROLES, ASTROLOGER_CATEGORY } from '@/constants';
+import { ROUTES, USER_ROLES } from '@/constants';
 import { cn } from '@/lib/utils';
 import spaceImage from '@/assets/images/space.jpg';
 import { LogoutModal } from '@/components/modals';
@@ -17,7 +17,7 @@ import { ProfileDropdown, NotificationBell } from '@/components/ui';
 import { OnlineStatusToggle } from '@/components/ui/OnlineStatusToggle';
 import { InstantChatRequestBar } from '@/components/features/instant-chat/InstantChatRequestBar';
 import { BroadcastMessageBar } from '@/components/features/broadcast-chat/BroadcastMessageBar';
-import { getAstrologerCategoryFromToken } from '@/lib/jwt-utils';
+import { getAstrologerPermissionsFromUser } from '@/lib/auth';
 
 interface JyotishLayoutProps {
   children: ReactNode;
@@ -30,12 +30,9 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Check if astrologer has access to appointments (Professional or Premium only)
-  // Read category from JWT token instead of user state
-  const astrologerCategory = getAstrologerCategoryFromToken();
-  const hasAppointmentAccess =
-    astrologerCategory === ASTROLOGER_CATEGORY.PROFESSIONAL ||
-    astrologerCategory === ASTROLOGER_CATEGORY.PREMIUM;
+  // Permissions from /me stored in Zustand (works in production; no cookie dependency)
+  const { canAccessAppointments: hasAppointmentAccess, canAcceptBroadcastMessages } =
+    getAstrologerPermissionsFromUser(user);
 
   // Build navigation based on user's category
   const navigation = [
@@ -190,12 +187,15 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
         isLoading={isLoggingOut}
       />
 
-      {/* Instant Chat Request Bar (only for astrologers) */}
-      {user?.role === USER_ROLES.ASTROLOGER && <InstantChatRequestBar />}
+      {/* Instant Chat Request Bar (only when backend allows; PREMIUM is appointments-only) */}
+      {user?.role === USER_ROLES.ASTROLOGER && canAcceptBroadcastMessages && (
+        <InstantChatRequestBar />
+      )}
 
-      {/* Broadcast Message Bar (only for non-PREMIUM astrologers; premium is appointments-only) */}
-      {user?.role === USER_ROLES.ASTROLOGER &&
-        astrologerCategory !== ASTROLOGER_CATEGORY.PREMIUM && <BroadcastMessageBar />}
+      {/* Broadcast Message Bar (same permission as instant chat) */}
+      {user?.role === USER_ROLES.ASTROLOGER && canAcceptBroadcastMessages && (
+        <BroadcastMessageBar />
+      )}
     </div>
   );
 }

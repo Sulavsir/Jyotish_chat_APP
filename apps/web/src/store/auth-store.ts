@@ -5,7 +5,6 @@ import { SESSION_CONFIG } from '@/constants';
 import { USER_ROLES } from '@/constants';
 import { TokenManager } from '@/lib/auth';
 import { authApi } from '@/lib/auth-api';
-import { clearAstrologerCategoryCookie } from '@/lib/jwt-utils';
 
 interface AuthState {
   user: User | null;
@@ -122,9 +121,6 @@ export const useAuthStore = create<AuthState>()(
           console.error('Logout error:', error);
           // Continue with local logout even if backend call fails
         }
-
-        // Clear astrologer category cookie (set by frontend on jyotish login)
-        clearAstrologerCategoryCookie();
 
         // Clear local state
         TokenManager.clearTokens();

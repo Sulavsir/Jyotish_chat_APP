@@ -12,7 +12,11 @@ import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { prisma } from '@jyotish/database';
 import { AstrologerCategory } from '@prisma/client';
 import { getSocketInstance } from '../utils/socket-instance';
-import { astrologerRegistrationSchema } from '@jyotish/shared';
+import {
+  astrologerRegistrationSchema,
+  canAcceptAppointments,
+  canAcceptBroadcastMessages,
+} from '@jyotish/shared';
 
 /**
  * Astrologer login with phone/email and password
@@ -38,7 +42,7 @@ export async function astrologerLogin(req: AuthRequest, res: Response, next: Nex
     const result = await astrologerService.login(identifier, password, deviceInfo);
 
     // Set httpOnly cookies with category
-    setAuthCookies(res, result.accessToken, result.refreshToken, result.astrologer.category);
+    setAuthCookies(res, result.accessToken, result.refreshToken);
 
     // Log astrologer login
     await auditService.logAction({
@@ -112,7 +116,13 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
 
     const astrologer = await astrologerService.findById(astrologerId);
 
-    return sendSuccess(res, { astrologer });
+    return sendSuccess(res, {
+      astrologer: {
+        ...astrologer,
+        canAccessAppointments: canAcceptAppointments(astrologer.category),
+        canAcceptBroadcastMessages: canAcceptBroadcastMessages(astrologer.category),
+      },
+    });
   } catch (error) {
     next(error);
   }
