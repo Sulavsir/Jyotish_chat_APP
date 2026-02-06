@@ -44,6 +44,16 @@ export const checkAvailabilitySchema = z.object({
 });
 
 /**
+ * Validator for cancelling an appointment (optional cancellation note)
+ */
+export const cancelAppointmentSchema = z.object({
+  cancellationNote: z
+    .string()
+    .max(500, 'Cancellation note cannot exceed 500 characters')
+    .optional(),
+});
+
+/**
  * Query validator for listing "my" appointments (client/astrologer)
  */
 export const listMyAppointmentsQuerySchema = queryPaginationSchema.extend({

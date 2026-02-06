@@ -8,7 +8,8 @@ import { AppointmentStatus } from '@prisma/client';
 import { UserRole } from '@jyotish/shared';
 import * as appointmentService from '../services/appointment.service';
 import { AuthRequest } from '../types/common.types';
-import { HTTP_STATUS } from '../constants';
+import { AppError } from '../middleware/error-handler';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
 /**
  * Create a new appointment
@@ -226,42 +227,31 @@ export const checkAvailability = async (req: AuthRequest, res: Response) => {
  * POST /api/appointments/:id/cancel
  */
 export const cancelAppointment = async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user?.id;
-    const { cancellationNote } = req.body;
+  const { id } = req.params;
+  const userId = req.user?.id;
+  const { cancellationNote } = req.body;
 
-    const appointment = await appointmentService.getAppointmentById(id);
+  const appointment = await appointmentService.getAppointmentById(id);
 
-    if (!appointment) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        message: 'Appointment not found',
-      });
-    }
-
-    // Check authorization
-    if (appointment.clientId !== userId && appointment.astrologerId !== userId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({
-        success: false,
-        message: 'You do not have access to this appointment',
-      });
-    }
-
-    const cancelled = await appointmentService.cancelAppointment(id, cancellationNote);
-
-    return res.status(HTTP_STATUS.OK).json({
-      success: true,
-      data: cancelled,
-      message: 'Appointment cancelled successfully',
-    });
-  } catch (error: any) {
-    console.error('Cancel appointment error:', error);
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
-      success: false,
-      message: error.message || 'Failed to cancel appointment',
-    });
+  if (!appointment) {
+    throw new AppError('Appointment not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
   }
+
+  if (appointment.clientId !== userId && appointment.astrologerId !== userId) {
+    throw new AppError(
+      'You do not have access to this appointment',
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODES.FORBIDDEN
+    );
+  }
+
+  const cancelled = await appointmentService.cancelAppointment(id, cancellationNote);
+
+  return res.status(HTTP_STATUS.OK).json({
+    success: true,
+    data: cancelled,
+    message: 'Appointment cancelled successfully',
+  });
 };
 
 /**

@@ -6,6 +6,8 @@
 import { prisma } from '@jyotish/database';
 import { UserRole, AstrologerCategory } from '@jyotish/shared';
 import { AppointmentStatus, Prisma } from '@prisma/client';
+import { AppError } from '../middleware/error-handler';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import type {
   BookAppointmentData,
   UpdateAppointmentData,
@@ -364,12 +366,24 @@ export const checkAvailability = async (
 };
 
 /**
- * Cancel an appointment
+ * Cancel an appointment (only PENDING or CONFIRMED can be cancelled)
  */
 export const cancelAppointment = async (
   id: string,
   cancellationNote?: string
 ): Promise<AppointmentWithRelations> => {
+  const existing = await getAppointmentById(id);
+  if (!existing) {
+    throw new AppError('Appointment not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+  const cancellable: AppointmentStatus[] = [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED];
+  if (!cancellable.includes(existing.status as AppointmentStatus)) {
+    throw new AppError(
+      `Appointment cannot be cancelled (current status: ${existing.status}). Only pending or confirmed appointments can be cancelled.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
   return updateAppointment(id, {
     status: AppointmentStatus.CANCELLED,
     cancellationNote,

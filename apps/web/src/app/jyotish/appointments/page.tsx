@@ -12,6 +12,7 @@ import { USER_ROLES } from '@/constants';
 import { AstrologerCategory } from '@jyotish/shared';
 import { QUERY_KEYS } from '@/constants/query-keys.constants';
 import { LoadingScreenWithBackground, LoadingButton } from '@/components/ui';
+import { CancelAppointmentModal } from '@/components/features/appointment';
 import appointmentService from '@/services/appointment.service';
 import type { Appointment } from '@/types/appointment.types';
 import { AppointmentStatus } from '@/types/appointment.types';
@@ -54,6 +55,7 @@ export default function JyotishAppointmentsPage() {
   });
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>('');
+  const [cancelModalAppointment, setCancelModalAppointment] = useState<Appointment | null>(null);
 
   // Permissions from /me stored in Zustand (works in production; no cookie dependency)
   const { canAccessAppointments: hasAppointmentAccess, category: astrologerCategory } =
@@ -84,6 +86,22 @@ export default function JyotishAppointmentsPage() {
 
   const handleConfirmAppointment = (id: string) => {
     confirmMutation.mutate(id);
+  };
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, cancellationNote }: { id: string; cancellationNote?: string }) =>
+      appointmentService.cancelAppointment(id, cancellationNote),
+    onSuccess: (response) => {
+      showSuccessToast(getSuccessMessage(response) || 'Appointment cancelled successfully');
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
+    },
+    onError: (error) => {
+      showErrorToast(error);
+    },
+  });
+
+  const handleCancelAppointment = (appointment: Appointment) => {
+    setCancelModalAppointment(appointment);
   };
 
   const formatDate = (dateString: string) => {
@@ -377,18 +395,32 @@ export default function JyotishAppointmentsPage() {
                         {appointment.status.replace('_', ' ')}
                       </span>
 
-                      {appointment.status === AppointmentStatus.PENDING && (
-                        <LoadingButton
-                          size="sm"
-                          onClick={() => handleConfirmAppointment(appointment.id)}
-                          isLoading={confirmMutation.isPending}
-                          loadingText="Confirming..."
-                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg"
-                        >
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Confirm
-                        </LoadingButton>
-                      )}
+                      <div className="flex flex-col gap-2">
+                        {appointment.status === AppointmentStatus.PENDING && (
+                          <LoadingButton
+                            size="sm"
+                            onClick={() => handleConfirmAppointment(appointment.id)}
+                            isLoading={confirmMutation.isPending}
+                            loadingText="Confirming..."
+                            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg"
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Confirm
+                          </LoadingButton>
+                        )}
+                        {(appointment.status === AppointmentStatus.PENDING ||
+                          appointment.status === AppointmentStatus.CONFIRMED) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            color="neutral"
+                            onClick={() => handleCancelAppointment(appointment)}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancel
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -396,6 +428,15 @@ export default function JyotishAppointmentsPage() {
             })}
           </div>
         )}
+
+        <CancelAppointmentModal
+          isOpen={!!cancelModalAppointment}
+          onClose={() => setCancelModalAppointment(null)}
+          appointment={cancelModalAppointment}
+          onCancelled={() => setCancelModalAppointment(null)}
+          cancelFn={(id, cancellationNote) => cancelMutation.mutateAsync({ id, cancellationNote })}
+          isPending={cancelMutation.isPending}
+        />
       </div>
     </JyotishLayout>
   );

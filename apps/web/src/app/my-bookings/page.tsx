@@ -2,11 +2,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { QUERY_KEYS } from '@/constants';
 import jyotishBookingService from '@/services/jyotishBooking.service';
 import appointmentService from '@/services/appointment.service';
+import { CancelAppointmentModal } from '@/components/features/appointment';
+import { showErrorToast, showSuccessToast, getSuccessMessage } from '@/lib/error-handler';
 import {
   Badge,
   Card,
@@ -36,6 +38,7 @@ import {
 } from '@jyotish/ui';
 import { AstrologerCategory, JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
+import { XCircle } from 'lucide-react';
 
 type MyBookingsResponse = Awaited<ReturnType<typeof jyotishBookingService.listMine>>;
 type MyBooking = MyBookingsResponse['bookings'][number];
@@ -108,7 +111,10 @@ function appointmentStatusBadge(status: AppointmentStatus) {
 }
 
 export default function MyBookingsPage() {
+  const queryClient = useQueryClient();
   const [section, setSection] = useState<Section>('BOOKINGS');
+  const [cancelModalAppointment, setCancelModalAppointment] =
+    useState<MyAppointment | null>(null);
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'ALL' | JyotishBookingType>('ALL');
@@ -193,6 +199,22 @@ export default function MyBookingsPage() {
     for (let i = start; i <= end; i++) out.push(i);
     return out;
   }, [apptPagination.page, apptPagination.totalPages]);
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, cancellationNote }: { id: string; cancellationNote?: string }) =>
+      appointmentService.cancelAppointment(id, cancellationNote),
+    onSuccess: (response) => {
+      showSuccessToast(getSuccessMessage(response) || 'Appointment cancelled successfully');
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
+    },
+    onError: (error) => {
+      showErrorToast(error);
+    },
+  });
+
+  const handleCancelAppointment = (appointment: MyAppointment) => {
+    setCancelModalAppointment(appointment);
+  };
 
   return (
     <DashboardLayout>
@@ -548,6 +570,9 @@ export default function MyBookingsPage() {
                           Status
                         </TableHead>
                         <TableHead className="text-slate-200 border-r border-slate-700/60">
+                          Actions
+                        </TableHead>
+                        <TableHead className="text-slate-200 border-r border-slate-700/60">
                           Requested
                         </TableHead>
                       </TableRow>
@@ -590,6 +615,20 @@ export default function MyBookingsPage() {
                           </TableCell>
                           <TableCell className="whitespace-nowrap border-r border-slate-700/40">
                             {appointmentStatusBadge(a.status)}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                            {(a.status === AppointmentStatus.PENDING ||
+                              a.status === AppointmentStatus.CONFIRMED) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500/70"
+                                onClick={() => handleCancelAppointment(a)}
+                              >
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Cancel
+                              </Button>
+                            )}
                           </TableCell>
                           <TableCell className="whitespace-nowrap text-slate-300">
                             {new Date(a.createdAt).toLocaleString('en-US', {
@@ -642,6 +681,17 @@ export default function MyBookingsPage() {
                 ) : null}
               </>
             )}
+
+            <CancelAppointmentModal
+              isOpen={!!cancelModalAppointment}
+              onClose={() => setCancelModalAppointment(null)}
+              appointment={cancelModalAppointment}
+              onCancelled={() => setCancelModalAppointment(null)}
+              cancelFn={(id, cancellationNote) =>
+                cancelMutation.mutateAsync({ id, cancellationNote })
+              }
+              isPending={cancelMutation.isPending}
+            />
           </CardContent>
         </Card>
       </div>

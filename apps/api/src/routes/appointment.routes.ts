@@ -12,6 +12,7 @@ import {
   updateAppointmentSchema,
   checkAvailabilitySchema,
   listMyAppointmentsQuerySchema,
+  cancelAppointmentSchema,
 } from '../validators';
 
 const router = Router();
@@ -52,7 +53,12 @@ router.patch(
 );
 
 // Cancel appointment
-router.post('/:id/cancel', authenticate, asyncHandler(appointmentController.cancelAppointment));
+router.post(
+  '/:id/cancel',
+  authenticate,
+  validateBody(cancelAppointmentSchema),
+  asyncHandler(appointmentController.cancelAppointment)
+);
 
 // Confirm appointment (astrologer only)
 router.post('/:id/confirm', authenticate, asyncHandler(appointmentController.confirmAppointment));
