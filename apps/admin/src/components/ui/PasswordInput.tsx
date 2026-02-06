@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, memo } from 'react';
-import { Input, Button } from '@jyotish/ui';
+import { Button } from '@jyotish/ui';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -57,10 +57,19 @@ export const PasswordInput = memo(function PasswordInput({
     return { score, label: 'Strong', color: 'bg-green-400 text-green-400' };
   }, [showStrength, value]);
 
+  const inputBaseStyles =
+    'flex h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 backdrop-blur-sm text-sm text-white transition-all duration-300 placeholder:text-slate-400 hover:border-purple-400/50 hover:bg-slate-900/70 focus-within:outline-none focus-within:border-purple-500 focus-within:bg-slate-900/80 focus-within:ring-4 focus-within:ring-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed';
+
   return (
     <div className="space-y-2">
-      <div className="relative">
-        <Input
+      <div
+        className={cn(
+          'flex items-center gap-0 overflow-hidden',
+          inputBaseStyles,
+          className
+        )}
+      >
+        <input
           id={id || name}
           name={name}
           type={showPassword ? 'text' : 'password'}
@@ -70,10 +79,7 @@ export const PasswordInput = memo(function PasswordInput({
           onBlur={onBlur}
           disabled={disabled}
           autoComplete={autoComplete}
-          className={cn(
-            'pr-12 w-full',
-            className
-          )}
+          className="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
         />
         <Button
           type="button"
@@ -84,7 +90,7 @@ export const PasswordInput = memo(function PasswordInput({
           aria-label={showPassword ? 'Hide password' : 'Show password'}
           tabIndex={-1}
           className={cn(
-            'absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8',
+            'h-8 w-8 shrink-0 rounded-md mr-1',
             'text-gray-400 hover:text-gray-300 hover:bg-white/10',
             'focus-visible:ring-0 focus-visible:ring-offset-0'
           )}

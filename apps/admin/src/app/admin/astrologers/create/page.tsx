@@ -224,9 +224,14 @@ export default function CreateAstrologerPage() {
                       <FormItem>
                         <FormLabel>Phone Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="+91 9876543210" {...field} />
+                          <Input
+                            type="tel"
+                            placeholder="9812345678"
+                            maxLength={10}
+                            {...field}
+                          />
                         </FormControl>
-                        <FormDescription>Format: +[country code][number]</FormDescription>
+                        <FormDescription>10-digit Nepali number (e.g. 98XXXXXXXX)</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

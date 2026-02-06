@@ -18,10 +18,11 @@ export const passwordSchema = z
   .regex(/[0-9]/, 'Password must contain at least one number')
   .regex(/[@$!%*?&#]/, 'Password must contain at least one special character');
 
+// Nepali 10-digit mobile number (no country code)
 export const phoneSchema = z
   .string()
   .min(1, 'Phone number is required')
-  .regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format');
+  .regex(/^9[78]\d{8}$/, 'Enter a valid 10-digit Nepali number (e.g. 98XXXXXXXX)');
 
 export const nameSchema = z
   .string()
@@ -114,7 +115,7 @@ export const VALIDATION_RULES = {
     REQUIRE_SPECIAL: true,
   },
   PHONE: {
-    PATTERN: /^\+?[1-9]\d{1,14}$/,
+    PATTERN: /^9[78]\d{8}$/,
   },
   SPECIALIZATION: {
     MIN_ITEMS: 1,
