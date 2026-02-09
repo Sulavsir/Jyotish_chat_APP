@@ -20,8 +20,10 @@ import {
   Label,
   LoadingButton,
   ArrowLeftIcon,
+  ProfileImageInput,
 } from '@jyotish/ui';
 import { FormInput, FormPasswordInput } from '@/components/form';
+import { PhoneInputWithCountry } from '@jyotish/ui';
 import {
   astrologerRegistrationSchema,
   type AstrologerRegistrationFormData,
@@ -51,6 +53,7 @@ export function AstrologerRegistrationForm({
 }: AstrologerRegistrationFormProps) {
   const [proofFiles, setProofFiles] = useState<File[]>([]);
   const [proofPreviews, setProofPreviews] = useState<Map<string, string>>(new Map());
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [specializationText, setSpecializationText] = useState('');
   const [languagesText, setLanguagesText] = useState('');
 
@@ -65,6 +68,7 @@ export function AstrologerRegistrationForm({
       password: '',
       confirmPassword: '',
       bio: '',
+      address: null as string | null,
       specialization: [],
       experience: undefined,
       languages: ['English', 'Nepali'],
@@ -96,6 +100,8 @@ export function AstrologerRegistrationForm({
       }
       return await astrologerRegistrationService.register({
         ...data,
+        address: data.address ?? undefined,
+        profilePhoto: profilePhotoFile ?? undefined,
         proofOfAstrology: proofFiles,
         gender: (data.gender as Gender | null) || undefined,
       });
@@ -107,6 +113,7 @@ export function AstrologerRegistrationForm({
       proofPreviews.forEach((url) => URL.revokeObjectURL(url));
       setProofFiles([]);
       setProofPreviews(new Map());
+      setProfilePhotoFile(null);
       setSpecializationText('');
       setLanguagesText('');
       onSuccess?.();
@@ -163,7 +170,9 @@ export function AstrologerRegistrationForm({
       setProofFiles((prev) => {
         const updated = prev.filter((f) => f.name !== fileName);
         if (updated.length === 0) {
-          form.setValue('proofOfAstrology', undefined as unknown as File, { shouldValidate: false });
+          form.setValue('proofOfAstrology', undefined as unknown as File, {
+            shouldValidate: false,
+          });
         }
         return updated;
       });
@@ -233,16 +242,26 @@ export function AstrologerRegistrationForm({
                 required
               />
 
-              <FormInput
-                id="phone"
-                label="Phone Number"
-                placeholder="98XXXXXXXX or 97XXXXXXXX"
-                {...form.register('phone')}
-                error={form.formState.errors.phone?.message}
-                disabled={registrationMutation.isPending}
-                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-                required
-              />
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-white">
+                  Phone Number
+                  <span className="text-red-400 ml-1">*</span>
+                </Label>
+                <PhoneInputWithCountry
+                  id="phone"
+                  value={form.watch('phone')}
+                  onChange={(value) => form.setValue('phone', value ?? '')}
+                  onBlur={() => form.trigger('phone')}
+                  placeholder="Enter phone number"
+                  disabled={registrationMutation.isPending}
+                  defaultCountry="NP"
+                  maxNationalDigits={10}
+                  variant="jyotish"
+                />
+                {form.formState.errors.phone?.message && (
+                  <p className="text-sm text-red-400">{form.formState.errors.phone.message}</p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <FormInput
@@ -265,13 +284,30 @@ export function AstrologerRegistrationForm({
                   disabled={registrationMutation.isPending}
                   className="flex h-11 w-full rounded-md border-2 border-white/20 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-gray-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="" className="bg-slate-900 text-white">Select gender</option>
+                  <option value="" className="bg-slate-900 text-white">
+                    Select gender
+                  </option>
                   {GENDER_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-slate-900 text-white">
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      className="bg-slate-900 text-white"
+                    >
                       {option.label}
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label className="text-white">Profile Image (Optional)</Label>
+                <ProfileImageInput
+                  value={profilePhotoFile}
+                  onChange={setProfilePhotoFile}
+                  placeholderName={form.watch('name') || 'A'}
+                  disabled={registrationMutation.isPending}
+                  description="Your profile image will be displayed in your profile."
+                  variant="jyotish"
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -379,6 +415,18 @@ export function AstrologerRegistrationForm({
               )}
             </div>
 
+            <FormInput
+              id="address"
+              label="Address (Optional)"
+              placeholder="e.g. Kathmandu, Nepal"
+              {...form.register('address', {
+                setValueAs: (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+              })}
+              error={form.formState.errors.address?.message}
+              disabled={registrationMutation.isPending}
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+            />
+
             <div>
               <Label htmlFor="bio" className="text-white">
                 Bio (Optional)
@@ -485,7 +533,7 @@ export function AstrologerRegistrationForm({
                   {String(
                     typeof proofOfAstrologyError === 'string'
                       ? proofOfAstrologyError
-                      : proofOfAstrologyError?.message ?? ''
+                      : (proofOfAstrologyError?.message ?? '')
                   )}
                 </p>
               )}

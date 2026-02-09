@@ -7,6 +7,7 @@ export interface RegistrationRequest {
   name: string;
   phone: string;
   email: string | null;
+  profilePhoto: string | null;
   bio: string | null;
   specialization: string[];
   experience: number | null;
@@ -30,16 +31,22 @@ export interface CreateAstrologerRequest {
   appointmentFee?: number | null;
   languages: string[];
   bio?: string;
+  address?: string | null;
 }
 
 export interface UpdateAstrologerRequest {
-  email?: string;
   name?: string;
-  bio?: string;
-  profilePhoto?: string;
+  email?: string | null;
+  phone?: string;
+  bio?: string | null;
+  address?: string | null;
+  profilePhoto?: string | null;
   specialization?: string[];
-  experience?: number;
+  experience?: number | null;
   commissionRate?: number;
   languages?: string[];
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  category?: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
+  appointmentFee?: number | null;
+  proofOfAstrology?: string | null;
 }

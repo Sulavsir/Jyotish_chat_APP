@@ -60,6 +60,24 @@ export const TIME = {
 // Questionnaire languages (for question categories). Type QuestionnaireLanguage is in types/index.ts
 export const QUESTIONNAIRE_LANGUAGES = ['NEPALI', 'HINDI', 'ENGLISH'] as const;
 
+// Astrologer proof of astrology upload
+const ASTROLOGER_PROOF_ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+] as const;
+
+export const ASTROLOGER_PROOF_UPLOAD = {
+  MAX_FILES: 10,
+  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+  ALLOWED_TYPES: [...ASTROLOGER_PROOF_ALLOWED_TYPES] as string[],
+  isAllowedType: (mimeType: string): boolean =>
+    (ASTROLOGER_PROOF_ALLOWED_TYPES as readonly string[]).includes(mimeType),
+};
+
 // File upload limits
 export const FILE_LIMITS = {
   IMAGE_MAX_SIZE: 5 * 1024 * 1024, // 5MB

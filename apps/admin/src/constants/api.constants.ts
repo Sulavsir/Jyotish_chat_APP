@@ -21,6 +21,8 @@ export const API_ENDPOINTS = {
     CREATE: '/api/v1/admin/astrologers',
     GET: (id: string) => `/api/v1/admin/astrologers/${id}`,
     UPDATE: (id: string) => `/api/v1/admin/astrologers/${id}`,
+    PROOF_UPLOAD: (id: string) => `/api/v1/admin/astrologers/${id}/proof-upload`,
+    PROFILE_PHOTO: (id: string) => `/api/v1/admin/astrologers/${id}/profile-photo`,
     DELETE: (id: string) => `/api/v1/admin/astrologers/${id}`,
     TOGGLE_STATUS: (id: string) => `/api/v1/admin/astrologers/${id}/toggle-status`,
     // Registration Requests

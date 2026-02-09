@@ -330,6 +330,11 @@ function AstrologersContent() {
                         )}
                       </div>
 
+                      {astrologer.address && (
+                        <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
+                          📍 {astrologer.address}
+                        </p>
+                      )}
                       {astrologer.bio && (
                         <p className="text-gray-400 text-sm mt-2 line-clamp-2">{astrologer.bio}</p>
                       )}

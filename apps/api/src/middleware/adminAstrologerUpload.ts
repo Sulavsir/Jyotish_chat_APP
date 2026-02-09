@@ -20,27 +20,28 @@ const storage = multer.diskStorage({
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    // Generate unique filename: timestamp-random-originalname
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
     const baseName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
-    cb(null, `admin-proof-${uniqueSuffix}-${baseName}${ext}`);
+    const prefix = file.fieldname === 'profilePhoto' ? 'admin-profile' : 'admin-proof';
+    cb(null, `${prefix}-${uniqueSuffix}-${baseName}${ext}`);
   },
 });
 
-// File filter - accept images and PDFs
+// File filter - profilePhoto: images only; proofOfAstrology: images and PDFs
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = [
-    // Images
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    // Documents
-    'application/pdf',
-  ];
+  const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
+  if (file.fieldname === 'profilePhoto') {
+    if (imageTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Profile photo must be an image (JPEG, PNG, GIF, or WebP).'));
+    }
+    return;
+  }
+
+  const allowedTypes = [...imageTypes, 'application/pdf'];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {

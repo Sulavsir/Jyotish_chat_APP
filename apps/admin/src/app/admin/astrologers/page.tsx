@@ -23,7 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@jyotish/ui';
-import { RefreshCw, Eye, X, Download, FileText } from 'lucide-react';
+import { RefreshCw, Eye, X, Download, FileText, Pencil } from 'lucide-react';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { useAdminSocket } from '@/hooks';
@@ -51,6 +51,18 @@ export default function AstrologersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
+  const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
+
+  const viewing = viewingProfileImage
+    ? { type: 'profile' as const, value: viewingProfileImage }
+    : viewingAttachment
+      ? { type: 'proof' as const, value: viewingAttachment }
+      : null;
+
+  const closeViewer = () => {
+    setViewingAttachment(null);
+    setViewingProfileImage(null);
+  };
 
   // Debug: Log socket connection status
   useEffect(() => {
@@ -139,17 +151,15 @@ export default function AstrologersPage() {
     };
   }, [on, off, isConnected]);
 
-  // Close attachment viewer modal on Escape key
+  // Close viewer modal on Escape key
   useEffect(() => {
-    if (!viewingAttachment) return;
+    if (!viewing) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setViewingAttachment(null);
-      }
+      if (event.key === 'Escape') closeViewer();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewingAttachment]);
+  }, [viewing]);
 
   // Initialize online status from database
   useEffect(() => {
@@ -197,6 +207,22 @@ export default function AstrologersPage() {
     {
       header: 'Experience',
       accessor: (astrologer) => `${astrologer.experience} years`,
+    },
+    {
+      header: 'Profile',
+      accessor: (astrologer) => (
+        <div className="flex justify-center">
+          <AttachmentPreview
+            attachmentUrl={astrologer.profilePhoto}
+            onView={() => {
+              setViewingAttachment(null);
+              setViewingProfileImage(astrologer.profilePhoto || null);
+            }}
+            size="md"
+          />
+        </div>
+      ),
+      className: 'text-center',
     },
     {
       header: 'Category',
@@ -265,7 +291,10 @@ export default function AstrologersPage() {
         <div className="flex justify-center">
           <AttachmentPreview
             attachmentUrl={astrologer.proofOfAstrology}
-            onView={() => setViewingAttachment(astrologer.proofOfAstrology || null)}
+            onView={() => {
+              setViewingProfileImage(null);
+              setViewingAttachment(astrologer.proofOfAstrology || null);
+            }}
             size="md"
           />
         </div>
@@ -275,9 +304,20 @@ export default function AstrologersPage() {
     {
       header: 'Actions',
       accessor: (astrologer) => (
-        <Button variant="outline" size="sm" onClick={() => toggleStatus(astrologer.id)}>
-          Toggle Status
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_EDIT(astrologer.id))}
+            className="border-slate-600 text-slate-300 hover:bg-slate-700/50"
+          >
+            <Pencil className="w-4 h-4 mr-1" />
+            Edit
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => toggleStatus(astrologer.id)}>
+            Toggle Status
+          </Button>
+        </div>
       ),
       className: 'text-center',
     },
@@ -285,7 +325,7 @@ export default function AstrologersPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="w-full max-w-full min-w-0 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -322,7 +362,7 @@ export default function AstrologersPage() {
         />
 
         {/* Table */}
-        <div className="cosmic-card rounded-xl overflow-hidden">
+        <div className="cosmic-card w-full max-w-full min-w-0 rounded-xl overflow-hidden">
           <AdminTable
             data={astrologers}
             columns={columns}
@@ -400,22 +440,24 @@ export default function AstrologersPage() {
           </div>
         )}
 
-        {/* Attachment Viewer Modal */}
-        {viewingAttachment && (
+        {/* Attachment / Profile Image Viewer Modal */}
+        {viewing && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-            onClick={() => setViewingAttachment(null)}
+            onClick={closeViewer}
           >
             <Card
               className="bg-slate-900 border-slate-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-white">Proof of Astrology Certificates</CardTitle>
+                <CardTitle className="text-white">
+                  {viewing.type === 'profile' ? 'Profile Image' : 'Proof of Astrology Certificates'}
+                </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setViewingAttachment(null)}
+                  onClick={closeViewer}
                   className="text-white hover:bg-slate-800"
                 >
                   <X className="w-5 h-5" />
@@ -426,10 +468,10 @@ export default function AstrologersPage() {
                   // Handle JSON array or single file
                   let fileUrls: string[] = [];
                   try {
-                    const parsed = JSON.parse(viewingAttachment);
-                    fileUrls = Array.isArray(parsed) ? parsed : [viewingAttachment];
+                    const parsed = JSON.parse(viewing.value);
+                    fileUrls = Array.isArray(parsed) ? parsed : [viewing.value];
                   } catch {
-                    fileUrls = [viewingAttachment];
+                    fileUrls = [viewing.value];
                   }
 
                   return (
@@ -459,8 +501,12 @@ export default function AstrologersPage() {
                             ) : (
                               <div className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-4 py-3">
                                 <div className="flex items-center gap-3">
-                                  <FileText className={`w-6 h-6 ${isPdf ? 'text-red-400' : 'text-blue-400'}`} />
-                                  <span className="text-slate-100 text-sm break-all">{fileName}</span>
+                                  <FileText
+                                    className={`w-6 h-6 ${isPdf ? 'text-red-400' : 'text-blue-400'}`}
+                                  />
+                                  <span className="text-slate-100 text-sm break-all">
+                                    {fileName}
+                                  </span>
                                 </div>
                                 <a
                                   href={fullUrl}

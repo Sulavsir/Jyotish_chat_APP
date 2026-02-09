@@ -14,19 +14,21 @@ export interface Admin {
 export interface Astrologer {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string;
   specialization: string[];
-  experience: number;
+  experience: number | null;
   category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
   appointmentFee?: number | null;
   rating: number;
   isActive: boolean;
   isOnline: boolean;
   commissionRate: number;
-  bio?: string;
+  bio?: string | null;
+  address?: string | null;
   languages?: string[];
-  profilePhoto?: string;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+  profilePhoto?: string | null;
   proofOfAstrology?: string | null;
   createdAt: string;
   updatedAt: string;

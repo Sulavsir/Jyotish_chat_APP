@@ -237,6 +237,25 @@ export const adminApi = {
       return response;
     },
 
+    uploadProof: async (id: string, formData: FormData): Promise<{ astrologer: Astrologer }> => {
+      const response = await apiClient.uploadFile<{ astrologer: Astrologer }>(
+        API_ENDPOINTS.ASTROLOGERS.PROOF_UPLOAD(id),
+        formData
+      );
+      return response;
+    },
+
+    uploadProfilePhoto: async (
+      id: string,
+      formData: FormData
+    ): Promise<{ astrologer: Astrologer }> => {
+      const response = await apiClient.uploadFile<{ astrologer: Astrologer }>(
+        API_ENDPOINTS.ASTROLOGERS.PROFILE_PHOTO(id),
+        formData
+      );
+      return response;
+    },
+
     delete: async (id: string) => {
       const response = await apiClient.delete(API_ENDPOINTS.ASTROLOGERS.DELETE(id));
       return response;

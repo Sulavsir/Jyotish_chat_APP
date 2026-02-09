@@ -13,6 +13,7 @@ export interface PublicAstrologerProfile {
   phone: string;
   email?: string | null;
   profilePhoto?: string | null;
+  address?: string | null;
   bio?: string | null;
   category: AstrologerCategory;
   specialization?: string[];

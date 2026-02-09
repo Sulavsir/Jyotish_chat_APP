@@ -180,18 +180,27 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
       throw new AppError('Admin ID not found', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    // Handle file upload for proof of astrology - REQUIRED
-    if (!req.file) {
+    // Handle file upload(s) - req.files is { [fieldname]: File[] } when using multer.fields()
+    const files = req.files as { proofOfAstrology?: Express.Multer.File[]; profilePhoto?: Express.Multer.File[] } | undefined;
+    const proofFiles = files?.proofOfAstrology ?? [];
+    const profilePhotoFile = files?.profilePhoto?.[0];
+
+    if (!proofFiles.length) {
       throw new AppError(
-        'Proof of astrology certificate is required',
+        'At least one proof of astrology certificate is required',
         HTTP_STATUS.BAD_REQUEST,
         ERROR_CODES.VALIDATION_ERROR
       );
     }
 
-    // Construct the file URL path
-    // File is saved to uploads/astrologer-registrations/
-    const proofOfAstrology = `/uploads/astrologer-registrations/${req.file.filename}`;
+    // Construct proof URL(s): single string or JSON array string
+    const proofUrls = proofFiles.map((f) => `/uploads/astrologer-registrations/${f.filename}`);
+    const proofOfAstrology =
+      proofUrls.length === 1 ? proofUrls[0]! : JSON.stringify(proofUrls);
+
+    const profilePhoto = profilePhotoFile
+      ? `/uploads/astrologer-registrations/${profilePhotoFile.filename}`
+      : null;
 
     // Parse numeric fields from form data (they come as strings)
     const experience = req.body.experience ? parseInt(req.body.experience, 10) : null;
@@ -205,6 +214,7 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
       appointmentFee,
       createdBy: adminId,
       proofOfAstrology,
+      profilePhoto: profilePhoto ?? undefined,
     });
 
     // Emit real-time stats update to admin
@@ -220,11 +230,82 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
 /**
  * Update astrologer
  * PATCH /api/v1/admin/astrologers/:id
+ * Body validated by updateAstrologerSchema (excludes isOnline)
  */
 export async function updateAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
-    const astrologer = await astrologerService.update(id, req.body);
+    const body = { ...req.body };
+    delete (body as Record<string, unknown>).isOnline;
+    const astrologer = await astrologerService.update(id, body);
+
+    return sendSuccess(res, { astrologer });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Parse proofOfAstrology (single URL or JSON array string) to array of URLs
+ */
+function parseProofUrls(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [value];
+  } catch {
+    return [value];
+  }
+}
+
+/**
+ * Upload proof of astrology for an astrologer (appends to existing proofs)
+ * POST /api/v1/admin/astrologers/:id/proof-upload
+ */
+export async function uploadAstrologerProof(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params;
+    if (!req.file) {
+      throw new AppError(
+        'Proof of astrology file is required',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+    const newUrl = `/uploads/astrologer-registrations/${req.file.filename}`;
+    const existing = await astrologerService.findById(id);
+    const existingUrls = parseProofUrls(existing?.proofOfAstrology ?? null);
+    const mergedUrls = [...existingUrls, newUrl];
+    const proofOfAstrology =
+      mergedUrls.length === 1 ? mergedUrls[0]! : JSON.stringify(mergedUrls);
+    const astrologer = await astrologerService.update(id, { proofOfAstrology });
+
+    return sendSuccess(res, { astrologer });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Upload profile photo for an astrologer (replaces existing)
+ * POST /api/v1/admin/astrologers/:id/profile-photo
+ */
+export async function uploadAstrologerProfilePhoto(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    if (!req.file) {
+      throw new AppError(
+        'Profile photo file is required',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+    const newUrl = `/uploads/astrologer-registrations/${req.file.filename}`;
+    const astrologer = await astrologerService.update(id, { profilePhoto: newUrl });
 
     return sendSuccess(res, { astrologer });
   } catch (error) {

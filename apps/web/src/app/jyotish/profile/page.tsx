@@ -179,6 +179,9 @@ export default function JyotishProfilePage() {
                   <p className="text-white">
                     {user?.phone || user?.phoneNumber || 'No phone number'}
                   </p>
+                  {astrologer?.address && (
+                    <p className="text-gray-400 text-sm">📍 {astrologer.address}</p>
+                  )}
                   {user?.email && <p className="text-gray-400">{user.email}</p>}
                   <span className="inline-block px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full text-sm font-semibold">
                     Astrologer
@@ -232,6 +235,20 @@ export default function JyotishProfilePage() {
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
                     />
                   </div>
+
+                  {astrologer?.address && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="address" className="text-white">
+                        Address
+                      </Label>
+                      <Input
+                        id="address"
+                        value={astrologer.address}
+                        disabled
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 disabled:opacity-50"
+                      />
+                    </div>
+                  )}
 
                   <FormInput
                     id="email"

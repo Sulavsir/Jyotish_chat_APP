@@ -26,8 +26,9 @@ import {
   PaginationPrevious,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { RefreshCw, Check, X, Eye, FileText, UserIcon, Paperclip, Download } from 'lucide-react';
+import { RefreshCw, Check, X, FileText, UserIcon, Download } from 'lucide-react';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import type { RegistrationRequest } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 import { getImageUrl } from '@/utils/helpers';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
@@ -35,21 +36,6 @@ import { generatePageNumbers } from '@/utils/helpers';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
-
-interface RegistrationRequest {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  bio: string | null;
-  specialization: string[];
-  experience: number | null;
-  languages: string[];
-  gender: string | null;
-  proofOfAstrology: string;
-  registrationRequestedAt: string;
-  createdAt: string;
-}
 
 interface RegistrationRequestsResponse {
   requests: RegistrationRequest[];
@@ -220,9 +206,22 @@ export default function RegistrationRequestsPage() {
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
   const [modalType, setModalType] = useState<'approve' | 'reject' | null>(null);
-  const [viewingProof, setViewingProof] = useState<string | null>(null);
+  const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
+  const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
+  const viewing =
+    viewingProfileImage !== null
+      ? { type: 'profile' as const, value: viewingProfileImage }
+      : viewingAttachment !== null
+        ? { type: 'proof' as const, value: viewingAttachment }
+        : null;
+
+  const closeViewer = () => {
+    setViewingAttachment(null);
+    setViewingProfileImage(null);
+  };
 
   // Reset to page 1 when search term changes
   useEffect(() => {
@@ -301,19 +300,15 @@ export default function RegistrationRequestsPage() {
     refetch();
   };
 
-  // Close attachment modal on Escape key
+  // Close viewer modal on Escape key
   useEffect(() => {
-    if (!viewingProof) return;
+    if (!viewing) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setViewingProof(null);
-      }
+      if (event.key === 'Escape') closeViewer();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewingProof]);
-
-  const proofUrl = viewingProof ? getImageUrl(viewingProof) : null;
+  }, [viewing]);
 
   const columns: AdminTableColumn<RegistrationRequest>[] = [
     {
@@ -327,6 +322,22 @@ export default function RegistrationRequestsPage() {
     {
       header: 'Phone',
       accessor: (request) => <span className="text-slate-300">{request.phone}</span>,
+    },
+    {
+      header: 'Profile',
+      accessor: (request) => (
+        <div className="flex justify-center">
+          <AttachmentPreview
+            attachmentUrl={request.profilePhoto}
+            onView={() => {
+              setViewingAttachment(null);
+              setViewingProfileImage(request.profilePhoto || null);
+            }}
+            size="md"
+          />
+        </div>
+      ),
+      className: 'text-center',
     },
     {
       header: 'Experience',
@@ -366,7 +377,10 @@ export default function RegistrationRequestsPage() {
         <div className="flex justify-center">
           <AttachmentPreview
             attachmentUrl={request.proofOfAstrology}
-            onView={() => setViewingProof(request.proofOfAstrology)}
+            onView={() => {
+              setViewingProfileImage(null);
+              setViewingAttachment(request.proofOfAstrology || null);
+            }}
             size="md"
           />
         </div>
@@ -531,22 +545,26 @@ export default function RegistrationRequestsPage() {
           />
         )}
 
-        {/* Attachment Viewer Modal */}
-        {viewingProof && (
+        {/* Attachment / Profile Image Viewer Modal (same as admin/astrologers) */}
+        {viewing && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-            onClick={() => setViewingProof(null)}
+            onClick={closeViewer}
           >
             <Card
               className="bg-slate-900 border-slate-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-white">Proof of Astrology Certificates</CardTitle>
+                <CardTitle className="text-white">
+                  {viewing.type === 'profile'
+                    ? 'Profile Image'
+                    : 'Proof of Astrology Certificates'}
+                </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setViewingProof(null)}
+                  onClick={closeViewer}
                   className="text-white hover:bg-slate-800"
                 >
                   <X className="w-5 h-5" />
@@ -554,13 +572,12 @@ export default function RegistrationRequestsPage() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  // Handle JSON array or single file
                   let fileUrls: string[] = [];
                   try {
-                    const parsed = JSON.parse(viewingProof);
-                    fileUrls = Array.isArray(parsed) ? parsed : [viewingProof];
+                    const parsed = JSON.parse(viewing.value);
+                    fileUrls = Array.isArray(parsed) ? parsed : [viewing.value];
                   } catch {
-                    fileUrls = [viewingProof];
+                    fileUrls = [viewing.value];
                   }
 
                   return (

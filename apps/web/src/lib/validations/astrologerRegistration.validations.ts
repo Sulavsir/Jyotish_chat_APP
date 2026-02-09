@@ -5,15 +5,16 @@
 import { z } from 'zod';
 import { FILE_UPLOAD } from '@/constants/file-upload.constants';
 
-const nepaliPhoneRegex = /^(98|97)\d{8}$/;
+// E.164 international format (same as admin)
+const e164PhoneSchema = z
+  .string()
+  .min(1, 'Phone number is required')
+  .regex(/^\+?[1-9]\d{4,14}$/, 'Invalid international phone format (E.164)');
 
 export const astrologerRegistrationSchema = z
   .object({
     name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
-    phone: z
-      .string()
-      .min(1, 'Phone number is required')
-      .regex(nepaliPhoneRegex, 'Phone number must start with 98 or 97 and be 10 digits long.'),
+    phone: e164PhoneSchema,
     email: z.string().email('Invalid email address').optional().or(z.literal('')),
     password: z
       .string()
@@ -23,6 +24,7 @@ export const astrologerRegistrationSchema = z
       .regex(/(?=.*\d)/, 'Password must contain at least one number'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     bio: z.string().max(500, 'Bio is too long').optional(),
+    address: z.string().max(500, 'Address is too long').optional().nullable(),
     specialization: z.array(z.string()).min(1, 'Please enter at least one specialization'),
     experience: z
       .preprocess(

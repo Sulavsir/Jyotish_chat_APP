@@ -12,6 +12,8 @@ export interface AstrologerRegistrationData {
   email?: string;
   password: string;
   bio?: string;
+  address?: string | null;
+  profilePhoto?: File | null;
   specialization: string[];
   experience?: number;
   languages: string[];
@@ -46,6 +48,12 @@ export const astrologerRegistrationService = {
     formData.append('password', data.password);
     if (data.bio) {
       formData.append('bio', data.bio);
+    }
+    if (data.address) {
+      formData.append('address', data.address);
+    }
+    if (data.profilePhoto) {
+      formData.append('profilePhoto', data.profilePhoto);
     }
     data.specialization.forEach((spec) => {
       formData.append('specialization', spec);

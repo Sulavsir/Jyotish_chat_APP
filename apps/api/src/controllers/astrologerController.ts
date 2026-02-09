@@ -340,11 +340,14 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
       languages = [req.body.languages];
     }
 
-    const { name, phone, email, password, bio, experience, gender } = req.body;
+    const { name, phone, email, password, bio, address, experience, gender } = req.body;
 
-    // Get uploaded files (now supports multiple)
-    const proofFiles = req.files as Express.Multer.File[] | undefined;
-    if (!proofFiles || proofFiles.length === 0) {
+    // Get uploaded files - req.files is { [fieldname]: File[] } when using multer.fields()
+    const files = req.files as { proofOfAstrology?: Express.Multer.File[]; profilePhoto?: Express.Multer.File[] } | undefined;
+    const proofFiles = files?.proofOfAstrology ?? [];
+    const profilePhotoFile = files?.profilePhoto?.[0];
+
+    if (!proofFiles.length) {
       throw new AppError(
         'At least one proof of astrology certificate is required',
         HTTP_STATUS.BAD_REQUEST,
@@ -356,7 +359,11 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
     const proofUrls = proofFiles.map(
       (file) => `/uploads/astrologer-registrations/${file.filename}`
     );
-    const proofUrl = JSON.stringify(proofUrls); // Store as JSON array string
+    const proofUrl = JSON.stringify(proofUrls);
+
+    const profilePhoto = profilePhotoFile
+      ? `/uploads/astrologer-registrations/${profilePhotoFile.filename}`
+      : null;
 
     // Prepare data for validation (convert to expected format)
     const registrationData = {
@@ -365,6 +372,7 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
       email: email || '',
       password,
       bio: bio || undefined,
+      address: address || null,
       specialization,
       experience: experience ? parseInt(experience, 10) : undefined,
       languages,
@@ -381,6 +389,8 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
       email: validatedData.email || undefined,
       password: validatedData.password,
       bio: validatedData.bio,
+      address: validatedData.address ?? null,
+      profilePhoto: profilePhoto ?? undefined,
       specialization: validatedData.specialization,
       experience: validatedData.experience,
       languages: validatedData.languages,

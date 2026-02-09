@@ -84,6 +84,7 @@ model Astrologer {
   password                     String // Required for login
   name                         String
   profilePhoto                 String?
+  address                      String?
   bio                          String?
   specialization               String[] // e.g., ["Vedic", "Tarot", "Numerology"]
   experience                   Int? // Years of experience

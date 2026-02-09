@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod';
+import { parsePhoneNumber } from 'react-phone-number-input/max';
 
 // Common Validators
 export const emailSchema = z
@@ -18,11 +19,22 @@ export const passwordSchema = z
   .regex(/[0-9]/, 'Password must contain at least one number')
   .regex(/[@$!%*?&#]/, 'Password must contain at least one special character');
 
-// Nepali 10-digit mobile number (no country code)
+// E.164 international format; national number must be 10 digits
 export const phoneSchema = z
   .string()
   .min(1, 'Phone number is required')
-  .regex(/^9[78]\d{8}$/, 'Enter a valid 10-digit Nepali number (e.g. 98XXXXXXXX)');
+  .regex(/^\+?[1-9]\d{4,14}$/, 'Enter a valid international number (with country code)')
+  .refine(
+    (val) => {
+      try {
+        const parsed = parsePhoneNumber(val);
+        return parsed?.nationalNumber?.length === 10;
+      } catch {
+        return false;
+      }
+    },
+    'Phone number must be exactly 10 digits (after country code)'
+  );
 
 export const nameSchema = z
   .string()
@@ -89,9 +101,34 @@ export const createAstrologerSchema = z.object({
     .string()
     .max(1000, 'Bio must not exceed 1000 characters')
     .optional(),
+  address: z.string().max(500, 'Address must not exceed 500 characters').optional().nullable(),
 });
 
 export type CreateAstrologerFormData = z.infer<typeof createAstrologerSchema>;
+
+// Update Astrologer (edit form) - all fields optional
+export const updateAstrologerFormSchema = z.object({
+  name: z.string().min(2).max(100).optional(),
+  email: z.string().email().optional().nullable(),
+  phone: phoneSchema.optional(),
+  bio: z.string().max(1000).optional().nullable(),
+  specialization: z.array(z.string()).min(0).max(20).optional(),
+  experience: z
+    .preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().min(0).max(100))
+    .optional()
+    .nullable(),
+  commissionRate: z.number().min(0).max(100).optional(),
+  category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']).optional(),
+  appointmentFee: z
+    .preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().min(0))
+    .optional()
+    .nullable(),
+  languages: z.array(z.string()).optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+});
+
+export type UpdateAstrologerFormData = z.infer<typeof updateAstrologerFormSchema>;
 
 // Helper function to parse comma-separated strings to array
 export const parseCommaSeparatedToArray = (value: string): string[] => {
@@ -115,7 +152,7 @@ export const VALIDATION_RULES = {
     REQUIRE_SPECIAL: true,
   },
   PHONE: {
-    PATTERN: /^9[78]\d{8}$/,
+    PATTERN: /^\+?[1-9]\d{4,14}$/,
   },
   SPECIALIZATION: {
     MIN_ITEMS: 1,

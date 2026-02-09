@@ -18,7 +18,10 @@ router.post('/auth/login', asyncHandler(astrologerController.astrologerLogin));
 // Registration route - validation handled in controller after FormData parsing
 router.post(
   '/register',
-  astrologerRegistrationUpload.array('proofOfAstrology', 10), // Allow up to 10 files
+  astrologerRegistrationUpload.fields([
+    { name: 'proofOfAstrology', maxCount: 10 },
+    { name: 'profilePhoto', maxCount: 1 },
+  ]),
   asyncHandler(astrologerController.registerAstrologer)
 );
 

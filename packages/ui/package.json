@@ -27,6 +27,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "react-hook-form": "^7.69.0",
+    "react-phone-number-input": "^3.4.14",
     "tailwind-merge": "^2.2.0"
   }
 }

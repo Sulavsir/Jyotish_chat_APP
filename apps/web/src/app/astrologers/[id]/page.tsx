@@ -316,6 +316,12 @@ function AstrologerProfileContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
+                {astrologer.address && (
+                  <div>
+                    <span className="text-gray-400">Address:</span>
+                    <span className="text-white ml-2">{astrologer.address}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-gray-400">Phone:</span>
                   <span className="text-white ml-2">{astrologer.phone}</span>

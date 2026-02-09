@@ -28,11 +28,13 @@ export class AstrologerService {
         email: true,
         name: true,
         profilePhoto: true,
+        address: true,
         bio: true,
         specialization: true,
         experience: true,
         category: true,
         appointmentFee: true,
+        proofOfAstrology: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -136,6 +138,8 @@ export class AstrologerService {
     gender?: Gender;
     createdBy: string; // Admin ID
     proofOfAstrology?: string; // File URL for proof document
+    profilePhoto?: string | null;
+    address?: string | null;
   }) {
     // Check if phone number is already used by a CLIENT
     const existingUser = await prisma.user.findUnique({
@@ -197,6 +201,8 @@ export class AstrologerService {
         gender: data.gender ?? null,
         createdBy: data.createdBy,
         proofOfAstrology: data.proofOfAstrology || null,
+        profilePhoto: data.profilePhoto ?? null,
+        address: data.address ?? null,
         accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
         isActive: true,
         isVerified: false, 
@@ -207,6 +213,7 @@ export class AstrologerService {
         email: true,
         name: true,
         profilePhoto: true,
+        address: true,
         bio: true,
         specialization: true,
         experience: true,
@@ -388,20 +395,25 @@ export class AstrologerService {
   }
 
   /**
-   * Update astrologer details
+   * Update astrologer details (excludes isOnline - use updateOnlineStatus)
    */
   async update(
     id: string,
     data: {
-      email?: string;
+      email?: string | null;
       name?: string;
-      bio?: string;
-      profilePhoto?: string;
+      phone?: string;
+      bio?: string | null;
+      address?: string | null;
+      profilePhoto?: string | null;
       specialization?: string[];
-      experience?: number;
+      experience?: number | null;
       commissionRate?: number;
       languages?: string[];
-      gender?: 'MALE' | 'FEMALE' | 'OTHER';
+      gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+      category?: AstrologerCategory;
+      appointmentFee?: number | null;
+      proofOfAstrology?: string | null;
     }
   ) {
     const astrologer = await prisma.astrologer.update({
@@ -416,6 +428,9 @@ export class AstrologerService {
         bio: true,
         specialization: true,
         experience: true,
+        category: true,
+        appointmentFee: true,
+        proofOfAstrology: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -527,6 +542,7 @@ export class AstrologerService {
           email: true,
           name: true,
           profilePhoto: true,
+          address: true,
           bio: true,
           specialization: true,
           experience: true,
@@ -651,6 +667,8 @@ export class AstrologerService {
     email?: string;
     password: string;
     bio?: string;
+    address?: string | null;
+    profilePhoto?: string | null;
     specialization: string[];
     experience?: number;
     languages: string[];
@@ -696,6 +714,8 @@ export class AstrologerService {
         email: data.email || null,
         password: hashedPassword,
         bio: data.bio || null,
+        address: data.address ?? null,
+        profilePhoto: data.profilePhoto ?? null,
         specialization: data.specialization,
         experience: data.experience || null,
         languages: data.languages,
@@ -755,6 +775,7 @@ cle   * Get all pending registration requests with pagination and search
           name: true,
           phone: true,
           email: true,
+          profilePhoto: true,
           bio: true,
           specialization: true,
           experience: true,

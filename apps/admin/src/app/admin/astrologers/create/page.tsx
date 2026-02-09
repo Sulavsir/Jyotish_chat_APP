@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Input, Textarea, LoadingButton } from '@jyotish/ui';
+import { Button, Input, Textarea, LoadingButton, ProfileImageInput, PhoneInputWithCountry } from '@jyotish/ui';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import {
   Form,
@@ -25,13 +25,22 @@ import {
   parseCommaSeparatedToArray,
   type CreateAstrologerFormData,
 } from '@/constants/validators.constants';
+import { ASTROLOGER_PROOF_UPLOAD } from '@jyotish/shared';
 import { toast } from 'sonner';
+
+const {
+  MAX_FILES: MAX_PROOF_FILES,
+  MAX_FILE_SIZE,
+  ALLOWED_TYPES: ALLOWED_PROOF_TYPES,
+  isAllowedType: isAllowedProofType,
+} = ASTROLOGER_PROOF_UPLOAD;
 
 export default function CreateAstrologerPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [proofFiles, setProofFiles] = useState<File[]>([]);
+  const [proofPreviews, setProofPreviews] = useState<Map<string, string>>(new Map());
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CreateAstrologerFormData>({
@@ -51,6 +60,7 @@ export default function CreateAstrologerPage() {
       appointmentFee: null,
       languages: [],
       bio: '',
+      address: '',
     },
   });
 
@@ -76,6 +86,9 @@ export default function CreateAstrologerPage() {
       if (data.bio) {
         formData.append('bio', data.bio.trim());
       }
+      if (data.address) {
+        formData.append('address', data.address.trim());
+      }
 
       // Add arrays
       const specialization = Array.isArray(data.specialization) ? data.specialization : [];
@@ -88,13 +101,16 @@ export default function CreateAstrologerPage() {
         formData.append('languages[]', item);
       });
 
-      // Add proof file - REQUIRED
-      if (!proofFile) {
-        toast.error('Proof of astrology certificate is required');
+      // Add proof files - at least one required
+      if (proofFiles.length === 0) {
+        toast.error('At least one proof of astrology certificate is required');
         setIsSubmitting(false);
         return;
       }
-      formData.append('proofOfAstrology', proofFile);
+      proofFiles.forEach((file) => formData.append('proofOfAstrology', file));
+      if (profilePhotoFile) {
+        formData.append('profilePhoto', profilePhotoFile);
+      }
 
       const response = await adminApi.astrologers.createWithFile(formData);
 
@@ -119,49 +135,48 @@ export default function CreateAstrologerPage() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      const allowedTypes = [
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'application/pdf',
-      ];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error('Invalid file type. Please upload an image (JPEG, PNG, GIF, WebP) or PDF.');
-        return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+
+    const newFiles: File[] = [];
+    const newPreviews = new Map<string, string>();
+
+    for (const file of files) {
+      if (proofFiles.length + newFiles.length >= MAX_PROOF_FILES) {
+        toast.error(`Maximum ${MAX_PROOF_FILES} files allowed.`);
+        break;
       }
-
-      // Validate file size (10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File size must be less than 10MB.');
-        return;
+      if (!isAllowedProofType(file.type)) {
+        toast.error(`${file.name}: Must be an image (JPEG, PNG, GIF, WebP) or PDF.`);
+        continue;
       }
-
-      setProofFile(file);
-
-      // Create preview for images
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name}: File size must be less than 10MB.`);
+        continue;
+      }
+      newFiles.push(file);
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setProofPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setProofPreview(null);
+        const url = URL.createObjectURL(file);
+        newPreviews.set(file.name, url);
       }
     }
+
+    if (newFiles.length > 0) {
+      setProofFiles((prev) => [...prev, ...newFiles]);
+      setProofPreviews((prev) => new Map([...prev, ...newPreviews]));
+    }
+    e.target.value = '';
   };
 
-  const handleRemoveFile = () => {
-    setProofFile(null);
-    setProofPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const handleRemoveFile = (fileName: string) => {
+    setProofFiles((prev) => prev.filter((f) => f.name !== fileName));
+    setProofPreviews((prev) => {
+      const url = prev.get(fileName);
+      if (url) URL.revokeObjectURL(url);
+      const next = new Map(prev);
+      next.delete(fileName);
+      return next;
+    });
   };
 
   return (
@@ -221,22 +236,34 @@ export default function CreateAstrologerPage() {
                     control={form.control}
                     name="phone"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="md:col-span-2">
                         <FormLabel>Phone Number *</FormLabel>
                         <FormControl>
-                          <Input
-                            type="tel"
-                            placeholder="9812345678"
-                            maxLength={10}
-                            {...field}
+                          <PhoneInputWithCountry
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            placeholder="Enter phone number"
+                            defaultCountry="NP"
                           />
                         </FormControl>
-                        <FormDescription>10-digit Nepali number (e.g. 98XXXXXXXX)</FormDescription>
+                        <FormDescription>
+                          Select country and enter number (e.g. +977 98...){' '}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
+                  <div className="md:col-span-2 space-y-2 border border-purple-400/20 rounded-lg p-3">
+                    <FormLabel>Profile Image (Optional)</FormLabel>
+                    <ProfileImageInput
+                      value={profilePhotoFile}
+                      onChange={setProfilePhotoFile}
+                      placeholderName={form.watch('name') || 'A'}
+                      disabled={isSubmitting}
+                      description="Your profile image will be displayed in your profile."
+                    />
+                  </div>
                   <FormField
                     control={form.control}
                     name="password"
@@ -454,6 +481,25 @@ export default function CreateAstrologerPage() {
 
                 <FormField
                   control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Kathmandu, Nepal"
+                          {...field}
+                          value={field.value ?? ''}
+                        />
+                      </FormControl>
+                      <FormDescription>Optional address (city, region, country)</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="bio"
                   render={({ field }) => (
                     <FormItem>
@@ -477,52 +523,71 @@ export default function CreateAstrologerPage() {
                     Proof of Astrology <span className="text-red-400">*</span>
                   </FormLabel>
                   <FormDescription>
-                    Upload certificates or documents proving astrology expertise (Images or PDF, max 10MB)
+                    Upload certificates or documents proving astrology expertise (Images or PDF, max
+                    10MB per file, up to {MAX_PROOF_FILES} files)
                   </FormDescription>
                   <div className="space-y-3">
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*,.pdf"
+                      multiple
                       onChange={handleFileChange}
                       className="hidden"
                       id="proof-upload"
                     />
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || proofFiles.length >= MAX_PROOF_FILES}
                       >
-                        {proofFile ? 'Change File' : 'Upload File'}
+                        {proofFiles.length === 0 ? 'Add files' : 'Add more files'}
                       </Button>
-                      {proofFile && (
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                          <span>{proofFile.name}</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRemoveFile}
-                            disabled={isSubmitting}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      )}
-                      {!proofFile && (
-                        <span className="text-sm text-red-400">Proof of astrology is required</span>
+                      {proofFiles.length === 0 && (
+                        <span className="text-sm text-red-400">At least one proof is required</span>
                       )}
                     </div>
-                    {proofPreview && (
-                      <div className="mt-3">
-                        <img
-                          src={proofPreview}
-                          alt="Proof preview"
-                          className="max-w-xs max-h-48 rounded-md border border-slate-700"
-                        />
+                    {proofFiles.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {proofFiles.map((file) => {
+                          const preview = proofPreviews.get(file.name);
+                          return (
+                            <div
+                              key={file.name}
+                              className="flex items-center gap-2 p-3 rounded-lg border border-slate-700 bg-slate-800/50"
+                            >
+                              {preview ? (
+                                <img
+                                  src={preview}
+                                  alt=""
+                                  className="h-14 w-14 object-cover rounded border border-slate-600"
+                                />
+                              ) : (
+                                <div className="h-14 w-14 rounded border border-slate-600 bg-slate-700 flex items-center justify-center text-slate-400 text-xs">
+                                  PDF
+                                </div>
+                              )}
+                              <span
+                                className="text-sm text-slate-300 truncate max-w-[140px]"
+                                title={file.name}
+                              >
+                                {file.name}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFile(file.name)}
+                                disabled={isSubmitting}
+                                className="text-red-400 hover:text-red-300 shrink-0"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

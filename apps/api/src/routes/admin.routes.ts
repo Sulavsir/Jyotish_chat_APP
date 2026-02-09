@@ -29,6 +29,7 @@ import {
   adminUpdateJyotishBookingStatusSchema,
   listAdminJyotishBookingsQuerySchema,
   listAdminDashboardRotatingCopyQuerySchema,
+  updateAstrologerSchema,
 } from '../validators';
 import {
   createQuestionCategorySchema,
@@ -57,7 +58,10 @@ router.get('/astrologers', adminController.listAstrologers);
 router.post(
   '/astrologers',
   auditLogger(AuditAction.ASTROLOGER_CREATE, 'Astrologer'),
-  adminAstrologerUpload.single('proofOfAstrology'),
+  adminAstrologerUpload.fields([
+    { name: 'proofOfAstrology', maxCount: 10 },
+    { name: 'profilePhoto', maxCount: 1 },
+  ]),
   adminController.createAstrologer
 );
 
@@ -69,10 +73,25 @@ router.get(
 
 router.get('/astrologers/:id', adminController.getAstrologer);
 
+router.post(
+  '/astrologers/:id/proof-upload',
+  auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
+  adminAstrologerUpload.single('proofOfAstrology'),
+  asyncHandler(adminController.uploadAstrologerProof)
+);
+
+router.post(
+  '/astrologers/:id/profile-photo',
+  auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
+  adminAstrologerUpload.single('profilePhoto'),
+  asyncHandler(adminController.uploadAstrologerProfilePhoto)
+);
+
 router.patch(
   '/astrologers/:id',
   auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
-  adminController.updateAstrologer
+  validateBody(updateAstrologerSchema),
+  asyncHandler(adminController.updateAstrologer)
 );
 
 router.delete(

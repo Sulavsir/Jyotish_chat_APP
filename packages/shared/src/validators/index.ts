@@ -279,11 +279,16 @@ export const listPublicQuestionnairesQuerySchema = z.object({
   language: questionnaireLanguageSchema.optional(),
 });
 
+// Astrologer registration: E.164 international format (same as admin)
+const astrologerPhoneValidation = z
+  .string()
+  .min(1, 'Phone number is required')
+  .regex(/^\+?[1-9]\d{4,14}$/, 'Invalid international phone format (E.164)');
+
 // Astrologer registration validators
-// Reuse the phoneValidation from above (lines 24-28)
 export const astrologerRegistrationSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
-  phone: phoneValidation,
+  phone: astrologerPhoneValidation,
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
   password: z
     .string()
@@ -292,6 +297,7 @@ export const astrologerRegistrationSchema = z.object({
     .regex(/(?=.*[A-Z])/, 'Password must contain at least one uppercase letter')
     .regex(/(?=.*\d)/, 'Password must contain at least one number'),
   bio: z.string().max(500, 'Bio is too long').optional(),
+  address: z.string().max(500, 'Address is too long').optional().nullable(),
   specialization: z.array(z.string()).min(1, 'Please enter at least one specialization'),
   experience: z.number().int().min(0, 'Experience cannot be negative').optional(),
   languages: z

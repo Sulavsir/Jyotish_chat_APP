@@ -431,7 +431,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="cosmic-card border-b border-slate-700 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -511,7 +511,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 min-w-0 overflow-auto p-6">{children}</main>
       </div>
 
       {/* Logout Confirmation Dialog */}
