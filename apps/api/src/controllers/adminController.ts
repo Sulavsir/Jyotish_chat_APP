@@ -13,6 +13,8 @@ import {
   adminService,
 } from '../services';
 import { sendSuccess, sendError } from '../utils';
+import { executeSoftDelete } from '../utils/delete.utils';
+import type { ListAdminAstrologersQuery } from '../validators/adminAstrologer.validators';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { prisma, AuditAction } from '@jyotish/database';
@@ -137,15 +139,15 @@ export async function getAdminProfile(req: AuthRequest, res: Response, next: Nex
  */
 export async function listAstrologers(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page, limit, search, isActive, isVerified, isOnline } = req.query;
+    const query = req.query as unknown as ListAdminAstrologersQuery;
 
     const result = await astrologerService.list({
-      page: page ? parseInt(page as string) : 1,
-      limit: limit ? parseInt(limit as string) : 10,
-      search: search as string,
-      isActive: isActive ? isActive === 'true' : undefined,
-      isVerified: isVerified ? isVerified === 'true' : undefined,
-      isOnline: isOnline ? isOnline === 'true' : undefined,
+      page: query.page ?? 1,
+      limit: query.limit ?? 10,
+      search: query.search,
+      isActive: query.isActive,
+      isVerified: query.isVerified,
+      isOnline: query.isOnline,
     });
 
     return sendSuccess(res, result);
@@ -318,14 +320,8 @@ export async function uploadAstrologerProfilePhoto(
  * DELETE /api/v1/admin/astrologers/:id
  */
 export async function deleteAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
-  try {
-    const { id } = req.params;
-    await astrologerService.delete(id);
-
-    return sendSuccess(res, null);
-  } catch (error) {
-    next(error);
-  }
+  const { id } = req.params;
+  await executeSoftDelete(res, next, id, (id) => astrologerService.delete(id));
 }
 
 /**

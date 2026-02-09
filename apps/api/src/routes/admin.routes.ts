@@ -27,6 +27,7 @@ import {
   updateDashboardRotatingCopySchema,
   uuidParamSchema,
   adminUpdateJyotishBookingStatusSchema,
+  listAdminAstrologersQuerySchema,
   listAdminJyotishBookingsQuerySchema,
   listAdminDashboardRotatingCopyQuerySchema,
   updateAstrologerSchema,
@@ -53,7 +54,11 @@ router.post('/auth/logout', adminController.adminLogout);
 router.get('/auth/me', adminController.getAdminProfile);
 
 // ==================== Astrologer Management ====================
-router.get('/astrologers', adminController.listAstrologers);
+router.get(
+  '/astrologers',
+  validateQuery(listAdminAstrologersQuerySchema),
+  asyncHandler(adminController.listAstrologers)
+);
 
 router.post(
   '/astrologers',
@@ -97,7 +102,8 @@ router.patch(
 router.delete(
   '/astrologers/:id',
   auditLogger(AuditAction.ASTROLOGER_DELETE, 'Astrologer'),
-  adminController.deleteAstrologer
+  validateParams(uuidParamSchema),
+  asyncHandler(adminController.deleteAstrologer)
 );
 
 router.post(

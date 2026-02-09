@@ -106,3 +106,14 @@ export const TYPE_FILTER_OPTIONS = [
   { value: 'INSTANT_CHAT_REQUEST', label: 'Instant Chat Request' },
 ] as const;
 
+/** Copy for delete confirmation dialogs (soft delete) */
+export const DELETE_CONFIRM = {
+  ASTROLOGER: {
+    TITLE: 'Delete astrologer',
+    DESCRIPTION:
+      'This will deactivate the astrologer. They will be removed from the active list and cannot log in until reactivated.',
+    CONFIRM_TEXT: 'Delete',
+    SUCCESS: 'Astrologer deleted successfully',
+    ERROR: 'Failed to delete astrologer',
+  },
+} as const;

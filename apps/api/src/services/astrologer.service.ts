@@ -17,11 +17,11 @@ import { isNepaliPhoneNumber } from '../utils/phone.utils';
 
 export class AstrologerService {
   /**
-   * Find astrologer by ID
+   * Find astrologer by ID (excludes soft-deleted)
    */
   async findById(id: string) {
-    const astrologer = await prisma.astrologer.findUnique({
-      where: { id },
+    const astrologer = await prisma.astrologer.findFirst({
+      where: { id, isDeleted: false },
       select: {
         id: true,
         phone: true,
@@ -57,11 +57,11 @@ export class AstrologerService {
   }
 
   /**
-   * Find astrologer by phone
+   * Find astrologer by phone (excludes soft-deleted)
    */
   async findByPhone(phone: string) {
-    return await prisma.astrologer.findUnique({
-      where: { phone },
+    return await prisma.astrologer.findFirst({
+      where: { phone, isDeleted: false },
       select: {
         id: true,
         phone: true,
@@ -88,11 +88,11 @@ export class AstrologerService {
   }
 
   /**
-   * Find astrologer by email
+   * Find astrologer by email (excludes soft-deleted)
    */
   async findByEmail(email: string) {
-    return await prisma.astrologer.findUnique({
-      where: { email },
+    return await prisma.astrologer.findFirst({
+      where: { email, isDeleted: false },
       select: {
         id: true,
         phone: true,
@@ -154,9 +154,9 @@ export class AstrologerService {
       );
     }
 
-    // Check if astrologer already exists
-    const existingPhone = await prisma.astrologer.findUnique({
-      where: { phone: data.phone },
+    // Check if astrologer already exists (only non-deleted)
+    const existingPhone = await prisma.astrologer.findFirst({
+      where: { phone: data.phone, isDeleted: false },
     });
 
     if (existingPhone) {
@@ -168,8 +168,8 @@ export class AstrologerService {
     }
 
     if (data.email) {
-      const existingEmail = await prisma.astrologer.findUnique({
-        where: { email: data.email },
+      const existingEmail = await prisma.astrologer.findFirst({
+        where: { email: data.email, isDeleted: false },
       });
 
       if (existingEmail) {
@@ -240,9 +240,10 @@ export class AstrologerService {
    * Astrologer login with phone/email and password
    */
   async login(identifier: string, password: string, deviceInfo: any) {
-    // Find astrologer by phone or email
+    // Find astrologer by phone or email (exclude soft-deleted)
     let astrologer = await prisma.astrologer.findFirst({
       where: {
+        isDeleted: false,
         OR: [{ phone: identifier }, { email: identifier }],
       },
       select: {
@@ -483,12 +484,12 @@ export class AstrologerService {
   }
 
   /**
-   * Delete astrologer (soft delete - set inactive)
+   * Delete astrologer (soft delete: resource is gone from client perspective)
    */
   async delete(id: string) {
     return await prisma.astrologer.update({
       where: { id },
-      data: { isActive: false },
+      data: { isDeleted: true, deletedAt: new Date(), isActive: false },
     });
   }
 
@@ -507,8 +508,9 @@ export class AstrologerService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      // Only show approved astrologers in the list
+      // Only show approved, not soft-deleted astrologers
       accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
+      isDeleted: false,
     };
 
     if (search) {
@@ -560,7 +562,7 @@ export class AstrologerService {
           createdAt: true,
           updatedAt: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.astrologer.count({ where }),
     ]);
@@ -627,9 +629,9 @@ export class AstrologerService {
     currentPassword: string,
     newPassword: string
   ): Promise<void> {
-    // Get astrologer with password
-    const astrologer = await prisma.astrologer.findUnique({
-      where: { id: astrologerId },
+    // Get astrologer with password (exclude soft-deleted)
+    const astrologer = await prisma.astrologer.findFirst({
+      where: { id: astrologerId, isDeleted: false },
       select: { id: true, password: true },
     });
 
@@ -675,9 +677,9 @@ export class AstrologerService {
     gender?: Gender;
     proofOfAstrology: string; // File URL
   }) {
-    // Check if phone already exists
-    const existingByPhone = await prisma.astrologer.findUnique({
-      where: { phone: data.phone },
+    // Check if phone already exists (only non-deleted)
+    const existingByPhone = await prisma.astrologer.findFirst({
+      where: { phone: data.phone, isDeleted: false },
     });
 
     if (existingByPhone) {
@@ -690,8 +692,8 @@ export class AstrologerService {
 
     // Check if email already exists (if provided)
     if (data.email) {
-      const existingByEmail = await prisma.astrologer.findUnique({
-        where: { email: data.email },
+      const existingByEmail = await prisma.astrologer.findFirst({
+        where: { email: data.email, isDeleted: false },
       });
 
       if (existingByEmail) {
@@ -815,8 +817,8 @@ cle   * Get all pending registration requests with pagination and search
       commissionRate?: number;
     }
   ) {
-    const astrologer = await prisma.astrologer.findUnique({
-      where: { id: astrologerId },
+    const astrologer = await prisma.astrologer.findFirst({
+      where: { id: astrologerId, isDeleted: false },
       select: {
         id: true,
         accountStatus: true,
@@ -893,8 +895,8 @@ cle   * Get all pending registration requests with pagination and search
    * Reject an astrologer registration request
    */
   async rejectRegistration(astrologerId: string, adminId: string, rejectionReason: string) {
-    const astrologer = await prisma.astrologer.findUnique({
-      where: { id: astrologerId },
+    const astrologer = await prisma.astrologer.findFirst({
+      where: { id: astrologerId, isDeleted: false },
       select: {
         id: true,
         accountStatus: true,

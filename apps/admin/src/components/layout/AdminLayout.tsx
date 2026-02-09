@@ -54,9 +54,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const queryClient = useQueryClient();
   const { admin, isAuthenticated, logout, setAdmin, _hasHydrated } = useAdminStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [openGroup, setOpenGroup] = useState<'jyotish-bookings' | 'website' | 'chat-management' | 'astrologers' | null>(
-    'chat-management'
-  );
+  const [openGroup, setOpenGroup] = useState<
+    'jyotish-bookings' | 'website' | 'chat-management' | 'astrologers' | null
+  >('chat-management');
   const [isValidatingSession, setIsValidatingSession] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [adminStatus, setAdminStatus] = useState<'available' | 'busy'>('available');
@@ -330,7 +330,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     </span>
                     {sidebarOpen && (
                       <>
-                        <span className="font-medium flex-1 min-w-0 text-left truncate" title={item.name}>
+                        <span
+                          className="font-medium flex-1 min-w-0 text-left truncate"
+                          title={item.name}
+                        >
                           {item.name}
                         </span>
                         <svg
@@ -339,7 +342,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
                         </svg>
                       </>
                     )}
@@ -415,7 +423,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           className="p-4 border-t border-slate-700 text-slate-400 hover:text-white"
         >
           <svg
-            className={`w-6 h-6 transition-transform ${sidebarOpen ? 'rotate-180' : ''}`}
+            className={`w-6 h-6 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

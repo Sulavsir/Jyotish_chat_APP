@@ -95,6 +95,8 @@ model Astrologer {
   isActive                     Boolean               @default(true)
   isOnline                     Boolean               @default(false)
   isVerified                   Boolean               @default(false)
+  isDeleted                    Boolean               @default(false) // Soft delete: resource is gone from client perspective
+  deletedAt                    DateTime?             // When soft-deleted
   accountStatus                AstrologerAccountStatus @default(PENDING) // Registration approval status
   proofOfAstrology              String? // URL to certificate/proof document
   registrationRequestedAt       DateTime? // When registration was requested
@@ -130,6 +132,7 @@ model Astrologer {
   @@index([email])
   @@index([isActive])
   @@index([isOnline])
+  @@index([isDeleted])
   @@index([rating])
   @@index([category])
   @@index([accountStatus])

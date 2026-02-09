@@ -16,6 +16,7 @@ import {
 } from '@jyotish/shared';
 import type { Admin, Astrologer } from '@/types';
 import type {
+  ListAstrologersParams,
   RegistrationRequest,
   CreateAstrologerRequest,
   UpdateAstrologerRequest,
@@ -200,7 +201,7 @@ export const adminApi = {
    * Astrologers
    */
   astrologers: {
-    list: async (params?: { page?: number; limit?: number; search?: string }) => {
+    list: async (params?: ListAstrologersParams) => {
       const response = await apiClient.get(API_ENDPOINTS.ASTROLOGERS.LIST, { params });
       return response;
     },

@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { AstrologerCategory } from '@jyotish/shared';
+import { queryPaginationSchema } from './query.validators';
 
 // E.164: optional +, then 1-3 digit country code, then 4-14 digit subscriber number
 const e164PhoneSchema = z
@@ -34,3 +35,22 @@ export const updateAstrologerSchema = z
   });
 
 export type UpdateAstrologerInput = z.infer<typeof updateAstrologerSchema>;
+
+/** Query schema for GET /admin/astrologers (list) */
+export const listAdminAstrologersQuerySchema = queryPaginationSchema.extend({
+  search: z.string().optional(),
+  isActive: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === 'true')),
+  isVerified: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === 'true')),
+  isOnline: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === 'true')),
+});
+
+export type ListAdminAstrologersQuery = z.infer<typeof listAdminAstrologersQuerySchema>;

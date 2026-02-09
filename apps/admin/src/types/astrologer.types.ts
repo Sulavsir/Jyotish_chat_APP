@@ -2,6 +2,16 @@
  * Astrologer-related type definitions
  */
 
+/** Params for listing astrologers (GET /admin/astrologers) */
+export interface ListAstrologersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: boolean;
+  isVerified?: boolean;
+  isOnline?: boolean;
+}
+
 export interface RegistrationRequest {
   id: string;
   name: string;

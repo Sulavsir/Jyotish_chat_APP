@@ -6,8 +6,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { LoadingButton } from './LoadingButton';
-import { Button } from '@jyotish/ui';
+import { Button, LoadingButton } from '@jyotish/ui';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -75,13 +74,13 @@ export function ConfirmDialog({
               variant="outline"
               onClick={onClose}
               className="flex-1"
-              isLoading={isLoading}
+              loading={isLoading}
             >
               {cancelText}
             </LoadingButton>
             <LoadingButton
               onClick={onConfirm}
-              isLoading={isLoading}
+              loading={isLoading}
               className={`flex-1 ${
                 isDestructive
                   ? 'bg-red-600 hover:bg-red-700 text-white'

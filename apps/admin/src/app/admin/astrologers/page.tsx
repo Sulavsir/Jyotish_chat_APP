@@ -22,15 +22,24 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  LoadingButton,
 } from '@jyotish/ui';
-import { RefreshCw, Eye, X, Download, FileText, Pencil } from 'lucide-react';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { RefreshCw, X, Download, FileText, Trash2 } from 'lucide-react';
+import { AdminTable, AstrologerRowActions, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
-import { useAdminSocket } from '@/hooks';
+import { DELETE_CONFIRM } from '@/constants/app.constants';
+import { useAdminSocket, useDeleteMutation } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 import { generatePageNumbers, getImageUrl } from '@/utils/helpers';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
+
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 interface AstrologersResponse {
@@ -52,6 +61,8 @@ export default function AstrologersPage() {
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
   const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
+  const [astrologerToDelete, setAstrologerToDelete] = useState<Astrologer | null>(null);
+  const [astrologerToToggle, setAstrologerToToggle] = useState<Astrologer | null>(null);
 
   const viewing = viewingProfileImage
     ? { type: 'profile' as const, value: viewingProfileImage }
@@ -80,23 +91,27 @@ export default function AstrologersPage() {
     refetch,
   } = useQuery<AstrologersResponse>({
     queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, searchTerm],
-    queryFn: async () => {
-      const response: any = await adminApi.astrologers.list({
+    queryFn: async (): Promise<AstrologersResponse> => {
+      const response = await adminApi.astrologers.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm || undefined,
       });
-      // Handle both response formats
-      if (response?.astrologers && response?.pagination) {
-        return response;
-      } else if (Array.isArray(response)) {
-        // Fallback for old format
+      if (
+        response &&
+        typeof response === 'object' &&
+        'astrologers' in response &&
+        'pagination' in response
+      ) {
+        return response as AstrologersResponse;
+      }
+      if (Array.isArray(response)) {
         return {
-          astrologers: response,
+          astrologers: response as Astrologer[],
           pagination: {
             page: 1,
             limit: ITEMS_PER_PAGE,
-            total: response.length,
+            total: (response as Astrologer[]).length,
             totalPages: 1,
           },
         };
@@ -176,14 +191,34 @@ export default function AstrologersPage() {
       toast.success('Astrologer status updated successfully');
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.ALL });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.error?.message || 'Failed to toggle status';
-      toast.error(message);
+    onError: (err: Error) => {
+      toast.error(err?.message ?? 'Failed to toggle status');
     },
   });
 
-  const toggleStatus = (id: string) => {
-    toggleStatusMutation.mutate(id);
+  const deleteMutation = useDeleteMutation({
+    mutationFn: (id: string) => adminApi.astrologers.delete(id),
+    invalidateQueryKeys: ADMIN_QUERY_KEYS.ASTROLOGERS.ALL,
+    successMessage: DELETE_CONFIRM.ASTROLOGER.SUCCESS,
+    errorMessage: DELETE_CONFIRM.ASTROLOGER.ERROR,
+  });
+
+  const openToggleDialog = (astrologer: Astrologer) => {
+    setAstrologerToToggle(astrologer);
+  };
+
+  const handleConfirmToggleStatus = () => {
+    if (!astrologerToToggle) return;
+    toggleStatusMutation.mutate(astrologerToToggle.id, {
+      onSettled: () => setAstrologerToToggle(null),
+    });
+  };
+
+  const handleConfirmDelete = () => {
+    if (!astrologerToDelete) return;
+    deleteMutation.mutate(astrologerToDelete.id, {
+      onSettled: () => setAstrologerToDelete(null),
+    });
   };
 
   // Reset to page 1 when search term changes
@@ -304,20 +339,13 @@ export default function AstrologersPage() {
     {
       header: 'Actions',
       accessor: (astrologer) => (
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_EDIT(astrologer.id))}
-            className="border-slate-600 text-slate-300 hover:bg-slate-700/50"
-          >
-            <Pencil className="w-4 h-4 mr-1" />
-            Edit
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => toggleStatus(astrologer.id)}>
-            Toggle Status
-          </Button>
-        </div>
+        <AstrologerRowActions
+          astrologer={astrologer}
+          onEdit={(id) => router.push(ADMIN_ROUTES.ASTROLOGERS_EDIT(id))}
+          onDelete={setAstrologerToDelete}
+          onToggleStatus={openToggleDialog}
+          isDeletePending={deleteMutation.isPending && astrologerToDelete?.id === astrologer.id}
+        />
       ),
       className: 'text-center',
     },
@@ -439,6 +467,70 @@ export default function AstrologersPage() {
             </div>
           </div>
         )}
+
+        {/* Delete confirmation (same style as logout modal) */}
+        <Dialog
+          open={astrologerToDelete !== null}
+          onOpenChange={(open) => !open && setAstrologerToDelete(null)}
+        >
+          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white">{DELETE_CONFIRM.ASTROLOGER.TITLE}</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                {DELETE_CONFIRM.ASTROLOGER.DESCRIPTION}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setAstrologerToDelete(null)}
+                className="border-slate-700"
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                loading={deleteMutation.isPending}
+                onClick={handleConfirmDelete}
+                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              >
+                {DELETE_CONFIRM.ASTROLOGER.CONFIRM_TEXT}
+              </LoadingButton>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Toggle status confirmation (same style as logout modal) */}
+        <Dialog
+          open={astrologerToToggle !== null}
+          onOpenChange={(open) => !open && setAstrologerToToggle(null)}
+        >
+          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white">Change Account Status</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                {astrologerToToggle
+                  ? `Are you sure you want to ${astrologerToToggle.isActive ? 'deactivate' : 'activate'} ${astrologerToToggle.name}? They will ${astrologerToToggle.isActive ? 'no longer' : ''} be able to log in and receive consultations.`
+                  : ''}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setAstrologerToToggle(null)}
+                className="border-slate-700"
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                loading={toggleStatusMutation.isPending}
+                onClick={handleConfirmToggleStatus}
+                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              >
+                Change Status
+              </LoadingButton>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Attachment / Profile Image Viewer Modal */}
         {viewing && (

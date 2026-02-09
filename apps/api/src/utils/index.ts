@@ -18,6 +18,9 @@ export * from './encryption';
 // Re-export async handler
 export * from './async-handler';
 
+// Delete utilities (soft-delete flows)
+export * from './delete.utils';
+
 // Re-export user utilities
 export * from './user-utils';
 
