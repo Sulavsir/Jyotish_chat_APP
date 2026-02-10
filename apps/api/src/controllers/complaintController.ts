@@ -9,6 +9,7 @@ import { AuthRequest } from '../types';
 import { AppError, sendSuccess, ERROR_CODES, HTTP_STATUS } from '../utils';
 import { auditService } from '../services/audit.service';
 import { ComplaintCategory, ComplaintPriority, ComplaintStatus, AuditAction } from '@jyotish/database';
+import { getClientIp } from '../utils/request-utils';
 
 /**
  * Create a new complaint
@@ -141,7 +142,7 @@ export async function createComplaint(req: AuthRequest, res: Response, next: Nex
         category,
         subject,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 

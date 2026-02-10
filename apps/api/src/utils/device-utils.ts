@@ -5,6 +5,7 @@
 
 import { Request } from 'express';
 import { DeviceType } from '@prisma/client';
+import { getClientIp } from './request-utils';
 
 // Re-export for convenience
 export { DeviceType };
@@ -94,8 +95,7 @@ export function validateDeviceId(deviceId: string): boolean {
  */
 export function extractDeviceInfo(req: Request): DeviceInfo {
   const userAgent = req.headers['user-agent'] || 'Unknown';
-  const ipAddress =
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.ip || req.socket.remoteAddress;
+  const ipAddress = getClientIp(req) ?? req.socket?.remoteAddress;
 
   // Get device info from request body or headers
   let deviceId = req.body?.deviceId || req.headers['x-device-id'];

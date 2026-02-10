@@ -17,6 +17,7 @@ import {
   canAcceptAppointments,
   canAcceptBroadcastMessages,
 } from '@jyotish/shared';
+import { getClientIp } from '../utils/request-utils';
 
 /**
  * Astrologer login with phone/email and password
@@ -55,7 +56,7 @@ export async function astrologerLogin(req: AuthRequest, res: Response, next: Nex
         deviceType: deviceInfo.deviceType,
         deviceName: deviceInfo.deviceName,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -82,7 +83,7 @@ export async function astrologerLogout(req: AuthRequest, res: Response, next: Ne
         action: 'ASTROLOGER_LOGOUT',
         resource: 'Astrologer',
         resourceId: req.user.id,
-        ipAddress: req.ip,
+        ipAddress: getClientIp(req),
       });
     }
 
@@ -160,7 +161,7 @@ export async function toggleOnlineStatus(req: AuthRequest, res: Response, next: 
       resource: 'Astrologer',
       resourceId: astrologerId,
       details: { isOnline, action: 'toggle_online_status' },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -305,7 +306,7 @@ export async function changeAstrologerPassword(
       resource: 'Astrologer',
       resourceId: astrologerId,
       details: { action: 'change_password' },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 

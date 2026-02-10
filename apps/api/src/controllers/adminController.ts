@@ -20,6 +20,7 @@ import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { prisma, AuditAction } from '@jyotish/database';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
+import { getClientIp } from '../utils/request-utils';
 
 // ==================== Admin Authentication ====================
 
@@ -503,7 +504,7 @@ export async function approveRegistration(
         appointmentFee,
         commissionRate,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -546,7 +547,7 @@ export async function rejectRegistration(
         action: 'reject_registration',
         rejectionReason,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -1125,7 +1126,7 @@ export async function abandonChat(req: AuthRequest, res: Response, next: NextFun
         astrologerId: chat.participant2Id,
         reason: reason || 'No reason provided',
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -1224,7 +1225,7 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
         clientId: chat.participant1Id,
         astrologerId: chat.participant2Id,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -1826,7 +1827,7 @@ export async function updateComplaintStatus(req: AuthRequest, res: Response, nex
         clientId: complaint.clientId,
         astrologerId: complaint.astrologerId,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -1916,7 +1917,7 @@ export async function resolveComplaint(req: AuthRequest, res: Response, next: Ne
         clientId: complaint.clientId,
         astrologerId: complaint.astrologerId,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 
@@ -2002,7 +2003,7 @@ export async function dismissComplaint(req: AuthRequest, res: Response, next: Ne
         clientId: complaint.clientId,
         astrologerId: complaint.astrologerId,
       },
-      ipAddress: req.ip,
+      ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
     });
 

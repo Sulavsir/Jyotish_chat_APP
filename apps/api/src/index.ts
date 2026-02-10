@@ -60,6 +60,7 @@ if (!process.env.ENCRYPTION_KEY) {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
 // Initialize Socket.io with network access

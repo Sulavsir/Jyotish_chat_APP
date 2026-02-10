@@ -3,10 +3,11 @@
  * Automatically logs all actions for admin monitoring
  */
 
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { AuditAction } from '@jyotish/database';
 import { auditService } from '../services/audit.service';
 import type { AuthRequest } from '../types';
+import { getClientIp } from '../utils/request-utils';
 
 /**
  * Create audit log middleware
@@ -23,10 +24,7 @@ export function auditLogger(
     try {
       // Extract resource ID
       const resourceId = getResourceId ? getResourceId(req) : req.params.id;
-
-      // Get IP address
-      const ipAddress =
-        (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || undefined;
+      const ipAddress = getClientIp(req);
 
       // Get user agent
       const userAgent = req.headers['user-agent'];

@@ -6,6 +6,7 @@
 import { Request } from 'express';
 import { auditService } from '../services/audit.service';
 import { AuditAction } from '@jyotish/database';
+import { getClientIp } from './request-utils';
 
 interface AuditLogParams {
   action: AuditAction;
@@ -19,17 +20,6 @@ interface AuditLogParams {
   req?: Request;
 }
 
-/**
- * Extract IP address from request
- */
-function getIpAddress(req: Request): string {
-  return (
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
-    (req.headers['x-real-ip'] as string) ||
-    req.socket.remoteAddress ||
-    'unknown'
-  );
-}
 
 /**
  * Extract user agent from request
@@ -47,7 +37,7 @@ export async function logAudit(params: AuditLogParams): Promise<void> {
 
     await auditService.logAction({
       ...auditParams,
-      ipAddress: req ? getIpAddress(req) : undefined,
+      ipAddress: req ? getClientIp(req) ?? 'unknown' : undefined,
       userAgent: req ? getUserAgent(req) : undefined,
     });
   } catch (error) {

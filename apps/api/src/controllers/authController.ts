@@ -21,6 +21,7 @@ import {
 import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG } from '../constants';
 import { otpService, authService, userService, sessionService } from '../services';
 import { AppError } from '../middleware/error-handler';
+import { getClientIp } from '../utils/request-utils';
 
 /**
  * Check if phone number exists
@@ -637,7 +638,7 @@ export async function refreshToken(req: AuthRequest, res: Response, next: NextFu
   // Revoke old session and create new one
   const metadata = {
     userAgent: req.headers['user-agent'],
-    ipAddress: req.ip || req.socket.remoteAddress,
+    ipAddress: getClientIp(req) ?? req.socket?.remoteAddress,
   };
 
   const rotated = await sessionService.rotateRefreshToken(refreshToken, newRefreshToken, metadata);
