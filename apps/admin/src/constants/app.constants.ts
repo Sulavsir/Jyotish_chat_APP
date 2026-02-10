@@ -117,3 +117,16 @@ export const DELETE_CONFIRM = {
     ERROR: 'Failed to delete astrologer',
   },
 } as const;
+
+/** Copy for astrologer edit/delete password prompt */
+export const ASTROLOGER_EDIT_PASSWORD = {
+  MODAL_TITLE: 'Password required',
+  MODAL_DESCRIPTION: 'For this action a password is required. Please enter it below.',
+  PASSWORD_PLACEHOLDER: 'Enter password',
+  CANCEL: 'Cancel',
+  SUBMIT: 'Submit',
+  CONTINUE_TO_EDIT: 'Continue to Edit',
+  INVALID_PASSWORD: 'Invalid password',
+  /** sessionStorage key for passing verified password to edit page (cleared after use) */
+  STORAGE_KEY: 'astrologer_edit_password',
+} as const;

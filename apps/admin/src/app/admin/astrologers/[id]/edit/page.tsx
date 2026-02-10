@@ -19,12 +19,14 @@ import {
   ArrowLeftIcon,
 } from '@jyotish/ui';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
+import { ASTROLOGER_EDIT_PASSWORD } from '@/constants/app.constants';
 import {
   updateAstrologerFormSchema,
   parseCommaSeparatedToArray,
   type UpdateAstrologerFormData,
 } from '@/constants/validators.constants';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
+import { AstrologerEditPasswordModal } from '@/components/ui/AstrologerEditPasswordModal';
 import { PhoneInputWithCountry } from '@jyotish/ui';
 import { getImageUrl } from '@/utils/helpers';
 import { toast } from 'sonner';
@@ -48,6 +50,10 @@ export default function EditAstrologerPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const submitInProgressRef = useRef(false);
+  const [showEditPasswordModal, setShowEditPasswordModal] = useState(false);
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<
+    (UpdateAstrologerFormData & { proofOfAstrology?: string | null }) | null
+  >(null);
 
   function parseProofUrls(value: string | null | undefined): string[] {
     if (!value) return [];
@@ -106,7 +112,12 @@ export default function EditAstrologerPage() {
   }, [data, form]);
 
   const updateMutation = useMutation({
-    mutationFn: (payload: UpdateAstrologerFormData) =>
+    mutationFn: (
+      payload: UpdateAstrologerFormData & {
+        editPassword: string;
+        proofOfAstrology?: string | null;
+      }
+    ) =>
       adminApi.astrologers.update(id, {
         ...payload,
         email: payload.email ?? null,
@@ -119,10 +130,20 @@ export default function EditAstrologerPage() {
       toast.success('Astrologer updated successfully');
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.ALL });
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.DETAIL(id) });
+      setShowEditPasswordModal(false);
+      setPendingUpdatePayload(null);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(ASTROLOGER_EDIT_PASSWORD.STORAGE_KEY);
+      }
       router.push(ADMIN_ROUTES.ASTROLOGERS);
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to update astrologer');
+      const message =
+        err?.message?.toLowerCase().includes('invalid') ||
+        err?.message?.toLowerCase().includes('forbidden')
+          ? ASTROLOGER_EDIT_PASSWORD.INVALID_PASSWORD
+          : err.message || 'Failed to update astrologer';
+      toast.error(message);
     },
   });
 
@@ -196,7 +217,35 @@ export default function EditAstrologerPage() {
         setProofPreviews(new Map());
       }
 
-      await updateMutation.mutateAsync(updatePayload);
+      const storedPassword =
+        typeof window !== 'undefined'
+          ? window.sessionStorage.getItem(ASTROLOGER_EDIT_PASSWORD.STORAGE_KEY)
+          : null;
+      if (storedPassword) {
+        await updateMutation.mutateAsync({
+          ...updatePayload,
+          editPassword: storedPassword,
+        });
+        setProofUrlsToRemove(new Set());
+      } else {
+        setPendingUpdatePayload(updatePayload);
+        setShowEditPasswordModal(true);
+      }
+    } catch {
+      // Error already shown by mutation onError
+    } finally {
+      submitInProgressRef.current = false;
+    }
+  };
+
+  const handleEditPasswordSubmit = async (editPassword: string) => {
+    if (!pendingUpdatePayload) return;
+    submitInProgressRef.current = true;
+    try {
+      await updateMutation.mutateAsync({
+        ...pendingUpdatePayload,
+        editPassword,
+      });
       setProofUrlsToRemove(new Set());
     } catch {
       // Error already shown by mutation onError
@@ -296,6 +345,17 @@ export default function EditAstrologerPage() {
             <p className="text-slate-400 mt-1">{data.name} — update profile and attachments</p>
           </div>
         </div>
+
+        <AstrologerEditPasswordModal
+          open={showEditPasswordModal}
+          onOpenChange={(open) => {
+            setShowEditPasswordModal(open);
+            if (!open) setPendingUpdatePayload(null);
+          }}
+          onSubmit={handleEditPasswordSubmit}
+          isLoading={updateMutation.isPending}
+          submitLabel="Save changes"
+        />
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

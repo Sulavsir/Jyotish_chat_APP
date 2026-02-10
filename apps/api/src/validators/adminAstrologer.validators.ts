@@ -15,6 +15,7 @@ const e164PhoneSchema = z
 
 export const updateAstrologerSchema = z
   .object({
+    editPassword: z.string().min(1, 'Edit password is required').optional(),
     name: z.string().min(2, 'Name must be at least 2 characters').max(100).optional(),
     email: z.string().email('Invalid email').optional().nullable(),
     phone: e164PhoneSchema.optional(),
@@ -30,9 +31,22 @@ export const updateAstrologerSchema = z
     appointmentFee: z.number().min(0).optional().nullable(),
     proofOfAstrology: z.string().min(1).optional().nullable(),
   })
-  .refine((obj) => Object.keys(obj).length > 0, {
+  .refine((obj) => Object.keys(obj).filter((k) => k !== 'editPassword').length > 0, {
     message: 'At least one field must be provided',
   });
+
+/** Body schema for DELETE /admin/astrologers/:id (soft delete requires password) */
+export const deleteAstrologerBodySchema = z.object({
+  editPassword: z.string().min(1, 'Edit password is required'),
+});
+
+export type DeleteAstrologerBody = z.infer<typeof deleteAstrologerBodySchema>;
+
+/** Body schema for POST /admin/astrologers/verify-edit-password */
+export const verifyEditPasswordBodySchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+});
+export type VerifyEditPasswordBody = z.infer<typeof verifyEditPasswordBodySchema>;
 
 export type UpdateAstrologerInput = z.infer<typeof updateAstrologerSchema>;
 

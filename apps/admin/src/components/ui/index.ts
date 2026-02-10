@@ -12,3 +12,4 @@ export {
   TooltipProvider,
   SimpleTooltip,
 } from './Tooltip';
+export { AstrologerEditPasswordModal } from './AstrologerEditPasswordModal';

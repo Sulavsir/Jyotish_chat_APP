@@ -31,6 +31,8 @@ import {
   listAdminJyotishBookingsQuerySchema,
   listAdminDashboardRotatingCopyQuerySchema,
   updateAstrologerSchema,
+  deleteAstrologerBodySchema,
+  verifyEditPasswordBodySchema,
 } from '../validators';
 import {
   createQuestionCategorySchema,
@@ -76,6 +78,12 @@ router.get(
   adminController.getRegistrationRequests
 );
 
+router.post(
+  '/astrologers/verify-edit-password',
+  validateBody(verifyEditPasswordBodySchema),
+  asyncHandler(adminController.verifyAstrologerEditPassword)
+);
+
 router.get('/astrologers/:id', adminController.getAstrologer);
 
 router.post(
@@ -103,6 +111,7 @@ router.delete(
   '/astrologers/:id',
   auditLogger(AuditAction.ASTROLOGER_DELETE, 'Astrologer'),
   validateParams(uuidParamSchema),
+  validateBody(deleteAstrologerBodySchema),
   asyncHandler(adminController.deleteAstrologer)
 );
 

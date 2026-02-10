@@ -45,6 +45,7 @@ export interface CreateAstrologerRequest {
 }
 
 export interface UpdateAstrologerRequest {
+  editPassword?: string;
   name?: string;
   email?: string | null;
   phone?: string;

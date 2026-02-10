@@ -222,6 +222,14 @@ export const adminApi = {
       return response;
     },
 
+    verifyEditPassword: async (password: string): Promise<{ valid: true }> => {
+      const response = await apiClient.post<{ valid: true }>(
+        API_ENDPOINTS.ASTROLOGERS.VERIFY_EDIT_PASSWORD,
+        { password }
+      );
+      return response;
+    },
+
     get: async (id: string) => {
       const response = await apiClient.get(API_ENDPOINTS.ASTROLOGERS.GET(id));
       return response;
@@ -257,8 +265,10 @@ export const adminApi = {
       return response;
     },
 
-    delete: async (id: string) => {
-      const response = await apiClient.delete(API_ENDPOINTS.ASTROLOGERS.DELETE(id));
+    delete: async (id: string, editPassword: string) => {
+      const response = await apiClient.delete(API_ENDPOINTS.ASTROLOGERS.DELETE(id), {
+        data: { editPassword },
+      });
       return response;
     },
 

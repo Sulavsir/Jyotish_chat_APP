@@ -7,7 +7,7 @@ import type { Astrologer } from '@/types';
 
 export interface AstrologerRowActionsProps {
   astrologer: Astrologer;
-  onEdit: (id: string) => void;
+  onEdit: (astrologer: Astrologer) => void;
   onDelete: (astrologer: Astrologer) => void;
   onToggleStatus: (astrologer: Astrologer) => void;
   isDeletePending?: boolean;
@@ -32,7 +32,7 @@ export function AstrologerRowActions({
         <Button
           variant="outline"
           size="icon"
-          onClick={() => onEdit(astrologer.id)}
+          onClick={() => onEdit(astrologer)}
           className={buttonClass}
         >
           <Pencil className="w-4 h-4" />

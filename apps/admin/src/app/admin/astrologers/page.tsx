@@ -29,16 +29,21 @@ import {
   DialogHeader,
   DialogTitle,
   LoadingButton,
+  Input,
 } from '@jyotish/ui';
-import { RefreshCw, X, Download, FileText, Trash2 } from 'lucide-react';
+import { RefreshCw, X, Download, FileText, Trash2, Eye, EyeOff } from 'lucide-react';
 import { AdminTable, AstrologerRowActions, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
-import { DELETE_CONFIRM } from '@/constants/app.constants';
-import { useAdminSocket, useDeleteMutation } from '@/hooks';
+import {
+  DELETE_CONFIRM,
+  ASTROLOGER_EDIT_PASSWORD,
+} from '@/constants/app.constants';
+import { useAdminSocket } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 import { generatePageNumbers, getImageUrl } from '@/utils/helpers';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
+import { AstrologerEditPasswordModal } from '@/components/ui/AstrologerEditPasswordModal';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
@@ -62,7 +67,10 @@ export default function AstrologersPage() {
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
   const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
   const [astrologerToDelete, setAstrologerToDelete] = useState<Astrologer | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [astrologerToEdit, setAstrologerToEdit] = useState<Astrologer | null>(null);
   const [astrologerToToggle, setAstrologerToToggle] = useState<Astrologer | null>(null);
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
 
   const viewing = viewingProfileImage
     ? { type: 'profile' as const, value: viewingProfileImage }
@@ -196,11 +204,33 @@ export default function AstrologersPage() {
     },
   });
 
-  const deleteMutation = useDeleteMutation({
-    mutationFn: (id: string) => adminApi.astrologers.delete(id),
-    invalidateQueryKeys: ADMIN_QUERY_KEYS.ASTROLOGERS.ALL,
-    successMessage: DELETE_CONFIRM.ASTROLOGER.SUCCESS,
-    errorMessage: DELETE_CONFIRM.ASTROLOGER.ERROR,
+  const verifyEditPasswordMutation = useMutation({
+    mutationFn: (password: string) => adminApi.astrologers.verifyEditPassword(password),
+    onError: (err: Error) => {
+      toast.error(
+        err?.message?.toLowerCase().includes('invalid') ||
+          err?.message?.toLowerCase().includes('forbidden')
+          ? ASTROLOGER_EDIT_PASSWORD.INVALID_PASSWORD
+          : err?.message ?? 'Verification failed'
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, editPassword }: { id: string; editPassword: string }) =>
+      adminApi.astrologers.delete(id, editPassword),
+    onSuccess: () => {
+      toast.success(DELETE_CONFIRM.ASTROLOGER.SUCCESS);
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.ALL });
+    },
+    onError: (err: Error) => {
+      const message =
+        err?.message?.toLowerCase().includes('invalid') ||
+        err?.message?.toLowerCase().includes('forbidden')
+          ? ASTROLOGER_EDIT_PASSWORD.INVALID_PASSWORD
+          : DELETE_CONFIRM.ASTROLOGER.ERROR;
+      toast.error(message);
+    },
   });
 
   const openToggleDialog = (astrologer: Astrologer) => {
@@ -215,10 +245,30 @@ export default function AstrologersPage() {
   };
 
   const handleConfirmDelete = () => {
-    if (!astrologerToDelete) return;
-    deleteMutation.mutate(astrologerToDelete.id, {
-      onSettled: () => setAstrologerToDelete(null),
-    });
+    if (!astrologerToDelete || !deletePassword.trim()) return;
+    deleteMutation.mutate(
+      { id: astrologerToDelete.id, editPassword: deletePassword.trim() },
+      {
+        onSettled: () => {
+          setAstrologerToDelete(null);
+          setDeletePassword('');
+        },
+      }
+    );
+  };
+
+  const handleEditPasswordSubmit = async (password: string) => {
+    if (!astrologerToEdit) return;
+    try {
+      await verifyEditPasswordMutation.mutateAsync(password);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(ASTROLOGER_EDIT_PASSWORD.STORAGE_KEY, password);
+      }
+      router.push(ADMIN_ROUTES.ASTROLOGERS_EDIT(astrologerToEdit.id));
+      setAstrologerToEdit(null);
+    } catch {
+      // Error already shown by mutation onError
+    }
   };
 
   // Reset to page 1 when search term changes
@@ -341,7 +391,7 @@ export default function AstrologersPage() {
       accessor: (astrologer) => (
         <AstrologerRowActions
           astrologer={astrologer}
-          onEdit={(id) => router.push(ADMIN_ROUTES.ASTROLOGERS_EDIT(id))}
+          onEdit={setAstrologerToEdit}
           onDelete={setAstrologerToDelete}
           onToggleStatus={openToggleDialog}
           isDeletePending={deleteMutation.isPending && astrologerToDelete?.id === astrologer.id}
@@ -468,22 +518,69 @@ export default function AstrologersPage() {
           </div>
         )}
 
-        {/* Delete confirmation (same style as logout modal) */}
+        {/* Edit: password required before navigating to edit page */}
+        <AstrologerEditPasswordModal
+          open={astrologerToEdit !== null}
+          onOpenChange={(open) => !open && setAstrologerToEdit(null)}
+          onSubmit={handleEditPasswordSubmit}
+          isLoading={verifyEditPasswordMutation.isPending}
+          submitLabel={ASTROLOGER_EDIT_PASSWORD.CONTINUE_TO_EDIT}
+        />
+
+        {/* Delete confirmation (password required) */}
         <Dialog
           open={astrologerToDelete !== null}
-          onOpenChange={(open) => !open && setAstrologerToDelete(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAstrologerToDelete(null);
+              setDeletePassword('');
+              setShowDeletePassword(false);
+            }
+          }}
         >
-          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogContent className="rounded-md bg-slate-900 border border-slate-700 text-white shadow-xl">
             <DialogHeader>
               <DialogTitle className="text-white">{DELETE_CONFIRM.ASTROLOGER.TITLE}</DialogTitle>
               <DialogDescription className="text-slate-400">
-                {DELETE_CONFIRM.ASTROLOGER.DESCRIPTION}
+                {DELETE_CONFIRM.ASTROLOGER.DESCRIPTION} {ASTROLOGER_EDIT_PASSWORD.MODAL_DESCRIPTION}
               </DialogDescription>
             </DialogHeader>
+            <div className="py-2">
+              <div className="flex items-center gap-0 overflow-hidden rounded-md h-11 w-full border-2 border-slate-600 bg-slate-800/80 focus-within:border-purple-500/50 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all duration-200">
+                <input
+                  type={showDeletePassword ? 'text' : 'password'}
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder={ASTROLOGER_EDIT_PASSWORD.PASSWORD_PLACEHOLDER}
+                  autoComplete="current-password"
+                  disabled={deleteMutation.isPending}
+                  className="min-w-0 flex-1 border-0 bg-transparent px-4 py-2.5 text-white outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowDeletePassword((p) => !p)}
+                  disabled={deleteMutation.isPending}
+                  aria-label={showDeletePassword ? 'Hide password' : 'Show password'}
+                  tabIndex={-1}
+                  className="h-9 w-9 shrink-0 rounded-md text-slate-400 hover:bg-slate-700/50 hover:text-slate-300"
+                >
+                  {showDeletePassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 variant="outline"
-                onClick={() => setAstrologerToDelete(null)}
+                onClick={() => {
+                  setAstrologerToDelete(null);
+                  setDeletePassword('');
+                }}
                 className="border-slate-700"
               >
                 Cancel
@@ -491,7 +588,8 @@ export default function AstrologersPage() {
               <LoadingButton
                 loading={deleteMutation.isPending}
                 onClick={handleConfirmDelete}
-                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                disabled={!deletePassword.trim()}
+                className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {DELETE_CONFIRM.ASTROLOGER.CONFIRM_TEXT}
               </LoadingButton>

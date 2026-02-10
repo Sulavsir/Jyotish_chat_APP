@@ -35,6 +35,21 @@ async function main() {
 
   console.log('\n🔑 Default password for new admins:', defaultPassword);
   console.log('⚠️  IMPORTANT: Change passwords after first login!');
+
+  // Password required for admin to edit/delete astrologers (stored hashed)
+  const astrologerEditPassword = await bcrypt.hash('Nepal@123', 10);
+  await prisma.settings.upsert({
+    where: { key: 'astrologer_edit_password' },
+    update: { value: astrologerEditPassword },
+    create: {
+      key: 'astrologer_edit_password',
+      value: astrologerEditPassword,
+      description: 'Password required for admin-side edits/deletes on astrologers',
+    },
+  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ Astrologer edit password setting seeded (key: astrologer_edit_password)');
+  }
 }
 
 main()

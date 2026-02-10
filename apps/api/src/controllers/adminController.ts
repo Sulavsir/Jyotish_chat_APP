@@ -11,6 +11,7 @@ import {
   userService,
   sessionService,
   adminService,
+  settingsService,
 } from '../services';
 import { sendSuccess, sendError } from '../utils';
 import { executeSoftDelete } from '../utils/delete.utils';
@@ -134,6 +135,39 @@ export async function getAdminProfile(req: AuthRequest, res: Response, next: Nex
 // ==================== Astrologer Management ====================
 
 /**
+ * Verify astrologer edit password (before allowing edit/delete).
+ * POST /api/v1/admin/astrologers/verify-edit-password
+ */
+export async function verifyAstrologerEditPassword(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const body = req.body as { password?: string };
+    const password = body?.password;
+    if (!password) {
+      throw new AppError(
+        'Password is required',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
+    }
+    const valid = await settingsService.verifyAstrologerEditPassword(password);
+    if (!valid) {
+      throw new AppError(
+        'Invalid edit password',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
+    }
+    return sendSuccess(res, { valid: true });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * List all astrologers with pagination and filters
  * GET /api/v1/admin/astrologers
  */
@@ -232,13 +266,25 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
 /**
  * Update astrologer
  * PATCH /api/v1/admin/astrologers/:id
- * Body validated by updateAstrologerSchema (excludes isOnline)
+ * Requires editPassword in body (validated against Settings). Body validated by updateAstrologerSchema.
  */
 export async function updateAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
-    const body = { ...req.body };
-    delete (body as Record<string, unknown>).isOnline;
+    const body = { ...req.body } as Record<string, unknown>;
+    const editPassword = body.editPassword as string | undefined;
+    if (editPassword !== undefined && editPassword !== '') {
+      const valid = await settingsService.verifyAstrologerEditPassword(editPassword);
+      if (!valid) {
+        throw new AppError(
+          'Invalid edit password',
+          HTTP_STATUS.FORBIDDEN,
+          ERROR_CODES.FORBIDDEN
+        );
+      }
+    }
+    delete body.editPassword;
+    delete body.isOnline;
     const astrologer = await astrologerService.update(id, body);
 
     return sendSuccess(res, { astrologer });
@@ -318,10 +364,32 @@ export async function uploadAstrologerProfilePhoto(
 /**
  * Delete astrologer (soft delete)
  * DELETE /api/v1/admin/astrologers/:id
+ * Body: { editPassword }. Password validated against Settings.
  */
 export async function deleteAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
-  const { id } = req.params;
-  await executeSoftDelete(res, next, id, (id) => astrologerService.delete(id));
+  try {
+    const { id } = req.params;
+    const body = req.body as { editPassword?: string };
+    const editPassword = body?.editPassword;
+    if (!editPassword) {
+      throw new AppError(
+        'Edit password is required for this action',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
+    }
+    const valid = await settingsService.verifyAstrologerEditPassword(editPassword);
+    if (!valid) {
+      throw new AppError(
+        'Invalid edit password',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
+    }
+    await executeSoftDelete(res, next, id, (id) => astrologerService.delete(id));
+  } catch (error) {
+    next(error);
+  }
 }
 
 /**

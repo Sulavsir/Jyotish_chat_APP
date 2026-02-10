@@ -19,3 +19,4 @@ export * as broadcastMessageService from './broadcastMessage.service';
 export { dashboardRotatingCopyService } from './dashboardRotatingCopy.service';
 export { jyotishBookingService } from './jyotishBooking.service';
 export * as clientProfileService from './clientProfile.service';
+export { settingsService } from './settings.service';

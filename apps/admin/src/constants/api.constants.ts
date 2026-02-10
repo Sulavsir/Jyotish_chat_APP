@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
     // Astrologers
     LIST: '/api/v1/admin/astrologers',
     CREATE: '/api/v1/admin/astrologers',
+    VERIFY_EDIT_PASSWORD: '/api/v1/admin/astrologers/verify-edit-password',
     GET: (id: string) => `/api/v1/admin/astrologers/${id}`,
     UPDATE: (id: string) => `/api/v1/admin/astrologers/${id}`,
     PROOF_UPLOAD: (id: string) => `/api/v1/admin/astrologers/${id}/proof-upload`,
