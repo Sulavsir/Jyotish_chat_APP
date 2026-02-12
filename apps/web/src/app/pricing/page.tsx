@@ -127,7 +127,7 @@ function PricingContent() {
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
               Connect with experienced Jyotish astrologers. Each coin = 1 chat with any astrologer.
               <br />
-              <span className="text-purple-400 font-semibold">NPR 100 = 1 Coin = 1 Chat</span>
+              <span className="text-purple-400 font-semibold">NPR 100 = 100 Coin = 1 Chat</span>
             </p>
           </div>
 

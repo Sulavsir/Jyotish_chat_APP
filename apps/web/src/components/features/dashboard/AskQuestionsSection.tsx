@@ -37,6 +37,9 @@ import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
 import { SelectProfileModal } from '@/components/modals';
+import { useCoinRates } from '@/hooks/useCoinRates';
+import coinService from '@/services/coin.service';
+import { AstrologerCategory } from '@/types/astrologer';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
@@ -47,6 +50,9 @@ export function AskQuestionsSection() {
   const { socket, isConnected } = useSocket();
   const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
   const [selectedAstrologerId, setSelectedAstrologerId] = useState<string>('');
+  const [selectedAstrologerCategory, setSelectedAstrologerCategory] = useState<
+    AstrologerCategory | null
+  >(null);
   const { setShowExtraInfoCards } = useAskQuestionsLayoutStore();
 
   // Direct-chat tab state
@@ -73,9 +79,27 @@ export function AskQuestionsSection() {
     startChat,
     showCoinPurchaseModal: showDirectCoinModal,
     requiredCoins: directRequiredCoins,
+    setRequiredCoins: setDirectRequiredCoins,
     retryChat,
     setShowCoinPurchaseModal: setShowDirectCoinModal,
   } = useChat();
+
+  const { rates: coinRates } = useCoinRates(mode === 'direct' && !!selectedAstrologerId);
+  const { data: balanceData } = useQuery({
+    queryKey: QUERY_KEYS.COINS.BALANCE,
+    queryFn: () => coinService.getBalance(),
+    enabled: mode === 'direct' && !!selectedAstrologerId,
+  });
+  const coinBalance = balanceData?.balance ?? 0;
+  const isAppointmentOnlyDirect =
+    selectedAstrologerCategory === AstrologerCategory.PREMIUM ||
+    selectedAstrologerCategory === AstrologerCategory.KATHA_VACHAK;
+  const requiredCoinsDirect =
+    isAppointmentOnlyDirect ? 0 : (coinRates?.CHAT_PER_MESSAGE ?? 0);
+  const showInsufficientCoinsBanner =
+    !!selectedAstrologerId &&
+    requiredCoinsDirect > 0 &&
+    coinBalance < requiredCoinsDirect;
 
   const {
     isSending,
@@ -117,9 +141,12 @@ export function AskQuestionsSection() {
   const directCategoryData = questionCategories.find((c) => c.id === directCategory);
   const broadcastCategoryData = questionCategories.find((c) => c.id === broadcastCategory);
 
-  const handleAstrologerSelect = (astrologerId: string) => {
+  const handleAstrologerSelect = (
+    astrologerId: string,
+    astrologer?: { category: AstrologerCategory }
+  ) => {
     setSelectedAstrologerId(astrologerId);
-    // Clear category and question when selecting a new astrologer
+    setSelectedAstrologerCategory(astrologer?.category ?? null);
     setDirectCategory('');
     setDirectQuestion('');
     setDirectMessage('');
@@ -127,6 +154,7 @@ export function AskQuestionsSection() {
 
   const handleAstrologerClear = () => {
     setSelectedAstrologerId('');
+    setSelectedAstrologerCategory(null);
     setDirectCategory('');
     setDirectQuestion('');
     setDirectMessage('');
@@ -479,11 +507,30 @@ export function AskQuestionsSection() {
                   </div>
                 </div>
 
+                {/* Insufficient coins banner + Top up */}
+                {showInsufficientCoinsBanner && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                    <p className="text-sm text-amber-100">
+                      You need at least {requiredCoinsDirect} coins (deducted when Jyotish
+                      accepts). Your balance: {coinBalance}. Please top up to book.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setDirectRequiredCoins(requiredCoinsDirect);
+                        setShowDirectCoinModal(true);
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      Top up
+                    </Button>
+                  </div>
+                )}
+
                 {/* Action Button */}
                 <div className="flex gap-2 mt-auto">
                   <Button
                     onClick={handleStartChat}
-                    disabled={!selectedAstrologerId}
+                    disabled={!selectedAstrologerId || showInsufficientCoinsBanner}
                     className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
                   >
                     <MessageSquare className="h-4 w-4" />

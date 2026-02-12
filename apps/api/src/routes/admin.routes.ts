@@ -6,7 +6,11 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
 import { auditLogger } from '../middleware/audit-logger';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
-import { adminAddCoinsSchema } from '../validators/coin.validators';
+import {
+  adminAddCoinsSchema,
+  updatePlatformCoinRatesSchema,
+  listAstrologersWithCoinEarningsQuerySchema,
+} from '../validators/coin.validators';
 import {
   approveAstrologerRegistrationSchema,
   rejectAstrologerRegistrationSchema,
@@ -39,7 +43,7 @@ import {
   updateQuestionCategorySchema,
   listQuestionCategoriesQuerySchema,
 } from '@jyotish/shared';
-import { jyotishBookingController } from '../controllers';
+import { jyotishBookingController, adminCoinRatesController } from '../controllers';
 
 const router = Router();
 
@@ -207,6 +211,11 @@ router.post(
 );
 
 // ==================== Earnings Management ====================
+router.get(
+  '/earnings/astrologers-with-coins',
+  validateQuery(listAstrologersWithCoinEarningsQuerySchema),
+  asyncHandler(adminController.listAstrologersWithCoinEarnings)
+);
 router.get('/earnings', adminController.listEarnings);
 
 router.post(
@@ -345,6 +354,14 @@ router.patch(
   '/pricing/:id/toggle',
   auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
   pricingController.togglePlanStatus
+);
+
+// ==================== Platform Coin Rates (admin-configurable) ====================
+router.get('/coin-rates', asyncHandler(adminCoinRatesController.getCoinRates));
+router.put(
+  '/coin-rates',
+  validateBody(updatePlatformCoinRatesSchema),
+  asyncHandler(adminCoinRatesController.updateCoinRates)
 );
 
 // ==================== Complaint Management Routes ====================

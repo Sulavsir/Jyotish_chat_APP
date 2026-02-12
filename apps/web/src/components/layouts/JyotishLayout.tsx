@@ -15,6 +15,7 @@ import {
   CalendarDays,
   User,
   LogOut,
+  Coins,
 } from 'lucide-react';
 import { useAuth, useRequireAuth } from '@/hooks';
 import { ROUTES, USER_ROLES } from '@/constants';
@@ -30,11 +31,12 @@ interface JyotishLayoutProps {
   children: ReactNode;
 }
 
-const navIcons = {
+const navIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Dashboard: LayoutDashboard,
   Chats: MessageSquare,
   Consultations: Calendar,
   Appointments: CalendarDays,
+  'My Earnings': Coins,
   Profile: User,
 };
 
@@ -53,6 +55,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
     { name: 'Chats', href: ROUTES.JYOTISH_CHAT },
     { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS },
     ...(hasAppointmentAccess ? [{ name: 'Appointments', href: ROUTES.JYOTISH_APPOINTMENTS }] : []),
+    { name: 'My Earnings', href: ROUTES.JYOTISH_EARNINGS },
     { name: 'Profile', href: ROUTES.JYOTISH_PROFILE },
   ];
 

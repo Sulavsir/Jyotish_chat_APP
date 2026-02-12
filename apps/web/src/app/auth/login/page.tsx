@@ -23,7 +23,7 @@ import {
   type PasswordLoginFormData,
   type OTPRequestFormData,
 } from '@/lib/validations';
-import { Clock } from 'lucide-react';
+import { Clock, Sparkles } from 'lucide-react';
 
 type LoginMethod = 'password' | 'otp';
 type OTPStep = 'request' | 'verify';
@@ -219,24 +219,31 @@ export default function LoginPage() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-md px-4 py-20">
-        <Card className="bg-black/40 backdrop-blur-lg border-primary/30">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-3xl font-bold text-white">Welcome Back! 🌟</CardTitle>
-            <CardDescription className="text-gray-300">
+      <div className="relative z-10 w-full min-w-0 max-w-md px-4">
+        <Card className="border border-slate-700/80 bg-slate-900 shadow-2xl shadow-black/40 rounded-2xl overflow-hidden w-full">
+          <CardHeader className="space-y-1 text-center pb-2 pt-6 sm:pt-8 px-5 sm:px-8">
+            <div className="flex justify-center mb-2">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-amber-400" />
+              </div>
+            </div>
+            <CardTitle className="text-xl font-semibold text-white tracking-tight">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-slate-400 text-sm">
               Sign in to your account to continue
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 pt-2 pb-6 sm:pb-8 px-5 sm:px-6">
             {/* Login Method Tabs */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-black/30 rounded-lg">
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-800/80 rounded-lg border border-slate-600/50">
               <button
                 onClick={() => setLoginMethod('password')}
-                className={`py-2 px-4 rounded-md transition-all ${
+                className={`py-2 px-4 rounded-md text-sm font-medium transition-all ${
                   loginMethod === 'password'
-                    ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg'
-                    : 'text-gray-300 hover:text-white'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white border border-transparent'
                 }`}
               >
                 Password
@@ -246,10 +253,10 @@ export default function LoginPage() {
                   setLoginMethod('otp');
                   setOtpStep('request');
                 }}
-                className={`py-2 px-4 rounded-md transition-all ${
+                className={`py-2 px-4 rounded-md text-sm font-medium transition-all ${
                   loginMethod === 'otp'
-                    ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg'
-                    : 'text-gray-300 hover:text-white'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-white border border-transparent'
                 }`}
               >
                 Phone + OTP
@@ -258,7 +265,7 @@ export default function LoginPage() {
 
             {/* Password Login Form */}
             {loginMethod === 'password' && (
-              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-3">
                 <FormInput
                   id="identifier"
                   label="Email or Phone Number"
@@ -266,7 +273,7 @@ export default function LoginPage() {
                   {...passwordForm.register('identifier')}
                   error={passwordForm.formState.errors.identifier?.message}
                   disabled={loginMutation.isPending}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  className="bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
                   required
                 />
 
@@ -280,14 +287,14 @@ export default function LoginPage() {
                   onBlur={() => passwordForm.trigger('password')}
                   error={passwordForm.formState.errors.password?.message}
                   disabled={loginMutation.isPending}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  className="bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
                   required
                 />
 
                 <LoadingButton
                   type="submit"
                   isLoading={loginMutation.isPending}
-                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white"
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl py-2.5 transition-colors"
                 >
                   Sign In
                 </LoadingButton>
@@ -296,9 +303,9 @@ export default function LoginPage() {
 
             {/* OTP Login Form */}
             {loginMethod === 'otp' && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {otpStep === 'request' ? (
-                  <form onSubmit={otpForm.handleSubmit(onOTPRequest)} className="space-y-4">
+                  <form onSubmit={otpForm.handleSubmit(onOTPRequest)} className="space-y-5">
                     <FormInput
                       id="phoneNumber"
                       label="Phone Number"
@@ -313,22 +320,22 @@ export default function LoginPage() {
                       error={otpForm.formState.errors.phoneNumber?.message}
                       disabled={sendOTPMutation.isPending}
                       maxLength={10}
-                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                      className="bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
                       required
                     />
 
                     <LoadingButton
                       type="submit"
                       isLoading={sendOTPMutation.isPending}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white"
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl py-2.5 transition-colors"
                     >
                       Send OTP
                     </LoadingButton>
                   </form>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-300 text-center">
+                  <div className="space-y-5">
+                    <div className="space-y-3">
+                      <p className="text-sm text-slate-400 text-center">
                         Enter the 6-digit code sent to{' '}
                         <span className="font-semibold text-white">{otpPhoneNumber}</span>
                       </p>
@@ -336,12 +343,12 @@ export default function LoginPage() {
                       {/* OTP Countdown Timer */}
                       {otpExpirySeconds > 0 && (
                         <div className="flex items-center justify-center gap-2 py-2">
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-purple-400 ">
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-amber-400/90">
                             Your OTP will expire in
                             <Clock className="w-4 h-4" />
                             <span
                               className={`text-sm font-mono font-semibold ${
-                                otpExpirySeconds < 60 ? 'text-red-300' : 'text-blue-300'
+                                otpExpirySeconds < 60 ? 'text-red-300' : 'text-amber-300'
                               }`}
                             >
                               {formatCountdown(otpExpirySeconds)}
@@ -364,7 +371,7 @@ export default function LoginPage() {
                       onClick={() => handleVerifyOTP()}
                       isLoading={verifyOTPMutation.isPending}
                       disabled={otp.join('').length !== 6 || otpExpirySeconds === 0}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white"
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl py-2.5 transition-colors"
                     >
                       Verify OTP
                     </LoadingButton>
@@ -374,7 +381,7 @@ export default function LoginPage() {
                         type="button"
                         onClick={() => setOtpStep('request')}
                         disabled={verifyOTPMutation.isPending || sendOTPMutation.isPending}
-                        className="flex-1 text-sm text-gray-300 hover:text-white transition-colors"
+                        className="flex-1 text-sm text-slate-400 hover:text-white transition-colors"
                       >
                         ← Back
                       </button>
@@ -391,7 +398,7 @@ export default function LoginPage() {
                         loadingText="Sending..."
                         variant="ghost"
                         size="sm"
-                        className="flex-1 text-sm text-blue-300 hover:text-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 text-sm text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Resend OTP
                       </LoadingButton>
@@ -402,27 +409,27 @@ export default function LoginPage() {
             )}
 
             {/* Links */}
-            <div className="space-y-2 text-center text-sm">
+            <div className="space-y-3 text-center text-sm pt-2">
               {loginMethod === 'password' && (
-                <p className="text-gray-400">
+                <p className="text-slate-400">
                   Are you new?{' '}
                   <span
                     onClick={() => {
                       setLoginMethod('otp');
                       setOtpStep('request');
                     }}
-                    className="text-blue-200 font-semibold cursor-pointer hover:text-blue-100 transition-colors"
+                    className="text-amber-400 font-medium cursor-pointer hover:text-amber-300 transition-colors"
                   >
-                    Click here
+                    Sign in with OTP
                   </span>
                 </p>
               )}
               <Link
                 href={ROUTES.JYOTISH_LOGIN}
-                className="block text-gray-300 hover:text-white transition-colors"
+                className="block text-slate-400 hover:text-white transition-colors"
               >
                 Are you a Jyotish (Astrologer)?{' '}
-                <span className="text-primary font-semibold">Login Here</span>
+                <span className="text-amber-400 font-medium hover:text-amber-300">Login Here</span>
               </Link>
             </div>
           </CardContent>

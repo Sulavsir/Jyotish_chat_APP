@@ -28,6 +28,20 @@ export const getCoinBalance = async (req: AuthRequest, res: Response, next: Next
 };
 
 /**
+ * Get platform coin rates (for client display: chat, broadcast, appointment)
+ * GET /api/v1/coins/rates
+ */
+export const getCoinRates = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { getRatesForClient } = await import('../services/platformCoinRate.service');
+    const rates = await getRatesForClient();
+    return sendSuccess(res, { rates });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Add coins to user balance (for payment processing)
  * POST /api/v1/coins/add
  * Body is validated by addCoinsSchema middleware

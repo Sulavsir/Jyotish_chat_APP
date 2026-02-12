@@ -61,3 +61,60 @@ export const transactionHistoryQuerySchema = z.object({
     .transform((val) => (val ? parseInt(val, 10) : 0))
     .pipe(z.number().int().min(0)),
 });
+
+const coinRateValue = z.number().int().min(0).max(10000);
+
+/**
+ * Validator for admin updating platform coin rates
+ */
+export const updatePlatformCoinRatesSchema = z
+  .object({
+    CHAT_PER_MESSAGE: coinRateValue.optional(),
+    BROADCAST_PER_MESSAGE: coinRateValue.optional(),
+    BROADCAST_SEND: coinRateValue.optional(),
+    APPOINTMENT: coinRateValue.optional(),
+  })
+  .refine((data) => Object.values(data).some((v) => v !== undefined), {
+    message: 'At least one rate must be provided',
+  });
+
+const optionalDateString = z
+  .string()
+  .optional()
+  .transform((val) => (val ? new Date(val) : undefined));
+
+/**
+ * Validator for astrologer earnings list query
+ */
+export const getAstrologerEarningsQuerySchema = z.object({
+  from: optionalDateString,
+  to: optionalDateString,
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 50))
+    .pipe(z.number().int().min(1).max(100)),
+  offset: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 0))
+    .pipe(z.number().int().min(0)),
+  source: z.enum(['CHAT_MESSAGE', 'BROADCAST_MESSAGE', 'APPOINTMENT']).optional(),
+});
+
+/**
+ * Validator for admin list astrologers with coin earnings query
+ */
+export const listAstrologersWithCoinEarningsQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 1))
+    .pipe(z.number().int().min(1)),
+  limit: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 10))
+    .pipe(z.number().int().min(1).max(100)),
+  search: z.string().optional(),
+});

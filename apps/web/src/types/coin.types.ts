@@ -2,6 +2,19 @@
  * Coin Types for Frontend
  */
 
+export type PlatformCoinRateType =
+  | 'CHAT_PER_MESSAGE'
+  | 'BROADCAST_PER_MESSAGE'
+  | 'BROADCAST_SEND'
+  | 'APPOINTMENT';
+
+export interface PlatformCoinRates {
+  CHAT_PER_MESSAGE: number;
+  BROADCAST_PER_MESSAGE: number;
+  BROADCAST_SEND: number;
+  APPOINTMENT: number;
+}
+
 export interface CoinBalance {
   balance: number;
 }

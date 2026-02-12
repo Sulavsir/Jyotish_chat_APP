@@ -13,6 +13,7 @@ import type { PublicAstrologerProfile } from '@/types/astrologer';
 import { ASTROLOGER_CATEGORY_LABELS, AstrologerCategory } from '@/types/astrologer';
 import { ROUTE_BUILDERS } from '@/constants';
 import { useRouter } from 'next/navigation';
+import { useCoinRates } from '@/hooks/useCoinRates';
 
 interface JyotishSelectorCardProps {
   astrologer: PublicAstrologerProfile;
@@ -21,6 +22,11 @@ interface JyotishSelectorCardProps {
 
 export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishSelectorCardProps) {
   const router = useRouter();
+  const { rates } = useCoinRates(true);
+  const isAppointmentOnly =
+    astrologer.category === AstrologerCategory.PREMIUM ||
+    astrologer.category === AstrologerCategory.KATHA_VACHAK;
+  const chatCoinCost = isAppointmentOnly ? 0 : rates?.CHAT_PER_MESSAGE;
 
   const handleViewProfilePointerDown = (e: React.PointerEvent) => {
     // Completely bypass Radix Select's item selection by cancelling the pointer event
@@ -38,7 +44,7 @@ export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishS
 
   const categoryLabel = ASTROLOGER_CATEGORY_LABELS[astrologer.category];
   const isPremium = astrologer.category === AstrologerCategory.PREMIUM;
-  const isFree = !astrologer.appointmentFee || astrologer.appointmentFee === 0;
+  const isFree = chatCoinCost === 0;
   const rating = astrologer.rating ?? 0;
   const ratingCount = astrologer.totalConsultations ?? 0;
 
@@ -131,13 +137,19 @@ export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishS
                 <span className="text-xs text-white">{astrologer.experience} years experience</span>
               )}
               {isFree ? (
-                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1.5 py-0.5 w-fit">
-                  FREE
-                </Badge>
-              ) : (
-                <span className="text-xs text-green-300">
-                  Nrs.{astrologer.appointmentFee?.toLocaleString() || 'N/A'}
+                isAppointmentOnly ? (
+                  <span className="text-xs text-amber-300">Appointment only</span>
+                ) : (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1.5 py-0.5 w-fit">
+                    FREE
+                  </Badge>
+                )
+              ) : chatCoinCost != null ? (
+                <span className="text-xs text-amber-300">
+                  {chatCoinCost} coin{chatCoinCost === 1 ? '' : 's'}/message
                 </span>
+              ) : (
+                <span className="text-xs text-gray-400">…</span>
               )}
             </div>
           </div>

@@ -25,18 +25,19 @@ import { coinService } from '@/services/coin.service';
 import { RequestInstantChatModal } from './RequestInstantChatModal';
 import { toast } from 'sonner';
 import { useBroadcastPending } from '@/hooks/useBroadcastPending';
-
-const INSTANT_CHAT_COIN_COST = 1;
+import { useCoinRates } from '@/hooks/useCoinRates';
 
 export const RequestInstantChatButton: React.FC = () => {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { rates } = useCoinRates(isAuthenticated);
+  const broadcastSendCoins = rates?.BROADCAST_SEND;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
-  const [requiredCoins, setRequiredCoins] = useState(INSTANT_CHAT_COIN_COST);
+  const [requiredCoins, setRequiredCoins] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const {
@@ -68,11 +69,15 @@ export const RequestInstantChatButton: React.FC = () => {
       router.push(ROUTES.LOGIN);
       return;
     }
-    if (balance < INSTANT_CHAT_COIN_COST) {
-      setRequiredCoins(INSTANT_CHAT_COIN_COST);
+    if (
+      broadcastSendCoins != null &&
+      broadcastSendCoins > 0 &&
+      balance < broadcastSendCoins
+    ) {
+      setRequiredCoins(broadcastSendCoins);
       setShowCoinPurchaseModal(true);
       toast.error('Insufficient coins available', {
-        description: `Request Instant Chat requires ${INSTANT_CHAT_COIN_COST} coin. Please top up your coins.`,
+        description: `Request Instant Chat requires ${broadcastSendCoins} coin${broadcastSendCoins === 1 ? '' : 's'}. Please top up your coins.`,
         duration: 5000,
       });
       return;
@@ -154,6 +159,7 @@ export const RequestInstantChatButton: React.FC = () => {
         }}
         isSending={isSending}
         setIsSending={setIsSending}
+        coinCost={broadcastSendCoins}
       />
 
       <ProfileIncompleteDialog

@@ -31,7 +31,6 @@ import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.st
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
 import { QUERY_KEYS } from '@/constants';
-import { BROADCAST_CHAT_COIN_COST } from '@/constants/broadcastMessage.constants';
 import { questionnaireService } from '@/services/questionnaire.service';
 import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
@@ -46,10 +45,10 @@ interface RequestInstantChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSendSuccess?: () => void;
-  /** Called when user clicks Send Request so parent can show JyotishMatchingModal immediately (same as Publish to all Jyotish) */
   onSendRequested?: () => void;
   isSending: boolean;
   setIsSending: (v: boolean) => void;
+  coinCost?: number;
 }
 
 export function RequestInstantChatModal({
@@ -59,6 +58,7 @@ export function RequestInstantChatModal({
   onSendRequested,
   isSending,
   setIsSending,
+  coinCost,
 }: RequestInstantChatModalProps) {
   const user = useAuthStore((s) => s.user);
   const { socket, isConnected } = useSocket();
@@ -83,7 +83,6 @@ export function RequestInstantChatModal({
     queryKey: QUERY_KEYS.PUBLIC_QUESTIONNAIRES(questionnaireLanguage),
     queryFn: () => questionnaireService.listPublic(questionnaireLanguage),
     enabled: isOpen && step === STEP_MESSAGE,
-    staleTime: 5 * 60 * 1000,
   });
   const questionCategories: QuestionnaireCategory[] = questionnairesData?.categories ?? [];
   const selectedCategoryData = questionCategories.find((c) => c.id === categoryId);
@@ -186,7 +185,7 @@ export function RequestInstantChatModal({
               Sending costs{' '}
               <span className="font-semibold inline-flex items-center gap-1 text-yellow-400">
                 <Coins className="h-3 w-3 " />
-                {BROADCAST_CHAT_COIN_COST} coin
+                {coinCost != null ? `${coinCost} coin${coinCost === 1 ? '' : 's'}` : '…'}
               </span>
               . Deducted when you send.
             </p>

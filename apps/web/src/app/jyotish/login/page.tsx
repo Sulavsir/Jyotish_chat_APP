@@ -16,6 +16,7 @@ import { displayError, displaySuccess } from '@/utils/error-handler';
 import { passwordLoginSchema, type PasswordLoginFormData } from '@/lib/validations';
 import { authApi } from '@/lib/auth-api';
 import { AstrologerRegistrationForm } from '@/components/features/astrologer/AstrologerRegistrationForm';
+import { Sparkles } from 'lucide-react';
 
 export default function JyotishLoginPage() {
   const { setAuth } = useAuthStore();
@@ -55,8 +56,8 @@ export default function JyotishLoginPage() {
 
       window.location.href = ROUTES.JYOTISH_DASHBOARD;
     },
-    onError: (error: any) => {
-      displayError(error, 'Login failed. Please check your credentials.');
+    onError: (error: unknown) => {
+      displayError(error as ApiError, 'Login failed. Please check your credentials.');
     },
   });
 
@@ -76,102 +77,113 @@ export default function JyotishLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0f0e14]">
+    <div className="min-h-screen flex flex-col bg-slate-950">
+      {/* Full-page background image */}
       <div
         className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: 'url(/astrology.jpg)' }}
         aria-hidden
       />
-      <div className="fixed inset-0 z-0 bg-black/55 pointer-events-none" aria-hidden />
+      <div className="fixed inset-0 z-0 bg-slate-950/75 pointer-events-none" aria-hidden />
 
       <Navbar />
 
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-16">
-        <div className={`w-full ${showRegistration ? 'max-w-3xl' : 'max-w-sm'}`}>
-          {!showRegistration ? (
-            <Card className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden shadow-xl shadow-black/20">
-              <CardHeader className="space-y-1 text-center pb-2">
-                <CardTitle className="text-xl font-semibold text-[#fafaf9] tracking-tight">
-                  Jyotish Portal
-                </CardTitle>
-                <CardDescription className="text-[#78716c] text-sm">
-                  Sign in to your astrologer account
-                </CardDescription>
-              </CardHeader>
+      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12 lg:py-16">
+        <div className={`w-full ${showRegistration ? 'max-w-3xl' : 'max-w-[400px]'}`}>
+            {!showRegistration ? (
+              <Card className="border border-slate-700/80 bg-slate-900 shadow-2xl shadow-black/40 rounded-2xl overflow-hidden">
+                <CardHeader className="space-y-1 text-center pb-2 pt-8 lg:pt-10">
+                  <div className="flex justify-center mb-2">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                      <Sparkles className="w-6 h-6 text-amber-400" />
+                    </div>
+                  </div>
+                  <CardTitle className="text-xl font-semibold text-white tracking-tight">
+                    Jyotish Portal
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm">
+                    Sign in to your astrologer account
+                  </CardDescription>
+                </CardHeader>
 
-              <CardContent className="space-y-5 pt-2">
-                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
-                  <FormInput
-                    id="identifier"
-                    label="Email or Phone Number"
-                    placeholder="Enter email or phone"
-                    {...passwordForm.register('identifier')}
-                    error={passwordForm.formState.errors.identifier?.message}
-                    disabled={loginMutation.isPending}
-                    className="bg-white/[0.04] border-white/[0.08] text-[#fafaf9] placeholder:text-[#78716c] focus:border-amber-500/40"
-                    required
-                  />
-
-                  <FormPasswordInput
-                    id="password"
-                    name="password"
-                    label="Password"
-                    placeholder="Enter your password"
-                    value={passwordForm.watch('password')}
-                    onChange={(e) => passwordForm.setValue('password', e.target.value)}
-                    onBlur={() => passwordForm.trigger('password')}
-                    error={passwordForm.formState.errors.password?.message}
-                    disabled={loginMutation.isPending}
-                    className="bg-white/[0.04] border-white/[0.08] text-[#fafaf9] placeholder:text-[#78716c] focus:border-amber-500/40"
-                    required
-                  />
-
-                  <LoadingButton
-                    type="submit"
-                    isLoading={loginMutation.isPending}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-[#0f0e14] font-medium rounded-lg"
+                <CardContent className="space-y-5 pt-2 pb-8 lg:pb-10 px-6 lg:px-8">
+                  <form
+                    onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
+                    className="space-y-4"
                   >
-                    Sign In
-                  </LoadingButton>
-                </form>
+                    <FormInput
+                      id="identifier"
+                      label="Email or Phone Number"
+                      placeholder="Enter email or phone"
+                      {...passwordForm.register('identifier')}
+                      error={passwordForm.formState.errors.identifier?.message}
+                      disabled={loginMutation.isPending}
+                      className="bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
+                      required
+                    />
 
-                <div className="space-y-2 text-center text-sm">
+                    <FormPasswordInput
+                      id="password"
+                      name="password"
+                      label="Password"
+                      placeholder="Enter your password"
+                      value={passwordForm.watch('password')}
+                      onChange={(e) => passwordForm.setValue('password', e.target.value)}
+                      onBlur={() => passwordForm.trigger('password')}
+                      error={passwordForm.formState.errors.password?.message}
+                      disabled={loginMutation.isPending}
+                      className="bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
+                      required
+                    />
+
+                    <LoadingButton
+                      type="submit"
+                      isLoading={loginMutation.isPending}
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-semibold rounded-xl py-2.5 transition-colors"
+                    >
+                      Sign In
+                    </LoadingButton>
+                  </form>
+
+                  <div className="space-y-3 text-center text-sm pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowRegistration(true)}
+                      className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
+                    >
+                      I want to register as an Astrologer
+                    </button>
+                    <Link
+                      href={ROUTES.LOGIN}
+                      className="block text-slate-400 hover:text-white transition-colors"
+                    >
+                      Are you a client?{' '}
+                      <span className="text-amber-400 font-medium hover:text-amber-300">
+                        Client Login
+                      </span>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                <div className="border border-slate-700/80 bg-slate-900 shadow-2xl shadow-black/40 rounded-2xl overflow-hidden">
+                  <AstrologerRegistrationForm
+                    onSuccess={() => setShowRegistration(false)}
+                    onCancel={() => setShowRegistration(false)}
+                  />
+                </div>
+                <div className="text-center">
                   <button
                     type="button"
-                    onClick={() => setShowRegistration(true)}
-                    className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
+                    onClick={() => setShowRegistration(false)}
+                    className="text-amber-400 hover:text-amber-300 font-medium transition-colors text-sm"
                   >
-                    I want to register as an Astrologer
+                    Already have an account? Sign In
                   </button>
-                  <Link
-                    href={ROUTES.LOGIN}
-                    className="block text-[#a8a29e] hover:text-[#fafaf9] transition-colors"
-                  >
-                    Are you a client?{' '}
-                    <span className="text-amber-400 font-medium hover:text-amber-300">
-                      Client Login
-                    </span>
-                  </Link>
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              <AstrologerRegistrationForm
-                onSuccess={() => setShowRegistration(false)}
-                onCancel={() => setShowRegistration(false)}
-              />
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowRegistration(false)}
-                  className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
-                >
-                  Already have an account? Sign In
-                </button>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </div>

@@ -66,8 +66,14 @@ export const API_ENDPOINTS = {
   EARNINGS: {
     // Earnings
     LIST: '/api/v1/admin/earnings',
+    ASTROLOGERS_WITH_COINS: '/api/v1/admin/earnings/astrologers-with-coins',
     BY_ASTROLOGER: (astrologerId: string) => `/api/v1/admin/earnings/astrologer/${astrologerId}`,
     PAYOUT: (earningId: string) => `/api/v1/admin/earnings/${earningId}/payout`,
+  },
+
+  COIN_RATES: {
+    LIST: '/api/v1/admin/coin-rates',
+    UPDATE: '/api/v1/admin/coin-rates',
   },
 
   DASHBOARD: {

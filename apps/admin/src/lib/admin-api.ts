@@ -14,7 +14,14 @@ import {
   type JyotishBookingRequest,
   type QuestionnaireCategory,
 } from '@jyotish/shared';
-import type { Admin, Astrologer } from '@/types';
+import type {
+  Admin,
+  Astrologer,
+  PlatformCoinRateRow,
+  UpdatePlatformCoinRatesBody,
+  AstrologerWithCoinEarning,
+  ListAstrologersWithCoinEarningsResponse,
+} from '@/types';
 import type {
   ListAstrologersParams,
   RegistrationRequest,
@@ -474,6 +481,40 @@ export const adminApi = {
   earnings: {
     list: async (params?: { page?: number; limit?: number }) => {
       const response = await apiClient.get(API_ENDPOINTS.EARNINGS.LIST, { params });
+      return response;
+    },
+
+    listAstrologersWithCoins: async (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    }): Promise<ListAstrologersWithCoinEarningsResponse> => {
+      const response = await apiClient.get<ListAstrologersWithCoinEarningsResponse>(
+        API_ENDPOINTS.EARNINGS.ASTROLOGERS_WITH_COINS,
+        { params }
+      );
+      return response;
+    },
+  },
+
+  /**
+   * Coin Rates (Coin Settings)
+   */
+  coinRates: {
+    get: async (): Promise<{ rates: PlatformCoinRateRow[] }> => {
+      const response = await apiClient.get<{ rates: PlatformCoinRateRow[] }>(
+        API_ENDPOINTS.COIN_RATES.LIST
+      );
+      return response;
+    },
+
+    update: async (
+      body: UpdatePlatformCoinRatesBody
+    ): Promise<{ rates: PlatformCoinRateRow[] }> => {
+      const response = await apiClient.put<{ rates: PlatformCoinRateRow[] }>(
+        API_ENDPOINTS.COIN_RATES.UPDATE,
+        body
+      );
       return response;
     },
   },

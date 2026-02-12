@@ -12,7 +12,7 @@ import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
 /**
- * Create a new appointment
+ * Create a new appointment (no coin deduction here; coins are deducted when Jyotish confirms).
  * POST /api/appointments
  */
 export const createAppointment = async (req: AuthRequest, res: Response) => {
@@ -27,7 +27,6 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
     const { astrologerId, scheduledAt, duration, notes } = req.body;
 
-    // Get astrologer to calculate amount
     const { prisma } = await import('@jyotish/database');
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
@@ -255,7 +254,7 @@ export const cancelAppointment = async (req: AuthRequest, res: Response) => {
 };
 
 /**
- * Confirm an appointment (astrologer only)
+ * Confirm an appointment (astrologer only). Coins are deducted from client when Jyotish confirms.
  * POST /api/appointments/:id/confirm
  */
 export const confirmAppointment = async (req: AuthRequest, res: Response) => {
@@ -287,7 +286,38 @@ export const confirmAppointment = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    if (appointment.status !== AppointmentStatus.PENDING) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Only pending appointments can be confirmed',
+      });
+    }
+
+    const coinService = await import('../services/coin.service');
+    let deduction: { coinTransactionId: string; coinCost: number } | undefined;
+    try {
+      const result = await coinService.deductCoinsForAppointment(
+        appointment.clientId,
+        appointment.astrologerId
+      );
+      if (result.coinCost > 0) {
+        deduction = { coinTransactionId: result.coinTransactionId, coinCost: result.coinCost };
+      }
+    } catch (coinError: any) {
+      console.error('Appointment confirm: coin deduction error', coinError);
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message:
+          coinError.message ||
+          'Cannot confirm: client has insufficient coins. Ask them to top up.',
+      });
+    }
+
     const confirmed = await appointmentService.confirmAppointment(id);
+
+    if (deduction?.coinTransactionId) {
+      await coinService.linkAppointmentToCoinEarning(deduction.coinTransactionId, id);
+    }
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,

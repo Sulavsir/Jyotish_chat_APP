@@ -15,10 +15,10 @@ import {
   CoinTransaction,
 } from '../types/coin.types';
 import {
-  getDirectChatCoinCost,
   requiresCoinsForChat,
   COIN_REASON_MAPPING,
 } from '../constants/coin.constants';
+import { getRate } from './platformCoinRate.service';
 
 /**
  * Check if user has an active unlimited chat plan
@@ -86,20 +86,13 @@ export const deductCoinsForMessage = async (
   let transactionReason: CoinTransactionReason;
 
   if (isBroadcastChat) {
-    // Broadcast chats: Always 1 coin per message (regardless of astrologer category)
-    const { getBroadcastChatCoinCost } = await import('../constants/coin.constants');
-    coinCost = getBroadcastChatCoinCost();
-    transactionReason = CoinTransactionReason.CHAT_ORDINARY; // Use ORDINARY reason for broadcast
+    coinCost = await getRate('BROADCAST_PER_MESSAGE');
+    transactionReason = CoinTransactionReason.CHAT_ORDINARY;
   } else {
-    // Direct DMs: Category-based coin cost
-    // PREMIUM astrologers don't require coins - they can only chat during appointment window
     if (category === AstrologerCategory.PREMIUM) {
-      // Return current balance without deduction (chat is only allowed during appointment window)
       const balance = await getCoinBalance(userId);
       return { userId, balance };
     }
-
-    // Check if category requires coins
     if (!requiresCoinsForChat(category)) {
       throw new AppError(
         'This astrologer category does not require coins for chat',
@@ -107,10 +100,7 @@ export const deductCoinsForMessage = async (
         ERROR_CODES.VALIDATION_ERROR
       );
     }
-
-    const { getDirectChatCoinCost, COIN_REASON_MAPPING } =
-      await import('../constants/coin.constants');
-    coinCost = getDirectChatCoinCost(category);
+    coinCost = await getRate('CHAT_PER_MESSAGE');
     transactionReason = COIN_REASON_MAPPING[category];
   }
 
@@ -135,33 +125,55 @@ export const deductCoinsForMessage = async (
 
   const balanceBefore = user.coins;
   const balanceAfter = balanceBefore - coinCost;
+  const source = isBroadcastChat ? 'BROADCAST_MESSAGE' : 'CHAT_MESSAGE';
 
-  // Deduct coins and create transaction record
-  const [updatedUser] = await Promise.all([
-    prisma.user.update({
-      where: { id: userId },
-      data: {
-        coins: {
-          decrement: coinCost,
-        },
-      },
-      select: {
-        id: true,
-        coins: true,
-      },
-    }),
-    prisma.coinTransaction.create({
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const coinTx = await tx.coinTransaction.create({
       data: {
         userId,
-        amount: -coinCost, // Negative for deduction
+        amount: -coinCost,
         type: CoinTransactionType.DEDUCT,
-        reason: COIN_REASON_MAPPING[category],
+        reason: transactionReason,
         balanceBefore,
         balanceAfter,
         chatId,
       },
-    }),
-  ]);
+    });
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: coinCost } },
+      select: { id: true, coins: true },
+    });
+    const chat = await tx.chat.findUnique({
+      where: { id: chatId },
+      select: { participant2Id: true },
+    });
+    if (chat) {
+      const astrologer = await tx.astrologer.findUnique({
+        where: { id: chat.participant2Id },
+        select: { commissionRate: true },
+      });
+      if (astrologer && astrologer.commissionRate > 0) {
+        const astrologerCoins = Math.floor(
+          (coinCost * astrologer.commissionRate) / 100
+        );
+        if (astrologerCoins > 0) {
+          await (tx as any).astrologerCoinEarning.create({
+            data: {
+              astrologerId: chat.participant2Id,
+              coinTransactionId: coinTx.id,
+              chatId,
+              source,
+              clientCoinsDeducted: coinCost,
+              commissionPercent: astrologer.commissionRate,
+              astrologerCoinsEarned: astrologerCoins,
+            },
+          });
+        }
+      }
+    }
+    return updated;
+  });
 
   return {
     userId: updatedUser.id,
@@ -196,9 +208,7 @@ export const deductCoinsForChat = async (params: CoinDeductionParams): Promise<C
     );
   }
 
-  const { getDirectChatCoinCost, COIN_REASON_MAPPING } =
-    await import('../constants/coin.constants');
-  const coinCost = getDirectChatCoinCost(category);
+  const coinCost = await getRate('CHAT_PER_MESSAGE');
   const transactionReason = COIN_REASON_MAPPING[category as AstrologerCategory];
 
   // Get current balance
@@ -260,16 +270,13 @@ export const deductCoinsForChat = async (params: CoinDeductionParams): Promise<C
  * Deduct coins for creating a broadcast message (1 coin upfront)
  */
 export const deductCoinsForBroadcastMessage = async (userId: string): Promise<CoinBalance> => {
-  // Check if user has active unlimited plan - if yes, no deduction needed
   const hasUnlimited = await hasActiveUnlimitedPlan(userId);
   if (hasUnlimited) {
-    // Return current balance without deduction
     const balance = await getCoinBalance(userId);
     return { userId, balance };
   }
 
-  const { getBroadcastChatCoinCost } = await import('../constants/coin.constants');
-  const coinCost = getBroadcastChatCoinCost(); // Always 1 coin for broadcast
+  const coinCost = await getRate('BROADCAST_SEND');
 
   // Get current balance
   const user = await prisma.user.findUnique({
@@ -393,12 +400,106 @@ export const addCoins = async (
 };
 
 /**
+ * Deduct coins for booking an appointment (uses admin-configured APPOINTMENT rate)
+ */
+export const deductCoinsForAppointment = async (
+  userId: string,
+  astrologerId: string
+): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
+  const coinCost = await getRate('APPOINTMENT');
+  if (coinCost <= 0) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance, coinTransactionId: '', coinCost: 0 };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { coins: true, id: true },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  if (user.coins < coinCost) {
+    throw new AppError(
+      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.INSUFFICIENT_COINS
+    );
+  }
+
+  const balanceBefore = user.coins;
+  const balanceAfter = balanceBefore - coinCost;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const coinTx = await tx.coinTransaction.create({
+      data: {
+        userId,
+        amount: -coinCost,
+        type: CoinTransactionType.DEDUCT,
+        reason: CoinTransactionReason.PURCHASE,
+        balanceBefore,
+        balanceAfter,
+      },
+    });
+    await tx.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: coinCost } },
+      select: { id: true, coins: true },
+    });
+    const astrologer = await tx.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { commissionRate: true },
+    });
+    if (astrologer && astrologer.commissionRate > 0) {
+      const astrologerCoins = Math.floor(
+        (coinCost * astrologer.commissionRate) / 100
+      );
+      if (astrologerCoins > 0) {
+        await (tx as any).astrologerCoinEarning.create({
+          data: {
+            astrologerId,
+            coinTransactionId: coinTx.id,
+            source: 'APPOINTMENT',
+            clientCoinsDeducted: coinCost,
+            commissionPercent: astrologer.commissionRate,
+            astrologerCoinsEarned: astrologerCoins,
+          },
+        });
+      }
+    }
+    return { coinTx, balance: balanceAfter };
+  });
+
+  return {
+    userId,
+    balance: result.balance,
+    coinTransactionId: result.coinTx.id,
+    coinCost,
+  };
+};
+
+/**
+ * Link an appointment to an existing coin earning (sets appointmentId on the earning for this transaction)
+ */
+export const linkAppointmentToCoinEarning = async (
+  coinTransactionId: string,
+  appointmentId: string
+): Promise<void> => {
+  await (prisma as any).astrologerCoinEarning.updateMany({
+    where: { coinTransactionId },
+    data: { appointmentId },
+  });
+};
+
+/**
  * Refund coins
  */
 export const refundCoins = async (
   userId: string,
   amount: number,
-  chatId?: string
+  _chatId?: string
 ): Promise<CoinBalance> => {
   if (amount <= 0) {
     throw new AppError(

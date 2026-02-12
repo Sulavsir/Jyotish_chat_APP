@@ -41,11 +41,13 @@ export const ROUTES = {
   JYOTISH_CONSULTATIONS: '/jyotish/consultations',
   JYOTISH_APPOINTMENTS: '/jyotish/appointments',
   JYOTISH_PROFILE: '/jyotish/profile',
+  JYOTISH_EARNINGS: '/jyotish/earnings',
   JYOTISH_SETTINGS: '/jyotish/settings',
   JYOTISH_CLIENTS: '/jyotish/clients',
 
   // Admin Routes
   ADMIN_DASHBOARD: '/admin/dashboard',
+  ADMIN_SET_COINS: '/admin/set-coins',
 
   // Other
   TERMS: '/terms',

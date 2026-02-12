@@ -5,6 +5,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { astrologerService, auditService, sessionService } from '../services';
+import * as astrologerEarningsService from '../services/astrologerEarnings.service';
 import { sendSuccess } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
@@ -124,6 +125,37 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
         canAcceptBroadcastMessages: canAcceptBroadcastMessages(astrologer.category),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get current astrologer's coin earnings (My Earnings)
+ * GET /api/v1/astrologer/earnings
+ */
+export async function getMyEarnings(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const astrologerId = req.user?.id;
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+    const filters = req.query as {
+      from?: string;
+      to?: string;
+      limit?: string;
+      offset?: string;
+      source?: 'CHAT_MESSAGE' | 'BROADCAST_MESSAGE' | 'APPOINTMENT';
+    };
+    const parsed = {
+      from: filters.from ? new Date(filters.from) : undefined,
+      to: filters.to ? new Date(filters.to) : undefined,
+      limit: filters.limit ? parseInt(filters.limit, 10) : undefined,
+      offset: filters.offset ? parseInt(filters.offset, 10) : undefined,
+      source: filters.source,
+    };
+    const result = await astrologerEarningsService.getAstrologerEarnings(astrologerId, parsed);
+    return sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

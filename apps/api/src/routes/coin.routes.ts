@@ -17,6 +17,9 @@ router.use(authenticate);
 // Get coin balance
 router.get('/balance', asyncHandler(coinController.getCoinBalance));
 
+// Get platform coin rates (for client: chat/broadcast/appointment costs)
+router.get('/rates', asyncHandler(coinController.getCoinRates));
+
 // Add coins (for payment processing)
 router.post('/add', validateBody(addCoinsSchema), asyncHandler(coinController.addCoins));
 

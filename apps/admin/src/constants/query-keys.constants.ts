@@ -49,6 +49,15 @@ export const ADMIN_QUERY_KEYS = {
   EARNINGS: {
     ALL: ['admin', 'earnings'] as const,
     LIST: () => ['admin', 'earnings', 'list'] as const,
+    ASTROLOGERS_WITH_COINS: (params?: { page?: number; limit?: number; search?: string }) =>
+      params
+        ? (['admin', 'earnings', 'astrologers-with-coins', params] as const)
+        : (['admin', 'earnings', 'astrologers-with-coins'] as const),
+  },
+
+  // Coin Rates (Coin Settings)
+  COIN_RATES: {
+    ALL: ['admin', 'coin-rates'] as const,
   },
 
   // Pricing

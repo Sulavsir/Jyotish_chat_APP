@@ -4,8 +4,9 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { validateBody } from '@/middleware/validate';
+import { validateBody, validateQuery } from '../middleware/validate';
 import { changePasswordSchema } from '@jyotish/shared';
+import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators';
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
 import { astrologerRegistrationUpload } from '../middleware/astrologerRegistrationUpload';
@@ -36,6 +37,13 @@ router.post(
   asyncHandler(astrologerController.changeAstrologerPassword)
 );
 router.post('/toggle-online', asyncHandler(astrologerController.toggleOnlineStatus));
+
+// ==================== My Earnings (coin earnings from client deductions) ====================
+router.get(
+  '/earnings',
+  validateQuery(getAstrologerEarningsQuerySchema),
+  asyncHandler(astrologerController.getMyEarnings)
+);
 
 // ==================== Astrologer List ====================
 router.get('/list', asyncHandler(astrologerController.listAstrologers));

@@ -53,7 +53,10 @@ export const ADMIN_ROUTES = {
   
   // Earnings
   EARNINGS: '/admin/earnings',
-  
+
+  // Coin Settings (set coins for chat, broadcast, appointment)
+  SET_COINS: '/admin/set-coins',
+
   // Pricing
   PRICING: '/admin/pricing',
   PRICING_CREATE: '/admin/pricing/create',

@@ -121,6 +121,7 @@ model Astrologer {
   chatsAsAstrologer            Chat[]                @relation("ChatAstrologerParticipant2")
   auditLogs                    AuditLog[]            @relation("AstrologerAuditLogs")
   earnings                     AstrologerEarnings[]
+  coinEarnings                 AstrologerCoinEarning[]
   appointments                 Appointment[]                @relation("AstrologerAppointments")
   complaintsReceived           Complaint[]                  @relation("AstrologerComplaints")
   dismissedBroadcastMessages   BroadcastMessageDismissal[]  @relation("DismissedBroadcastMessages")
@@ -183,7 +184,8 @@ model AuditLog {
   @@index([astrologerId, action])
 }
 
-// Astrologer earnings and commission tracking
+// Astrologer earnings and commission tracking (cash/payout when admin tops up)
+// Admin counts astrologer coin earnings (see AstrologerCoinEarning) and records payout here.
 model AstrologerEarnings {
   id             String        @id @default(uuid())
   astrologerId   String
@@ -1067,4 +1069,50 @@ enum CoinTransactionReason {
   REFUND
   ADMIN_ADJUSTMENT
   PAYMENT_SUCCESS
+}
+
+// Platform coin rates (admin-configurable): chat per message, broadcast per message, appointment
+enum PlatformCoinRateType {
+  CHAT_PER_MESSAGE
+  BROADCAST_PER_MESSAGE
+  BROADCAST_SEND
+  APPOINTMENT
+}
+
+model PlatformCoinRate {
+  id          String              @id @default(uuid())
+  rateType    PlatformCoinRateType @unique
+  coins       Int                  // Coins charged/deducted for this action
+  description String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([rateType])
+}
+
+// Astrologer earnings in coins (per chat/broadcast/appointment). All earnings are in coins;
+// admin tops up (payout) later based on these; see AstrologerEarnings for payout records.
+enum AstrologerCoinEarningSource {
+  CHAT_MESSAGE
+  BROADCAST_MESSAGE
+  APPOINTMENT
+}
+
+model AstrologerCoinEarning {
+  id                    String                      @id @default(uuid())
+  astrologerId          String
+  coinTransactionId     String?                      // Client's deduction transaction
+  chatId                String?
+  broadcastMessageId    String?
+  appointmentId         String?
+  source                AstrologerCoinEarningSource
+  clientCoinsDeducted   Int
+  commissionPercent     Float
+  astrologerCoinsEarned Int
+  createdAt             DateTime                     @default(now())
+  astrologer            Astrologer                   @relation(fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  @@index([astrologerId])
+  @@index([createdAt])
+  @@index([astrologerId, createdAt])
 }

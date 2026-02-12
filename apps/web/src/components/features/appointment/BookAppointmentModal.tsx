@@ -7,7 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
-import { Calendar, Clock, DollarSign, Loader2, CalendarDays } from 'lucide-react';
+import { Calendar, Clock, Coins, Loader2, CalendarDays } from 'lucide-react';
 import {
   Button,
   Dialog,
@@ -25,6 +25,8 @@ import appointmentService from '@/services/appointment.service';
 import type { Astrologer, TimeSlot } from '@/types/appointment.types';
 import { AstrologerCategory } from '@/types/appointment.types';
 import { DEFAULT_APPOINTMENT_DURATION, ASTROLOGER_CATEGORY, QUERY_KEYS } from '@/constants';
+import { useCoinRates } from '@/hooks/useCoinRates';
+import coinService from '@/services/coin.service';
 
 interface AstrologerListResponse {
   data?: Astrologer[];
@@ -53,6 +55,15 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     'select-astrologer'
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const { rates } = useCoinRates(isOpen);
+  const appointmentCoinCost = rates?.APPOINTMENT;
+  const { data: balanceData } = useQuery({
+    queryKey: QUERY_KEYS.COINS.BALANCE,
+    queryFn: () => coinService.getBalance(),
+    enabled: isOpen,
+  });
+  const coinBalance = balanceData?.balance ?? 0;
 
   // Fetch astrologers with TanStack Query
   const { data: rawAstrologers, isLoading: isLoadingAstrologers } = useQuery({
@@ -139,9 +150,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     onSuccess: (response) => {
       const message = getSuccessMessage(response) || 'Appointment booked successfully!';
       toast.success(message);
-      // Invalidate relevant queries
+      // Invalidate relevant queries (including coin balance after deduction)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.LIST() });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       onSuccess?.();
       handleClose();
     },
@@ -153,6 +165,18 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   const handleBookAppointment = () => {
     if (!selectedAstrologer || !selectedDate || !selectedTime) {
       toast.error('Please select all required fields');
+      return;
+    }
+
+    // Min coin check: coins are deducted when Jyotish accepts; ensure client has enough so confirm can succeed
+    if (
+      appointmentCoinCost != null &&
+      appointmentCoinCost > 0 &&
+      coinBalance < appointmentCoinCost
+    ) {
+      toast.error(
+        `Insufficient coins. You need ${appointmentCoinCost} coin${appointmentCoinCost === 1 ? '' : 's'} (deducted when Jyotish accepts). Your balance: ${coinBalance}. Please top up.`
+      );
       return;
     }
 
@@ -349,11 +373,13 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                     ? `⭐ ${selectedAstrologer.experience} years`
                                     : '⭐ Experienced'}
                                 </p>
-                                {selectedAstrologer.appointmentFee && (
-                                  <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                                    Rs. {selectedAstrologer.appointmentFee}
+                                {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
+                                  <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
+                                    {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
                                   </span>
-                                )}
+                                ) : appointmentCoinCost === undefined ? (
+                                  <span className="text-sm text-purple-400">…</span>
+                                ) : null}
                               </div>
                             </div>
                             <Button
@@ -434,11 +460,13 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                           ? `⭐ ${astrologer.experience} years`
                                           : '⭐ Experienced'}
                                       </p>
-                                      {astrologer.appointmentFee && (
-                                        <span className="text-sm font-bold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                                          Rs. {astrologer.appointmentFee}
+                                      {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
+                                        <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
+                                          {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
                                         </span>
-                                      )}
+                                      ) : appointmentCoinCost === undefined ? (
+                                        <span className="text-sm text-purple-400">…</span>
+                                      ) : null}
                                     </div>
                                   </div>
                                 </button>
@@ -510,7 +538,18 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                         </span>
                       </div>
                       <p className="text-sm text-purple-300">
-                        Rs. {selectedAstrologer.appointmentFee} / session
+                        {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
+                          <>
+                            <span className="font-semibold text-amber-300">
+                              {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
+                            </span>
+                            {' per session. Deducted when Jyotish accepts.'}
+                          </>
+                        ) : appointmentCoinCost === undefined ? (
+                          '… coins per session'
+                        ) : (
+                          'Per session'
+                        )}
                       </p>
                     </div>
                   </div>
@@ -592,6 +631,15 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   <p className="text-xs text-purple-300/70 mt-1">{notes.length}/500 characters</p>
                 </div>
 
+                {/* Insufficient coins message (min requirement before booking) */}
+                {appointmentCoinCost != null &&
+                  appointmentCoinCost > 0 &&
+                  coinBalance < appointmentCoinCost && (
+                    <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm">
+                      You need at least {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'} (deducted when Jyotish accepts). Your balance: {coinBalance}. Please top up to book.
+                    </div>
+                  )}
+
                 {/* Action Buttons */}
                 <div className="flex gap-3 mt-6">
                   <Button
@@ -604,8 +652,13 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   </Button>
                   <Button
                     onClick={handleBookAppointment}
-                    disabled={!selectedTime || bookAppointmentMutation.isPending}
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0"
+                    disabled={
+                      !selectedTime ||
+                      bookAppointmentMutation.isPending ||
+                      appointmentCoinCost === undefined ||
+                      (appointmentCoinCost > 0 && coinBalance < appointmentCoinCost)
+                    }
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 disabled:opacity-60"
                   >
                     {bookAppointmentMutation.isPending ? (
                       <>
@@ -614,7 +667,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                       </>
                     ) : (
                       <>
-                        <DollarSign className="mr-2 h-4 w-4" />
+                        <Coins className="mr-2 h-4 w-4" />
                         Book Appointment
                       </>
                     )}

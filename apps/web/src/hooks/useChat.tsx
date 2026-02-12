@@ -15,19 +15,13 @@ import { displayError } from '@/utils/error-handler';
 import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
 import { CoinPurchaseModal } from '@/components/modals';
 import { AstrologerCategory } from '@/types/astrologer';
-
-/** Coin cost per first message for direct chat (matches backend). PREMIUM = 0 (appointment-only). */
-const DIRECT_CHAT_COIN_COSTS: Record<string, number> = {
-  [AstrologerCategory.ORDINARY]: 2,
-  [AstrologerCategory.PROFESSIONAL]: 2,
-  [AstrologerCategory.PREMIUM]: 0,
-  [AstrologerCategory.KATHA_VACHAK]: 0,
-};
+import { useCoinRates } from '@/hooks/useCoinRates';
 
 export function useChat() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
+  const { rates } = useCoinRates(!!user);
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
   const [requiredCoins, setRequiredCoins] = useState(0);
@@ -124,8 +118,16 @@ export function useChat() {
         if (user.role === UserRole.CLIENT) {
           const { balance } = await coinService.getBalance();
           const { astrologer } = await astrologerService.getPublicProfile(otherUserId);
-          const requiredCoinsForChat = DIRECT_CHAT_COIN_COSTS[astrologer.category] ?? 2;
-          if (requiredCoinsForChat > 0 && balance < requiredCoinsForChat) {
+          // Use admin-configured CHAT_PER_MESSAGE from backend; PREMIUM/KATHA_VACHAK = 0 (appointment-only)
+          const isAppointmentOnly =
+            astrologer.category === AstrologerCategory.PREMIUM ||
+            astrologer.category === AstrologerCategory.KATHA_VACHAK;
+          const requiredCoinsForChat = isAppointmentOnly ? 0 : rates?.CHAT_PER_MESSAGE;
+          if (
+            requiredCoinsForChat != null &&
+            requiredCoinsForChat > 0 &&
+            balance < requiredCoinsForChat
+          ) {
             toast.error(
               `Insufficient coins. Required: ${requiredCoinsForChat} coin${requiredCoinsForChat === 1 ? '' : 's'} to send a message. Available: ${balance} coin${balance === 1 ? '' : 's'}. Please top up your coins.`
             );
@@ -241,6 +243,7 @@ export function useChat() {
     isStartingChat,
     showCoinPurchaseModal,
     requiredCoins,
+    setRequiredCoins,
     retryChat,
     setShowCoinPurchaseModal,
   };

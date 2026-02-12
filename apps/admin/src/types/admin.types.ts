@@ -273,3 +273,47 @@ export interface ChatAuditChatEndedEvent {
   chatEndedBy: string;
   chatEndedAt: string;
 }
+
+// Coin Settings (platform coin rates)
+export type PlatformCoinRateType =
+  | 'CHAT_PER_MESSAGE'
+  | 'BROADCAST_PER_MESSAGE'
+  | 'BROADCAST_SEND'
+  | 'APPOINTMENT';
+
+export interface PlatformCoinRateRow {
+  id: string;
+  rateType: PlatformCoinRateType;
+  coins: number;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePlatformCoinRatesBody {
+  CHAT_PER_MESSAGE?: number;
+  BROADCAST_PER_MESSAGE?: number;
+  BROADCAST_SEND?: number;
+  APPOINTMENT?: number;
+}
+
+// Admin earnings: astrologers with total coin earnings
+export interface AstrologerWithCoinEarning {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string;
+  category: string;
+  rating: number | null;
+  totalCoinEarnings: number;
+}
+
+export interface ListAstrologersWithCoinEarningsResponse {
+  astrologers: AstrologerWithCoinEarning[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

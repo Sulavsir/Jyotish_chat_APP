@@ -28,13 +28,14 @@ import {
   ASTROLOGER_CATEGORY_LABELS,
   AstrologerCategory,
   type AstrologerListParams,
+  type PublicAstrologerProfile,
 } from '@/types/astrologer';
 import { JyotishSelectorCard } from './JyotishSelectorCard';
 import { useStore } from '@/store';
 
 interface JyotishSelectorProps {
   selectedAstrologerId: string;
-  onSelect: (astrologerId: string) => void;
+  onSelect: (astrologerId: string, astrologer?: PublicAstrologerProfile) => void;
   onClear: () => void;
 }
 
@@ -103,7 +104,10 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
       </div>
       <Select
         value={selectedAstrologerId}
-        onValueChange={onSelect}
+        onValueChange={(value) => {
+          const astrologer = filteredAstrologers.find((a) => a.id === value);
+          onSelect(value, astrologer);
+        }}
         onOpenChange={setIsDropdownOpen}
       >
         <SelectTrigger className="w-full">

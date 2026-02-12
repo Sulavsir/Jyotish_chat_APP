@@ -13,6 +13,7 @@ import {
   adminService,
   settingsService,
 } from '../services';
+import * as astrologerEarningsService from '../services/astrologerEarnings.service';
 import { sendSuccess, sendError } from '../utils';
 import { executeSoftDelete } from '../utils/delete.utils';
 import type { ListAdminAstrologersQuery } from '../validators/adminAstrologer.validators';
@@ -1330,6 +1331,28 @@ export async function getRecentActivities(req: AuthRequest, res: Response, next:
 }
 
 // ==================== Earnings Management ====================
+
+/**
+ * List astrologers with their total coin earnings (for admin earnings table)
+ * GET /api/v1/admin/earnings/astrologers-with-coins
+ */
+export async function listAstrologersWithCoinEarnings(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const query = req.query as { page?: number; limit?: number; search?: string };
+    const result = await astrologerEarningsService.listAstrologersWithCoinEarnings({
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+    });
+    return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+}
 
 /**
  * List all earnings

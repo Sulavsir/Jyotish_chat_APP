@@ -127,6 +127,7 @@ export const QUERY_KEYS = {
   // Coins
   COINS: {
     BALANCE: ['coins', 'balance'] as const,
+    RATES: ['coins', 'rates'] as const,
     TRANSACTIONS: (params?: { limit?: number; offset?: number }) =>
       params ? (['coins', 'transactions', params] as const) : (['coins', 'transactions'] as const),
     TRANSACTION_HISTORY: ['coins', 'transactions', 'history'] as const,
@@ -155,4 +156,11 @@ export const QUERY_KEYS = {
         ? (['jyotish-dashboard', 'recent-activity', limit] as const)
         : (['jyotish-dashboard', 'recent-activity'] as const),
   },
+  // Jyotish My Earnings
+  JYOTISH_EARNINGS: {
+    LIST: (params?: Record<string, unknown>) =>
+      params ? (['jyotish-earnings', params] as const) : (['jyotish-earnings'] as const),
+  },
+  // Admin coin rates
+  ADMIN_COIN_RATES: ['admin', 'coin-rates'] as const,
 } as const;

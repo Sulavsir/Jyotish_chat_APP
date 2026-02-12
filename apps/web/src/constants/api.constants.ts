@@ -110,6 +110,10 @@ export const API_ENDPOINTS = {
     AUTH_ME: '/api/v1/astrologer/auth/me',
     PROFILE: (id: string) => `/api/v1/public/astrologers/${id}`,
     STATS: '/api/v1/public/astrologers/stats',
+    EARNINGS: '/api/v1/astrologer/earnings',
+  },
+  ADMIN: {
+    COIN_RATES: '/api/v1/admin/coin-rates',
   },
   NOTIFICATION_SETTINGS: {
     GET: '/api/v1/notification-settings',
@@ -140,6 +144,7 @@ export const API_ENDPOINTS = {
   },
   COINS: {
     BALANCE: '/api/v1/coins/balance',
+    RATES: '/api/v1/coins/rates',
     ADD: '/api/v1/coins/add',
     TRANSACTIONS: '/api/v1/coins/transactions',
   },

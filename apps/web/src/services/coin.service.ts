@@ -5,7 +5,12 @@
 
 import { apiClient } from '@/lib/api-client';
 import { API_ENDPOINTS } from '@/constants';
-import type { CoinBalance, AddCoinsRequest, AddCoinsResponse } from '@/types/coin.types';
+import type {
+  CoinBalance,
+  AddCoinsRequest,
+  AddCoinsResponse,
+  PlatformCoinRates,
+} from '@/types/coin.types';
 
 class CoinService {
   /**
@@ -13,6 +18,13 @@ class CoinService {
    */
   async getBalance(): Promise<CoinBalance> {
     return apiClient.get<CoinBalance>(API_ENDPOINTS.COINS.BALANCE);
+  }
+
+  /**
+   * Get platform coin rates (admin-configured: chat, broadcast, appointment)
+   */
+  async getRates(): Promise<{ rates: PlatformCoinRates }> {
+    return apiClient.get<{ rates: PlatformCoinRates }>(API_ENDPOINTS.COINS.RATES);
   }
 
   /**

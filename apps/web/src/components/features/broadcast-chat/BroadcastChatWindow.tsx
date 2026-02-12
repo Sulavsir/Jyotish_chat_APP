@@ -24,11 +24,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { LoadingButton } from '@/components/ui';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
-import {
-  BROADCAST_MESSAGE_EXPIRY_MS,
-  BROADCAST_CHAT_COIN_COST,
-} from '@/constants/broadcastMessage.constants';
+import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
+import { useCoinRates } from '@/hooks/useCoinRates';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { CoinPurchaseModal } from '@/components/modals';
@@ -41,6 +39,8 @@ interface BroadcastChatWindowProps {
 export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps) {
   const user = useAuthStore((state) => state.user);
   const { socket, isConnected } = useSocket();
+  const { rates } = useCoinRates(!!user);
+  const broadcastSendCoins = rates?.BROADCAST_SEND;
   const router = useRouter();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<BroadcastMessage[]>([]);
@@ -52,15 +52,15 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
   const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
-  const [requiredCoins, setRequiredCoins] = useState(1);
+  const [requiredCoins, setRequiredCoins] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef(false); // ✅ Prevent duplicate loads
 
-  // Extract required coins from error message
-  const extractRequiredCoins = (errorMessage: string): number => {
+  // Extract required coins from backend error message (no client-side rate fallback)
+  const extractRequiredCoins = React.useCallback((errorMessage: string): number | undefined => {
     const match = errorMessage.match(/Required:\s*(\d+)/i);
-    return match ? parseInt(match[1], 10) : 1;
-  };
+    return match ? parseInt(match[1], 10) : undefined;
+  }, []);
 
   // Load broadcast messages and check for active chat
   useEffect(() => {
@@ -196,9 +196,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         errorMessage.toLowerCase().includes('insufficient coins') ||
         errorMessage.toLowerCase().includes('required:')
       ) {
-        // Extract required coins and open purchase modal
+        // Extract required coins from backend error and open purchase modal
         const coins = extractRequiredCoins(errorMessage);
-        setRequiredCoins(coins);
+        if (coins != null) setRequiredCoins(coins);
         setShowCoinPurchaseModal(true);
         toast.error(errorMessage, {
           duration: 5000,
@@ -223,7 +223,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       socket.off('broadcast:messageCancelled');
       socket.off('broadcast:error');
     };
-  }, [socket, isConnected, onChatCreated, router, queryClient]);
+  }, [socket, isConnected, onChatCreated, router, queryClient, extractRequiredCoins]);
 
   async function loadMessages() {
     try {
@@ -328,19 +328,22 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       return;
     }
 
-    // Pre-check coins before initiating broadcast (don't send if insufficient)
-    try {
-      const { balance } = await coinService.getBalance();
-      if (balance < BROADCAST_CHAT_COIN_COST) {
-        const backendStyleMessage = `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${balance} coins. c`;
-        toast.error(backendStyleMessage);
-        setRequiredCoins(BROADCAST_CHAT_COIN_COST);
-        setShowCoinPurchaseModal(true);
+    // Pre-check coins only when we have rate from backend (no client fallback)
+    if (broadcastSendCoins != null && broadcastSendCoins > 0) {
+      try {
+        const { balance } = await coinService.getBalance();
+        if (balance < broadcastSendCoins) {
+          toast.error(
+            `Insufficient coins. Required: ${broadcastSendCoins} coin${broadcastSendCoins === 1 ? '' : 's'} to send a broadcast message. Available: ${balance} coin${balance === 1 ? '' : 's'}.`
+          );
+          setRequiredCoins(broadcastSendCoins);
+          setShowCoinPurchaseModal(true);
+          return;
+        }
+      } catch (err) {
+        toast.error('Failed to check coin balance. Please try again.');
         return;
       }
-    } catch (err) {
-      toast.error('Failed to check coin balance. Please try again.');
-      return;
     }
 
     try {
@@ -539,7 +542,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                 Sending a broadcast message will cost{' '}
                 <span className="font-semibold inline-flex items-center gap-1">
                   <Coins className="h-3 w-3" />
-                  {BROADCAST_CHAT_COIN_COST} coin
+                  {broadcastSendCoins != null
+                    ? `${broadcastSendCoins} coin${broadcastSendCoins === 1 ? '' : 's'}`
+                    : '…'}
                 </span>
                 . This will be deducted when you send the message.
               </p>
