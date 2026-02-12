@@ -16,6 +16,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useStore } from '@/store';
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
+import { MessageSquare } from 'lucide-react';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 
 export default function JyotishChatPage() {
@@ -707,52 +708,67 @@ export default function JyotishChatPage() {
   return (
     <JyotishLayout>
       <div className="space-y-6">
-        {/* Page Header */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-white">Chats 💬</h1>
-          <p className="text-gray-300">Communicate with your clients in real-time</p>
+        <div className="space-y-1 flex items-center gap-2">
+          <MessageSquare className="h-8 w-8 text-amber-400 flex-shrink-0" aria-hidden />
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold text-[#fafaf9] tracking-tight">
+              Chats
+            </h1>
+            <p className="text-sm text-[#78716c]">
+              Communicate with your clients in real-time
+            </p>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-gradient-to-br from-primary to-primary/80 backdrop-blur-sm border-primary/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Active Chats</CardTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="bg-black/50 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden shadow-lg">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-white/90">Active Chats</CardTitle>
+              <div className="p-2 rounded-lg bg-amber-500/30 text-amber-300">
+                <MessageSquare className="h-4 w-4" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{totalChats}</div>
-              <p className="text-xs mt-1">{isConnected ? 'Connected ●' : 'Offline ○'}</p>
+              <div className="text-2xl font-semibold text-white tracking-tight">{totalChats}</div>
+              <p className="text-xs text-white/70 mt-1">
+                {isConnected ? 'Connected' : 'Offline'}
+              </p>
             </CardContent>
           </Card>
-
-          <Card className="bg-gradient-to-br from-primary to-primary/80 backdrop-blur-sm border-primary/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Unread Messages</CardTitle>
+          <Card className="bg-black/50 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden shadow-lg">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-white/90">Unread</CardTitle>
+              <div className="p-2 rounded-lg bg-violet-500/40 text-violet-200">
+                <MessageSquare className="h-4 w-4" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{unreadCount}</div>
-              <p className="text-xs mt-1">Across all conversations</p>
+              <div className="text-2xl font-semibold text-white tracking-tight">{unreadCount}</div>
+              <p className="text-xs text-white/70 mt-1">Across all conversations</p>
             </CardContent>
           </Card>
-
-          <Card className="bg-gradient-to-br from-primary to-primary/80 backdrop-blur-sm border-primary/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Status</CardTitle>
+          <Card className="bg-black/50 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden shadow-lg">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-medium text-white/90">Status</CardTitle>
+              <div className={`p-2 rounded-lg ${isConnected ? 'bg-emerald-500/40 text-emerald-200' : 'bg-white/20 text-white/80'}`}>
+                <span className="text-lg leading-none">{isConnected ? '●' : '○'}</span>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{isConnected ? '✓' : '○'}</div>
-              <p className="text-xs mt-1">{isConnected ? 'Online & Ready' : 'Connecting...'}</p>
+              <div className="text-2xl font-semibold text-white tracking-tight">
+                {isConnected ? 'Online' : 'Connecting…'}
+              </div>
+              <p className="text-xs text-white/70 mt-1">
+                {isConnected ? 'Ready for messages' : 'Reconnecting…'}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Chat Interface */}
-        <Card className="bg-black/20 backdrop-blur-sm border-white/10 overflow-hidden">
-          <div className="flex h-[600px]">
-            {/* Chat List */}
-            <div className="w-80 border-r border-white/10 flex flex-col">
-              {/* Chat List */}
-              <div className="flex-1 overflow-hidden">
+        <Card className="bg-black/30 backdrop-blur-sm border border-white/15 rounded-xl overflow-hidden">
+          <div className="flex h-[580px] min-h-0">
+            <div className="w-72 sm:w-80 flex-shrink-0 border-r border-white/10 flex flex-col bg-black/20">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <ChatList
                   chats={chats}
                   activeChat={activeChatId}
@@ -762,11 +778,9 @@ export default function JyotishChatPage() {
                 />
               </div>
             </div>
-
-            {/* Chat Window */}
-            <div className="flex-1">
+            <div className={`flex-1 min-w-0 flex flex-col ${activeChat ? 'bg-white' : 'bg-transparent'}`}>
               <ChatWindow
-                key={activeChat?.id || 'no-chat'} // Force re-mount when chat changes
+                key={activeChat?.id || 'no-chat'}
                 chat={activeChat}
                 messages={messages}
                 currentUserId={user?.id || ''}
@@ -779,6 +793,7 @@ export default function JyotishChatPage() {
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}
                 isConnected={isConnected}
+                emptyStateTheme="dark"
               />
             </div>
           </div>

@@ -1,6 +1,5 @@
 /**
- * Quick Actions Component
- * Displays quick action buttons for common tasks
+ * Quick Actions - Simple action cards for dashboard
  */
 
 'use client';
@@ -9,7 +8,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useRouter } from 'next/navigation';
 import { ROUTES } from '@/constants';
-import { MessageSquare, Calendar, User, Settings, Sparkles, Clock } from 'lucide-react';
+import { MessageSquare, Calendar, User, Settings, Sparkles } from 'lucide-react';
 
 interface QuickAction {
   id: string;
@@ -17,8 +16,6 @@ interface QuickAction {
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   route: string;
-  gradient: string;
-  borderColor: string;
 }
 
 const quickActions: QuickAction[] = [
@@ -28,8 +25,6 @@ const quickActions: QuickAction[] = [
     description: 'Connect with clients',
     icon: MessageSquare,
     route: ROUTES.JYOTISH_CHAT,
-    gradient: 'from-orange-600/30 to-amber-600/30',
-    borderColor: 'orange-500',
   },
   {
     id: 'appointments',
@@ -37,8 +32,6 @@ const quickActions: QuickAction[] = [
     description: 'Manage appointments',
     icon: Calendar,
     route: ROUTES.JYOTISH_APPOINTMENTS,
-    gradient: 'from-yellow-600/30 to-orange-600/30',
-    borderColor: 'yellow-500',
   },
   {
     id: 'profile',
@@ -46,8 +39,6 @@ const quickActions: QuickAction[] = [
     description: 'Update your details',
     icon: User,
     route: ROUTES.JYOTISH_PROFILE,
-    gradient: 'from-amber-600/30 to-yellow-600/30',
-    borderColor: 'amber-500',
   },
   {
     id: 'consultations',
@@ -55,8 +46,6 @@ const quickActions: QuickAction[] = [
     description: 'View consultations',
     icon: Sparkles,
     route: ROUTES.JYOTISH_CONSULTATIONS,
-    gradient: 'from-purple-600/30 to-pink-600/30',
-    borderColor: 'purple-500',
   },
   {
     id: 'settings',
@@ -64,8 +53,6 @@ const quickActions: QuickAction[] = [
     description: 'Manage preferences',
     icon: Settings,
     route: ROUTES.JYOTISH_SETTINGS,
-    gradient: 'from-blue-600/30 to-indigo-600/30',
-    borderColor: 'blue-500',
   },
 ];
 
@@ -73,30 +60,31 @@ export function QuickActions() {
   const router = useRouter();
 
   return (
-    <Card className="bg-black/20 backdrop-blur-sm border-white/10">
+    <Card className="bg-black/30 backdrop-blur-sm border border-white/[0.1] rounded-xl overflow-hidden shadow-lg shadow-black/10">
       <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
-          <Clock className="h-5 w-5 text-orange-400" />
+        <CardTitle className="text-base font-semibold text-[#fafaf9] flex items-center gap-2">
+          <span className="w-1 h-5 rounded-full bg-amber-500" />
           Quick Actions
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (
               <button
                 key={action.id}
+                type="button"
                 onClick={() => router.push(action.route)}
-                className={`p-6 rounded-lg bg-gradient-to-br ${action.gradient} border border-white/20 hover:border-white/40 transition-all duration-300 group cursor-pointer shadow-lg hover:shadow-xl`}
+                className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-amber-500/10 hover:border-amber-500/30 text-left transition-all duration-200 group"
               >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                  <Icon className="h-8 w-8 text-white" />
+                <div className="p-2.5 rounded-lg bg-amber-500/15 text-amber-400 group-hover:bg-amber-500/25 group-hover:scale-105 transition-all">
+                  <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-white font-semibold mb-1 text-center">{action.label}</h3>
-                <p className="text-sm text-gray-400 text-center group-hover:text-gray-300 transition-colors">
-                  {action.description}
-                </p>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-[#fafaf9] text-sm">{action.label}</p>
+                  <p className="text-xs text-white/60 truncate">{action.description}</p>
+                </div>
               </button>
             );
           })}

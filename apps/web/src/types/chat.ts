@@ -108,6 +108,8 @@ export interface MessageBubbleProps {
   isOwn: boolean;
   showAvatar?: boolean;
   showTimestamp?: boolean;
+  /** When 'jyotish', uses dark-theme bubble styling */
+  variant?: 'default' | 'jyotish';
   onViewProfile?: (clientId: string) => void;
 }
 
@@ -123,4 +125,6 @@ export interface ChatInputProps {
   onFocus?: () => void;
   disabled?: boolean;
   placeholder?: string;
+  /** When 'jyotish', uses dark-theme input styling */
+  variant?: 'default' | 'jyotish';
 }

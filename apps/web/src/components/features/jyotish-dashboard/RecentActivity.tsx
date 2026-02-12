@@ -1,12 +1,20 @@
 /**
- * Recent Activity Component
- * Displays recent activities from consultations, chats, and appointments
+ * Recent Activity - Clean list of recent consultations/chats
  */
 
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Avatar, AvatarImage, AvatarFallback, Skeleton } from '@jyotish/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  Skeleton,
+} from '@jyotish/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { MessageSquare, Calendar, Sparkles } from 'lucide-react';
 import type { RecentActivity as RecentActivityType } from '@/services/jyotishDashboard.service';
@@ -23,28 +31,25 @@ const activityIcons = {
   appointment: Calendar,
 };
 
-const activityColors = {
-  consultation: 'from-purple-500 to-pink-600',
-  chat: 'from-orange-500 to-amber-600',
-  appointment: 'from-yellow-500 to-orange-600',
-};
-
 export function RecentActivity({ activities, isLoading = false }: RecentActivityProps) {
   if (isLoading) {
     return (
-      <Card className="bg-black/20 backdrop-blur-sm border-white/10">
+      <Card className="bg-black/30 backdrop-blur-sm border border-white/[0.1] rounded-xl overflow-hidden shadow-lg shadow-black/10">
         <CardHeader>
-          <CardTitle className="text-white">Recent Activity</CardTitle>
+          <CardTitle className="text-base font-semibold text-[#fafaf9] flex items-center gap-2">
+            <span className="w-1 h-5 rounded-full bg-indigo-500" />
+            Recent Activity
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-start space-x-4 p-4 rounded-lg bg-white/5">
-                <Skeleton className="h-10 w-10 rounded-full" />
+              <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.04]">
+                <Skeleton className="h-10 w-10 rounded-full bg-white/15" />
                 <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-64" />
-                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-4 w-40 bg-white/15" />
+                  <Skeleton className="h-3 w-56 bg-white/15" />
+                  <Skeleton className="h-3 w-24 bg-white/15" />
                 </div>
               </div>
             ))}
@@ -56,32 +61,32 @@ export function RecentActivity({ activities, isLoading = false }: RecentActivity
 
   if (activities.length === 0) {
     return (
-      <Card className="bg-black/20 backdrop-blur-sm border-white/10">
+      <Card className="bg-black/30 backdrop-blur-sm border border-white/[0.1] rounded-xl overflow-hidden shadow-lg shadow-black/10">
         <CardHeader>
-          <CardTitle className="text-white">Recent Activity</CardTitle>
+          <CardTitle className="text-base font-semibold text-[#fafaf9] flex items-center gap-2">
+            <span className="w-1 h-5 rounded-full bg-indigo-500" />
+            Recent Activity
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-gray-400">
-            <p>No recent activity</p>
-          </div>
+          <p className="text-sm text-white/60 py-8 text-center">No recent activity</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="bg-black/20 backdrop-blur-sm border-white/10">
+    <Card className="bg-black/30 backdrop-blur-sm border border-white/[0.1] rounded-xl overflow-hidden shadow-lg shadow-black/10">
       <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-400" />
+        <CardTitle className="text-base font-semibold text-[#fafaf9] flex items-center gap-2">
+          <span className="w-1 h-5 rounded-full bg-indigo-500" />
           Recent Activity
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <ul className="space-y-1">
           {activities.map((activity) => {
             const Icon = activityIcons[activity.type];
-            const gradient = activityColors[activity.type];
             const initials = activity.clientName
               .split(' ')
               .map((n) => n[0])
@@ -90,37 +95,33 @@ export function RecentActivity({ activities, isLoading = false }: RecentActivity
               .slice(0, 2);
 
             return (
-              <div
+              <li
                 key={activity.id}
-                className="flex items-start space-x-4 p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors duration-200 group"
+                className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.04] transition-colors"
               >
-                <div
-                  className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold flex-shrink-0 shadow-lg`}
-                >
+                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white/[0.08] flex items-center justify-center overflow-hidden">
                   {activity.avatar ? (
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={getImageUrl(activity.avatar) || undefined} alt={activity.clientName} />
-                      <AvatarFallback className="bg-gradient-to-br from-purple-600 to-pink-600 text-white text-xs">
+                      <AvatarFallback className="bg-indigo-500/30 text-indigo-300 text-xs font-medium">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
                   ) : (
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-5 w-5 text-[#78716c]" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold group-hover:text-white/90 transition-colors">
-                    {activity.title}
-                  </p>
-                  <p className="text-sm text-gray-400 truncate">{activity.description}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {activity.clientName} • {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[#fafaf9]">{activity.title}</p>
+                  <p className="text-xs text-[#78716c] truncate">{activity.description}</p>
+                  <p className="text-[11px] text-[#57534e] mt-0.5">
+                    {activity.clientName} · {formatDistanceToNow(activity.timestamp, { addSuffix: true })}
                   </p>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </CardContent>
     </Card>
   );

@@ -71,6 +71,10 @@ interface ChatWindowProps {
   isLoadingMore?: boolean;
   hasMore?: boolean;
   isConnected?: boolean;
+  /** When 'jyotish', uses dark glass styling to match Jyotish portal */
+  variant?: 'default' | 'jyotish';
+  /** When 'dark', the empty state (no conversation selected) uses dark theme; rest of chat unchanged */
+  emptyStateTheme?: 'light' | 'dark';
   /** Client only: selected profile for birth details shown to Jyotish */
   selectedProfileId?: string;
   /** Client only: called when user changes profile in Select Profile modal */
@@ -94,10 +98,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   isLoadingMore = false,
   hasMore = false,
   isConnected = false,
+  variant = 'default',
+  emptyStateTheme = 'light',
   selectedProfileId = 'me',
   onProfileChange,
   familyProfiles = [],
 }) => {
+  const isJyotish = variant === 'jyotish';
+  const emptyStateDark = emptyStateTheme === 'dark';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
@@ -440,12 +448,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   if (!chat) {
+    const useDarkEmpty = emptyStateDark || isJyotish;
     return (
-      <div className="flex items-center justify-center h-full bg-gradient-to-br from-purple-900/20 to-blue-900/20">
+      <div
+        className={`flex items-center justify-center h-full ${
+          useDarkEmpty ? 'bg-transparent' : 'bg-gradient-to-br from-purple-900/20 to-blue-900/20'
+        }`}
+      >
         <div className="text-center space-y-4 p-8">
-          <div className="text-6xl mb-4">💬</div>
-          <h3 className="text-xl font-semibold text-white">Select a conversation</h3>
-          <p className="text-gray-400 max-w-md">
+          <div className={useDarkEmpty ? 'text-4xl mb-2' : 'text-6xl mb-4'}>
+            {useDarkEmpty ? <MessageCircle className="h-16 w-16 mx-auto text-[#78716c]" /> : '💬'}
+          </div>
+          <h3
+            className={
+              useDarkEmpty
+                ? 'text-lg font-semibold text-[#fafaf9]'
+                : 'text-xl font-semibold text-white'
+            }
+          >
+            Select a conversation
+          </h3>
+          <p
+            className={useDarkEmpty ? 'text-sm text-[#78716c] max-w-md' : 'text-gray-400 max-w-md'}
+          >
             Choose a conversation from the list or start a new chat with an astrologer
           </p>
         </div>
@@ -462,14 +487,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
+    <div className={`flex flex-col h-full ${isJyotish ? 'bg-white/[0.02]' : 'bg-white'}`}>
+      <div
+        className={`flex items-center justify-between px-4 py-3 border-b ${
+          isJyotish ? 'border-white/[0.06] bg-white/[0.03]' : 'border-gray-200 bg-white'
+        }`}
+      >
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className={`lg:hidden p-2 rounded-lg transition-colors ${
+                isJyotish ? 'hover:bg-white/[0.06] text-[#fafaf9]' : 'hover:bg-gray-100'
+              }`}
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -480,7 +510,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               src={getImageUrl(otherUser.profilePhoto) || undefined}
               alt={otherUser.name || otherUser.phone || 'User'}
             />
-            <AvatarFallback className="font-bold">
+            <AvatarFallback
+              className={isJyotish ? 'font-bold bg-amber-500/30 text-amber-200' : 'font-bold'}
+            >
               {showClientIconFallback ? (
                 <User className="h-5 w-5" />
               ) : (
@@ -490,16 +522,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </Avatar>
 
           <div>
-            <h2 className="font-semibold text-gray-900">
+            <h2
+              className={isJyotish ? 'font-semibold text-[#fafaf9]' : 'font-semibold text-gray-900'}
+            >
               {otherUser.name || otherUser.phone || 'Unknown User'}
             </h2>
-            <p className="text-xs text-gray-500">
+            <p className={isJyotish ? 'text-xs text-[#78716c]' : 'text-xs text-gray-500'}>
               {isTyping ? (
-                <span className="text-indigo-600">typing...</span>
+                <span className={isJyotish ? 'text-amber-400' : 'text-indigo-600'}>typing...</span>
               ) : onlineUsers.has(otherUser.id) ? (
-                <span className="text-green-600">● Online</span>
+                <span className={isJyotish ? 'text-emerald-400' : 'text-green-600'}>● Online</span>
               ) : (
-                <span className="text-gray-400">Offline</span>
+                <span className={isJyotish ? 'text-[#78716c]' : 'text-gray-400'}>Offline</span>
               )}
             </p>
           </div>
@@ -517,11 +551,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               Change Profile
             </Badge>
           )}
-          {/* View Profile Badge - only for astrologers viewing client messages */}
           {user?.role === UserRole.ASTROLOGER && otherUser.role === UserRole.CLIENT && (
             <Badge
               variant="outline"
-              className="cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium"
+              className={
+                isJyotish
+                  ? 'cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40 transition-all px-3 py-1.5 font-medium'
+                  : 'cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium'
+              }
               onClick={() => {
                 setSelectedClientId(otherUser.id);
                 setShowClientDetailsModal(true);
@@ -532,10 +569,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </Badge>
           )}
 
-          {/* End Chat button - only show if chat is active and not locked */}
           {chat?.status === 'ACTIVE' && !chat?.isLocked && (
             <Tooltip content="End chat session">
-              <Button variant="ghost" size="icon" onClick={handleEndChat} disabled={isEndingChat}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleEndChat}
+                disabled={isEndingChat}
+                aria-label="End Chat Session"
+              >
                 <PhoneOff className="h-5 w-6 text-red-400 " />
               </Button>
             </Tooltip>
@@ -547,50 +589,79 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
       </div>
 
-      {/* Messages */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 bg-gray-50"
+        className={`flex-1 overflow-y-auto p-4 ${isJyotish ? 'bg-transparent' : 'bg-gray-50'}`}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Spinner />
           </div>
         ) : uniqueMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-4 p-8">
-            <div className="text-6xl mb-2">👋</div>
-            <p className="text-xl font-semibold text-gray-700">
+          <div
+            className={`flex flex-col items-center justify-center h-full space-y-4 p-8 ${
+              isJyotish ? 'text-[#78716c]' : 'text-gray-400'
+            }`}
+          >
+            <div className={isJyotish ? 'text-4xl' : 'text-6xl mb-2'}>
+              {isJyotish ? '👋' : '👋'}
+            </div>
+            <p
+              className={
+                isJyotish
+                  ? 'text-lg font-semibold text-[#fafaf9]'
+                  : 'text-xl font-semibold text-gray-700'
+              }
+            >
               Say hello to {otherUser.name || otherUser.phone || 'Unknown User'}!
             </p>
-            <p className="text-sm text-gray-500 text-center max-w-md">
+            <p
+              className={
+                isJyotish
+                  ? 'text-sm text-[#78716c] text-center max-w-md'
+                  : 'text-sm text-gray-500 text-center max-w-md'
+              }
+            >
               Start your conversation by sending a greeting.{' '}
               {otherUser.role === UserRole.ASTROLOGER
                 ? 'Ask about your cosmic journey!'
                 : 'Respond to their query!'}
             </p>
-            <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <p className="text-sm text-purple-700">
+            <div
+              className={
+                isJyotish
+                  ? 'mt-4 p-4 bg-amber-500/10 rounded-xl border border-amber-500/20'
+                  : 'mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200'
+              }
+            >
+              <p className={isJyotish ? 'text-sm text-amber-200' : 'text-sm text-purple-700'}>
                 💡 <strong>Tip:</strong> Be polite and clear in your communication
               </p>
             </div>
           </div>
         ) : (
           <>
-            {/* Loading More Indicator */}
             {isLoadingMore && (
               <div className="flex justify-center py-3">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div
+                  className={`flex items-center gap-2 text-sm ${
+                    isJyotish ? 'text-[#78716c]' : 'text-gray-500'
+                  }`}
+                >
                   <Spinner />
                   <span>Loading older messages...</span>
                 </div>
               </div>
             )}
 
-            {/* End of messages indicator */}
             {!hasMore && uniqueMessages.length > 0 && (
               <div className="flex justify-center py-3 mb-2">
-                <div className="text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                <div
+                  className={`text-xs px-3 py-1 rounded-full ${
+                    isJyotish ? 'text-[#78716c] bg-white/[0.06]' : 'text-gray-400 bg-gray-100'
+                  }`}
+                >
                   🎉 Beginning of conversation
                 </div>
               </div>
@@ -653,6 +724,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   isOwn={isOwn}
                   showAvatar={showAvatar}
                   showTimestamp={showTimestamp}
+                  variant={isJyotish ? 'jyotish' : 'default'}
                   onViewProfile={
                     user?.role === UserRole.ASTROLOGER &&
                     !isOwn &&
@@ -812,7 +884,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
           )}
 
-          {/* Chat Input - Always visible but disabled when waiting */}
           <ChatInput
             onSendMessage={handleSendMessage}
             onTyping={onTyping}
@@ -825,6 +896,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   ? 'Type a message...'
                   : 'Connecting to chat server...'
             }
+            variant={isJyotish ? 'jyotish' : 'default'}
           />
         </>
       )}

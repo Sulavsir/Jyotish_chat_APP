@@ -21,6 +21,8 @@ interface ChatListProps {
   showBroadcastChat?: boolean;
   isBroadcastChatActive?: boolean;
   onSelectBroadcastChat?: () => void;
+  /** When 'jyotish', uses dark glass styling to match Jyotish portal */
+  variant?: 'default' | 'jyotish';
 }
 
 export const ChatList: React.FC<ChatListProps> = ({
@@ -32,9 +34,11 @@ export const ChatList: React.FC<ChatListProps> = ({
   showBroadcastChat = false,
   isBroadcastChatActive = false,
   onSelectBroadcastChat,
+  variant = 'default',
 }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const onlineUsers = useStore((state) => state.onlineUsers);
+  const isJyotish = variant === 'jyotish';
 
   // Ensure chats is always an array
   const chatList = Array.isArray(chats) ? chats : [];
@@ -74,23 +78,34 @@ export const ChatList: React.FC<ChatListProps> = ({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <div
+          className={`animate-spin rounded-full h-8 w-8 border-2 border-t-transparent ${
+            isJyotish ? 'border-amber-500/50' : 'border-purple-600'
+          }`}
+        />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full">
-      {/* Search */}
-      <div className="p-4 border-b border-white/10">
+      <div className={isJyotish ? 'p-3 border-b border-white/[0.06]' : 'p-4 border-b border-white/10'}>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search
+            className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${
+              isJyotish ? 'text-[#78716c]' : 'text-gray-400'
+            }`}
+          />
           <input
             type="text"
             placeholder="Search conversations..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder:text-gray-400"
+            className={
+              isJyotish
+                ? 'w-full pl-10 pr-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/40 text-[#fafaf9] placeholder:text-[#78716c] text-sm'
+                : 'w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder:text-gray-400'
+            }
           />
         </div>
       </div>
@@ -101,13 +116,20 @@ export const ChatList: React.FC<ChatListProps> = ({
         {showBroadcastChat && onSelectBroadcastChat && (
           <button
             onClick={onSelectBroadcastChat}
-            className={`w-full p-4 flex items-start gap-3 hover:bg-white/5 transition-colors border-b border-white/10 ${
-              isBroadcastChatActive ? 'bg-purple-600/20 border-l-4 border-l-purple-500' : ''
+            className={`w-full p-4 flex items-start gap-3 transition-colors border-b ${
+              isJyotish
+                ? `border-white/[0.06] hover:bg-white/[0.04] ${isBroadcastChatActive ? 'bg-amber-500/15 border-l-4 border-l-amber-500/60' : ''}`
+                : `border-white/10 hover:bg-white/5 ${isBroadcastChatActive ? 'bg-purple-600/20 border-l-4 border-l-purple-500' : ''}`
             }`}
           >
-            {/* Icon instead of avatar */}
             <div className="relative flex-shrink-0">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center">
+              <div
+                className={`h-12 w-12 rounded-full flex items-center justify-center ${
+                  isJyotish
+                    ? 'bg-amber-500/20'
+                    : 'bg-gradient-to-r from-purple-600 to-indigo-600'
+                }`}
+              >
                 <svg
                   className="h-6 w-6 text-white"
                   fill="none"
@@ -124,12 +146,13 @@ export const ChatList: React.FC<ChatListProps> = ({
               </div>
             </div>
 
-            {/* Chat info */}
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="font-semibold text-white truncate">Channel Jyotish</h3>
+                <h3 className={isJyotish ? 'font-semibold text-[#fafaf9] truncate' : 'font-semibold text-white truncate'}>
+                  Channel Jyotish
+                </h3>
               </div>
-              <p className="text-sm text-gray-400 truncate">
+              <p className={`text-sm truncate ${isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}>
                 Request Message to all online astrologers
               </p>
             </div>
@@ -137,9 +160,13 @@ export const ChatList: React.FC<ChatListProps> = ({
         )}
 
         {filteredChats.length === 0 && !showBroadcastChat ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
+          <div
+            className={`flex flex-col items-center justify-center h-full p-8 ${
+              isJyotish ? 'text-[#78716c]' : 'text-gray-400'
+            }`}
+          >
             <MessageCircle className="h-16 w-16 mb-4 opacity-50" />
-            <p className="text-center text-sm">
+            <p className="text-center text-sm whitespace-pre-line">
               {searchTerm
                 ? 'No conversations found'
                 : 'No conversations yet.\nStart chatting with an astrologer!'}
@@ -159,18 +186,25 @@ export const ChatList: React.FC<ChatListProps> = ({
               <button
                 key={chat.id}
                 onClick={() => onSelectChat(chat.id, otherUser.id)}
-                className={`w-full p-4 flex items-start gap-3 hover:bg-white/5 transition-colors border-b border-white/10 ${
-                  isActive ? 'bg-purple-600/20 border-l-4 border-l-purple-500' : ''
+                className={`w-full p-3 flex items-start gap-3 transition-colors border-b ${
+                  isJyotish
+                    ? `border-white/[0.06] hover:bg-white/[0.04] ${isActive ? 'bg-amber-500/15 border-l-4 border-l-amber-500/60' : ''}`
+                    : `border-white/10 hover:bg-white/5 ${isActive ? 'bg-purple-600/20 border-l-4 border-l-purple-500' : ''}`
                 }`}
               >
-                {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <Avatar className="h-12 w-12">
                     <AvatarImage
                       src={getImageUrl(otherUser.profilePhoto) || undefined}
                       alt={otherUser.name || otherUser.phone || 'User'}
                     />
-                    <AvatarFallback className="bg-purple-600 text-white font-bold">
+                    <AvatarFallback
+                      className={
+                        isJyotish
+                          ? 'bg-amber-500/30 text-amber-200 font-bold'
+                          : 'bg-purple-600 text-white font-bold'
+                      }
+                    >
                       {showClientIconFallback ? (
                         <User className="h-5 w-5" />
                       ) : (
@@ -178,20 +212,26 @@ export const ChatList: React.FC<ChatListProps> = ({
                       )}
                     </AvatarFallback>
                   </Avatar>
-                  {/* Online indicator */}
                   {onlineUsers.has(otherUser.id) && (
-                    <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-500 ring-2 ring-gray-900" />
+                    <span
+                      className={`absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-emerald-500 ${
+                        isJyotish ? 'ring-2 ring-[#0f0e14]' : 'ring-2 ring-gray-900'
+                      }`}
+                    />
                   )}
                 </div>
 
-                {/* Chat info */}
                 <div className="flex-1 min-w-0 text-left">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-medium text-white truncate">
+                    <h3
+                      className={
+                        isJyotish ? 'font-medium text-[#fafaf9] truncate' : 'font-medium text-white truncate'
+                      }
+                    >
                       {otherUser.name || otherUser.phone || 'Unknown User'}
                     </h3>
                     {chat.lastMessageAt && (
-                      <span className="text-xs text-gray-400 ml-2">
+                      <span className={`text-xs ml-2 ${isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}>
                         {formatDistanceToNow(new Date(chat.lastMessageAt), {
                           addSuffix: false,
                         })}
@@ -200,23 +240,36 @@ export const ChatList: React.FC<ChatListProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-400 truncate pr-2">
+                    <p
+                      className={`text-sm truncate pr-2 ${
+                        isJyotish ? 'text-[#78716c]' : 'text-gray-400'
+                      }`}
+                    >
                       {chat.lastMessageText || 'No messages yet'}
                     </p>
                     {chat.unreadCount && chat.unreadCount > 0 && (
-                      <Badge className="bg-purple-600 text-white px-2 py-0.5 text-xs rounded-full">
+                      <Badge
+                        className={
+                          isJyotish
+                            ? 'bg-amber-500/80 text-[#0f0e14] px-2 py-0.5 text-xs rounded-full font-medium'
+                            : 'bg-purple-600 text-white px-2 py-0.5 text-xs rounded-full'
+                        }
+                      >
                         {chat.unreadCount}
                       </Badge>
                     )}
                   </div>
 
-                  {/* Role badge */}
                   <div className="mt-1">
                     <Badge
                       className={`text-xs px-2 py-0.5 ${
-                        otherUser.role === UserRole.ASTROLOGER
-                          ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50'
-                          : 'bg-blue-600/30 text-blue-300 border border-blue-500/50'
+                        isJyotish
+                          ? otherUser.role === UserRole.ASTROLOGER
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                          : otherUser.role === UserRole.ASTROLOGER
+                            ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50'
+                            : 'bg-blue-600/30 text-blue-300 border border-blue-500/50'
                       }`}
                     >
                       {otherUser.role === UserRole.ASTROLOGER ? 'Astrologer' : 'Client'}

@@ -1,54 +1,56 @@
 /**
  * Jyotish Dashboard Page - Main dashboard for astrologers
- * Refactored with dynamic data fetching, TanStack Query, and improved design
+ * Eye-catching layout with hero, stats, quick actions, tip, and recent activity
  */
 
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
-import { USER_ROLES, QUERY_KEYS } from '@/constants';
+import { USER_ROLES, QUERY_KEYS, ROUTES } from '@/constants';
 import { LoadingScreenWithBackground } from '@/components/ui';
-import { StatsCard, QuickActions, RecentActivity } from '@/components/features/jyotish-dashboard';
+import {
+  StatsCard,
+  QuickActions,
+  RecentActivity,
+  WelcomeHero,
+  DashboardTip,
+} from '@/components/features/jyotish-dashboard';
 import jyotishDashboardService from '@/services/jyotishDashboard.service';
-import { CalendarDays, MessageSquare, TrendingUp, Clock } from 'lucide-react';
+import { CalendarDays, MessageSquare, TrendingUp, Clock, ArrowRight } from 'lucide-react';
 
 export default function JyotishDashboardPage() {
   const { user, isCheckingAccess } = useRequireAuth({
     requiredRole: USER_ROLES.ASTROLOGER,
   });
 
-  // Fetch dashboard stats
   const {
     data: stats,
     isLoading: isLoadingStats,
-    error: statsError,
   } = useQuery({
     queryKey: QUERY_KEYS.JYOTISH_DASHBOARD.STATS,
     queryFn: () => jyotishDashboardService.getDashboardStats(),
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
 
-  // Fetch recent activity
   const {
     data: recentActivity = [],
     isLoading: isLoadingActivity,
   } = useQuery({
     queryKey: QUERY_KEYS.JYOTISH_DASHBOARD.RECENT_ACTIVITY(5),
     queryFn: () => jyotishDashboardService.getRecentActivity(5),
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
   });
 
-  // Show loading state while checking access
   if (isCheckingAccess) {
     return <LoadingScreenWithBackground message="Verifying access..." />;
   }
 
-  // Format earnings with currency
   const formatEarnings = (amount: number, currency: string): string => {
     return new Intl.NumberFormat('en-NP', {
       style: 'currency',
@@ -60,19 +62,12 @@ export default function JyotishDashboardPage() {
 
   return (
     <JyotishLayout>
-      <div className="space-y-6">
-        {/* Welcome Section */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-white">
-            Welcome, {user?.name || 'Jyotish'}! 🙏
-          </h1>
-          <p className="text-gray-300">
-            Manage your consultations, clients, and astrological services
-          </p>
-        </div>
+      <div className="space-y-8">
+        {/* Hero Welcome */}
+        <WelcomeHero name={user?.name || 'Jyotish'} />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="Today's Consultations"
             value={stats?.todaysConsultations.total ?? 0}
@@ -82,21 +77,19 @@ export default function JyotishDashboardPage() {
                 : 'Loading...'
             }
             icon={CalendarDays}
-            gradient="from-purple-600/80 to-purple-800/80"
+            gradient="bg-violet-500/20 text-violet-400"
             borderColor="purple"
             isLoading={isLoadingStats}
           />
-
           <StatsCard
             title="Total Consultations"
             value={stats?.totalConsultations ?? 0}
             subtitle="Lifetime completed"
             icon={Clock}
-            gradient="from-blue-600/80 to-blue-800/80"
+            gradient="bg-sky-500/20 text-sky-400"
             borderColor="blue"
             isLoading={isLoadingStats}
           />
-
           <StatsCard
             title="Pending Chats"
             value={stats?.pendingChats.total ?? 0}
@@ -106,11 +99,10 @@ export default function JyotishDashboardPage() {
                 : 'All caught up'
             }
             icon={MessageSquare}
-            gradient="from-orange-600/80 to-orange-800/80"
+            gradient="bg-amber-500/20 text-amber-400"
             borderColor="orange"
             isLoading={isLoadingStats}
           />
-
           <StatsCard
             title="This Month's Earnings"
             value={
@@ -124,7 +116,7 @@ export default function JyotishDashboardPage() {
                 : 'No change'
             }
             icon={TrendingUp}
-            gradient="from-green-600/80 to-green-800/80"
+            gradient="bg-emerald-500/20 text-emerald-400"
             borderColor="green"
             isLoading={isLoadingStats}
           />
@@ -133,8 +125,23 @@ export default function JyotishDashboardPage() {
         {/* Quick Actions */}
         <QuickActions />
 
-        {/* Recent Activity */}
-        <RecentActivity activities={recentActivity} isLoading={isLoadingActivity} />
+        {/* Two columns: Tip + Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <DashboardTip />
+            {/* Quick link to Chats */}
+            <Link
+              href={ROUTES.JYOTISH_CHAT}
+              className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-white/[0.1] bg-black/30 backdrop-blur-sm px-4 py-3 text-[#fafaf9] hover:bg-amber-500/10 hover:border-amber-500/30 transition-all group"
+            >
+              <span className="text-sm font-medium">Go to Chats</span>
+              <ArrowRight className="h-4 w-4 text-amber-400 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+          <div className="lg:col-span-2">
+            <RecentActivity activities={recentActivity} isLoading={isLoadingActivity} />
+          </div>
+        </div>
       </div>
     </JyotishLayout>
   );
