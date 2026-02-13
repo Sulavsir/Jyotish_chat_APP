@@ -4,9 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
-import type { AstrologerCoinEarningSource } from '@prisma/client';
-import { AppError } from '../middleware/error-handler';
-import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import type { AstrologerCoinEarningSource, Prisma } from '@prisma/client';
 
 export interface AstrologerCoinEarningRow {
   id: string;
@@ -50,7 +48,7 @@ export async function getAstrologerEarnings(
   filters: GetAstrologerEarningsFilters = {}
 ): Promise<GetAstrologerEarningsResult> {
   const { from, to, limit = 50, offset = 0, source } = filters;
-  const where: Parameters<typeof prisma.astrologerCoinEarning.findMany>[0]['where'] = {
+  const where: Prisma.AstrologerCoinEarningWhereInput = {
     astrologerId,
   };
   if (from || to) {
@@ -186,7 +184,7 @@ export async function listAstrologersWithCoinEarnings(params: {
   const search = params.search?.trim();
   const skip = (page - 1) * limit;
 
-  const where: Parameters<typeof prisma.astrologer.findMany>[0]['where'] = {
+  const where: Prisma.AstrologerWhereInput = {
     isDeleted: false,
   };
   if (search) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
@@ -42,7 +42,7 @@ export default function EarningsPage() {
         limit: ITEMS_PER_PAGE,
         search: searchTerm || undefined,
       }),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
   });
 
   const astrologers = data?.astrologers ?? [];
