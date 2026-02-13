@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Calendar,
   CalendarDays,
+  Clock,
   User,
   LogOut,
   Coins,
@@ -36,6 +37,7 @@ const navIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Chats: MessageSquare,
   Consultations: Calendar,
   Appointments: CalendarDays,
+  'My slots': Clock,
   'My Earnings': Coins,
   Profile: User,
 };
@@ -55,6 +57,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
     { name: 'Chats', href: ROUTES.JYOTISH_CHAT },
     { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS },
     ...(hasAppointmentAccess ? [{ name: 'Appointments', href: ROUTES.JYOTISH_APPOINTMENTS }] : []),
+    ...(hasAppointmentAccess ? [{ name: 'My slots', href: ROUTES.JYOTISH_SLOTS }] : []),
     { name: 'My Earnings', href: ROUTES.JYOTISH_EARNINGS },
     { name: 'Profile', href: ROUTES.JYOTISH_PROFILE },
   ];

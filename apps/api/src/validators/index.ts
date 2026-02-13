@@ -37,6 +37,7 @@ export * from './coin.validators';
 export * from './horoscope.validators';
 export * from './notification.validators';
 export * from './appointment.validators';
+export * from './slot.validators';
 export * from './dashboardRotatingCopy.validators';
 export * from './jyotishBooking.validators';
 export * from './broadcastMessage.validators';

@@ -40,6 +40,7 @@ export const ROUTES = {
   JYOTISH_CHAT: '/jyotish/chat',
   JYOTISH_CONSULTATIONS: '/jyotish/consultations',
   JYOTISH_APPOINTMENTS: '/jyotish/appointments',
+  JYOTISH_SLOTS: '/jyotish/slots',
   JYOTISH_PROFILE: '/jyotish/profile',
   JYOTISH_EARNINGS: '/jyotish/earnings',
   JYOTISH_SETTINGS: '/jyotish/settings',

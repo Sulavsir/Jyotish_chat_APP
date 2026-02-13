@@ -36,11 +36,17 @@ export const QUERY_KEYS = {
       filters?.status
         ? (['appointments', 'list', { status: filters.status }] as const)
         : (['appointments', 'list'] as const),
-    MY_LIST: (filters: { page: number; limit: number; search?: string; status?: string }) =>
-      ['appointments', 'my', filters] as const,
+    MY_LIST: (filters: {
+      page: number;
+      limit: number;
+      search?: string;
+      status?: string;
+    }) => ['appointments', 'my', filters] as const,
     DETAIL: (id: string) => ['appointments', 'detail', id] as const,
     AVAILABILITY: (astrologerId: string, date: string) =>
       ['appointments', 'availability', astrologerId, date] as const,
+    SLOTS: (astrologerId: string, slotType: string, fromDate?: string, toDate?: string) =>
+      ['appointments', 'slots', astrologerId, slotType, fromDate, toDate] as const,
     ASTROLOGERS_FOR_APPOINTMENT: ['appointments', 'astrologers'] as const,
   },
 

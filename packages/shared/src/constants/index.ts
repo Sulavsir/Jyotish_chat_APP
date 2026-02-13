@@ -37,6 +37,7 @@ export const QUEUE_NAMES = {
   EMAIL: 'email',
   SMS: 'sms',
   CONSULTATION_REMINDER: 'consultation-reminder',
+  APPOINTMENT_SESSION: 'appointment-session',
 } as const;
 
 // Cache keys

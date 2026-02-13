@@ -16,6 +16,7 @@ export interface AstrologerCoinEarningRow {
   commissionPercent: number;
   astrologerCoinsEarned: number;
   createdAt: string;
+  clientName: string | null;
 }
 
 export interface AstrologerEarningsSummary {

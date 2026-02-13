@@ -39,6 +39,7 @@ const RATE_LABELS: Record<PlatformCoinRateType, string> = {
   BROADCAST_PER_MESSAGE: 'Broadcast chat (per message)',
   BROADCAST_SEND: 'Broadcast send (per message)',
   APPOINTMENT: 'Appointment',
+  KUNDALI_REVIEW: 'Full Kundali Review',
 };
 
 export default function AdminSetCoinsPage() {
@@ -49,6 +50,7 @@ export default function AdminSetCoinsPage() {
     BROADCAST_PER_MESSAGE: '',
     BROADCAST_SEND: '',
     APPOINTMENT: '',
+    KUNDALI_REVIEW: '',
   });
 
   const { data: ratesData, isLoading, isError, error } = useQuery({
@@ -66,6 +68,7 @@ export default function AdminSetCoinsPage() {
         BROADCAST_PER_MESSAGE: '',
         BROADCAST_SEND: '',
         APPOINTMENT: '',
+        KUNDALI_REVIEW: '',
       };
       rates.forEach((r: PlatformCoinRateRow) => {
         next[r.rateType] = String(r.coins);

@@ -6,20 +6,33 @@ import { z } from 'zod';
 import { AppointmentStatus } from '@prisma/client';
 import { queryPaginationSchema } from './query.validators';
 
+const bookingTypeEnum = z.enum(['APPOINTMENT', 'KUNDALI_REVIEW']);
+
 /**
- * Validator for creating a new appointment
+ * Validator for creating a new appointment.
+ * With slotId + bookingType: books astrologer-defined slot (direct CONFIRMED); without: legacy PENDING.
  */
 export const createAppointmentSchema = z.object({
   astrologerId: z.string().uuid('Invalid astrologer ID'),
-  scheduledAt: z.string().datetime('Invalid datetime format'),
+  scheduledAt: z.string().datetime('Invalid datetime format').optional(),
   duration: z
     .number()
     .int()
     .min(15, 'Duration must be at least 15 minutes')
     .max(180, 'Duration cannot exceed 180 minutes')
-    .default(30),
+    .optional(),
   notes: z.string().max(500, 'Notes cannot exceed 500 characters').optional(),
-});
+  slotId: z.string().uuid('Invalid slot ID').optional(),
+  bookingType: bookingTypeEnum.optional(),
+}).refine(
+  (data) => {
+    if (data.slotId != null || data.bookingType != null) {
+      return data.slotId != null && data.bookingType != null;
+    }
+    return data.scheduledAt != null;
+  },
+  { message: 'Either (slotId + bookingType) or scheduledAt is required.' }
+);
 
 /**
  * Validator for updating appointment status

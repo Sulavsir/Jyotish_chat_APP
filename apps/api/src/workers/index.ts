@@ -4,6 +4,7 @@ import { QUEUE_NAMES } from '@jyotish/shared';
 import { horoscopeDeliveryProcessor } from './horoscopeDelivery';
 import { notificationProcessor } from './notification';
 import { consultationReminderProcessor } from './consultationReminder';
+import { appointmentSessionProcessor } from './appointmentSession';
 
 // Redis connection
 const redisConnection = new Redis({
@@ -25,6 +26,10 @@ export const consultationReminderQueue = new Queue(QUEUE_NAMES.CONSULTATION_REMI
   connection: redisConnection,
 });
 
+export const appointmentSessionQueue = new Queue(QUEUE_NAMES.APPOINTMENT_SESSION, {
+  connection: redisConnection,
+});
+
 // Create workers
 const horoscopeWorker = new Worker(
   QUEUE_NAMES.HOROSCOPE_DELIVERY,
@@ -41,6 +46,12 @@ const notificationWorker = new Worker(
 const consultationReminderWorker = new Worker(
   QUEUE_NAMES.CONSULTATION_REMINDER,
   consultationReminderProcessor,
+  { connection: redisConnection }
+);
+
+const appointmentSessionWorker = new Worker(
+  QUEUE_NAMES.APPOINTMENT_SESSION,
+  appointmentSessionProcessor,
   { connection: redisConnection }
 );
 
@@ -85,6 +96,17 @@ export async function setupRecurringJobs() {
     }
   );
 
+  // Appointment session: session start notifications + session end (every minute)
+  await appointmentSessionQueue.add(
+    'appointment-session-check',
+    {},
+    {
+      repeat: {
+        pattern: '* * * * *', // Every minute
+      },
+    }
+  );
+
   console.log('📅 Recurring jobs scheduled successfully');
 }
 
@@ -94,6 +116,7 @@ process.on('SIGTERM', async () => {
   await horoscopeWorker.close();
   await notificationWorker.close();
   await consultationReminderWorker.close();
+  await appointmentSessionWorker.close();
   await redisConnection.quit();
 });
 

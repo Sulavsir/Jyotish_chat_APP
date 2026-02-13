@@ -7,8 +7,8 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Circle, MessageSquare } from 'lucide-react';
-import { Avatar, AvatarImage, AvatarFallback, Skeleton } from '@jyotish/ui';
+import { Circle, MessageSquare, Sparkles } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback, Skeleton, Button } from '@jyotish/ui';
 import { useStore } from '@/store';
 import { QUERY_KEYS } from '@/constants';
 import { getImageUrl } from '@/utils/image.utils';
@@ -18,7 +18,11 @@ import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
 import { SimpleRequestChatButton } from './SimpleRequestChatButton';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
 
-export function OnlineAstrologersCard() {
+interface OnlineAstrologersCardProps {
+  onOpenKundaliReview?: () => void;
+}
+
+export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologersCardProps) {
   const onlineUsers = useStore((state) => state.onlineUsers);
   const showExtraInfoCards = useAskQuestionsLayoutStore((state) => state.showExtraInfoCards);
 
@@ -81,42 +85,55 @@ export function OnlineAstrologersCard() {
       {/* Info Cards Column */}
       <div className="flex flex-col gap-3">
         {/* Instant Connection Card - always visible */}
-        <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-150 overflow-hidden">
-          {/* Shimmer effect always running */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
-          <div className="flex items-start gap-3 relative z-10">
-            <div className="p-2 rounded-lg bg-yellow-500/30 border border-yellow-500/50 scale-110 rotate-2">
-              <MessageSquare className="h-4 w-4 text-yellow-100" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-white mb-1">Instant Connection</p>
-              <p className="text-xs text-gray-200">
-                Get instant answers from verified Jyotish who are currently online and ready to
-                chat.
-              </p>
+
+        {/* Full Kundali Review Card - text + button, same shimmer */}
+        {onOpenKundaliReview && (
+          <div className="relative rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-indigo-500/10 to-transparent p-4 shadow-lg shadow-purple-500/30 animate-in fade-in slide-in-from-bottom-4 delay-200 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 relative z-10">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="p-2 rounded-lg bg-purple-500/30 border border-purple-500/50 scale-110 -rotate-2 shrink-0">
+                  <Sparkles className="h-4 w-4 text-purple-100" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white mb-1">Full Kundali Review</p>
+                  <p className="text-xs text-gray-200">
+                    Book a detailed kundali analysis with expert Jyotish. Get insights on your
+                    chart, planetary positions, and personalized guidance—scheduled at your chosen
+                    time.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={onOpenKundaliReview}
+                variant="outline"
+                className="shrink-0 border-white/30 text-white bg-white/5 hover:bg-white/10"
+              >
+                Full Kundali Review
+              </Button>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Extra info cards only when triggered from AskQuestionsSection */}
         {showExtraInfoCards && (
           <>
-            {/* Private & Secure Card */}
-            <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-250 overflow-hidden">
+            <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-150 overflow-hidden">
+              {/* Shimmer effect always running */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
               <div className="flex items-start gap-3 relative z-10">
-                <div className="p-2 rounded-lg bg-yellow-500/30 border border-yellow-500/50 scale-110 -rotate-2">
-                  <Circle className="h-4 w-4 text-yellow-100 fill-yellow-300" />
+                <div className="p-2 rounded-lg bg-yellow-500/30 border border-yellow-500/50 scale-110 rotate-2">
+                  <MessageSquare className="h-4 w-4 text-yellow-100" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white mb-1">Private & Secure</p>
+                  <p className="text-sm font-semibold text-white mb-1">Instant Connection</p>
                   <p className="text-xs text-gray-200">
-                    Your conversations are confidential between you and your Jyotish – direct chats.
+                    Get instant answers from verified Jyotish who are currently online and ready to
+                    chat.
                   </p>
                 </div>
               </div>
             </div>
-
             {/* Verified Jyotish Card */}
             <div className="relative rounded-xl border border-yellow-500/30 bg-gradient-to-br from-yellow-500/15 via-orange-500/10 to-transparent p-4 shadow-lg shadow-yellow-500/30 animate-in fade-in slide-in-from-bottom-4 delay-350 overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />

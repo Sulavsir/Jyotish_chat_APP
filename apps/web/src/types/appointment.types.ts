@@ -68,6 +68,20 @@ export interface Astrologer {
   languages: string[];
 }
 
+export type BookingType = 'APPOINTMENT' | 'KUNDALI_REVIEW';
+
+export interface AstrologerSlot {
+  id: string;
+  astrologerId: string;
+  startAt: string;
+  endAt: string;
+  slotType: BookingType;
+  status: 'AVAILABLE' | 'BOOKED';
+  appointmentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TimeSlot {
   time: string; // HH:MM format
   available: boolean;
@@ -76,9 +90,11 @@ export interface TimeSlot {
 
 export interface CreateAppointmentData {
   astrologerId: string;
-  scheduledAt: string;
+  scheduledAt?: string;
   duration?: number;
   notes?: string;
+  slotId?: string;
+  bookingType?: BookingType;
 }
 
 export interface UpdateAppointmentData {

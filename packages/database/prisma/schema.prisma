@@ -123,6 +123,7 @@ model Astrologer {
   earnings                     AstrologerEarnings[]
   coinEarnings                 AstrologerCoinEarning[]
   appointments                 Appointment[]                @relation("AstrologerAppointments")
+  slots                        AstrologerSlot[]            @relation("AstrologerSlots")
   complaintsReceived           Complaint[]                  @relation("AstrologerComplaints")
   dismissedBroadcastMessages   BroadcastMessageDismissal[]  @relation("DismissedBroadcastMessages")
   ratingsReceived              Rating[]                     @relation("AstrologerRatings")
@@ -263,6 +264,7 @@ model Chat {
   participant1Type      ParticipantType @default(CLIENT) // Always CLIENT for participant1
   participant2Type      ParticipantType @default(ASTROLOGER) // Always ASTROLOGER for participant2
   consultationId        String?
+  appointmentId         String?         // Link to Appointment when chat is used for appointment/kundali session
   status                ChatStatus      @default(ACTIVE)
   isLocked              Boolean         @default(false) // When true, chat is locked (like Facebook block)
   endedBy               String? // User/Astrologer ID who ended the chat
@@ -294,6 +296,7 @@ model Chat {
   @@index([participant1Id])
   @@index([participant2Id])
   @@index([consultationId])
+  @@index([appointmentId])
   @@index([lastMessageAt])
   @@index([status])
   @@index([isLocked])
@@ -474,6 +477,25 @@ model ConsultationRequest {
   @@index([expiresAt])
 }
 
+// Astrologer-defined time slots (client books one of these)
+model AstrologerSlot {
+  id            String      @id @default(uuid())
+  astrologerId  String
+  startAt      DateTime
+  endAt        DateTime
+  slotType     SlotType    // APPOINTMENT or KUNDALI_REVIEW
+  status       SlotStatus  @default(AVAILABLE)
+  appointmentId String?     @unique // Set when client books this slot (1:1 with Appointment)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  astrologer   Astrologer  @relation("AstrologerSlots", fields: [astrologerId], references: [id], onDelete: Cascade)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([astrologerId])
+  @@index([astrologerId, slotType, startAt])
+  @@index([status])
+}
+
 // Appointment booking system
 model Appointment {
   id               String            @id @default(uuid())
@@ -481,6 +503,7 @@ model Appointment {
   astrologerId     String
   scheduledAt      DateTime
   duration         Int               @default(30) // Duration in minutes
+  bookingType      BookingType       @default(APPOINTMENT) // APPOINTMENT or KUNDALI_REVIEW
   status           AppointmentStatus @default(PENDING)
   amount           Float
   notes            String?
@@ -491,12 +514,14 @@ model Appointment {
   updatedAt        DateTime          @updatedAt
   client           User              @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
   astrologer       Astrologer        @relation("AstrologerAppointments", fields: [astrologerId], references: [id], onDelete: Cascade)
+  slot             AstrologerSlot?   // Back-relation: slot.appointmentId = this id
 
   @@index([clientId])
   @@index([astrologerId])
   @@index([scheduledAt])
   @@index([status])
   @@index([astrologerId, scheduledAt])
+  @@index([bookingType])
 }
 
 model Horoscope {
@@ -969,11 +994,26 @@ enum AstrologerAccountStatus {
 
 enum AppointmentStatus {
   PENDING // Appointment requested
-  CONFIRMED // Astrologer confirmed
+  CONFIRMED // Astrologer confirmed (or directly confirmed when booking with slot)
   IN_PROGRESS // Appointment is ongoing
   COMPLETED // Appointment finished
-  CANCELLED // Cancelled by client or astrologer
+  CANCELLED // Cancelled by client or astrologer or admin
   NO_SHOW // Client didn't show up
+}
+
+enum BookingType {
+  APPOINTMENT
+  KUNDALI_REVIEW
+}
+
+enum SlotType {
+  APPOINTMENT
+  KUNDALI_REVIEW
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
 }
 
 // Admin Chat - Direct chat between users and admins (support widget)
@@ -1077,6 +1117,7 @@ enum PlatformCoinRateType {
   BROADCAST_PER_MESSAGE
   BROADCAST_SEND
   APPOINTMENT
+  KUNDALI_REVIEW
 }
 
 model PlatformCoinRate {
@@ -1096,15 +1137,16 @@ enum AstrologerCoinEarningSource {
   CHAT_MESSAGE
   BROADCAST_MESSAGE
   APPOINTMENT
+  KUNDALI_REVIEW
 }
 
 model AstrologerCoinEarning {
   id                    String                      @id @default(uuid())
   astrologerId          String
-  coinTransactionId     String?                      // Client's deduction transaction
+  coinTransactionId     String?                     // Client's deduction transaction
   chatId                String?
   broadcastMessageId    String?
-  appointmentId         String?
+  appointmentId         String?                     // Appointment or Kundali Review booking
   source                AstrologerCoinEarningSource
   clientCoinsDeducted   Int
   commissionPercent     Float

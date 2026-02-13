@@ -22,6 +22,7 @@ export interface UpdatePlatformCoinRatesInput {
   BROADCAST_PER_MESSAGE?: number;
   BROADCAST_SEND?: number;
   APPOINTMENT?: number;
+  KUNDALI_REVIEW?: number;
 }
 
 const RATE_TYPES: PlatformCoinRateType[] = [
@@ -29,6 +30,7 @@ const RATE_TYPES: PlatformCoinRateType[] = [
   'BROADCAST_PER_MESSAGE',
   'BROADCAST_SEND',
   'APPOINTMENT',
+  'KUNDALI_REVIEW',
 ];
 
 /**
@@ -46,6 +48,7 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
       BROADCAST_PER_MESSAGE: 100,
       BROADCAST_SEND: 100,
       APPOINTMENT: 300,
+      KUNDALI_REVIEW: 500,
     };
     return defaults[rateType] ?? 0;
   }
@@ -59,17 +62,19 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
 export async function getRatesForClient(): Promise<
   Record<PlatformCoinRateType, number>
 > {
-  const [chat, broadcastMsg, broadcastSend, appointment] = await Promise.all([
+  const [chat, broadcastMsg, broadcastSend, appointment, kundaliReview] = await Promise.all([
     getRate('CHAT_PER_MESSAGE'),
     getRate('BROADCAST_PER_MESSAGE'),
     getRate('BROADCAST_SEND'),
     getRate('APPOINTMENT'),
+    getRate('KUNDALI_REVIEW'),
   ]);
   return {
     CHAT_PER_MESSAGE: chat,
     BROADCAST_PER_MESSAGE: broadcastMsg,
     BROADCAST_SEND: broadcastSend,
     APPOINTMENT: appointment,
+    KUNDALI_REVIEW: kundaliReview,
   };
 }
 
@@ -87,6 +92,7 @@ export async function getAllRates(): Promise<PlatformCoinRateRow[]> {
     BROADCAST_PER_MESSAGE: 100,
     BROADCAST_SEND: 100,
     APPOINTMENT: 300,
+    KUNDALI_REVIEW: 500,
   };
   for (const rateType of RATE_TYPES) {
     if (!existing.has(rateType)) {

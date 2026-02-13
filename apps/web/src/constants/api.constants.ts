@@ -111,6 +111,8 @@ export const API_ENDPOINTS = {
     PROFILE: (id: string) => `/api/v1/public/astrologers/${id}`,
     STATS: '/api/v1/public/astrologers/stats',
     EARNINGS: '/api/v1/astrologer/earnings',
+    SLOTS: '/api/v1/astrologer/slots',
+    SLOT_BY_ID: (id: string) => `/api/v1/astrologer/slots/${id}`,
   },
   ADMIN: {
     COIN_RATES: '/api/v1/admin/coin-rates',
@@ -128,6 +130,7 @@ export const API_ENDPOINTS = {
     CANCEL: (id: string) => `/api/v1/appointments/${id}/cancel`,
     CONFIRM: (id: string) => `/api/v1/appointments/${id}/confirm`,
     AVAILABILITY: (astrologerId: string) => `/api/v1/appointments/availability/${astrologerId}`,
+    SLOTS: (astrologerId: string) => `/api/v1/appointments/slots/${astrologerId}`,
   },
   COMPLAINTS: {
     CREATE: '/api/v1/complaints',

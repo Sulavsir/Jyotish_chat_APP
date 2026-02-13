@@ -5,16 +5,21 @@
 
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES, QUERY_KEYS } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { LoadingScreenWithBackground } from '@/components/ui';
+import {
+  JyotishDataTable,
+  JyotishPagination,
+  type JyotishDataTableColumn,
+} from '@/components/jyotish/JyotishTable';
 import { getAstrologerEarnings } from '@/services/astrologerEarnings.service';
 import type { AstrologerCoinEarningSource, AstrologerCoinEarningRow } from '@/types/earnings.types';
-import { Coins, MessageSquare, Radio, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Coins, MessageSquare, Radio, Calendar } from 'lucide-react';
 
 const SOURCE_LABELS: Record<AstrologerCoinEarningSource, string> = {
   CHAT_MESSAGE: 'Direct chat',
@@ -22,17 +27,24 @@ const SOURCE_LABELS: Record<AstrologerCoinEarningSource, string> = {
   APPOINTMENT: 'Appointment',
 };
 
-const SOURCE_ICONS: Record<AstrologerCoinEarningSource, React.ComponentType<{ className?: string }>> = {
+const SOURCE_ICONS: Record<
+  AstrologerCoinEarningSource,
+  React.ComponentType<{ className?: string }>
+> = {
   CHAT_MESSAGE: MessageSquare,
   BROADCAST_MESSAGE: Radio,
   APPOINTMENT: Calendar,
 };
 
+/** Month and date format e.g. "Feb 13, 2026, 3:45 PM" (no 2/13/26) */
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString(undefined, {
-    dateStyle: 'short',
-    timeStyle: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -51,8 +63,49 @@ export default function JyotishEarningsPage() {
     () => (data?.total != null ? Math.max(1, Math.ceil(data.total / limit)) : 1),
     [data?.total, limit]
   );
-  const hasNext = page < totalPages - 1;
-  const hasPrev = page > 0;
+
+  const earningsColumns: JyotishDataTableColumn<AstrologerCoinEarningRow>[] = useMemo(
+    () => [
+      {
+        id: 'sn',
+        header: 'S.N.',
+        cellClassName: 'whitespace-nowrap text-white/70',
+        cell: (_row, index) => page * limit + (index ?? 0) + 1,
+      },
+      {
+        id: 'date',
+        header: 'Date',
+        cell: (row) => formatDate(row.createdAt),
+        cellClassName: 'whitespace-nowrap text-white/70',
+      },
+      {
+        id: 'source',
+        header: 'Source',
+        cell: (row) => {
+          const SourceIcon = SOURCE_ICONS[row.source];
+          return (
+            <span className="inline-flex items-center gap-1.5">
+              <SourceIcon className="h-3.5 w-3.5 text-violet-400" />
+              {SOURCE_LABELS[row.source]}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'client',
+        header: 'Client',
+        cell: (row) => row.clientName ?? '—',
+      },
+      {
+        id: 'earned',
+        header: 'You earned',
+        headerClassName: 'border-r-0',
+        cellClassName: 'font-medium text-amber-400 border-r-0',
+        cell: (row) => `+${row.astrologerCoinsEarned} coins`,
+      },
+    ],
+    [page, limit]
+  );
 
   if (isCheckingAccess) {
     return <LoadingScreenWithBackground message="Verifying access..." />;
@@ -116,86 +169,37 @@ export default function JyotishEarningsPage() {
             <p className="text-sm text-white/60">Per-message and per-session earnings</p>
           </CardHeader>
           <CardContent>
-            {isLoading && (
-              <div className="py-8 text-center text-white/60">Loading...</div>
-            )}
+            {isLoading && <div className="py-8 text-center text-white/60">Loading...</div>}
             {isError && (
               <div className="py-8 text-center text-red-400">
                 {error instanceof Error ? error.message : 'Failed to load earnings'}
               </div>
             )}
-            {!isLoading && !isError && (!data?.items?.length ? (
-              <div className="py-8 text-center text-white/60">
-                No earnings yet. Earnings appear when clients spend coins in your chats or appointments.
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-white/10 text-left text-white/70">
-                        <th className="pb-3 pr-4">Date</th>
-                        <th className="pb-3 pr-4">Source</th>
-                        <th className="pb-3 pr-4">Client coins</th>
-                        <th className="pb-3 pr-4">Commission</th>
-                        <th className="pb-3">You earned</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(data?.items ?? []).map((row: AstrologerCoinEarningRow) => {
-                        const SourceIcon = SOURCE_ICONS[row.source];
-                        return (
-                          <tr
-                            key={row.id}
-                            className="border-b border-white/5 text-white/90"
-                          >
-                            <td className="py-3 pr-4 whitespace-nowrap text-white/70">
-                              {formatDate(row.createdAt)}
-                            </td>
-                            <td className="py-3 pr-4">
-                              <span className="inline-flex items-center gap-1.5">
-                                <SourceIcon className="h-3.5 w-3.5 text-violet-400" />
-                                {SOURCE_LABELS[row.source]}
-                              </span>
-                            </td>
-                            <td className="py-3 pr-4">{row.clientCoinsDeducted}</td>
-                            <td className="py-3 pr-4">{row.commissionPercent}%</td>
-                            <td className="py-3 font-medium text-amber-400">
-                              +{row.astrologerCoinsEarned} coins
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            {!isLoading &&
+              !isError &&
+              (!data?.items?.length ? (
+                <div className="py-8 text-center text-white/60">
+                  No earnings yet. Earnings appear when clients spend coins in your chats or
+                  appointments.
                 </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
-                    <span className="text-sm text-white/60">
-                      Page {page + 1} of {totalPages}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.max(0, p - 1))}
-                        disabled={!hasPrev}
-                        className="p-2 rounded-lg border border-white/20 text-white/80 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                        disabled={!hasNext}
-                        className="p-2 rounded-lg border border-white/20 text-white/80 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white/10"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto rounded-lg border border-white/10">
+                    <JyotishDataTable<AstrologerCoinEarningRow>
+                      columns={earningsColumns}
+                      data={data?.items ?? []}
+                      getRowId={(row) => row.id}
+                    />
                   </div>
-                )}
-              </>
-            ))}
+                  {data && data.total > 0 && (
+                    <JyotishPagination
+                      page={page}
+                      totalPages={totalPages}
+                      onPageChange={setPage}
+                    />
+                  )}
+                </>
+              ))}
           </CardContent>
         </Card>
       </div>

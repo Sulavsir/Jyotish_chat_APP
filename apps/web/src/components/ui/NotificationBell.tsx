@@ -155,6 +155,11 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       return `${routePrefix}/chat`;
     }
 
+    // Session started (appointment / kundali) – open the free session chat
+    if (type === 'SYSTEM' && metadata?.chatId && metadata?.event === 'SESSION_STARTED') {
+      return `${routePrefix}/chat?chatId=${metadata.chatId}`;
+    }
+
     // Consultation notifications
     if (type === 'CONSULTATION_BOOKED' || type === 'CONSULTATION_REMINDER') {
       if (metadata?.consultationId) {

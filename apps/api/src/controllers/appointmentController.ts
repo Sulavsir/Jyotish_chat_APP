@@ -12,8 +12,10 @@ import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
 /**
- * Create a new appointment (no coin deduction here; coins are deducted when Jyotish confirms).
- * POST /api/appointments
+ * Create a new appointment.
+ * With slotId + bookingType: deducts coins and creates CONFIRMED booking.
+ * Without: legacy PENDING (coins deducted when Jyotish confirms).
+ * POST /api/v1/appointments
  */
 export const createAppointment = async (req: AuthRequest, res: Response) => {
   try {
@@ -25,7 +27,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { astrologerId, scheduledAt, duration, notes } = req.body;
+    const { astrologerId, scheduledAt, duration, notes, slotId, bookingType } = req.body;
 
     const { prisma } = await import('@jyotish/database');
     const astrologer = await prisma.astrologer.findUnique({
@@ -33,7 +35,60 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       select: { appointmentFee: true, category: true },
     });
 
-    if (!astrologer || !astrologer.appointmentFee) {
+    if (!astrologer) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: 'Astrologer not found',
+      });
+    }
+
+    if (slotId != null && bookingType != null) {
+      const coinService = await import('../services/coin.service');
+      let deduction: { coinTransactionId: string; coinCost: number } | undefined;
+      try {
+        const result = await coinService.deductCoinsForBooking(
+          clientId,
+          astrologerId,
+          bookingType
+        );
+        if (result.coinCost > 0) {
+          deduction = { coinTransactionId: result.coinTransactionId, coinCost: result.coinCost };
+        }
+      } catch (coinError: any) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          message:
+            coinError.message ||
+            'Insufficient coins. Please top up to book.',
+        });
+      }
+
+      const { getRate } = await import('../services/platformCoinRate.service');
+      const amount = await getRate(bookingType === 'KUNDALI_REVIEW' ? 'KUNDALI_REVIEW' : 'APPOINTMENT');
+
+      const appointment = await appointmentService.createAppointment({
+        clientId,
+        astrologerId,
+        scheduledAt: new Date(), // overwritten by slot in service
+        duration: 30,
+        amount,
+        notes,
+        slotId,
+        bookingType,
+      });
+
+      if (deduction?.coinTransactionId) {
+        await coinService.linkAppointmentToCoinEarning(deduction.coinTransactionId, appointment.id);
+      }
+
+      return res.status(HTTP_STATUS.CREATED).json({
+        success: true,
+        data: appointment,
+        message: 'Booking confirmed successfully',
+      });
+    }
+
+    if (!astrologer.appointmentFee) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         message: 'Astrologer does not have appointment fee set',

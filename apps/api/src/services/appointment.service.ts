@@ -5,7 +5,7 @@
 
 import { prisma } from '@jyotish/database';
 import { UserRole, AstrologerCategory } from '@jyotish/shared';
-import { AppointmentStatus, Prisma } from '@prisma/client';
+import { AppointmentStatus, Prisma, SlotStatus } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import type {
@@ -14,14 +14,38 @@ import type {
   AppointmentWithRelations,
   TimeSlot,
 } from '../types/appointment.types';
+import * as astrologerSlotService from './astrologerSlot.service';
+
+const defaultInclude = {
+  client: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      profilePhoto: true,
+    },
+  },
+  astrologer: {
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      email: true,
+      profilePhoto: true,
+      category: true,
+      appointmentFee: true,
+    },
+  },
+} as const;
 
 /**
- * Create a new appointment
+ * Create a new appointment. With slotId + bookingType: books astrologer-defined slot (direct CONFIRMED).
+ * Without: legacy flow (PENDING, requires astrologer confirm for coins).
  */
 export const createAppointment = async (
   data: BookAppointmentData
 ): Promise<AppointmentWithRelations> => {
-  // Validate astrologer can accept appointments
   const astrologer = await prisma.astrologer.findUnique({
     where: { id: data.astrologerId },
     select: {
@@ -34,18 +58,31 @@ export const createAppointment = async (
   });
 
   if (!astrologer) {
-    throw new Error('Astrologer not found');
+    throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
   }
-
   if (!astrologer.isActive) {
-    throw new Error('Astrologer is not active');
+    throw new AppError('Astrologer is not active', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
-
   if (astrologer.category === AstrologerCategory.ORDINARY) {
-    throw new Error('This astrologer does not accept appointments');
+    throw new AppError(
+      'This astrologer does not accept appointments',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
   }
 
-  // Check if time slot is available
+  if (data.slotId != null && data.bookingType != null) {
+    return createAppointmentWithSlot(data);
+  }
+
+  if (!data.scheduledAt || data.duration == null) {
+    throw new AppError(
+      'scheduledAt and duration are required when not booking with a slot',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
   const existingAppointment = await prisma.appointment.findFirst({
     where: {
       astrologerId: data.astrologerId,
@@ -55,12 +92,14 @@ export const createAppointment = async (
       },
     },
   });
-
   if (existingAppointment) {
-    throw new Error('This time slot is already booked');
+    throw new AppError(
+      'This time slot is already booked',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
   }
 
-  // Create the appointment
   const appointment = await prisma.appointment.create({
     data: {
       clientId: data.clientId,
@@ -69,38 +108,80 @@ export const createAppointment = async (
       duration: data.duration,
       amount: data.amount,
       notes: data.notes || null,
+      bookingType: 'APPOINTMENT',
       status: AppointmentStatus.PENDING,
     },
-    include: {
-      client: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-          profilePhoto: true,
-        },
-      },
-      astrologer: {
-        select: {
-          id: true,
-          name: true,
-          phone: true,
-          email: true,
-          profilePhoto: true,
-          category: true,
-          appointmentFee: true,
-        },
-      },
-    },
+    include: defaultInclude,
   });
 
-  // Emit new consultation event to admin for real-time stats (appointments count as consultations)
   const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
   AdminStatsEmitter.emitNewConsultation();
-
   return appointment as AppointmentWithRelations;
 };
+
+/**
+ * Create appointment by booking an astrologer-defined slot. Status CONFIRMED; slot marked BOOKED.
+ */
+async function createAppointmentWithSlot(
+  data: BookAppointmentData
+): Promise<AppointmentWithRelations> {
+  const slot = await astrologerSlotService.getSlotById(data.slotId!);
+  if (!slot) {
+    throw new AppError('Slot not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+  if (slot.astrologerId !== data.astrologerId) {
+    throw new AppError(
+      'Slot does not belong to this astrologer',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+  if (slot.status !== SlotStatus.AVAILABLE) {
+    throw new AppError(
+      'This slot is no longer available',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+  if (slot.slotType !== data.bookingType!) {
+    throw new AppError(
+      'Slot type does not match booking type',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const scheduledAt = slot.startAt;
+  const durationMinutes = Math.round(
+    (slot.endAt.getTime() - slot.startAt.getTime()) / (60 * 1000)
+  );
+  const duration = durationMinutes === 30 ? 30 : Math.max(15, Math.min(180, durationMinutes));
+
+  const appointment = await prisma.$transaction(async (tx) => {
+    const created = await tx.appointment.create({
+      data: {
+        clientId: data.clientId,
+        astrologerId: data.astrologerId,
+        scheduledAt,
+        duration,
+        amount: data.amount,
+        notes: data.notes || null,
+        bookingType: data.bookingType!,
+        status: AppointmentStatus.CONFIRMED,
+      },
+      include: defaultInclude,
+    });
+    await tx.astrologerSlot.update({
+      where: { id: data.slotId! },
+      data: { status: SlotStatus.BOOKED, appointmentId: created.id },
+    });
+    return created;
+  });
+
+  const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+  AdminStatsEmitter.emitNewConsultation();
+  return appointment as AppointmentWithRelations;
+}
 
 /**
  * Get appointments for a user (client or astrologer)

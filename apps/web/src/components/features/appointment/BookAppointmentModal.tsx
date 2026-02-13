@@ -7,7 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
-import { Calendar, Clock, Coins, Loader2, CalendarDays } from 'lucide-react';
+import { Clock, Loader2, CalendarDays } from 'lucide-react';
 import {
   Button,
   Dialog,
@@ -16,15 +16,20 @@ import {
   DialogTitle,
   DialogDescription,
   Search,
-  Input,
   Textarea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import appointmentService from '@/services/appointment.service';
-import type { Astrologer, TimeSlot } from '@/types/appointment.types';
+import type { Astrologer, AstrologerSlot, BookingType } from '@/types/appointment.types';
 import { AstrologerCategory } from '@/types/appointment.types';
-import { DEFAULT_APPOINTMENT_DURATION, ASTROLOGER_CATEGORY, QUERY_KEYS } from '@/constants';
+import { ASTROLOGER_CATEGORY, QUERY_KEYS } from '@/constants';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
 
@@ -39,25 +44,33 @@ interface BookAppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** APPOINTMENT = normal appointment; KUNDALI_REVIEW = Full Kundali Review (different rate & label) */
+  mode?: 'APPOINTMENT' | 'KUNDALI_REVIEW';
 }
+
+const BOOKING_MODE = {
+  APPOINTMENT: { slotType: 'APPOINTMENT' as BookingType, rateKey: 'APPOINTMENT' as const, title: 'Book an Appointment', description: 'Schedule a cosmic consultation with our expert astrologers' },
+  KUNDALI_REVIEW: { slotType: 'KUNDALI_REVIEW' as BookingType, rateKey: 'KUNDALI_REVIEW' as const, title: 'Full Kundali Review', description: 'Book a detailed kundali review session with our expert astrologers' },
+};
 
 export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  mode = 'APPOINTMENT',
 }) => {
   const queryClient = useQueryClient();
   const [selectedAstrologer, setSelectedAstrologer] = useState<Astrologer | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [selectedSlot, setSelectedSlot] = useState<AstrologerSlot | null>(null);
   const [notes, setNotes] = useState<string>('');
-  const [step, setStep] = useState<'select-astrologer' | 'select-datetime' | 'confirm'>(
-    'select-astrologer'
-  );
+  const [step, setStep] = useState<'select-astrologer' | 'select-datetime'>('select-astrologer');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedDateKey, setSelectedDateKey] = useState<string>('');
+  const [bookingSlotId, setBookingSlotId] = useState<string | null>(null);
 
+  const bookingMode = BOOKING_MODE[mode];
   const { rates } = useCoinRates(isOpen);
-  const appointmentCoinCost = rates?.APPOINTMENT;
+  const appointmentCoinCost = rates?.[bookingMode.rateKey];
   const { data: balanceData } = useQuery({
     queryKey: QUERY_KEYS.COINS.BALANCE,
     queryFn: () => coinService.getBalance(),
@@ -115,12 +128,40 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     });
   }, [rawAstrologers]);
 
-  // Fetch time slots with TanStack Query
-  const { data: timeSlots = [], isLoading: isLoadingSlots } = useQuery({
-    queryKey: QUERY_KEYS.APPOINTMENTS.AVAILABILITY(selectedAstrologer?.id || '', selectedDate),
-    queryFn: () => appointmentService.checkAvailability(selectedAstrologer!.id, selectedDate),
-    enabled: !!selectedAstrologer && !!selectedDate,
+  // Fetch available slots (astrologer-defined) for booking
+  const { data: slotsData, isLoading: isLoadingSlots } = useQuery({
+    queryKey: QUERY_KEYS.APPOINTMENTS.SLOTS(selectedAstrologer?.id ?? '', bookingMode.slotType),
+    queryFn: () =>
+      appointmentService.listAvailableSlots(selectedAstrologer!.id, { slotType: bookingMode.slotType }),
+    enabled: !!selectedAstrologer && step === 'select-datetime',
   });
+  const availableSlots = slotsData?.slots ?? [];
+
+  const { dateOptions, slotsByDate } = useMemo(() => {
+    const slots = slotsData?.slots ?? [];
+    const byDate = new Map<string, AstrologerSlot[]>();
+    for (const slot of slots) {
+      const key = new Date(slot.startAt).toISOString().slice(0, 10);
+      if (!byDate.has(key)) byDate.set(key, []);
+      byDate.get(key)!.push(slot);
+    }
+    for (const arr of byDate.values()) {
+      arr.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+    }
+    const dates = [...byDate.keys()].sort();
+    const dateOptions = dates.map((key) => ({
+      value: key,
+      label: new Date(key + 'T12:00:00').toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    }));
+    return { dateOptions, slotsByDate: byDate };
+  }, [slotsData?.slots]);
+
+  const slotsForSelectedDate = selectedDateKey ? slotsByDate.get(selectedDateKey) ?? [] : [];
 
   // Filter astrologers based on search query
   const filteredAstrologers = useMemo(() => {
@@ -139,79 +180,65 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     setSearchQuery(''); // Clear search when astrologer is selected
   };
 
-  // Book appointment mutation
+  // Book appointment mutation (slot-based: deducts coins on book, status CONFIRMED)
   const bookAppointmentMutation = useMutation({
     mutationFn: (data: {
       astrologerId: string;
-      scheduledAt: string;
-      duration: number;
+      slotId: string;
+      bookingType?: 'APPOINTMENT' | 'KUNDALI_REVIEW';
       notes?: string;
     }) => appointmentService.createAppointment(data),
     onSuccess: (response) => {
-      const message = getSuccessMessage(response) || 'Appointment booked successfully!';
+      const message = getSuccessMessage(response) || 'Booking confirmed successfully!';
       toast.success(message);
-      // Invalidate relevant queries (including coin balance after deduction)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.LIST() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      setBookingSlotId(null);
       onSuccess?.();
       handleClose();
     },
     onError: (error) => {
-      showErrorToast(error, 'Failed to book appointment');
+      showErrorToast(error, 'Failed to book');
+      setBookingSlotId(null);
     },
   });
 
-  const handleBookAppointment = () => {
-    if (!selectedAstrologer || !selectedDate || !selectedTime) {
-      toast.error('Please select all required fields');
-      return;
-    }
-
-    // Min coin check: coins are deducted when Jyotish accepts; ensure client has enough so confirm can succeed
+  const handleBookSlot = (slot: AstrologerSlot) => {
+    if (!selectedAstrologer) return;
     if (
       appointmentCoinCost != null &&
       appointmentCoinCost > 0 &&
       coinBalance < appointmentCoinCost
     ) {
       toast.error(
-        `Insufficient coins. You need ${appointmentCoinCost} coin${appointmentCoinCost === 1 ? '' : 's'} (deducted when Jyotish accepts). Your balance: ${coinBalance}. Please top up.`
+        `Insufficient coins. You need ${appointmentCoinCost} coin${appointmentCoinCost === 1 ? '' : 's'}. Your balance: ${coinBalance}. Please top up.`
       );
       return;
     }
-
-    // Combine date and time into ISO string
-    const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
-
+    setBookingSlotId(slot.id);
     bookAppointmentMutation.mutate({
       astrologerId: selectedAstrologer.id,
-      scheduledAt,
-      duration: DEFAULT_APPOINTMENT_DURATION,
+      slotId: slot.id,
+      bookingType: bookingMode.slotType,
       notes: notes.trim() || undefined,
     });
   };
 
+  const formatSlotTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  };
+
   const handleClose = () => {
     setSelectedAstrologer(null);
-    setSelectedDate('');
-    setSelectedTime('');
+    setSelectedSlot(null);
     setNotes('');
     setSearchQuery('');
     setStep('select-astrologer');
+    setSelectedDateKey('');
+    setBookingSlotId(null);
     onClose();
-  };
-
-  // Get minimum date (today)
-  const getMinDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  // Get maximum date (30 days from now)
-  const getMaxDate = () => {
-    const maxDate = new Date();
-    maxDate.setDate(maxDate.getDate() + 30);
-    return maxDate.toISOString().split('T')[0];
   };
 
   return (
@@ -238,17 +265,17 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
               <div className="flex-1">
                 <DialogTitle className="text-2xl font-bold text-white flex items-center gap-2 mb-1">
                   <CalendarDays className="h-6 w-6 text-purple-400" />
-                  Book an Appointment
+                  {bookingMode.title}
                 </DialogTitle>
                 <DialogDescription className="text-sm text-purple-200/90">
-                  Schedule a cosmic consultation with our expert astrologers
+                  {bookingMode.description}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Info Banner */}
-          {step === 'select-astrologer' && (
+          {/* Info Banner – only for Appointment mode, not for Full Kundali Review */}
+          {step === 'select-astrologer' && mode === 'APPOINTMENT' && (
             <div className="flex-shrink-0 border-b border-purple-500/30 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 backdrop-blur-sm p-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
@@ -543,7 +570,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                             <span className="font-semibold text-amber-300">
                               {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
                             </span>
-                            {' per session. Deducted when Jyotish accepts.'}
+                            {' per session. Deducted when you book.'}
                           </>
                         ) : appointmentCoinCost === undefined ? (
                           '… coins per session'
@@ -555,70 +582,61 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-white mb-4">Select Date & Time</h3>
-
-                {/* Date Selection */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-purple-200 mb-2">
-                    <Calendar className="inline h-4 w-4 mr-2" />
-                    Select Date
-                  </label>
-                  <Input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      setSelectedTime('');
-                    }}
-                    min={getMinDate()}
-                    max={getMaxDate()}
-                    className="w-full bg-slate-800/50 text-white border-purple-500/30"
-                  />
+                {/* 1. Date dropdown */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-white mb-2">Select date</label>
+                  <Select
+                    value={selectedDateKey}
+                    onValueChange={setSelectedDateKey}
+                    disabled={isLoadingSlots || availableSlots.length === 0}
+                  >
+                    <SelectTrigger className="w-full bg-slate-800/50 border-white/20 text-white">
+                      <SelectValue placeholder={isLoadingSlots ? 'Loading...' : availableSlots.length === 0 ? 'No slots available' : 'Choose a date'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dateOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Time Slots */}
-                {selectedDate && (
-                  <div>
-                    <label className="block text-sm font-medium text-purple-200 mb-2">
-                      <Clock className="inline h-4 w-4 mr-2" />
-                      Select Time Slot
-                    </label>
-
-                    {isLoadingSlots ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
-                      </div>
+                {/* 2. Time slot buttons – shown after date is selected; click to book directly */}
+                {selectedDateKey && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-white mb-2">Available times</label>
+                    {slotsForSelectedDate.length === 0 ? (
+                      <p className="text-sm text-purple-300/80">No slots for this date.</p>
                     ) : (
-                      <div className="grid grid-cols-4 gap-2">
-                        {timeSlots.map((slot) => (
-                          <button
-                            key={slot.time}
-                            onClick={() => setSelectedTime(slot.time)}
-                            disabled={!slot.available}
-                            title={!slot.available ? `Booked by ${slot.bookedBy}` : ''}
-                            className={`
-                              px-3 py-2 rounded-lg text-sm font-medium transition-all
-                              ${
-                                selectedTime === slot.time
-                                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                                  : slot.available
-                                    ? 'bg-slate-800/50 border border-purple-500/30 text-purple-200 hover:border-purple-500'
-                                    : 'bg-slate-800/30 border border-slate-700 text-slate-600 cursor-not-allowed'
-                              }
-                            `}
+                      <div className="flex flex-wrap gap-2">
+                        {slotsForSelectedDate.map((slot) => (
+                          <LoadingButton
+                            key={slot.id}
+                            onClick={() => handleBookSlot(slot)}
+                            isLoading={bookingSlotId === slot.id}
+                            loadingText="Booking..."
+                            disabled={bookingSlotId != null}
+                            variant="outline"
+                            className="border-white/30 text-white bg-white/5 hover:bg-white/10"
                           >
-                            {slot.time}
-                          </button>
+                            <Clock className="h-4 w-4 mr-1.5" />
+                            {formatSlotTime(slot.startAt)} – {formatSlotTime(slot.endAt)}
+                          </LoadingButton>
                         ))}
                       </div>
                     )}
+                    <p className="text-xs text-purple-300/70 mt-2">
+                      Click a time to book immediately. No approval needed from the astrologer.
+                    </p>
                   </div>
                 )}
 
-                {/* Notes */}
-                <div className="mt-6">
+                {/* Notes (optional) */}
+                <div className="mt-4">
                   <label className="block text-sm font-medium text-purple-200 mb-2">
-                    Notes (Optional)
+                    Notes (optional)
                   </label>
                   <Textarea
                     value={notes}
@@ -631,46 +649,23 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   <p className="text-xs text-purple-300/70 mt-1">{notes.length}/500 characters</p>
                 </div>
 
-                {/* Insufficient coins message (min requirement before booking) */}
+                {/* Insufficient coins message */}
                 {appointmentCoinCost != null &&
                   appointmentCoinCost > 0 &&
                   coinBalance < appointmentCoinCost && (
-                    <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm">
-                      You need at least {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'} (deducted when Jyotish accepts). Your balance: {coinBalance}. Please top up to book.
+                    <div className="mt-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm">
+                      You need at least {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}. Your balance: {coinBalance}. Please top up to book.
                     </div>
                   )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-6">
+                <div className="flex justify-end mt-6">
                   <Button
                     onClick={handleClose}
                     variant="outline"
-                    className="flex-1 border-purple-500/30 text-purple-200 hover:bg-purple-900/30"
+                    className="border-white/20 text-white/80 hover:bg-white/10"
                     disabled={bookAppointmentMutation.isPending}
                   >
                     Cancel
-                  </Button>
-                  <Button
-                    onClick={handleBookAppointment}
-                    disabled={
-                      !selectedTime ||
-                      bookAppointmentMutation.isPending ||
-                      appointmentCoinCost === undefined ||
-                      (appointmentCoinCost > 0 && coinBalance < appointmentCoinCost)
-                    }
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 disabled:opacity-60"
-                  >
-                    {bookAppointmentMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Booking...
-                      </>
-                    ) : (
-                      <>
-                        <Coins className="mr-2 h-4 w-4" />
-                        Book Appointment
-                      </>
-                    )}
                   </Button>
                 </div>
               </div>

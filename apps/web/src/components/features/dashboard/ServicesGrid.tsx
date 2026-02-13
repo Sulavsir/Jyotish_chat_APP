@@ -16,6 +16,7 @@ import {
   BookOpen,
   GitCompareArrows,
   MessageCircle,
+  Sparkles,
 } from 'lucide-react';
 import { ROUTES } from '@/constants';
 interface Service {
@@ -31,6 +32,7 @@ interface ServicesGridProps {
   onOpenVaastuModal: () => void;
   onOpenKathaModal: () => void;
   onOpenAppointmentModal: () => void;
+  onOpenKundaliReviewModal?: () => void;
 }
 
 export function ServicesGrid({
@@ -38,6 +40,7 @@ export function ServicesGrid({
   onOpenVaastuModal,
   onOpenKathaModal,
   onOpenAppointmentModal,
+  onOpenKundaliReviewModal,
 }: ServicesGridProps) {
   const router = useRouter();
 
@@ -54,6 +57,16 @@ export function ServicesGrid({
       icon: <CalendarDays className="h-6 w-6" />,
       onClick: onOpenAppointmentModal,
     },
+    ...(onOpenKundaliReviewModal
+      ? [
+          {
+            id: 'kundali-review',
+            name: 'Full Kundali Review',
+            icon: <Sparkles className="h-6 w-6" />,
+            onClick: onOpenKundaliReviewModal,
+          },
+        ]
+      : []),
     {
       id: 'horoscope',
       name: 'Daily Horoscope',

@@ -4,31 +4,31 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES } from '@/constants';
 import { AstrologerCategory } from '@jyotish/shared';
 import { QUERY_KEYS } from '@/constants/query-keys.constants';
-import { LoadingScreenWithBackground, LoadingButton } from '@/components/ui';
-import { CancelAppointmentModal } from '@/components/features/appointment';
-import appointmentService from '@/services/appointment.service';
+import { LoadingScreenWithBackground } from '@/components/ui';
+import { listMine as listMyAppointments } from '@/services/appointment.service';
 import type { Appointment } from '@/types/appointment.types';
 import { AppointmentStatus } from '@/types/appointment.types';
-import { Button, Skeleton, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
+import { Button, Skeleton } from '@jyotish/ui';
+import {
+  JyotishDataTable,
+  JyotishPagination,
+  type JyotishDataTableColumn,
+} from '@/components/jyotish/JyotishTable';
 import { getAstrologerPermissionsFromUser } from '@/lib/auth';
-import { showErrorToast, showSuccessToast, getSuccessMessage } from '@/lib/error-handler';
 import {
   CalendarDays,
   Clock,
-  DollarSign,
   CheckCircle2,
   XCircle,
   AlertCircle,
   RefreshCw,
-  Phone,
-  Mail,
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -49,60 +49,50 @@ const STATUS_ICONS: Record<AppointmentStatus, typeof AlertCircle> = {
   [AppointmentStatus.NO_SHOW]: XCircle,
 };
 
+const APPOINTMENTS_PER_PAGE = 10;
+
 export default function JyotishAppointmentsPage() {
   const { user, isCheckingAccess } = useRequireAuth({
     requiredRole: USER_ROLES.ASTROLOGER,
   });
-  const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>('');
-  const [cancelModalAppointment, setCancelModalAppointment] = useState<Appointment | null>(null);
+  const [tablePage, setTablePage] = useState(0);
 
   // Permissions from /me stored in Zustand (works in production; no cookie dependency)
   const { canAccessAppointments: hasAppointmentAccess, category: astrologerCategory } =
     getAstrologerPermissionsFromUser(user);
 
-  // fetch appointments
+  // fetch appointments (paginated from backend)
   const {
-    data: appointments = [],
+    data: appointmentsData,
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: QUERY_KEYS.APPOINTMENTS.LIST({ status: filterStatus || undefined }),
-    queryFn: () => appointmentService.getMyAppointments(filterStatus || undefined),
-    enabled: hasAppointmentAccess, // Only fetch if has access
+    queryKey: QUERY_KEYS.APPOINTMENTS.MY_LIST({
+      page: tablePage + 1,
+      limit: APPOINTMENTS_PER_PAGE,
+      status: filterStatus || undefined,
+    }),
+    queryFn: () =>
+      listMyAppointments({
+        page: tablePage + 1,
+        limit: APPOINTMENTS_PER_PAGE,
+        status: filterStatus || undefined,
+      }),
+    enabled: hasAppointmentAccess,
   });
 
-  // Confirm appointment mutation
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) => appointmentService.confirmAppointment(id),
-    onSuccess: (response) => {
-      showSuccessToast(getSuccessMessage(response) || 'Appointment confirmed successfully');
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
-    },
-    onError: (error) => {
-      showErrorToast(error);
-    },
-  });
+  const appointments = appointmentsData?.appointments ?? [];
+  const pagination = appointmentsData?.pagination;
+  const totalAppointments = pagination?.total ?? 0;
+  const totalAppointmentPages = Math.max(1, pagination?.totalPages ?? 1);
 
-  const handleConfirmAppointment = (id: string) => {
-    confirmMutation.mutate(id);
-  };
+  useEffect(() => {
+    setTablePage(0);
+  }, [filterStatus]);
 
-  const cancelMutation = useMutation({
-    mutationFn: ({ id, cancellationNote }: { id: string; cancellationNote?: string }) =>
-      appointmentService.cancelAppointment(id, cancellationNote),
-    onSuccess: (response) => {
-      showSuccessToast(getSuccessMessage(response) || 'Appointment cancelled successfully');
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
-    },
-    onError: (error) => {
-      showErrorToast(error);
-    },
-  });
-
-  const handleCancelAppointment = (appointment: Appointment) => {
-    setCancelModalAppointment(appointment);
-  };
+  // Jyotish does not confirm or cancel appointments; status flows: CONFIRMED -> IN_PROGRESS (when time arrives) -> COMPLETED (when time ends). Chat available only when IN_PROGRESS.
+  // confirmMutation / cancelMutation / CancelAppointmentModal commented out per product requirement.
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -120,6 +110,72 @@ export default function JyotishAppointmentsPage() {
       minute: '2-digit',
     });
   };
+
+  const appointmentColumns: JyotishDataTableColumn<Appointment>[] = useMemo(
+    () => [
+      {
+        id: 'sn',
+        header: 'S.N.',
+        cellClassName: 'whitespace-nowrap text-white/70',
+        cell: (_row, index) =>
+          tablePage * APPOINTMENTS_PER_PAGE + (index ?? 0) + 1,
+      },
+      {
+        id: 'bookingDate',
+        header: 'Booking Date',
+        cell: (row) => formatDate(row.createdAt),
+        cellClassName: 'whitespace-nowrap',
+      },
+      {
+        id: 'client',
+        header: 'Client',
+        cell: (row) => (
+          <div>
+            <p className="font-medium text-white">{row.client.name || 'Client'}</p>
+            <p className="text-xs text-white/60">{row.client.phone}</p>
+          </div>
+        ),
+      },
+      {
+        id: 'date',
+        header: 'Appointment Date',
+        cell: (row) => formatDate(row.scheduledAt),
+        cellClassName: 'whitespace-nowrap',
+      },
+      {
+        id: 'time',
+        header: 'Time',
+        cell: (row) => formatTime(row.scheduledAt),
+        cellClassName: 'whitespace-nowrap',
+      },
+      {
+        id: 'duration',
+        header: 'Duration',
+        cell: (row) => `${row.duration}m`,
+      },
+      {
+        id: 'amount',
+        header: 'Amount',
+        cell: (row) => `Rs. ${row.amount}`,
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: (row) => {
+          const StatusIcon = STATUS_ICONS[row.status] || AlertCircle;
+          return (
+            <span
+              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border ${STATUS_COLORS[row.status]}`}
+            >
+              <StatusIcon className="h-3.5 w-3.5" />
+              {row.status.replace('_', ' ')}
+            </span>
+          );
+        },
+      },
+    ],
+    [tablePage]
+  );
 
   // Show loading state while checking access
   if (isCheckingAccess) {
@@ -160,26 +216,15 @@ export default function JyotishAppointmentsPage() {
           </Button>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards — PENDING and NO_SHOW not shown; status flows CONFIRMED -> IN_PROGRESS -> COMPLETED */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-gradient-to-br from-slate-900 to-purple-900/20 border border-purple-500/20 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-slate-400 text-sm">Total</p>
-                <p className="text-2xl font-bold text-white mt-1">{appointments.length}</p>
+                <p className="text-2xl font-bold text-white mt-1">{totalAppointments}</p>
               </div>
               <CalendarDays className="h-8 w-8 text-purple-400/50" />
-            </div>
-          </div>
-          <div className="bg-gradient-to-br from-slate-900 to-amber-900/20 border border-amber-500/20 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Pending</p>
-                <p className="text-2xl font-bold text-white mt-1">
-                  {appointments.filter((a) => a.status === AppointmentStatus.PENDING).length}
-                </p>
-              </div>
-              <AlertCircle className="h-8 w-8 text-amber-400/50" />
             </div>
           </div>
           <div className="bg-gradient-to-br from-slate-900 to-indigo-900/20 border border-indigo-500/20 rounded-xl p-4">
@@ -191,6 +236,17 @@ export default function JyotishAppointmentsPage() {
                 </p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-indigo-400/50" />
+            </div>
+          </div>
+          <div className="bg-gradient-to-br from-slate-900 to-purple-900/20 border border-purple-500/20 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm">In progress</p>
+                <p className="text-2xl font-bold text-white mt-1">
+                  {appointments.filter((a) => a.status === AppointmentStatus.IN_PROGRESS).length}
+                </p>
+              </div>
+              <Clock className="h-8 w-8 text-purple-400/50" />
             </div>
           </div>
           <div className="bg-gradient-to-br from-slate-900 to-emerald-900/20 border border-emerald-500/20 rounded-xl p-4">
@@ -221,7 +277,7 @@ export default function JyotishAppointmentsPage() {
             >
               All
             </Button>
-            {Object.values(AppointmentStatus).map((status) => (
+            {([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS, AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED] as const).map((status) => (
               <Button
                 key={status}
                 size="sm"
@@ -305,138 +361,23 @@ export default function JyotishAppointmentsPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {appointments.map((appointment) => {
-              const StatusIcon = STATUS_ICONS[appointment.status] || AlertCircle;
-              return (
-                <div
-                  key={appointment.id}
-                  className="bg-gradient-to-br from-slate-900 to-indigo-900/10 border border-indigo-500/20 hover:border-purple-500/40 rounded-xl p-6 transition-all duration-200"
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                    {/* Left Section - Client & Details */}
-                    <div className="flex-1 space-y-4">
-                      {/* Client Info */}
-                      <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                          {appointment.client.name?.charAt(0) || 'C'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-xl font-semibold text-white mb-1">
-                            {appointment.client.name || 'Client'}
-                          </h3>
-                          <div className="flex flex-wrap gap-4 text-sm text-slate-400">
-                            <span className="flex items-center gap-1.5">
-                              <Phone className="h-4 w-4 text-purple-400" />
-                              {appointment.client.phone}
-                            </span>
-                            {appointment.client.email && (
-                              <span className="flex items-center gap-1.5">
-                                <Mail className="h-4 w-4 text-purple-400" />
-                                {appointment.client.email}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Appointment Details Grid */}
-                      <div className="grid sm:grid-cols-3 gap-4">
-                        <div className="bg-slate-800/30 border border-purple-500/10 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-purple-400 mb-1">
-                            <CalendarDays className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-wide">
-                              Date
-                            </span>
-                          </div>
-                          <p className="text-white font-semibold">
-                            {formatDate(appointment.scheduledAt)}
-                          </p>
-                        </div>
-                        <div className="bg-slate-800/30 border border-indigo-500/10 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-indigo-400 mb-1">
-                            <Clock className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-wide">
-                              Time
-                            </span>
-                          </div>
-                          <p className="text-white font-semibold">
-                            {formatTime(appointment.scheduledAt)} · {appointment.duration}m
-                          </p>
-                        </div>
-                        <div className="bg-slate-800/30 border border-emerald-500/10 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-emerald-400 mb-1">
-                            <DollarSign className="h-4 w-4" />
-                            <span className="text-xs font-medium uppercase tracking-wide">
-                              Amount
-                            </span>
-                          </div>
-                          <p className="text-white font-semibold">Rs. {appointment.amount}</p>
-                        </div>
-                      </div>
-
-                      {/* Notes */}
-                      {appointment.notes && (
-                        <div className="bg-slate-800/50 border border-purple-500/20 rounded-lg p-4">
-                          <p className="text-sm text-slate-300">
-                            <span className="font-semibold text-purple-400">Notes: </span>
-                            {appointment.notes}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right Section - Status & Actions */}
-                    <div className="flex lg:flex-col items-start gap-3">
-                      <span
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border ${STATUS_COLORS[appointment.status]}`}
-                      >
-                        <StatusIcon className="h-4 w-4" />
-                        {appointment.status.replace('_', ' ')}
-                      </span>
-
-                      <div className="flex flex-col gap-2">
-                        {appointment.status === AppointmentStatus.PENDING && (
-                          <LoadingButton
-                            size="sm"
-                            onClick={() => handleConfirmAppointment(appointment.id)}
-                            isLoading={confirmMutation.isPending}
-                            loadingText="Confirming..."
-                            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg"
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Confirm
-                          </LoadingButton>
-                        )}
-                        {(appointment.status === AppointmentStatus.PENDING ||
-                          appointment.status === AppointmentStatus.CONFIRMED) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            color="neutral"
-                            onClick={() => handleCancelAppointment(appointment)}
-                          >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <>
+            <div className="overflow-x-auto rounded-lg border border-white/10">
+              <JyotishDataTable<Appointment>
+                columns={appointmentColumns}
+                data={appointments}
+                getRowId={(row) => row.id}
+              />
+            </div>
+            {totalAppointments > 0 && (
+              <JyotishPagination
+                page={tablePage}
+                totalPages={totalAppointmentPages}
+                onPageChange={setTablePage}
+              />
+            )}
+          </>
         )}
-
-        <CancelAppointmentModal
-          isOpen={!!cancelModalAppointment}
-          onClose={() => setCancelModalAppointment(null)}
-          appointment={cancelModalAppointment}
-          onCancelled={() => setCancelModalAppointment(null)}
-          cancelFn={(id, cancellationNote) => cancelMutation.mutateAsync({ id, cancellationNote })}
-          isPending={cancelMutation.isPending}
-        />
       </div>
     </JyotishLayout>
   );

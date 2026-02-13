@@ -11,6 +11,8 @@ import type {
   UpdateAppointmentData,
   TimeSlot,
   Astrologer,
+  AstrologerSlot,
+  BookingType,
 } from '@/types/appointment.types';
 import type { AppointmentStatus } from '@/types/appointment.types';
 
@@ -25,7 +27,19 @@ type ListMyAppointmentsResponse = {
 };
 
 /**
- * Create a new appointment
+ * List available slots for an astrologer (for booking appointment or kundali review).
+ */
+export const listAvailableSlots = async (
+  astrologerId: string,
+  params: { slotType: BookingType; fromDate?: string; toDate?: string }
+): Promise<{ slots: AstrologerSlot[] }> => {
+  return apiClient.get<{ slots: AstrologerSlot[] }>(API_ENDPOINTS.APPOINTMENTS.SLOTS(astrologerId), {
+    params,
+  });
+};
+
+/**
+ * Create a new appointment. With slotId + bookingType, books the slot and is directly confirmed.
  */
 export const createAppointment = async (data: CreateAppointmentData): Promise<Appointment> => {
   return apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.CREATE, data);
@@ -112,6 +126,7 @@ export const getAstrologersForAppointment = async (): Promise<Astrologer[]> => {
 
 const appointmentService = {
   createAppointment,
+  listAvailableSlots,
   getMyAppointments,
   listMine,
   getAppointmentById,

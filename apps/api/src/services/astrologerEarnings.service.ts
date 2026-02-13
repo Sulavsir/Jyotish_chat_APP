@@ -18,6 +18,7 @@ export interface AstrologerCoinEarningRow {
   commissionPercent: number;
   astrologerCoinsEarned: number;
   createdAt: Date;
+  clientName: string | null;
 }
 
 export interface GetAstrologerEarningsFilters {
@@ -79,6 +80,7 @@ export async function getAstrologerEarnings(
     CHAT_MESSAGE: 0,
     BROADCAST_MESSAGE: 0,
     APPOINTMENT: 0,
+    KUNDALI_REVIEW: 0,
   } as Record<AstrologerCoinEarningSource, number>;
   let totalCoins = 0;
   for (const row of aggregates) {
@@ -93,20 +95,57 @@ export async function getAstrologerEarnings(
     ...(from && to ? { period: { from, to } } : {}),
   };
 
+  const txIds = [...new Set(items.map((e) => e.coinTransactionId).filter(Boolean))] as string[];
+  const chatIds = [...new Set(items.map((e) => e.chatId).filter(Boolean))] as string[];
+  const appIds = [...new Set(items.map((e) => e.appointmentId).filter(Boolean))] as string[];
+
+  const [txList, chatList, appList] = await Promise.all([
+    txIds.length > 0
+      ? prisma.coinTransaction.findMany({
+          where: { id: { in: txIds } },
+          select: { id: true, user: { select: { name: true } } },
+        })
+      : [],
+    chatIds.length > 0
+      ? prisma.chat.findMany({
+          where: { id: { in: chatIds } },
+          select: { id: true, clientParticipant: { select: { name: true } } },
+        })
+      : [],
+    appIds.length > 0
+      ? prisma.appointment.findMany({
+          where: { id: { in: appIds } },
+          select: { id: true, client: { select: { name: true } } },
+        })
+      : [],
+  ]);
+
+  const nameByTxId = new Map(txList.map((t) => [t.id, t.user?.name ?? null]));
+  const nameByChatId = new Map(chatList.map((c) => [c.id, c.clientParticipant?.name ?? null]));
+  const nameByAppId = new Map(appList.map((a) => [a.id, a.client?.name ?? null]));
+
   return {
-    items: items.map((e) => ({
-      id: e.id,
-      astrologerId: e.astrologerId,
-      coinTransactionId: e.coinTransactionId,
-      chatId: e.chatId,
-      broadcastMessageId: e.broadcastMessageId,
-      appointmentId: e.appointmentId,
-      source: e.source,
-      clientCoinsDeducted: e.clientCoinsDeducted,
-      commissionPercent: e.commissionPercent,
-      astrologerCoinsEarned: e.astrologerCoinsEarned,
-      createdAt: e.createdAt,
-    })),
+    items: items.map((e) => {
+      const clientName =
+        (e.coinTransactionId && nameByTxId.get(e.coinTransactionId)) ??
+        (e.chatId && nameByChatId.get(e.chatId)) ??
+        (e.appointmentId && nameByAppId.get(e.appointmentId)) ??
+        null;
+      return {
+        id: e.id,
+        astrologerId: e.astrologerId,
+        coinTransactionId: e.coinTransactionId,
+        chatId: e.chatId,
+        broadcastMessageId: e.broadcastMessageId,
+        appointmentId: e.appointmentId,
+        source: e.source,
+        clientCoinsDeducted: e.clientCoinsDeducted,
+        commissionPercent: e.commissionPercent,
+        astrologerCoinsEarned: e.astrologerCoinsEarned,
+        createdAt: e.createdAt,
+        clientName,
+      };
+    }),
     total,
     summary,
   };
@@ -137,6 +176,7 @@ export async function getAstrologerEarningsSummary(
     CHAT_MESSAGE: 0,
     BROADCAST_MESSAGE: 0,
     APPOINTMENT: 0,
+    KUNDALI_REVIEW: 0,
   } as Record<AstrologerCoinEarningSource, number>;
   let totalCoins = 0;
   for (const row of aggregates) {

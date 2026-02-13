@@ -317,6 +317,60 @@ export const findOrCreateChat = async (
 };
 
 /**
+ * Get or create a chat for an appointment/kundali session. Only valid when current time is within
+ * [scheduledAt, scheduledAt + duration]. Used when a session starts so client and astrologer
+ * can open the same chat from notifications (free for the 30-min session).
+ */
+export async function getOrCreateChatForAppointment(appointmentId: string) {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: { clientId: true, astrologerId: true, scheduledAt: true, duration: true, status: true },
+  });
+  if (!appointment || appointment.status !== AppointmentStatus.CONFIRMED) return null;
+
+  const now = new Date();
+  const start = new Date(appointment.scheduledAt);
+  const endMs = start.getTime() + appointment.duration * 60 * 1000;
+  if (now.getTime() < start.getTime() || now.getTime() >= endMs) return null;
+
+  const { clientId, astrologerId } = appointment;
+
+  let chat = await prisma.chat.findUnique({
+    where: {
+      participant1Id_participant2Id: {
+        participant1Id: clientId,
+        participant2Id: astrologerId,
+      },
+    },
+    include: chatInclude,
+  });
+
+  if (chat) {
+    if (chat.appointmentId === appointmentId) return chat;
+    chat = await prisma.chat.update({
+      where: { id: chat.id },
+      data: { appointmentId },
+      include: chatInclude,
+    });
+    return chat;
+  }
+
+  chat = await prisma.chat.create({
+    data: {
+      participant1Id: clientId,
+      participant2Id: astrologerId,
+      participant1Type: ParticipantType.CLIENT,
+      participant2Type: ParticipantType.ASTROLOGER,
+      appointmentId,
+      status: ChatStatus.ACTIVE,
+      isLocked: false,
+    },
+    include: chatInclude,
+  });
+  return chat;
+}
+
+/**
  * Get chat by ID
  */
 export const getChatById = async (chatId: string, userId: string) => {

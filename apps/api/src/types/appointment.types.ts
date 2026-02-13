@@ -2,12 +2,24 @@
  * Appointment Type Definitions
  */
 
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, BookingType, SlotType, SlotStatus } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 
 // Re-export for convenience
-export { AppointmentStatus };
+export { AppointmentStatus, BookingType, SlotType, SlotStatus };
 export { AstrologerCategory };
+
+export interface AstrologerSlotRow {
+  id: string;
+  astrologerId: string;
+  startAt: Date;
+  endAt: Date;
+  slotType: SlotType;
+  status: SlotStatus;
+  appointmentId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface BookAppointmentData {
   clientId: string;
@@ -16,6 +28,9 @@ export interface BookAppointmentData {
   duration: number;
   amount: number;
   notes?: string;
+  /** When set, booking uses astrologer-defined slot and is directly CONFIRMED */
+  slotId?: string;
+  bookingType?: BookingType;
 }
 
 export interface UpdateAppointmentData {
@@ -32,6 +47,7 @@ export interface AppointmentEntity {
   astrologerId: string;
   scheduledAt: Date;
   duration: number;
+  bookingType: BookingType;
   status: AppointmentStatus;
   amount: number;
   notes: string | null;

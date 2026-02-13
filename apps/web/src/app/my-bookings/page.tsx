@@ -38,7 +38,7 @@ import {
 } from '@jyotish/ui';
 import { AstrologerCategory, JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
-import { XCircle } from 'lucide-react';
+import { XCircle, Coins } from 'lucide-react';
 
 type MyBookingsResponse = Awaited<ReturnType<typeof jyotishBookingService.listMine>>;
 type MyBooking = MyBookingsResponse['bookings'][number];
@@ -80,7 +80,7 @@ function statusBadge(status: JyotishBookingStatus) {
 function appointmentStatusBadge(status: AppointmentStatus) {
   if (status === AppointmentStatus.CONFIRMED) {
     return (
-      <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Accepted</Badge>
+      <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Confirmed</Badge>
     );
   }
   if (status === AppointmentStatus.CANCELLED) {
@@ -353,7 +353,7 @@ export default function MyBookingsPage() {
                   <SelectContent>
                     <SelectItem value="ALL">All</SelectItem>
                     <SelectItem value={AppointmentStatus.PENDING}>Pending</SelectItem>
-                    <SelectItem value={AppointmentStatus.CONFIRMED}>Accepted</SelectItem>
+                    <SelectItem value={AppointmentStatus.CONFIRMED}>Confirmed</SelectItem>
                     <SelectItem value={AppointmentStatus.IN_PROGRESS}>In progress</SelectItem>
                     <SelectItem value={AppointmentStatus.COMPLETED}>Completed</SelectItem>
                     <SelectItem value={AppointmentStatus.CANCELLED}>Cancelled</SelectItem>
@@ -561,20 +561,19 @@ export default function MyBookingsPage() {
                           Amount
                         </TableHead>
                         <TableHead className="text-slate-200 border-r border-slate-700/60">
+                          Status
+                        </TableHead>
+                        <TableHead className="text-slate-200 border-r border-slate-700/60">
+                          Requested
+                        </TableHead>
+                        <TableHead className="text-slate-200 border-r border-slate-700/60">
                           Notes
                         </TableHead>
                         <TableHead className="text-slate-200 border-r border-slate-700/60">
                           Cancellation
                         </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Status
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Actions
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Requested
-                        </TableHead>
+                        {/* Actions column removed: client cannot cancel once scheduled; only admin can cancel (status + notes updated then) */}
+                        {/* <TableHead className="text-slate-200 border-r border-slate-700/60">Actions</TableHead> */}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -599,7 +598,20 @@ export default function MyBookingsPage() {
                             {a.duration} min
                           </TableCell>
                           <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            Nrs.{a.amount}
+                            <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
+                              <Coins className="h-4 w-4" />
+                              {a.amount} coins
+                            </span>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                            {appointmentStatusBadge(a.status)}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-slate-300">
+                            {new Date(a.createdAt).toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
                           </TableCell>
                           <TableCell
                             className="max-w-[320px] truncate border-r border-slate-700/40"
@@ -613,10 +625,8 @@ export default function MyBookingsPage() {
                           >
                             {a.cancellationNote || <span className="text-slate-500">—</span>}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            {appointmentStatusBadge(a.status)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                          {/* Actions: client cannot cancel once scheduled; only admin can cancel (then status + cancellation notes updated) */}
+                          {/* <TableCell className="whitespace-nowrap border-r border-slate-700/40">
                             {(a.status === AppointmentStatus.PENDING ||
                               a.status === AppointmentStatus.CONFIRMED) && (
                               <Button
@@ -629,14 +639,7 @@ export default function MyBookingsPage() {
                                 Cancel
                               </Button>
                             )}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-slate-300">
-                            {new Date(a.createdAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </TableCell>
+                          </TableCell> */}
                         </TableRow>
                       ))}
                     </TableBody>

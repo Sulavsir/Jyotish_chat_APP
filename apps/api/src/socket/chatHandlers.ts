@@ -250,8 +250,30 @@ export function chatHandlers(io: Server, socket: Socket) {
             }
           }
 
-          // Deduct coins BEFORE creating chat so we never leave an ACTIVE chat with no message
-          if (astrologer?.category && user.role === UserRole.CLIENT) {
+          // If we're in an active appointment/kundali session, use the session chat (free for 30 min)
+          const now = new Date();
+          const activeAppointment = await prisma.appointment.findFirst({
+            where: {
+              clientId,
+              astrologerId,
+              status: AppointmentStatus.CONFIRMED,
+              scheduledAt: { lte: now },
+            },
+            orderBy: { scheduledAt: 'desc' },
+          });
+          if (activeAppointment) {
+            const endMs =
+              new Date(activeAppointment.scheduledAt).getTime() +
+              activeAppointment.duration * 60 * 1000;
+            if (now.getTime() < endMs) {
+              const { getOrCreateChatForAppointment } = await import('../services/chatService');
+              const sessionChat = await getOrCreateChatForAppointment(activeAppointment.id);
+              if (sessionChat) chat = sessionChat;
+            }
+          }
+
+          // Deduct coins BEFORE creating chat so we never leave an ACTIVE chat with no message (skip if session chat)
+          if (!chat && astrologer?.category && user.role === UserRole.CLIENT) {
             const { requiresCoinsForChat, toSharedAstrologerCategory } =
               await import('../constants/coin.constants');
             if (requiresCoinsForChat(astrologer.category)) {
@@ -300,7 +322,7 @@ export function chatHandlers(io: Server, socket: Socket) {
               });
               AdminStatsEmitter.emitNewChat();
             }
-          } else {
+          } else if (!chat) {
             chat = await prisma.chat.create({
               data: {
                 participant1Id: clientId,

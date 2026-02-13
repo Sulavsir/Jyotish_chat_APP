@@ -13,9 +13,19 @@ import {
   checkAvailabilitySchema,
   listMyAppointmentsQuerySchema,
   cancelAppointmentSchema,
+  listAvailableSlotsQuerySchema,
 } from '../validators';
+import * as slotController from '../controllers/slotController';
 
 const router = Router();
+
+// List available slots for an astrologer (client booking: appointment or kundali review)
+router.get(
+  '/slots/:astrologerId',
+  authenticate,
+  validateQuery(listAvailableSlotsQuerySchema),
+  asyncHandler(slotController.listAvailableSlots)
+);
 
 // Create appointment
 router.post(
@@ -52,16 +62,16 @@ router.patch(
   asyncHandler(appointmentController.updateAppointment)
 );
 
+// Jyotish does not confirm or cancel appointments; status flows CONFIRMED -> IN_PROGRESS -> COMPLETED. Commented out per product requirement.
 // Cancel appointment
-router.post(
-  '/:id/cancel',
-  authenticate,
-  validateBody(cancelAppointmentSchema),
-  asyncHandler(appointmentController.cancelAppointment)
-);
-
+// router.post(
+//   '/:id/cancel',
+//   authenticate,
+//   validateBody(cancelAppointmentSchema),
+//   asyncHandler(appointmentController.cancelAppointment)
+// );
 // Confirm appointment (astrologer only)
-router.post('/:id/confirm', authenticate, asyncHandler(appointmentController.confirmAppointment));
+// router.post('/:id/confirm', authenticate, asyncHandler(appointmentController.confirmAppointment));
 
 export default router;
 

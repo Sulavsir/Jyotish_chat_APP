@@ -7,8 +7,10 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { changePasswordSchema } from '@jyotish/shared';
 import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators';
+import { createSlotSchema, listSlotsQuerySchema, updateSlotSchema } from '../validators/slot.validators';
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
+import * as slotController from '../controllers/slotController';
 import { astrologerRegistrationUpload } from '../middleware/astrologerRegistrationUpload';
 
 const router = Router();
@@ -47,6 +49,24 @@ router.get(
 
 // ==================== Astrologer List ====================
 router.get('/list', asyncHandler(astrologerController.listAstrologers));
+
+// ==================== My Slots (appointment / kundali review) ====================
+router.get(
+  '/slots',
+  validateQuery(listSlotsQuerySchema),
+  asyncHandler(slotController.listMySlots)
+);
+router.post(
+  '/slots',
+  validateBody(createSlotSchema),
+  asyncHandler(slotController.createSlot)
+);
+router.patch(
+  '/slots/:id',
+  validateBody(updateSlotSchema),
+  asyncHandler(slotController.updateSlot)
+);
+router.delete('/slots/:id', asyncHandler(slotController.deleteSlot));
 
 export default router;
 

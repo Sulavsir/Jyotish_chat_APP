@@ -81,6 +81,29 @@ export const deductCoinsForMessage = async (
     return { userId, balance };
   }
 
+  // Free chat during appointment/kundali session (30 min from scheduledAt)
+  if (!isBroadcastChat) {
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      select: { appointmentId: true },
+    });
+    if (chat?.appointmentId) {
+      const appointment = await prisma.appointment.findUnique({
+        where: { id: chat.appointmentId },
+        select: { scheduledAt: true, duration: true },
+      });
+      if (appointment) {
+        const start = new Date(appointment.scheduledAt).getTime();
+        const end = start + appointment.duration * 60 * 1000;
+        const now = Date.now();
+        if (now >= start && now < end) {
+          const balance = await getCoinBalance(userId);
+          return { userId, balance };
+        }
+      }
+    }
+  }
+
   // Determine coin cost based on chat type
   let coinCost: number;
   let transactionReason: CoinTransactionReason;
@@ -481,13 +504,98 @@ export const deductCoinsForAppointment = async (
 };
 
 /**
+ * Deduct coins when client books a slot (direct confirm: APPOINTMENT or KUNDALI_REVIEW).
+ * Used for appointment/kundali review creation with astrologer-defined slot.
+ */
+export const deductCoinsForBooking = async (
+  userId: string,
+  astrologerId: string,
+  bookingType: 'APPOINTMENT' | 'KUNDALI_REVIEW'
+): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
+  const rateType = bookingType === 'KUNDALI_REVIEW' ? 'KUNDALI_REVIEW' : 'APPOINTMENT';
+  const coinCost = await getRate(rateType);
+  if (coinCost <= 0) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance, coinTransactionId: '', coinCost: 0 };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { coins: true, id: true },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  if (user.coins < coinCost) {
+    throw new AppError(
+      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.INSUFFICIENT_COINS
+    );
+  }
+
+  const balanceBefore = user.coins;
+  const balanceAfter = balanceBefore - coinCost;
+  const source = bookingType === 'KUNDALI_REVIEW' ? 'KUNDALI_REVIEW' : 'APPOINTMENT';
+
+  const result = await prisma.$transaction(async (tx) => {
+    const coinTx = await tx.coinTransaction.create({
+      data: {
+        userId,
+        amount: -coinCost,
+        type: CoinTransactionType.DEDUCT,
+        reason: CoinTransactionReason.PURCHASE,
+        balanceBefore,
+        balanceAfter,
+      },
+    });
+    await tx.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: coinCost } },
+      select: { id: true, coins: true },
+    });
+    const astrologer = await tx.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { commissionRate: true },
+    });
+    if (astrologer && astrologer.commissionRate > 0) {
+      const astrologerCoins = Math.floor(
+        (coinCost * astrologer.commissionRate) / 100
+      );
+      if (astrologerCoins > 0) {
+        await tx.astrologerCoinEarning.create({
+          data: {
+            astrologerId,
+            coinTransactionId: coinTx.id,
+            source,
+            clientCoinsDeducted: coinCost,
+            commissionPercent: astrologer.commissionRate,
+            astrologerCoinsEarned: astrologerCoins,
+          },
+        });
+      }
+    }
+    return { coinTx, balance: balanceAfter };
+  });
+
+  return {
+    userId,
+    balance: result.balance,
+    coinTransactionId: result.coinTx.id,
+    coinCost,
+  };
+};
+
+/**
  * Link an appointment to an existing coin earning (sets appointmentId on the earning for this transaction)
  */
 export const linkAppointmentToCoinEarning = async (
   coinTransactionId: string,
   appointmentId: string
 ): Promise<void> => {
-  await (prisma as any).astrologerCoinEarning.updateMany({
+  await prisma.astrologerCoinEarning.updateMany({
     where: { coinTransactionId },
     data: { appointmentId },
   });
