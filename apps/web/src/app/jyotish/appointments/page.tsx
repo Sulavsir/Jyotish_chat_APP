@@ -118,8 +118,7 @@ export default function JyotishAppointmentsPage() {
         id: 'sn',
         header: 'S.N.',
         cellClassName: 'whitespace-nowrap text-white/70',
-        cell: (_row, index) =>
-          tablePage * APPOINTMENTS_PER_PAGE + (index ?? 0) + 1,
+        cell: (_row, index) => tablePage * APPOINTMENTS_PER_PAGE + (index ?? 0) + 1,
       },
       {
         id: 'bookingDate',
@@ -307,7 +306,14 @@ export default function JyotishAppointmentsPage() {
             >
               All
             </Button>
-            {([AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS, AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED] as const).map((status) => (
+            {(
+              [
+                AppointmentStatus.CONFIRMED,
+                AppointmentStatus.IN_PROGRESS,
+                AppointmentStatus.COMPLETED,
+                AppointmentStatus.CANCELLED,
+              ] as const
+            ).map((status) => (
               <Button
                 key={status}
                 size="sm"

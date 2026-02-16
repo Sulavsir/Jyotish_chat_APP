@@ -368,113 +368,113 @@ export default function MyBookingsPage() {
               ) : (
                 <>
                   {(() => {
-                    const showAdminNote = bookings.some(
-                      (b: MyBooking) => (b.adminNotes ?? '').trim()
+                    const showAdminNote = bookings.some((b: MyBooking) =>
+                      (b.adminNotes ?? '').trim()
                     );
                     return (
-                  <div className="overflow-x-auto rounded-xl border border-white/10">
-                    <Table className="bg-black/20">
-                      <TableHeader>
-                        <TableRow className="bg-gradient-to-r from-purple-900/60 via-indigo-950/60 to-slate-900/60 hover:bg-gradient-to-r hover:from-purple-900/60 hover:via-indigo-950/60 hover:to-slate-900/60">
-                          <TableHead className="text-slate-200 border-r border-slate-700/60 w-[72px]">
-                            S.N.
-                          </TableHead>
-                          <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Type
-                          </TableHead>
-                          <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[220px]">
-                            Date
-                          </TableHead>
-                          <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Reason
-                          </TableHead>
-                          <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Remarks
-                          </TableHead>
-                          {showAdminNote && (
-                            <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[240px] whitespace-nowrap">
-                              Admin note
-                            </TableHead>
-                          )}
-                          <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Status
-                          </TableHead>
-                          <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Submitted
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bookings.map((b: MyBooking, idx) => (
-                          <TableRow key={b.id}>
-                            <TableCell className="whitespace-nowrap border-r border-slate-700/40 text-slate-300">
-                              {(pagination.page - 1) * pagination.limit + idx + 1}
-                            </TableCell>
-                            <TableCell className="border-r border-slate-700/40">
-                              <div className="min-w-0">
-                                <div className="text-white whitespace-nowrap">
-                                  {typeLabel(b.type)}
-                                </div>
-                                {b.type === JyotishBookingType.KATHA_VACHAK &&
-                                b.preferredAstrologer ? (
-                                  <div
-                                    className="text-xs text-slate-300 truncate"
-                                    title={b.preferredAstrologer.name}
-                                  >
-                                    Jyotish: {b.preferredAstrologer.name}
+                      <div className="overflow-x-auto rounded-xl border border-white/10">
+                        <Table className="bg-black/20">
+                          <TableHeader>
+                            <TableRow className="bg-gradient-to-r from-purple-900/60 via-indigo-950/60 to-slate-900/60 hover:bg-gradient-to-r hover:from-purple-900/60 hover:via-indigo-950/60 hover:to-slate-900/60">
+                              <TableHead className="text-slate-200 border-r border-slate-700/60 w-[72px]">
+                                S.N.
+                              </TableHead>
+                              <TableHead className="text-slate-200 border-r border-slate-700/60">
+                                Type
+                              </TableHead>
+                              <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[220px]">
+                                Date
+                              </TableHead>
+                              <TableHead className="text-slate-200 border-r border-slate-700/60">
+                                Reason
+                              </TableHead>
+                              <TableHead className="text-slate-200 border-r border-slate-700/60">
+                                Remarks
+                              </TableHead>
+                              {showAdminNote && (
+                                <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[240px] whitespace-nowrap">
+                                  Admin note
+                                </TableHead>
+                              )}
+                              <TableHead className="text-slate-200 border-r border-slate-700/60">
+                                Status
+                              </TableHead>
+                              <TableHead className="text-slate-200 border-r border-slate-700/60">
+                                Submitted
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {bookings.map((b: MyBooking, idx) => (
+                              <TableRow key={b.id}>
+                                <TableCell className="whitespace-nowrap border-r border-slate-700/40 text-slate-300">
+                                  {(pagination.page - 1) * pagination.limit + idx + 1}
+                                </TableCell>
+                                <TableCell className="border-r border-slate-700/40">
+                                  <div className="min-w-0">
+                                    <div className="text-white whitespace-nowrap">
+                                      {typeLabel(b.type)}
+                                    </div>
+                                    {b.type === JyotishBookingType.KATHA_VACHAK &&
+                                    b.preferredAstrologer ? (
+                                      <div
+                                        className="text-xs text-slate-300 truncate"
+                                        title={b.preferredAstrologer.name}
+                                      >
+                                        Jyotish: {b.preferredAstrologer.name}
+                                      </div>
+                                    ) : null}
                                   </div>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                            <TableCell
-                              className="whitespace-nowrap text-slate-200 border-r border-slate-700/40 min-w-[220px]"
-                              title={new Date(b.bookingDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })}
-                            >
-                              {new Date(b.bookingDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })}
-                            </TableCell>
-                            <TableCell
-                              className="max-w-[260px] truncate border-r border-slate-700/40"
-                              title={b.category}
-                            >
-                              {b.category}
-                            </TableCell>
-                            <TableCell
-                              className="max-w-[320px] truncate border-r border-slate-700/40"
-                              title={b.details ?? ''}
-                            >
-                              {b.details || <span className="text-slate-500">—</span>}
-                            </TableCell>
-                            {showAdminNote && (
-                              <TableCell
-                                className="max-w-[260px] truncate border-r border-slate-700/40 min-w-[240px]"
-                                title={b.adminNotes ?? ''}
-                              >
-                                {b.adminNotes || <span className="text-slate-500">—</span>}
-                              </TableCell>
-                            )}
-                            <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                              {statusBadge(b.status)}
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap text-slate-300">
-                              {new Date(b.createdAt).toLocaleString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                                </TableCell>
+                                <TableCell
+                                  className="whitespace-nowrap text-slate-200 border-r border-slate-700/40 min-w-[220px]"
+                                  title={new Date(b.bookingDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })}
+                                >
+                                  {new Date(b.bookingDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                  })}
+                                </TableCell>
+                                <TableCell
+                                  className="max-w-[260px] truncate border-r border-slate-700/40"
+                                  title={b.category}
+                                >
+                                  {b.category}
+                                </TableCell>
+                                <TableCell
+                                  className="max-w-[320px] truncate border-r border-slate-700/40"
+                                  title={b.details ?? ''}
+                                >
+                                  {b.details || <span className="text-slate-500">—</span>}
+                                </TableCell>
+                                {showAdminNote && (
+                                  <TableCell
+                                    className="max-w-[260px] truncate border-r border-slate-700/40 min-w-[240px]"
+                                    title={b.adminNotes ?? ''}
+                                  >
+                                    {b.adminNotes || <span className="text-slate-500">—</span>}
+                                  </TableCell>
+                                )}
+                                <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                                  {statusBadge(b.status)}
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap text-slate-300">
+                                  {new Date(b.createdAt).toLocaleString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     );
                   })()}
 
@@ -536,118 +536,120 @@ export default function MyBookingsPage() {
                       a.status === AppointmentStatus.CANCELLED && (a.cancellationNote ?? '').trim()
                   );
                   return (
-                <div className="overflow-x-auto rounded-xl border border-white/10">
-                  <Table className="bg-black/20">
-                    <TableHeader>
-                      <TableRow className="bg-gradient-to-r from-purple-900/60 via-indigo-950/60 to-slate-900/60 hover:bg-gradient-to-r hover:from-purple-900/60 hover:via-indigo-950/60 hover:to-slate-900/60">
-                        <TableHead className="text-slate-200 border-r border-slate-700/60 w-[72px]">
-                          S.N.
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Jyotish
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Scheduled
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Duration
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Amount
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Status
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Requested
-                        </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Notes
-                        </TableHead>
-                        {showCancellationReason && (
-                          <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Cancellation reason
-                          </TableHead>
-                        )}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {appointments.map((a: MyAppointment, idx) => (
-                        <TableRow key={a.id}>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40 text-slate-300">
-                            {(apptPagination.page - 1) * apptPagination.limit + idx + 1}
-                          </TableCell>
-                          <TableCell className="border-r border-slate-700/40">
-                            <div>
-                              <p className="text-white font-medium">{a.astrologer.name}</p>
-                              {a.bookingType && (
-                                <span
-                                  className={`mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
-                                    a.bookingType === 'KUNDALI_REVIEW'
-                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                      : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                  }`}
-                                >
-                                  {a.bookingType === 'KUNDALI_REVIEW'
-                                    ? 'Full Kundali Review'
-                                    : 'Appointment'}
+                    <div className="overflow-x-auto rounded-xl border border-white/10">
+                      <Table className="bg-black/20">
+                        <TableHeader>
+                          <TableRow className="bg-gradient-to-r from-purple-900/60 via-indigo-950/60 to-slate-900/60 hover:bg-gradient-to-r hover:from-purple-900/60 hover:via-indigo-950/60 hover:to-slate-900/60">
+                            <TableHead className="text-slate-200 border-r border-slate-700/60 w-[72px]">
+                              S.N.
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Jyotish
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Scheduled
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Duration
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Amount
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Status
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Requested
+                            </TableHead>
+                            <TableHead className="text-slate-200 border-r border-slate-700/60">
+                              Notes
+                            </TableHead>
+                            {showCancellationReason && (
+                              <TableHead className="text-slate-200 border-r border-slate-700/60">
+                                Cancellation reason
+                              </TableHead>
+                            )}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {appointments.map((a: MyAppointment, idx) => (
+                            <TableRow key={a.id}>
+                              <TableCell className="whitespace-nowrap border-r border-slate-700/40 text-slate-300">
+                                {(apptPagination.page - 1) * apptPagination.limit + idx + 1}
+                              </TableCell>
+                              <TableCell className="border-r border-slate-700/40">
+                                <div>
+                                  <p className="text-white font-medium">{a.astrologer.name}</p>
+                                  {a.bookingType && (
+                                    <span
+                                      className={`mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
+                                        a.bookingType === 'KUNDALI_REVIEW'
+                                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                          : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                      }`}
+                                    >
+                                      {a.bookingType === 'KUNDALI_REVIEW'
+                                        ? 'Full Kundali Review'
+                                        : 'Appointment'}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-slate-200 border-r border-slate-700/40">
+                                {new Date(a.scheduledAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                                {a.duration} min
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                                <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
+                                  <Coins className="h-4 w-4" />
+                                  {a.amount} coins
                                 </span>
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                                {appointmentStatusBadge(a.status)}
+                              </TableCell>
+                              <TableCell className="whitespace-nowrap text-slate-300">
+                                {new Date(a.createdAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </TableCell>
+                              <TableCell
+                                className="max-w-[320px] truncate border-r border-slate-700/40"
+                                title={a.notes ?? ''}
+                              >
+                                {a.notes || <span className="text-slate-500">—</span>}
+                              </TableCell>
+                              {showCancellationReason && (
+                                <TableCell
+                                  className="max-w-[320px] truncate border-r border-slate-700/40"
+                                  title={
+                                    a.status === AppointmentStatus.CANCELLED
+                                      ? (a.cancellationNote ?? '') || '—'
+                                      : ''
+                                  }
+                                >
+                                  {a.status === AppointmentStatus.CANCELLED ? (
+                                    a.cancellationNote || <span className="text-slate-500">—</span>
+                                  ) : (
+                                    <span className="text-slate-500">—</span>
+                                  )}
+                                </TableCell>
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-slate-200 border-r border-slate-700/40">
-                            {new Date(a.scheduledAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            {a.duration} min
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
-                              <Coins className="h-4 w-4" />
-                              {a.amount} coins
-                            </span>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            {appointmentStatusBadge(a.status)}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-slate-300">
-                            {new Date(a.createdAt).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </TableCell>
-                          <TableCell
-                            className="max-w-[320px] truncate border-r border-slate-700/40"
-                            title={a.notes ?? ''}
-                          >
-                            {a.notes || <span className="text-slate-500">—</span>}
-                          </TableCell>
-                          {showCancellationReason && (
-                            <TableCell
-                              className="max-w-[320px] truncate border-r border-slate-700/40"
-                              title={
-                                a.status === AppointmentStatus.CANCELLED
-                                  ? (a.cancellationNote ?? '') || '—'
-                                  : ''
-                              }
-                            >
-                              {a.status === AppointmentStatus.CANCELLED
-                                ? (a.cancellationNote || <span className="text-slate-500">—</span>)
-                                : <span className="text-slate-500">—</span>}
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   );
                 })()}
 
@@ -689,7 +691,6 @@ export default function MyBookingsPage() {
                 ) : null}
               </>
             )}
-
           </CardContent>
         </Card>
       </div>
