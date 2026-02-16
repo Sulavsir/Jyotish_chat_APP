@@ -10,11 +10,6 @@ import {
   DialogClose,
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import {
@@ -25,16 +20,10 @@ import {
 import type { BookingType } from '@/types/appointment.types';
 import type { CreateSlotBody } from '@/services/astrologerSlots.service';
 import { TimeRangeMultiSelect } from './TimeRangeMultiSelect';
-import {
-  PendingSessionEditModal,
-  type PendingSlotSession,
-} from './PendingSessionEditModal';
+import { PendingSessionEditModal, type PendingSlotSession } from './PendingSessionEditModal';
 import { CalendarDays, Sparkles, Plus, X } from 'lucide-react';
 
-const SLOT_TYPE_LABELS: Record<BookingType, string> = {
-  APPOINTMENT: 'Appointment',
-  KUNDALI_REVIEW: 'Full Kundali Review',
-};
+const SLOT_TYPE_LABEL = 'Appointment for Full Kundali Review';
 
 const TIME_RANGE_OPTIONS = getSlotTimeRangeOptions();
 
@@ -54,7 +43,6 @@ function generateId(): string {
 export interface AddSlotsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultSlotType?: BookingType;
   /** Creates slots via API; called when user clicks "Add slots" with all pending sessions. */
   onCreateSlots: (bodies: CreateSlotBody[]) => Promise<unknown>;
   isCreating: boolean;
@@ -63,11 +51,10 @@ export interface AddSlotsModalProps {
 export function AddSlotsModal({
   open,
   onOpenChange,
-  defaultSlotType = 'APPOINTMENT',
   onCreateSlots,
   isCreating,
 }: AddSlotsModalProps) {
-  const [slotType, setSlotType] = useState<BookingType>(defaultSlotType);
+  const slotType: BookingType = 'KUNDALI_REVIEW';
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedStarts, setSelectedStarts] = useState<string[]>([]);
   const [sessions, setSessions] = useState<PendingSlotSession[]>([]);
@@ -148,9 +135,7 @@ export function AddSlotsModal({
   const timeLabels = TIME_RANGE_OPTIONS;
   const formatTimesSummary = (timeStarts: string[]) => {
     if (timeStarts.length <= 2) {
-      return timeStarts
-        .map((t) => timeLabels.find((o) => o.start === t)?.label ?? t)
-        .join(', ');
+      return timeStarts.map((t) => timeLabels.find((o) => o.start === t)?.label ?? t).join(', ');
     }
     return `${timeStarts.length} times`;
   };
@@ -172,43 +157,34 @@ export function AddSlotsModal({
             <DialogTitle className="text-white pr-8">Add time slots</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-white/60">
-            Add date and times, then either <strong>Add slots</strong> to create them now, or <strong>Add more</strong> to queue another session and create all together later.
+            Add date and times, then either <strong>Add slots</strong> to create them now, or{' '}
+            <strong>Add more</strong> to queue another session and create all together later.
           </p>
           <div className="space-y-4 flex-1 min-h-0 flex flex-col">
             <div>
               <label className="text-xs text-white/70 mb-1 block">Slot type</label>
-              <Select value={slotType} onValueChange={(v) => setSlotType(v as BookingType)}>
-                <SelectTrigger className="w-full bg-white/5 border-white/20 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="APPOINTMENT">
-                    <span className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      {SLOT_TYPE_LABELS.APPOINTMENT}
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="KUNDALI_REVIEW">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      {SLOT_TYPE_LABELS.KUNDALI_REVIEW}
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/5 border border-white/20 text-white">
+                <Sparkles className="h-4 w-4 text-amber-400" />
+                <span>{SLOT_TYPE_LABEL}</span>
+              </div>
             </div>
             <div>
               <label className="text-xs text-white/70 mb-1 block">Date</label>
-              <Input
-                type="date"
-                min={minDate}
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full bg-white/5 border-white/20 text-white"
-              />
+              <div className="relative">
+                <Input
+                  type="date"
+                  min={minDate}
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full border-white/20 !text-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-yellow-500" />
+              </div>
             </div>
             <div>
-              <label className="text-xs text-white/70 mb-1 block">Available times (30 min each)</label>
+              <label className="text-xs text-white/70 mb-1 block">
+                Available times (30 min each)
+              </label>
               <TimeRangeMultiSelect
                 options={TIME_RANGE_OPTIONS}
                 value={selectedStarts}
@@ -227,7 +203,9 @@ export function AddSlotsModal({
               >
                 {sessions.length === 0 ? (
                   <li className="px-3 py-4 text-center text-sm text-white/50">
-                    Optional: use &quot;Add more&quot; to queue sessions (one per date). Click a session to edit or delete. &quot;Add slots&quot; creates from the form and/or this list.
+                    Optional: use &quot;Add more&quot; to queue sessions (one per date). Click a
+                    session to edit or delete. &quot;Add slots&quot; creates from the form and/or
+                    this list.
                   </li>
                 ) : (
                   sessions.map((session) => (
@@ -243,14 +221,8 @@ export function AddSlotsModal({
                         <span className="text-white/70 text-xs truncate max-w-[180px]">
                           {formatTimesSummary(session.timeStarts)}
                         </span>
-                        <span
-                          className={`shrink-0 text-xs px-1.5 py-0.5 rounded ${
-                            session.slotType === 'KUNDALI_REVIEW'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-purple-500/20 text-purple-300'
-                          }`}
-                        >
-                          {SLOT_TYPE_LABELS[session.slotType]}
+                        <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                          {SLOT_TYPE_LABEL}
                         </span>
                       </button>
                     </li>
@@ -283,7 +255,7 @@ export function AddSlotsModal({
                 onClick={handleSubmit}
                 isLoading={isCreating}
                 loadingText="Creating..."
-                disabled={((!selectedDate || selectedStarts.length === 0) && sessions.length === 0)}
+                disabled={(!selectedDate || selectedStarts.length === 0) && sessions.length === 0}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
               >
                 Add slots

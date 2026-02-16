@@ -134,14 +134,8 @@ export default function JyotishAppointmentsPage() {
             <p className="font-medium text-white">{row.client.name || 'Client'}</p>
             <p className="text-xs text-white/60">{row.client.phone}</p>
             {row.bookingType && (
-              <span
-                className={`mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
-                  row.bookingType === 'KUNDALI_REVIEW'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                }`}
-              >
-                {row.bookingType === 'KUNDALI_REVIEW' ? 'Full Kundali Review' : 'Appointment'}
+              <span className="mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Appointment for Full Kundali Review
               </span>
             )}
           </div>

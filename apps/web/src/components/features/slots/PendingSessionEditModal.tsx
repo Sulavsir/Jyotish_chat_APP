@@ -9,23 +9,15 @@ import {
   DialogFooter,
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { getMinSlotDate } from '@/constants/slot.constants';
 import type { BookingType } from '@/types/appointment.types';
 import { TimeRangeMultiSelect } from './TimeRangeMultiSelect';
 import { getSlotTimeRangeOptions } from '@/constants/slot.constants';
-import { CalendarDays, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
-const SLOT_TYPE_LABELS: Record<BookingType, string> = {
-  APPOINTMENT: 'Appointment',
-  KUNDALI_REVIEW: 'Full Kundali Review',
-};
+const SLOT_TYPE_LABEL = 'Appointment for Full Kundali Review';
 
 const TIME_RANGE_OPTIONS = getSlotTimeRangeOptions();
 
@@ -52,13 +44,12 @@ export function PendingSessionEditModal({
   onDelete,
 }: PendingSessionEditModalProps) {
   const [date, setDate] = useState('');
-  const [slotType, setSlotType] = useState<BookingType>('APPOINTMENT');
+  const slotType: BookingType = 'KUNDALI_REVIEW';
   const [timeStarts, setTimeStarts] = useState<string[]>([]);
 
   useEffect(() => {
     if (session) {
       setDate(session.date);
-      setSlotType(session.slotType);
       setTimeStarts([...session.timeStarts].sort());
     }
   }, [session]);
@@ -95,25 +86,10 @@ export function PendingSessionEditModal({
           </div>
           <div>
             <label className="text-xs text-white/70 mb-1 block">Slot type</label>
-            <Select value={slotType} onValueChange={(v) => setSlotType(v as BookingType)}>
-              <SelectTrigger className="w-full bg-white/5 border-white/20 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="APPOINTMENT">
-                  <span className="flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    {SLOT_TYPE_LABELS.APPOINTMENT}
-                  </span>
-                </SelectItem>
-                <SelectItem value="KUNDALI_REVIEW">
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    {SLOT_TYPE_LABELS.KUNDALI_REVIEW}
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-white/5 border border-white/20 text-white">
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <span>{SLOT_TYPE_LABEL}</span>
+            </div>
           </div>
           <div>
             <label className="text-xs text-white/70 mb-1 block">Times</label>

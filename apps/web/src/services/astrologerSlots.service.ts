@@ -36,8 +36,15 @@ export async function listMySlots(
   return apiClient.get<ListMySlotsResult>(API_ENDPOINTS.ASTROLOGER.SLOTS, { params });
 }
 
-export async function createSlot(body: CreateSlotBody): Promise<{ slot: AstrologerSlot }> {
-  return apiClient.post<{ slot: AstrologerSlot }>(API_ENDPOINTS.ASTROLOGER.SLOTS, body);
+export interface CreateSlotsBulkResponse {
+  slots: AstrologerSlot[];
+}
+
+/** Create multiple slots in one request. */
+export async function createSlots(bodies: CreateSlotBody[]): Promise<CreateSlotsBulkResponse> {
+  return apiClient.post<CreateSlotsBulkResponse>(API_ENDPOINTS.ASTROLOGER.SLOTS_BULK, {
+    slots: bodies,
+  });
 }
 
 export async function updateSlot(

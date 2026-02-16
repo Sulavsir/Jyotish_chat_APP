@@ -2,12 +2,8 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@jyotish/ui';
 import type { AstrologerSlot } from '@/types/appointment.types';
-import type { BookingType } from '@/types/appointment.types';
 
-const SLOT_TYPE_LABELS: Record<BookingType, string> = {
-  APPOINTMENT: 'Appointment',
-  KUNDALI_REVIEW: 'Full Kundali Review',
-};
+const SLOT_TYPE_LABEL = 'Appointment for Full Kundali Review';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -54,7 +50,7 @@ export function SlotDetailModal({
           </div>
           <div>
             <span className="text-white/60">Type</span>
-            <p className="text-white font-medium">{SLOT_TYPE_LABELS[slot.slotType]}</p>
+            <p className="text-white font-medium">{SLOT_TYPE_LABEL}</p>
           </div>
           <div>
             <span className="text-white/60">Time</span>

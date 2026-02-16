@@ -504,15 +504,15 @@ export const deductCoinsForAppointment = async (
 };
 
 /**
- * Deduct coins when client books a slot (direct confirm: APPOINTMENT or KUNDALI_REVIEW).
- * Used for appointment/kundali review creation with astrologer-defined slot.
+ * Deduct coins when client books a slot (Appointment for Full Kundali Review).
+ * Used for appointment creation with astrologer-defined slot.
  */
 export const deductCoinsForBooking = async (
   userId: string,
   astrologerId: string,
-  bookingType: 'APPOINTMENT' | 'KUNDALI_REVIEW'
+  bookingType: 'KUNDALI_REVIEW'
 ): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
-  const rateType = bookingType === 'KUNDALI_REVIEW' ? 'KUNDALI_REVIEW' : 'APPOINTMENT';
+  const rateType = 'KUNDALI_REVIEW';
   const coinCost = await getRate(rateType);
   if (coinCost <= 0) {
     const balance = await getCoinBalance(userId);
@@ -538,7 +538,7 @@ export const deductCoinsForBooking = async (
 
   const balanceBefore = user.coins;
   const balanceAfter = balanceBefore - coinCost;
-  const source = bookingType === 'KUNDALI_REVIEW' ? 'KUNDALI_REVIEW' : 'APPOINTMENT';
+  const source = 'KUNDALI_REVIEW';
 
   const result = await prisma.$transaction(async (tx) => {
     const coinTx = await tx.coinTransaction.create({

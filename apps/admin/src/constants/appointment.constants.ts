@@ -5,16 +5,14 @@
 import { AppointmentStatus, AstrologerCategory, type BookingType } from '@/types/appointment.types';
 import { AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 
-/** Display labels for booking types */
+/** Display label for booking type (Appointment for Full Kundali Review). */
 export const BOOKING_TYPE_LABELS: Record<BookingType, string> = {
-  KUNDALI_REVIEW: 'Full Kundali Review',
-  APPOINTMENT: 'Appointment',
+  KUNDALI_REVIEW: 'Appointment for Full Kundali Review',
 };
 
 /** Badge className (tailwind) per booking type – use with w-fit so badge is text-width */
 export const BOOKING_TYPE_BADGE_CLASS: Record<BookingType, string> = {
   KUNDALI_REVIEW: 'bg-yellow-500 border border-amber-500/30',
-  APPOINTMENT: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
 };
 
 export const APPOINTMENT_STATUS = {

@@ -581,16 +581,8 @@ export default function MyBookingsPage() {
                                 <div>
                                   <p className="text-white font-medium">{a.astrologer.name}</p>
                                   {a.bookingType && (
-                                    <span
-                                      className={`mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
-                                        a.bookingType === 'KUNDALI_REVIEW'
-                                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                          : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                      }`}
-                                    >
-                                      {a.bookingType === 'KUNDALI_REVIEW'
-                                        ? 'Full Kundali Review'
-                                        : 'Appointment'}
+                                    <span className="mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                      Appointment for Full Kundali Review
                                     </span>
                                   )}
                                 </div>

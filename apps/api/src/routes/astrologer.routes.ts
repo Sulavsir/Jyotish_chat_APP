@@ -7,7 +7,11 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { changePasswordSchema } from '@jyotish/shared';
 import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators';
-import { createSlotSchema, listSlotsQuerySchema, updateSlotSchema } from '../validators/slot.validators';
+import {
+  createSlotsBulkSchema,
+  listSlotsQuerySchema,
+  updateSlotSchema,
+} from '../validators/slot.validators';
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
 import * as slotController from '../controllers/slotController';
@@ -57,9 +61,9 @@ router.get(
   asyncHandler(slotController.listMySlots)
 );
 router.post(
-  '/slots',
-  validateBody(createSlotSchema),
-  asyncHandler(slotController.createSlot)
+  '/slots/bulk',
+  validateBody(createSlotsBulkSchema),
+  asyncHandler(slotController.createSlotsBulk)
 );
 router.patch(
   '/slots/:id',

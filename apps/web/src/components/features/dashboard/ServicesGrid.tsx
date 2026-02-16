@@ -31,7 +31,6 @@ interface ServicesGridProps {
   onOpenPanditModal: () => void;
   onOpenVaastuModal: () => void;
   onOpenKathaModal: () => void;
-  onOpenAppointmentModal: () => void;
   onOpenKundaliReviewModal?: () => void;
 }
 
@@ -39,7 +38,6 @@ export function ServicesGrid({
   onOpenPanditModal,
   onOpenVaastuModal,
   onOpenKathaModal,
-  onOpenAppointmentModal,
   onOpenKundaliReviewModal,
 }: ServicesGridProps) {
   const router = useRouter();
@@ -50,12 +48,6 @@ export function ServicesGrid({
       name: 'Chat with Jyotish',
       icon: <MessageCircle className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.ASTROLOGERS),
-    },
-    {
-      id: 'appointment',
-      name: 'Book Appointment',
-      icon: <CalendarDays className="h-6 w-6" />,
-      onClick: onOpenAppointmentModal,
     },
     ...(onOpenKundaliReviewModal
       ? [

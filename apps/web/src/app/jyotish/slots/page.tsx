@@ -47,12 +47,9 @@ import { getAstrologerPermissionsFromUser } from '@/lib/auth';
 import { showErrorToast, showSuccessToast } from '@/lib/error-handler';
 import type { AstrologerSlot, BookingType } from '@/types/appointment.types';
 import { getSlotTimeRangeOptions, getMinSlotDate } from '@/constants/slot.constants';
-import { Clock, Trash2, Pencil, Plus, ChevronDown } from 'lucide-react';
+import { Clock, Trash2, Pencil, Plus, ChevronDown, CalendarDays } from 'lucide-react';
 
-const SLOT_TYPE_LABELS: Record<BookingType, string> = {
-  APPOINTMENT: 'Appointment',
-  KUNDALI_REVIEW: 'Full Kundali Review',
-};
+const SLOT_TYPE_LABEL = 'Appointment for Full Kundali Review';
 
 const TIME_RANGE_OPTIONS = getSlotTimeRangeOptions();
 
@@ -212,10 +209,13 @@ export default function JyotishSlotsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (body: astrologerSlotsService.CreateSlotBody) =>
-      astrologerSlotsService.createSlot(body),
-    onSuccess: () => {
+    mutationFn: (bodies: astrologerSlotsService.CreateSlotBody[]) =>
+      astrologerSlotsService.createSlots(bodies),
+    onSuccess: (_, bodies) => {
       queryClient.invalidateQueries({ queryKey: ['jyotish', 'slots'] });
+      showSuccessToast(
+        bodies.length === 1 ? 'Slot created' : `${bodies.length} slots created`
+      );
     },
     onError: (e) => showErrorToast(e),
   });
@@ -243,10 +243,7 @@ export default function JyotishSlotsPage() {
 
   const handleCreateSlots = useCallback(
     async (bodies: astrologerSlotsService.CreateSlotBody[]) => {
-      for (const body of bodies) {
-        await createMutation.mutateAsync(body);
-      }
-      showSuccessToast(bodies.length === 1 ? 'Slot created' : `${bodies.length} slots created`);
+      await createMutation.mutateAsync(bodies);
     },
     [createMutation]
   );
@@ -300,15 +297,9 @@ export default function JyotishSlotsPage() {
       {
         id: 'type',
         header: 'Type',
-        cell: (row) => (
-          <span
-            className={`text-xs px-1.5 py-0.5 rounded ${
-              row.slotType === 'KUNDALI_REVIEW'
-                ? 'bg-amber-500/20 text-amber-300'
-                : 'bg-purple-500/20 text-purple-300'
-            }`}
-          >
-            {SLOT_TYPE_LABELS[row.slotType]}
+        cell: () => (
+          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+            {SLOT_TYPE_LABEL}
           </span>
         ),
       },
@@ -398,8 +389,7 @@ export default function JyotishSlotsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All types</SelectItem>
-                <SelectItem value="APPOINTMENT">{SLOT_TYPE_LABELS.APPOINTMENT}</SelectItem>
-                <SelectItem value="KUNDALI_REVIEW">{SLOT_TYPE_LABELS.KUNDALI_REVIEW}</SelectItem>
+                <SelectItem value="KUNDALI_REVIEW">{SLOT_TYPE_LABEL}</SelectItem>
               </SelectContent>
             </Select>
           </CardHeader>
@@ -452,13 +442,16 @@ export default function JyotishSlotsPage() {
           <div className="space-y-4">
             <div>
               <label className="text-xs text-white/70 mb-1 block">Date</label>
-              <Input
-                type="date"
-                min={getMinSlotDate()}
-                value={editDate}
-                onChange={(e) => setEditDate(e.target.value)}
-                className="w-full bg-white/5 border-white/20 text-white"
-              />
+              <div className="relative">
+                <Input
+                  type="date"
+                  min={getMinSlotDate()}
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="w-full bg-white/5 border-white/20 text-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                />
+                <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-yellow-500" />
+              </div>
             </div>
             <div>
               <label className="text-xs text-white/70 mb-1 block">Time (30 min)</label>

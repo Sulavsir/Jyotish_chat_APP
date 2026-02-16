@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 
-const slotTypeEnum = z.enum(['APPOINTMENT', 'KUNDALI_REVIEW']);
+const slotTypeEnum = z.enum(['KUNDALI_REVIEW']);
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD');
 
 const SLOT_DURATION_MINUTES = 30;
@@ -24,6 +24,11 @@ export const createSlotSchema = z.object({
     const diffMinutes = (end - start) / (60 * 1000);
     return Math.abs(diffMinutes - SLOT_DURATION_MINUTES) < 1;
   }, { message: `Slot must be exactly ${SLOT_DURATION_MINUTES} minutes`, path: ['endAt'] });
+
+/** Bulk create: body is { slots: CreateSlotBody[] } */
+export const createSlotsBulkSchema = z.object({
+  slots: z.array(createSlotSchema).min(1, 'At least one slot is required').max(50, 'At most 50 slots per request'),
+});
 
 export const updateSlotSchema = z.object({
   startAt: z.string().datetime(),

@@ -12,7 +12,7 @@ import { SlotType } from '@prisma/client';
 
 /**
  * List available slots for an astrologer (client booking flow).
- * GET /api/v1/appointments/slots/:astrologerId?slotType=APPOINTMENT|KUNDALI_REVIEW&fromDate=&toDate=
+ * GET /api/v1/appointments/slots/:astrologerId?slotType=KUNDALI_REVIEW&fromDate=&toDate=
  */
 export async function listAvailableSlots(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
   const { astrologerId } = req.params;
@@ -21,13 +21,9 @@ export async function listAvailableSlots(req: AuthRequest, res: Response, _next:
     fromDate?: string;
     toDate?: string;
   };
-  if (!slotType || !['APPOINTMENT', 'KUNDALI_REVIEW'].includes(slotType)) {
-    sendError(res, 'slotType is required (APPOINTMENT or KUNDALI_REVIEW)', HTTP_STATUS.BAD_REQUEST);
-    return;
-  }
   const slots = await astrologerSlotService.listAvailableForClient({
     astrologerId,
-    slotType: slotType as SlotType,
+    slotType: 'KUNDALI_REVIEW',
     fromDate: fromDate ? new Date(fromDate + 'T00:00:00.000Z') : undefined,
     toDate: toDate ? new Date(toDate + 'T23:59:59.999Z') : undefined,
   });
@@ -58,19 +54,14 @@ export async function listMySlots(req: AuthRequest, res: Response, _next: NextFu
 }
 
 /**
- * Create a slot (astrologer only).
- * POST /api/v1/astrologer/slots
+ * Create multiple slots in one request (astrologer only).
+ * POST /api/v1/astrologer/slots/bulk
  */
-export async function createSlot(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
+export async function createSlotsBulk(req: AuthRequest, res: Response, _next: NextFunction): Promise<void> {
   const astrologerId = req.user!.id;
-  const { startAt, endAt, slotType } = req.body;
-  const slot = await astrologerSlotService.createSlot({
-    astrologerId,
-    startAt: new Date(startAt),
-    endAt: new Date(endAt),
-    slotType,
-  });
-  sendSuccess(res, { slot }, HTTP_STATUS.CREATED);
+  const { slots } = req.body as { slots: Array<{ startAt: string; endAt: string; slotType: SlotType }> };
+  const created = await astrologerSlotService.createSlotsBulk(astrologerId, slots);
+  sendSuccess(res, { slots: created }, HTTP_STATUS.CREATED);
 }
 
 /**

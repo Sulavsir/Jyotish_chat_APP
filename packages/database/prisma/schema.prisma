@@ -483,7 +483,7 @@ model AstrologerSlot {
   astrologerId  String
   startAt      DateTime
   endAt        DateTime
-  slotType     SlotType    // APPOINTMENT or KUNDALI_REVIEW
+  slotType     SlotType    // KUNDALI_REVIEW (Appointment for Full Kundali Review)
   status       SlotStatus  @default(AVAILABLE)
   appointmentId String?     @unique // Set when client books this slot (1:1 with Appointment)
   createdAt    DateTime    @default(now())
@@ -503,7 +503,7 @@ model Appointment {
   astrologerId     String
   scheduledAt      DateTime
   duration         Int               @default(30) // Duration in minutes
-  bookingType      BookingType       @default(APPOINTMENT) // APPOINTMENT or KUNDALI_REVIEW
+  bookingType      BookingType       @default(KUNDALI_REVIEW) // Appointment for Full Kundali Review
   status           AppointmentStatus @default(PENDING)
   amount           Float
   notes            String?
@@ -1002,13 +1002,11 @@ enum AppointmentStatus {
 }
 
 enum BookingType {
-  APPOINTMENT
-  KUNDALI_REVIEW
+  KUNDALI_REVIEW 
 }
 
 enum SlotType {
-  APPOINTMENT
-  KUNDALI_REVIEW
+  KUNDALI_REVIEW 
 }
 
 enum SlotStatus {

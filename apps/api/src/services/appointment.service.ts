@@ -109,7 +109,7 @@ export const createAppointment = async (
       duration: data.duration,
       amount: data.amount,
       notes: data.notes || null,
-      bookingType: 'APPOINTMENT',
+      bookingType: 'KUNDALI_REVIEW',
       status: AppointmentStatus.PENDING,
     },
     include: defaultInclude,

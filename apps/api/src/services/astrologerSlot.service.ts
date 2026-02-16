@@ -16,13 +16,6 @@ export function getSlotDurationMs(): number {
   return SLOT_DURATION_MINUTES * 60 * 1000;
 }
 
-export interface CreateSlotInput {
-  astrologerId: string;
-  startAt: Date;
-  endAt: Date;
-  slotType: SlotType;
-}
-
 export interface UpdateSlotInput {
   startAt: Date;
   endAt: Date;
@@ -44,35 +37,12 @@ function startOfNextDay(): Date {
 }
 
 /**
- * Create a slot (astrologer only). Duration must be exactly 30 minutes; startAt must be in the future.
+ * Create multiple slots (astrologer only). Creates in order; validation per slot.
  */
-export async function createSlot(input: CreateSlotInput): Promise<AstrologerSlotRow> {
-  const { astrologerId, startAt, endAt, slotType } = input;
-  const now = new Date();
-  const durationMs = endAt.getTime() - startAt.getTime();
-  const expectedDurationMs = getSlotDurationMs();
-  if (Math.abs(durationMs - expectedDurationMs) > 60 * 1000) {
-    throw new AppError(
-      `Slot duration must be exactly ${SLOT_DURATION_MINUTES} minutes`,
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
-  }
-  if (startAt >= endAt) {
-    throw new AppError(
-      'Slot start must be before end',
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
-  }
-  if (startAt < now) {
-    throw new AppError(
-      'Slot start must be in the future',
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
-  }
-
+export async function createSlotsBulk(
+  astrologerId: string,
+  items: Array<{ startAt: string; endAt: string; slotType: SlotType }>
+): Promise<AstrologerSlotRow[]> {
   const astrologer = await prisma.astrologer.findUnique({
     where: { id: astrologerId },
     select: { id: true, category: true },
@@ -81,16 +51,50 @@ export async function createSlot(input: CreateSlotInput): Promise<AstrologerSlot
     throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
   }
 
-  const slot = await prisma.astrologerSlot.create({
-    data: {
-      astrologerId,
-      startAt,
-      endAt,
-      slotType,
-      status: SlotStatus.AVAILABLE,
-    },
-  });
-  return slot as AstrologerSlotRow;
+  const now = new Date();
+  const expectedDurationMs = getSlotDurationMs();
+  const created: AstrologerSlotRow[] = [];
+
+  for (const item of items) {
+    const startAt = new Date(item.startAt);
+    const endAt = new Date(item.endAt);
+    const durationMs = endAt.getTime() - startAt.getTime();
+
+    if (Math.abs(durationMs - expectedDurationMs) > 60 * 1000) {
+      throw new AppError(
+        `Slot duration must be exactly ${SLOT_DURATION_MINUTES} minutes`,
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+    if (startAt >= endAt) {
+      throw new AppError(
+        'Slot start must be before end',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+    if (startAt < now) {
+      throw new AppError(
+        'Slot start must be in the future',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    const slot = await prisma.astrologerSlot.create({
+      data: {
+        astrologerId,
+        startAt,
+        endAt,
+        slotType: item.slotType,
+        status: SlotStatus.AVAILABLE,
+      },
+    });
+    created.push(slot as AstrologerSlotRow);
+  }
+
+  return created;
 }
 
 export interface ListByAstrologerOptions {

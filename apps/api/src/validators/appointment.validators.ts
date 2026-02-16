@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { AppointmentStatus } from '@prisma/client';
 import { queryPaginationSchema } from './query.validators';
 
-const bookingTypeEnum = z.enum(['APPOINTMENT', 'KUNDALI_REVIEW']);
+const bookingTypeEnum = z.enum(['KUNDALI_REVIEW']);
 
 /**
  * Validator for creating a new appointment.

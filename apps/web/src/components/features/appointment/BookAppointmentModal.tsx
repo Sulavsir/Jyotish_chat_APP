@@ -44,30 +44,19 @@ interface BookAppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  /** APPOINTMENT = normal appointment; KUNDALI_REVIEW = Full Kundali Review (different rate & label) */
-  mode?: 'APPOINTMENT' | 'KUNDALI_REVIEW';
 }
 
 const BOOKING_MODE = {
-  APPOINTMENT: {
-    slotType: 'APPOINTMENT' as BookingType,
-    rateKey: 'APPOINTMENT' as const,
-    title: 'Book an Appointment',
-    description: 'Schedule a cosmic consultation with our expert astrologers',
-  },
-  KUNDALI_REVIEW: {
-    slotType: 'KUNDALI_REVIEW' as BookingType,
-    rateKey: 'KUNDALI_REVIEW' as const,
-    title: 'Full Kundali Review',
-    description: 'Book a detailed kundali review session with our expert astrologers',
-  },
+  slotType: 'KUNDALI_REVIEW' as BookingType,
+  rateKey: 'KUNDALI_REVIEW' as const,
+  title: 'Appointment for Full Kundali Review',
+  description: 'Book a detailed kundali review session with our expert astrologers',
 };
 
 export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  mode = 'APPOINTMENT',
 }) => {
   const queryClient = useQueryClient();
   const [selectedAstrologer, setSelectedAstrologer] = useState<Astrologer | null>(null);
@@ -78,7 +67,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   const [selectedDateKey, setSelectedDateKey] = useState<string>('');
   const [bookingSlotId, setBookingSlotId] = useState<string | null>(null);
 
-  const bookingMode = BOOKING_MODE[mode];
+  const bookingMode = BOOKING_MODE;
   const { rates } = useCoinRates(isOpen);
   const appointmentCoinCost = rates?.[bookingMode.rateKey];
   const { data: balanceData } = useQuery({
@@ -197,7 +186,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     mutationFn: (data: {
       astrologerId: string;
       slotId: string;
-      bookingType?: 'APPOINTMENT' | 'KUNDALI_REVIEW';
+      bookingType?: BookingType;
       notes?: string;
     }) => appointmentService.createAppointment(data),
     onSuccess: (response) => {
@@ -295,8 +284,8 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
             </div>
           </DialogHeader>
 
-          {/* Info Banner – only for Appointment mode, not for Full Kundali Review */}
-          {step === 'select-astrologer' && mode === 'APPOINTMENT' && (
+          {/* Info Banner – Appointment for Full Kundali Review */}
+          {step === 'select-astrologer' && (
             <div className="flex-shrink-0 border-b border-purple-500/30 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 backdrop-blur-sm p-4">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
@@ -312,14 +301,14 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                 </div>
                 <div className="flex-1">
                   <h3 className="text-sm font-semibold text-purple-100 mb-1">
-                    ✨ About Appointment Bookings
+                    ✨ About Appointment for Full Kundali Review
                   </h3>
                   <p className="text-sm text-purple-200/90 leading-relaxed">
                     <span className="text-purple-300 font-semibold">Professional</span> and{' '}
                     <span className="text-indigo-300 font-semibold">Premium</span> astrologers are
-                    available for scheduled appointments. Professional astrologers offer competitive
-                    rates with chat + appointments, while Premium astrologers provide exclusive
-                    appointment-only consultations with time-limited chat during your session.
+                    available for full kundali review sessions. Professional astrologers offer
+                    competitive rates with chat + appointments, while Premium astrologers provide
+                    exclusive appointment-only consultations with time-limited chat during your session.
                   </p>
                 </div>
               </div>

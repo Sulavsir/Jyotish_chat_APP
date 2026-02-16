@@ -41,6 +41,15 @@ export function TimeRangeMultiSelect({
     .map((start) => options.find((o) => o.start === start))
     .filter(Boolean) as SlotTimeRangeOption[];
 
+  const allSelected = options.length > 0 && value.length === options.length;
+  const handleSelectAll = () => {
+    if (allSelected) {
+      onChange([]);
+    } else {
+      onChange(options.map((o) => o.start).sort());
+    }
+  };
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -98,6 +107,29 @@ export function TimeRangeMultiSelect({
           }}
           onWheel={(e) => e.stopPropagation()}
         >
+          <div
+            role="option"
+            aria-selected={allSelected}
+            tabIndex={0}
+            onClick={handleSelectAll}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSelectAll();
+              }
+            }}
+            className={cn(
+              'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none border-b border-white/10',
+              'hover:bg-purple-500/15 hover:text-white',
+              'focus:bg-purple-500/15 focus:text-white',
+              allSelected && 'bg-purple-500/15 text-white'
+            )}
+          >
+            <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+              {allSelected ? <Check className="h-4 w-4" /> : null}
+            </span>
+            <span className="font-medium">Select All</span>
+          </div>
           {options.map((opt) => {
             const isSelected = value.includes(opt.start);
             return (

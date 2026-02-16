@@ -112,6 +112,7 @@ export const API_ENDPOINTS = {
     STATS: '/api/v1/public/astrologers/stats',
     EARNINGS: '/api/v1/astrologer/earnings',
     SLOTS: '/api/v1/astrologer/slots',
+    SLOTS_BULK: '/api/v1/astrologer/slots/bulk',
     SLOT_BY_ID: (id: string) => `/api/v1/astrologer/slots/${id}`,
   },
   ADMIN: {

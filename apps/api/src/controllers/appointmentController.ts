@@ -64,7 +64,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       }
 
       const { getRate } = await import('../services/platformCoinRate.service');
-      const amount = await getRate(bookingType === 'KUNDALI_REVIEW' ? 'KUNDALI_REVIEW' : 'APPOINTMENT');
+      const amount = await getRate('KUNDALI_REVIEW');
 
       const appointment = await appointmentService.createAppointment({
         clientId,

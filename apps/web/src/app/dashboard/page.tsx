@@ -51,7 +51,6 @@ export default function DashboardPage() {
   });
   const [showWelcomeAlert, setShowWelcomeAlert] = useState(true);
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
-  const [isKundaliReviewModalOpen, setIsKundaliReviewModalOpen] = useState(false);
   const [isPanditModalOpen, setIsPanditModalOpen] = useState(false);
   const [isVaastuModalOpen, setIsVaastuModalOpen] = useState(false);
   const [isKathaModalOpen, setIsKathaModalOpen] = useState(false);
@@ -538,7 +537,7 @@ export default function DashboardPage() {
                 {/* Left Section: Online Astrologers Card */}
                 <div className="flex-1 border-r-0 lg:border-r lg:border-white/10 lg:pr-8">
                   <OnlineAstrologersCard
-                    onOpenKundaliReview={() => setIsKundaliReviewModalOpen(true)}
+                    onOpenKundaliReview={() => setIsAppointmentModalOpen(true)}
                   />
                 </div>
 
@@ -688,8 +687,7 @@ export default function DashboardPage() {
               onOpenPanditModal={() => setIsPanditModalOpen(true)}
               onOpenVaastuModal={() => setIsVaastuModalOpen(true)}
               onOpenKathaModal={() => setIsKathaModalOpen(true)}
-              onOpenAppointmentModal={() => setIsAppointmentModalOpen(true)}
-              onOpenKundaliReviewModal={() => setIsKundaliReviewModalOpen(true)}
+              onOpenKundaliReviewModal={() => setIsAppointmentModalOpen(true)}
             />
           </div>
         </div>
@@ -699,12 +697,6 @@ export default function DashboardPage() {
           isOpen={isAppointmentModalOpen}
           onClose={() => setIsAppointmentModalOpen(false)}
           onSuccess={() => setIsAppointmentModalOpen(false)}
-        />
-        <BookAppointmentModal
-          isOpen={isKundaliReviewModalOpen}
-          onClose={() => setIsKundaliReviewModalOpen(false)}
-          onSuccess={() => setIsKundaliReviewModalOpen(false)}
-          mode="KUNDALI_REVIEW"
         />
 
         <BookJyotishServiceModal

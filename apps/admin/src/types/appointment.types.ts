@@ -35,7 +35,8 @@ export interface AppointmentAstrologer {
   commissionRate?: number;
 }
 
-export type BookingType = 'APPOINTMENT' | 'KUNDALI_REVIEW';
+/** Appointment for Full Kundali Review (only booking type). */
+export type BookingType = 'KUNDALI_REVIEW';
 
 export interface Appointment {
   id: string;
