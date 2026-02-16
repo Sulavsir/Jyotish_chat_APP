@@ -250,6 +250,76 @@ class EmailService {
 
     return this.sendEmail({ to: email, subject, html });
   }
+
+  /**
+   * Send appointment reminder email (e.g. 1 hour before). Used for Book Appointment and Full Kundali Review.
+   * No coins, money, or commission. Contains: client name, time, website link.
+   */
+  async sendAppointmentReminderEmail(
+    recipientName: string,
+    recipientEmail: string,
+    options: {
+      appointmentTypeLabel: string;
+      clientName: string;
+      scheduledAt: Date;
+      durationMinutes: number;
+    }
+  ): Promise<boolean> {
+    const { appointmentTypeLabel, clientName, scheduledAt, durationMinutes } = options;
+    const websiteUrl = process.env.FRONTEND_URL || 'https://chatjyotish.com';
+    const scheduledFormatted = scheduledAt.toLocaleString(undefined, {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const subject = `Reminder: ${appointmentTypeLabel} in 1 hour - Chat Jyotish`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Appointment Reminder</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0;">📅 Appointment Reminder</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
+            <p style="font-size: 16px;">Namaste <strong>${recipientName}</strong>,</p>
+            <p style="font-size: 16px;">This is a reminder that your <strong>${appointmentTypeLabel}</strong> is scheduled in about 1 hour.</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+              <h3 style="margin-top: 0; color: #667eea;">Details</h3>
+              <ul style="list-style: none; padding: 0;">
+                <li style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;"><strong>Client:</strong> ${clientName}</li>
+                <li style="padding: 8px 0; border-bottom: 1px solid #e0e0e0;"><strong>Date & time:</strong> ${scheduledFormatted}</li>
+                <li style="padding: 8px 0;"><strong>Duration:</strong> ${durationMinutes} min</li>
+              </ul>
+            </div>
+
+            <p style="font-size: 16px;">Please be ready to join at the scheduled time.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${websiteUrl}" 
+                 style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Open Chat Jyotish
+              </a>
+            </div>
+
+            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotish Team</strong></p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({ to: recipientEmail, subject, html });
+  }
 }
 
 // Export singleton instance

@@ -36,7 +36,15 @@ export type {
 } from './admin.types';
 
 // Re-export appointment types
-export type { Appointment, AppointmentClient, AppointmentAstrologer } from './appointment.types';
+export type {
+  Appointment,
+  AppointmentClient,
+  AppointmentAstrologer,
+  ListAppointmentsResponse,
+  ListAppointmentsParams,
+  CancelAppointmentPayload,
+  AppointmentsPagination,
+} from './appointment.types';
 
 export { AppointmentStatus, AstrologerCategory } from './appointment.types';
 

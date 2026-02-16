@@ -29,6 +29,7 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
+  Coins,
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -133,6 +134,17 @@ export default function JyotishAppointmentsPage() {
           <div>
             <p className="font-medium text-white">{row.client.name || 'Client'}</p>
             <p className="text-xs text-white/60">{row.client.phone}</p>
+            {row.bookingType && (
+              <span
+                className={`mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
+                  row.bookingType === 'KUNDALI_REVIEW'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                }`}
+              >
+                {row.bookingType === 'KUNDALI_REVIEW' ? 'Full Kundali Review' : 'Appointment'}
+              </span>
+            )}
           </div>
         ),
       },
@@ -154,9 +166,27 @@ export default function JyotishAppointmentsPage() {
         cell: (row) => `${row.duration}m`,
       },
       {
-        id: 'amount',
-        header: 'Amount',
-        cell: (row) => `Rs. ${row.amount}`,
+        id: 'notes',
+        header: 'Notes',
+        cell: (row) => (
+          <span className="max-w-[200px] truncate block text-white/80" title={row.notes ?? ''}>
+            {row.notes || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'coins',
+        header: 'Coins',
+        cell: (row) => {
+          const rate = row.astrologer?.commissionRate ?? 0;
+          const coins = Math.ceil((row.amount * rate) / 100);
+          return (
+            <span className="inline-flex items-center gap-1.5 font-medium text-amber-400">
+              <Coins className="h-4 w-4 shrink-0" />
+              {coins}
+            </span>
+          );
+        },
       },
       {
         id: 'status',

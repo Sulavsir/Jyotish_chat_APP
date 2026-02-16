@@ -25,6 +25,7 @@ export interface Appointment {
   duration: number;
   status: AppointmentStatus;
   amount: number;
+  bookingType?: BookingType;
   notes: string | null;
   rating: number | null;
   review: string | null;
@@ -46,6 +47,7 @@ export interface Appointment {
     profilePhoto: string | null;
     category: AstrologerCategory;
     appointmentFee: number | null;
+    commissionRate?: number;
   };
 }
 

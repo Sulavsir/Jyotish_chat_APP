@@ -107,7 +107,8 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
               <Button
                 onClick={onOpenKundaliReview}
                 variant="outline"
-                className="shrink-0 border-white/30 text-white bg-white/5 hover:bg-white/10"
+                color="neutral"
+                className="shrink-0 !border-white/30 !bg-white/5 hover:!bg-white/10 hover:!border-white/50 active:!border-purple-400 active:!bg-white/20 active:ring-2 active:ring-purple-400/50 active:scale-[0.98] focus-visible:!ring-2 focus-visible:!ring-purple-400/60 focus-visible:!ring-offset-2 focus-visible:!ring-offset-slate-900 transition-all"
               >
                 Full Kundali Review
               </Button>

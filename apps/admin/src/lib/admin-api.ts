@@ -5,7 +5,12 @@
 import { apiClient } from './api-client';
 import { API_ENDPOINTS } from '@/constants/api.constants';
 import type { Complaint, ComplaintStats } from '@/types';
-import type { Appointment } from '@/types/appointment.types';
+import type {
+  Appointment,
+  ListAppointmentsResponse,
+  ListAppointmentsParams,
+  CancelAppointmentPayload,
+} from '@/types/appointment.types';
 import type { DashboardRotatingCopy } from '@jyotish/shared';
 import {
   AstrologerCategory,
@@ -668,9 +673,13 @@ export const adminApi = {
    * Appointments
    */
   appointments: {
-    list: async (params?: { page?: number; limit?: number }): Promise<any> => {
-      const response = await apiClient.get(API_ENDPOINTS.APPOINTMENTS.LIST, { params });
-      return response;
+    list: async (params?: ListAppointmentsParams): Promise<ListAppointmentsResponse> => {
+      return apiClient.get<ListAppointmentsResponse>(API_ENDPOINTS.APPOINTMENTS.LIST, {
+        params,
+      });
+    },
+    cancel: async (id: string, data?: CancelAppointmentPayload): Promise<Appointment> => {
+      return apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data ?? {});
     },
   },
 

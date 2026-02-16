@@ -35,6 +35,7 @@ const defaultInclude = {
       profilePhoto: true,
       category: true,
       appointmentFee: true,
+      commissionRate: true,
     },
   },
 } as const;
@@ -193,6 +194,7 @@ export const listAppointments = async (input: {
   limit: number;
   search?: string;
   status?: AppointmentStatus;
+  statuses?: AppointmentStatus[];
 }): Promise<{
   appointments: AppointmentWithRelations[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
@@ -203,9 +205,12 @@ export const listAppointments = async (input: {
   const baseWhere: Prisma.AppointmentWhereInput =
     input.role === UserRole.CLIENT ? { clientId: input.userId } : { astrologerId: input.userId };
 
+  const statusFilter =
+    input.statuses?.length ? { status: { in: input.statuses } } : input.status ? { status: input.status } : {};
+
   const where: Prisma.AppointmentWhereInput = {
     ...baseWhere,
-    ...(input.status ? { status: input.status } : {}),
+    ...statusFilter,
     ...(q
       ? {
           OR: [
@@ -242,6 +247,7 @@ export const listAppointments = async (input: {
             profilePhoto: true,
             category: true,
             appointmentFee: true,
+            commissionRate: true,
           },
         },
       },

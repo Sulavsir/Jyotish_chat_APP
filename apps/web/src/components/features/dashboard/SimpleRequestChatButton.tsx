@@ -28,7 +28,9 @@ export function SimpleRequestChatButton() {
   return (
     <LoadingButton
       onClick={handleClick}
-      className="relative bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-500 hover:via-pink-500 hover:to-red-500 text-white border-0 rounded-full px-6 py-2.5 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group overflow-hidden"
+      variant="ghost"
+      color="none"
+      className="relative !bg-gradient-to-r !from-purple-600 !via-pink-600 !to-red-600 hover:!from-purple-500 hover:!via-pink-500 hover:!to-red-500 text-white border-2 border-transparent rounded-full px-6 py-2.5 flex items-center gap-2 font-medium shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-[0.98] active:!border-white/40 active:ring-2 active:ring-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 group overflow-hidden"
     >
       {/* Animated background shimmer */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />

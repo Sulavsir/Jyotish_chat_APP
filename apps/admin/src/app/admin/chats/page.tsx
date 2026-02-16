@@ -24,8 +24,6 @@ import { useAdminSocket } from '@/hooks';
 import { Ban, RefreshCw } from 'lucide-react';
 import { generatePageNumbers } from '@/utils/helpers';
 
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
-
 interface ChatsResponse {
   chats: Chat[];
   pagination: {
@@ -54,7 +52,7 @@ export default function ChatsPage() {
     queryFn: async () => {
       const response: any = await adminApi.chats.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: PAGINATION_DEFAULTS.LIMIT,
       });
       // Handle both response formats
       if (response?.chats && response?.pagination) {
@@ -65,7 +63,7 @@ export default function ChatsPage() {
           chats: response,
           pagination: {
             page: 1,
-            limit: ITEMS_PER_PAGE,
+            limit: PAGINATION_DEFAULTS.LIMIT,
             total: response.length,
             totalPages: 1,
           },
@@ -73,7 +71,7 @@ export default function ChatsPage() {
       }
       return {
         chats: [],
-        pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 },
+        pagination: { page: 1, limit: PAGINATION_DEFAULTS.LIMIT, total: 0, totalPages: 0 },
       };
     },
   });
@@ -81,7 +79,7 @@ export default function ChatsPage() {
   const chats = chatsResponse?.chats || [];
   const pagination = chatsResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: PAGINATION_DEFAULTS.LIMIT,
     total: 0,
     totalPages: 0,
   };
@@ -154,9 +152,7 @@ export default function ChatsPage() {
     const search = searchTerm.toLowerCase();
 
     return (
-      clientName.includes(search) ||
-      astrologerName.includes(search) ||
-      lastMessage.includes(search)
+      clientName.includes(search) || astrologerName.includes(search) || lastMessage.includes(search)
     );
   });
 
@@ -274,13 +270,15 @@ export default function ChatsPage() {
           <div className="rounded-xl p-4">
             <div className="flex flex-col gap-2 items-center justify-between">
               <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
+                Showing{' '}
+                <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
+                </span>{' '}
+                to{' '}
                 <span className="text-purple-400">
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
               <Pagination>
@@ -313,7 +311,9 @@ export default function ChatsPage() {
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                      }
                       disabled={currentPage === pagination.totalPages}
                     />
                   </PaginationItem>

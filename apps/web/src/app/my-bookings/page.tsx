@@ -2,13 +2,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { QUERY_KEYS } from '@/constants';
 import jyotishBookingService from '@/services/jyotishBooking.service';
 import appointmentService from '@/services/appointment.service';
-import { CancelAppointmentModal } from '@/components/features/appointment';
-import { showErrorToast, showSuccessToast, getSuccessMessage } from '@/lib/error-handler';
 import {
   Badge,
   Card,
@@ -38,7 +36,7 @@ import {
 } from '@jyotish/ui';
 import { AstrologerCategory, JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
-import { XCircle, Coins } from 'lucide-react';
+import { Coins } from 'lucide-react';
 
 type MyBookingsResponse = Awaited<ReturnType<typeof jyotishBookingService.listMine>>;
 type MyBooking = MyBookingsResponse['bookings'][number];
@@ -111,11 +109,7 @@ function appointmentStatusBadge(status: AppointmentStatus) {
 }
 
 export default function MyBookingsPage() {
-  const queryClient = useQueryClient();
   const [section, setSection] = useState<Section>('BOOKINGS');
-  const [cancelModalAppointment, setCancelModalAppointment] =
-    useState<MyAppointment | null>(null);
-
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'ALL' | JyotishBookingType>('ALL');
   const [status, setStatus] = useState<'ALL' | JyotishBookingStatus>('ALL');
@@ -199,22 +193,6 @@ export default function MyBookingsPage() {
     for (let i = start; i <= end; i++) out.push(i);
     return out;
   }, [apptPagination.page, apptPagination.totalPages]);
-
-  const cancelMutation = useMutation({
-    mutationFn: ({ id, cancellationNote }: { id: string; cancellationNote?: string }) =>
-      appointmentService.cancelAppointment(id, cancellationNote),
-    onSuccess: (response) => {
-      showSuccessToast(getSuccessMessage(response) || 'Appointment cancelled successfully');
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
-    },
-    onError: (error) => {
-      showErrorToast(error);
-    },
-  });
-
-  const handleCancelAppointment = (appointment: MyAppointment) => {
-    setCancelModalAppointment(appointment);
-  };
 
   return (
     <DashboardLayout>
@@ -389,6 +367,11 @@ export default function MyBookingsPage() {
                 </div>
               ) : (
                 <>
+                  {(() => {
+                    const showAdminNote = bookings.some(
+                      (b: MyBooking) => (b.adminNotes ?? '').trim()
+                    );
+                    return (
                   <div className="overflow-x-auto rounded-xl border border-white/10">
                     <Table className="bg-black/20">
                       <TableHeader>
@@ -408,9 +391,11 @@ export default function MyBookingsPage() {
                           <TableHead className="text-slate-200 border-r border-slate-700/60">
                             Remarks
                           </TableHead>
-                          <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[240px] whitespace-nowrap">
-                            Admin note
-                          </TableHead>
+                          {showAdminNote && (
+                            <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[240px] whitespace-nowrap">
+                              Admin note
+                            </TableHead>
+                          )}
                           <TableHead className="text-slate-200 border-r border-slate-700/60">
                             Status
                           </TableHead>
@@ -467,12 +452,14 @@ export default function MyBookingsPage() {
                             >
                               {b.details || <span className="text-slate-500">—</span>}
                             </TableCell>
-                            <TableCell
-                              className="max-w-[260px] truncate border-r border-slate-700/40 min-w-[240px]"
-                              title={b.adminNotes ?? ''}
-                            >
-                              {b.adminNotes || <span className="text-slate-500">—</span>}
-                            </TableCell>
+                            {showAdminNote && (
+                              <TableCell
+                                className="max-w-[260px] truncate border-r border-slate-700/40 min-w-[240px]"
+                                title={b.adminNotes ?? ''}
+                              >
+                                {b.adminNotes || <span className="text-slate-500">—</span>}
+                              </TableCell>
+                            )}
                             <TableCell className="whitespace-nowrap border-r border-slate-700/40">
                               {statusBadge(b.status)}
                             </TableCell>
@@ -488,6 +475,8 @@ export default function MyBookingsPage() {
                       </TableBody>
                     </Table>
                   </div>
+                    );
+                  })()}
 
                   {pagination.total > 0 ? (
                     <div className="pt-6">
@@ -541,6 +530,12 @@ export default function MyBookingsPage() {
               </div>
             ) : (
               <>
+                {(() => {
+                  const showCancellationReason = appointments.some(
+                    (a: MyAppointment) =>
+                      a.status === AppointmentStatus.CANCELLED && (a.cancellationNote ?? '').trim()
+                  );
+                  return (
                 <div className="overflow-x-auto rounded-xl border border-white/10">
                   <Table className="bg-black/20">
                     <TableHeader>
@@ -569,11 +564,11 @@ export default function MyBookingsPage() {
                         <TableHead className="text-slate-200 border-r border-slate-700/60">
                           Notes
                         </TableHead>
-                        <TableHead className="text-slate-200 border-r border-slate-700/60">
-                          Cancellation
-                        </TableHead>
-                        {/* Actions column removed: client cannot cancel once scheduled; only admin can cancel (status + notes updated then) */}
-                        {/* <TableHead className="text-slate-200 border-r border-slate-700/60">Actions</TableHead> */}
+                        {showCancellationReason && (
+                          <TableHead className="text-slate-200 border-r border-slate-700/60">
+                            Cancellation reason
+                          </TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -582,8 +577,23 @@ export default function MyBookingsPage() {
                           <TableCell className="whitespace-nowrap border-r border-slate-700/40 text-slate-300">
                             {(apptPagination.page - 1) * apptPagination.limit + idx + 1}
                           </TableCell>
-                          <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            {a.astrologer.name}
+                          <TableCell className="border-r border-slate-700/40">
+                            <div>
+                              <p className="text-white font-medium">{a.astrologer.name}</p>
+                              {a.bookingType && (
+                                <span
+                                  className={`mt-1 inline-block text-xs px-1.5 py-0.5 rounded font-medium ${
+                                    a.bookingType === 'KUNDALI_REVIEW'
+                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                      : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                  }`}
+                                >
+                                  {a.bookingType === 'KUNDALI_REVIEW'
+                                    ? 'Full Kundali Review'
+                                    : 'Appointment'}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="whitespace-nowrap text-slate-200 border-r border-slate-700/40">
                             {new Date(a.scheduledAt).toLocaleString('en-US', {
@@ -619,32 +629,27 @@ export default function MyBookingsPage() {
                           >
                             {a.notes || <span className="text-slate-500">—</span>}
                           </TableCell>
-                          <TableCell
-                            className="max-w-[320px] truncate border-r border-slate-700/40"
-                            title={a.cancellationNote ?? ''}
-                          >
-                            {a.cancellationNote || <span className="text-slate-500">—</span>}
-                          </TableCell>
-                          {/* Actions: client cannot cancel once scheduled; only admin can cancel (then status + cancellation notes updated) */}
-                          {/* <TableCell className="whitespace-nowrap border-r border-slate-700/40">
-                            {(a.status === AppointmentStatus.PENDING ||
-                              a.status === AppointmentStatus.CONFIRMED) && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500/70"
-                                onClick={() => handleCancelAppointment(a)}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancel
-                              </Button>
-                            )}
-                          </TableCell> */}
+                          {showCancellationReason && (
+                            <TableCell
+                              className="max-w-[320px] truncate border-r border-slate-700/40"
+                              title={
+                                a.status === AppointmentStatus.CANCELLED
+                                  ? (a.cancellationNote ?? '') || '—'
+                                  : ''
+                              }
+                            >
+                              {a.status === AppointmentStatus.CANCELLED
+                                ? (a.cancellationNote || <span className="text-slate-500">—</span>)
+                                : <span className="text-slate-500">—</span>}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
+                  );
+                })()}
 
                 {apptPagination.total > 0 ? (
                   <div className="pt-6">
@@ -685,16 +690,6 @@ export default function MyBookingsPage() {
               </>
             )}
 
-            <CancelAppointmentModal
-              isOpen={!!cancelModalAppointment}
-              onClose={() => setCancelModalAppointment(null)}
-              appointment={cancelModalAppointment}
-              onCancelled={() => setCancelModalAppointment(null)}
-              cancelFn={(id, cancellationNote) =>
-                cancelMutation.mutateAsync({ id, cancellationNote })
-              }
-              isPending={cancelMutation.isPending}
-            />
           </CardContent>
         </Card>
       </div>

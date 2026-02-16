@@ -32,7 +32,10 @@ export interface AppointmentAstrologer {
   email: string | null;
   category: AstrologerCategory;
   appointmentFee: number | null;
+  commissionRate?: number;
 }
+
+export type BookingType = 'APPOINTMENT' | 'KUNDALI_REVIEW';
 
 export interface Appointment {
   id: string;
@@ -40,9 +43,35 @@ export interface Appointment {
   duration: number;
   status: AppointmentStatus;
   amount: number;
+  bookingType?: BookingType;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   client: AppointmentClient;
   astrologer: AppointmentAstrologer;
+}
+
+/** Pagination meta for list endpoints */
+export interface AppointmentsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/** API response for GET /api/v1/admin/appointments (paginated list) */
+export interface ListAppointmentsResponse {
+  appointments: Appointment[];
+  pagination: AppointmentsPagination;
+}
+
+/** Params for listing appointments (admin) */
+export interface ListAppointmentsParams {
+  page?: number;
+  limit?: number;
+}
+
+/** Payload for cancelling an appointment (admin) */
+export interface CancelAppointmentPayload {
+  cancellationNote?: string;
 }

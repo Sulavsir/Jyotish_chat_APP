@@ -67,9 +67,15 @@ export const cancelAppointmentSchema = z.object({
 });
 
 /**
- * Query validator for listing "my" appointments (client/astrologer)
+ * Query validator for listing "my" appointments (client/astrologer).
+ * Use status for a single status, or statuses for multiple (e.g. consultations: IN_PROGRESS,COMPLETED).
  */
 export const listMyAppointmentsQuerySchema = queryPaginationSchema.extend({
   search: z.string().trim().min(1).optional(),
   status: z.nativeEnum(AppointmentStatus).optional(),
+  statuses: z
+    .string()
+    .optional()
+    .transform((s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined))
+    .pipe(z.array(z.nativeEnum(AppointmentStatus)).optional()),
 });

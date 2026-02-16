@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
+  Badge,
   Button,
   Pagination,
   PaginationContent,
@@ -13,6 +14,15 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  LoadingButton,
+  Label,
+  Textarea,
 } from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
@@ -24,31 +34,46 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Ban,
+  Coins,
 } from 'lucide-react';
-import type { Appointment } from '@/types/appointment.types';
-import { AstrologerCategory } from '@/types/appointment.types';
+import type {
+  Appointment,
+  ListAppointmentsResponse,
+  AppointmentsPagination,
+  CancelAppointmentPayload,
+} from '@/types/appointment.types';
+import { AstrologerCategory, AppointmentStatus } from '@/types/appointment.types';
 import {
   APPOINTMENT_STATUS,
   APPOINTMENT_STATUS_COLORS,
   APPOINTMENT_STATUS_ICONS,
   ASTROLOGER_CATEGORY_COLORS,
+  BOOKING_TYPE_LABELS,
+  BOOKING_TYPE_BADGE_CLASS,
 } from '@/constants/appointment.constants';
 import { generatePageNumbers } from '@/utils/helpers';
+import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
-interface AppointmentsResponse {
-  appointments: Appointment[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+const DEFAULT_PAGINATION: AppointmentsPagination = {
+  page: PAGINATION_DEFAULTS.PAGE,
+  limit: PAGINATION_DEFAULTS.LIMIT,
+  total: 0,
+  totalPages: 0,
+};
+
+const CANCELLABLE_STATUSES: AppointmentStatus[] = [
+  APPOINTMENT_STATUS.PENDING,
+  APPOINTMENT_STATUS.CONFIRMED,
+];
 
 export default function AppointmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [cancelModalAppointment, setCancelModalAppointment] = useState<Appointment | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const queryClient = useQueryClient();
 
   // Fetch appointments with TanStack Query (server-side pagination)
   const {
@@ -56,43 +81,30 @@ export default function AppointmentsPage() {
     isLoading,
     error,
     refetch,
-  } = useQuery<AppointmentsResponse>({
-    queryKey: ['admin', 'appointments', 'list', currentPage],
-    queryFn: async () => {
-      const response: any = await adminApi.appointments.list({
+  } = useQuery<ListAppointmentsResponse>({
+    queryKey: [...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(), currentPage],
+    queryFn: () =>
+      adminApi.appointments.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-      });
-      // Handle both response formats
-      if (response?.appointments && response?.pagination) {
-        return response;
-      } else if (Array.isArray(response)) {
-        // Fallback for old format
-        return {
-          appointments: response,
-          pagination: {
-            page: 1,
-            limit: ITEMS_PER_PAGE,
-            total: response.length,
-            totalPages: 1,
-          },
-        };
-      }
-      return {
-        appointments: [],
-        pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 },
-      };
-    },
+      }),
     refetchInterval: 20000,
   });
 
-  const appointments = appointmentsResponse?.appointments || [];
-  const pagination = appointmentsResponse?.pagination || {
-    page: 1,
-    limit: ITEMS_PER_PAGE,
-    total: 0,
-    totalPages: 0,
-  };
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, cancellationNote }: { id: string } & CancelAppointmentPayload) =>
+      adminApi.appointments.cancel(id, { cancellationNote }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.APPOINTMENTS.ALL });
+      setCancelModalAppointment(null);
+      setCancelReason('');
+      toast.success('Appointment cancelled');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Failed to cancel appointment'),
+  });
+
+  const appointments = appointmentsResponse?.appointments ?? [];
+  const pagination = appointmentsResponse?.pagination ?? DEFAULT_PAGINATION;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -159,12 +171,23 @@ export default function AppointmentsPage() {
       header: 'Astrologer',
       accessor: (appointment) => (
         <div>
-          <div className="text-sm font-medium text-white mb-1">{appointment.astrologer.name}</div>
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getCategoryBadgeColor(appointment.astrologer.category)}`}
-          >
-            {appointment.astrologer.category}
-          </span>
+          <div className="text-sm font-medium text-white mb-1 flex flex-col gap-1.5">
+            {appointment.astrologer.name}
+            {appointment.bookingType && (
+              <Badge
+                className={`w-fit shrink-0 ${BOOKING_TYPE_BADGE_CLASS[appointment.bookingType]}`}
+              >
+                {BOOKING_TYPE_LABELS[appointment.bookingType]}
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getCategoryBadgeColor(appointment.astrologer.category)}`}
+            >
+              {appointment.astrologer.category}
+            </span>
+          </div>
         </div>
       ),
     },
@@ -178,12 +201,17 @@ export default function AppointmentsPage() {
       ),
     },
     {
-      header: 'Amount',
-      accessor: (appointment) => (
-        <div className="flex items-center gap-1 text-sm font-medium text-green-400">
-          Rs. {appointment.amount}
-        </div>
-      ),
+      header: 'Coins',
+      accessor: (appointment) => {
+        const rate = appointment.astrologer?.commissionRate ?? 0;
+        const commissionedCoins = Math.ceil((appointment.amount * rate) / 100);
+        return (
+          <div className="flex items-center gap-1.5 text-sm font-medium text-amber-400">
+            <Coins className="h-4 w-4 shrink-0" />
+            {commissionedCoins}
+          </div>
+        );
+      },
     },
     {
       header: 'Status',
@@ -204,6 +232,23 @@ export default function AppointmentsPage() {
       accessor: (appointment) => (
         <span className="text-sm text-slate-400">{formatDate(appointment.createdAt)}</span>
       ),
+    },
+    {
+      header: 'Actions',
+      accessor: (appointment) =>
+        CANCELLABLE_STATUSES.includes(appointment.status) ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+            onClick={() => setCancelModalAppointment(appointment)}
+          >
+            <Ban className="w-4 h-4 mr-1" />
+            Cancel
+          </Button>
+        ) : (
+          <span className="text-slate-500 text-sm">—</span>
+        ),
     },
   ];
 
@@ -295,18 +340,90 @@ export default function AppointmentsPage() {
           )}
         </div>
 
-        {/* Pagination */}
-        {!isLoading && !error && pagination.totalPages > 0 && (
+        {/* Cancel appointment modal */}
+        <Dialog
+          open={!!cancelModalAppointment}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCancelModalAppointment(null);
+              setCancelReason('');
+            }
+          }}
+        >
+          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-white">Cancel appointment</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                {cancelModalAppointment && (
+                  <>
+                    Cancel appointment for{' '}
+                    <span className="font-medium text-white">
+                      {cancelModalAppointment.client.name || cancelModalAppointment.client.phone}
+                    </span>{' '}
+                    on {formatDate(cancelModalAppointment.scheduledAt)}? You can add a reason below
+                    (visible to the client).
+                  </>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="cancel-reason" className="text-slate-300">
+                Cancellation reason (optional)
+              </Label>
+              <Textarea
+                id="cancel-reason"
+                placeholder="e.g. Astrologer unavailable"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                maxLength={500}
+                className="bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                rows={3}
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCancelModalAppointment(null);
+                  setCancelReason('');
+                }}
+                className="border-slate-600 text-slate-300"
+              >
+                Keep
+              </Button>
+              <LoadingButton
+                loading={cancelMutation.isPending}
+                variant="outline"
+                color="danger"
+                onClick={() => {
+                  if (cancelModalAppointment) {
+                    cancelMutation.mutate({
+                      id: cancelModalAppointment.id,
+                      cancellationNote: cancelReason.trim() || undefined,
+                    });
+                  }
+                }}
+              >
+                Cancel appointment
+              </LoadingButton>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Pagination - same pattern as audit-logs */}
+        {!isLoading && !error && pagination.total > 0 && (
           <div className="rounded-xl p-4">
             <div className="flex flex-col gap-2 items-center justify-between">
               <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
+                Showing{' '}
+                <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
+                </span>{' '}
+                to{' '}
                 <span className="text-purple-400">
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
               <Pagination>
@@ -339,7 +456,9 @@ export default function AppointmentsPage() {
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                      }
                       disabled={currentPage === pagination.totalPages}
                     />
                   </PaginationItem>

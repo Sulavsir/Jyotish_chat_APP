@@ -134,11 +134,12 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { page, limit, search, status } = req.query as unknown as {
+    const { page, limit, search, status, statuses } = req.query as unknown as {
       page: number;
       limit: number;
       search?: string;
       status?: AppointmentStatus;
+      statuses?: AppointmentStatus[];
     };
 
     const result = await appointmentService.listAppointments({
@@ -148,6 +149,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       limit,
       search,
       status,
+      statuses,
     });
 
     return res.status(HTTP_STATUS.OK).json({

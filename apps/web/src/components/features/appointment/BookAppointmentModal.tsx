@@ -49,8 +49,18 @@ interface BookAppointmentModalProps {
 }
 
 const BOOKING_MODE = {
-  APPOINTMENT: { slotType: 'APPOINTMENT' as BookingType, rateKey: 'APPOINTMENT' as const, title: 'Book an Appointment', description: 'Schedule a cosmic consultation with our expert astrologers' },
-  KUNDALI_REVIEW: { slotType: 'KUNDALI_REVIEW' as BookingType, rateKey: 'KUNDALI_REVIEW' as const, title: 'Full Kundali Review', description: 'Book a detailed kundali review session with our expert astrologers' },
+  APPOINTMENT: {
+    slotType: 'APPOINTMENT' as BookingType,
+    rateKey: 'APPOINTMENT' as const,
+    title: 'Book an Appointment',
+    description: 'Schedule a cosmic consultation with our expert astrologers',
+  },
+  KUNDALI_REVIEW: {
+    slotType: 'KUNDALI_REVIEW' as BookingType,
+    rateKey: 'KUNDALI_REVIEW' as const,
+    title: 'Full Kundali Review',
+    description: 'Book a detailed kundali review session with our expert astrologers',
+  },
 };
 
 export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
@@ -132,7 +142,9 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   const { data: slotsData, isLoading: isLoadingSlots } = useQuery({
     queryKey: QUERY_KEYS.APPOINTMENTS.SLOTS(selectedAstrologer?.id ?? '', bookingMode.slotType),
     queryFn: () =>
-      appointmentService.listAvailableSlots(selectedAstrologer!.id, { slotType: bookingMode.slotType }),
+      appointmentService.listAvailableSlots(selectedAstrologer!.id, {
+        slotType: bookingMode.slotType,
+      }),
     enabled: !!selectedAstrologer && step === 'select-datetime',
   });
   const availableSlots = slotsData?.slots ?? [];
@@ -161,7 +173,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     return { dateOptions, slotsByDate: byDate };
   }, [slotsData?.slots]);
 
-  const slotsForSelectedDate = selectedDateKey ? slotsByDate.get(selectedDateKey) ?? [] : [];
+  const slotsForSelectedDate = selectedDateKey ? (slotsByDate.get(selectedDateKey) ?? []) : [];
 
   // Filter astrologers based on search query
   const filteredAstrologers = useMemo(() => {
@@ -177,7 +189,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
 
   const handleSelectAstrologer = (astrologer: Astrologer) => {
     setSelectedAstrologer(astrologer);
-    setSearchQuery(''); // Clear search when astrologer is selected
+    setSearchQuery('');
   };
 
   // Book appointment mutation (slot-based: deducts coins on book, status CONFIRMED)
@@ -204,8 +216,12 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     },
   });
 
-  const handleBookSlot = (slot: AstrologerSlot) => {
-    if (!selectedAstrologer) return;
+  const handleSelectSlot = (slot: AstrologerSlot) => {
+    setSelectedSlot(selectedSlot?.id === slot.id ? null : slot);
+  };
+
+  const handleConfirmBooking = () => {
+    if (!selectedAstrologer || !selectedSlot) return;
     if (
       appointmentCoinCost != null &&
       appointmentCoinCost > 0 &&
@@ -216,10 +232,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
       );
       return;
     }
-    setBookingSlotId(slot.id);
+    setBookingSlotId(selectedSlot.id);
     bookAppointmentMutation.mutate({
       astrologerId: selectedAstrologer.id,
-      slotId: slot.id,
+      slotId: selectedSlot.id,
       bookingType: bookingMode.slotType,
       notes: notes.trim() || undefined,
     });
@@ -240,6 +256,11 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     setBookingSlotId(null);
     onClose();
   };
+
+  const isConfirmDisabled =
+    !selectedSlot ||
+    bookAppointmentMutation.isPending ||
+    (appointmentCoinCost != null && appointmentCoinCost > 0 && coinBalance < appointmentCoinCost);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -489,7 +510,8 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                       </p>
                                       {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
                                         <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                                          {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
+                                          {appointmentCoinCost} coin
+                                          {appointmentCoinCost === 1 ? '' : 's'}
                                         </span>
                                       ) : appointmentCoinCost === undefined ? (
                                         <span className="text-sm text-purple-400">…</span>
@@ -591,7 +613,15 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                     disabled={isLoadingSlots || availableSlots.length === 0}
                   >
                     <SelectTrigger className="w-full bg-slate-800/50 border-white/20 text-white">
-                      <SelectValue placeholder={isLoadingSlots ? 'Loading...' : availableSlots.length === 0 ? 'No slots available' : 'Choose a date'} />
+                      <SelectValue
+                        placeholder={
+                          isLoadingSlots
+                            ? 'Loading...'
+                            : availableSlots.length === 0
+                              ? 'No slots available'
+                              : 'Choose a date'
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {dateOptions.map((opt) => (
@@ -603,32 +633,39 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   </Select>
                 </div>
 
-                {/* 2. Time slot buttons – shown after date is selected; click to book directly */}
+                {/* 2. Time slot buttons – select one; booking happens on Confirm */}
                 {selectedDateKey && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-white mb-2">Available times</label>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Available times
+                    </label>
                     {slotsForSelectedDate.length === 0 ? (
                       <p className="text-sm text-purple-300/80">No slots for this date.</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {slotsForSelectedDate.map((slot) => (
-                          <LoadingButton
-                            key={slot.id}
-                            onClick={() => handleBookSlot(slot)}
-                            isLoading={bookingSlotId === slot.id}
-                            loadingText="Booking..."
-                            disabled={bookingSlotId != null}
-                            variant="outline"
-                            className="border-white/30 text-white bg-white/5 hover:bg-white/10"
-                          >
-                            <Clock className="h-4 w-4 mr-1.5" />
-                            {formatSlotTime(slot.startAt)} – {formatSlotTime(slot.endAt)}
-                          </LoadingButton>
-                        ))}
+                        {slotsForSelectedDate.map((slot) => {
+                          const isSelected = selectedSlot?.id === slot.id;
+                          return (
+                            <button
+                              key={slot.id}
+                              type="button"
+                              onClick={() => handleSelectSlot(slot)}
+                              className={
+                                isSelected
+                                  ? 'inline-flex items-center gap-1.5 rounded-md border-2 border-purple-400 bg-purple-500 text-white px-3 py-2 text-sm font-medium transition-all active:scale-[0.98] active:ring-2 active:ring-purple-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900'
+                                  : 'inline-flex items-center gap-1.5 rounded-md border-2 border-white/30 bg-white/5 text-white px-3 py-2 text-sm font-medium hover:bg-white/10 hover:border-white/50 transition-all active:scale-[0.98] active:border-purple-400 active:bg-white/15 active:ring-2 active:ring-purple-400/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900'
+                              }
+                            >
+                              <Clock className="h-4 w-4 shrink-0" />
+                              {formatSlotTime(slot.startAt)} – {formatSlotTime(slot.endAt)}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                     <p className="text-xs text-purple-300/70 mt-2">
-                      Click a time to book immediately. No approval needed from the astrologer.
+                      Select one time. Add notes below if you like, then click Confirm to book. No
+                      approval needed from the astrologer.
                     </p>
                   </div>
                 )}
@@ -654,11 +691,13 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   appointmentCoinCost > 0 &&
                   coinBalance < appointmentCoinCost && (
                     <div className="mt-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm">
-                      You need at least {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}. Your balance: {coinBalance}. Please top up to book.
+                      You need at least {appointmentCoinCost} coin
+                      {appointmentCoinCost === 1 ? '' : 's'}. Your balance: {coinBalance}. Please
+                      top up to book.
                     </div>
                   )}
 
-                <div className="flex justify-end mt-6">
+                <div className="flex justify-end gap-2 mt-6">
                   <Button
                     onClick={handleClose}
                     variant="outline"
@@ -667,6 +706,15 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   >
                     Cancel
                   </Button>
+                  <LoadingButton
+                    onClick={handleConfirmBooking}
+                    disabled={isConfirmDisabled}
+                    isLoading={bookAppointmentMutation.isPending}
+                    loadingText="Booking..."
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+                  >
+                    Confirm booking
+                  </LoadingButton>
                 </div>
               </div>
             )}

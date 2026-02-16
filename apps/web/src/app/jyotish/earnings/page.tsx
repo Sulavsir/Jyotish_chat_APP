@@ -82,11 +82,12 @@ export default function JyotishEarningsPage() {
         id: 'source',
         header: 'Source',
         cell: (row) => {
-          const SourceIcon = SOURCE_ICONS[row.source];
+          const SourceIcon = SOURCE_ICONS[row.source] ?? Coins;
+          const label = SOURCE_LABELS[row.source] ?? row.source;
           return (
             <span className="inline-flex items-center gap-1.5">
               <SourceIcon className="h-3.5 w-3.5 text-violet-400" />
-              {SOURCE_LABELS[row.source]}
+              {label}
             </span>
           );
         },

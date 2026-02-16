@@ -24,6 +24,8 @@ import {
   dashboardRotatingCopyController,
   questionnaireController,
 } from '../controllers';
+import { cancelAppointmentSchema } from '../validators/appointment.validators';
+import { queryPaginationSchema } from '../validators/query.validators';
 import { asyncHandler } from '../utils';
 import { adminAstrologerUpload } from '../middleware/adminAstrologerUpload';
 import {
@@ -323,8 +325,19 @@ router.get('/chat-audit/stats', adminController.getChatAuditStats);
 
 // ==================== Appointment Management ====================
 
-router.get('/appointments', adminAppointmentController.getAllAppointments);
+router.get(
+  '/appointments',
+  validateQuery(queryPaginationSchema),
+  adminAppointmentController.getAllAppointments
+);
 router.get('/appointments/stats', adminAppointmentController.getAppointmentStats);
+router.post(
+  '/appointments/:id/cancel',
+  auditLogger(AuditAction.ADMIN_ACTION, 'Appointment'),
+  validateParams(uuidParamSchema),
+  validateBody(cancelAppointmentSchema),
+  asyncHandler(adminAppointmentController.cancelAppointment)
+);
 
 // ==================== Pricing Management ====================
 

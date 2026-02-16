@@ -100,6 +100,7 @@ export const API_ENDPOINTS = {
     LIST: '/api/v1/admin/appointments',
     GET: (id: string) => `/api/v1/admin/appointments/${id}`,
     STATS: '/api/v1/admin/appointments/stats',
+    CANCEL: (id: string) => `/api/v1/admin/appointments/${id}/cancel`,
   },
 
   PRICING: {

@@ -3,7 +3,7 @@
  * Handles appointment-related API calls
  */
 
-import { apiClient } from '@/lib/api-client';
+import { apiClient, axiosInstance } from '@/lib/api-client';
 import { API_ENDPOINTS } from '@/constants/api.constants';
 import type {
   Appointment,
@@ -38,21 +38,37 @@ export const listAvailableSlots = async (
   });
 };
 
-/**
- * Create a new appointment. With slotId + bookingType, books the slot and is directly confirmed.
- */
-export const createAppointment = async (data: CreateAppointmentData): Promise<Appointment> => {
-  return apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.CREATE, data);
+/** API response body when creating an appointment (includes backend message for toast). */
+export type CreateAppointmentResponse = {
+  data: Appointment;
+  message?: string;
+  success?: boolean;
 };
 
 /**
- * Get all appointments for the current user
+ * Create a new appointment. With slotId + bookingType, books the slot and is directly confirmed.
+ * Returns the full response body so the UI can show the backend message (e.g. toast).
+ */
+export const createAppointment = async (
+  data: CreateAppointmentData
+): Promise<CreateAppointmentResponse> => {
+  const response = await axiosInstance.post<CreateAppointmentResponse>(
+    API_ENDPOINTS.APPOINTMENTS.CREATE,
+    data
+  );
+  return response.data;
+};
+
+/**
+ * Get all appointments for the current user.
+ * Use status for a single status, or statuses for multiple (e.g. IN_PROGRESS,COMPLETED for consultations).
  */
 export const listMine = async (params: {
   page: number;
   limit: number;
   search?: string;
   status?: AppointmentStatus | string;
+  statuses?: string;
 }): Promise<ListMyAppointmentsResponse> => {
   return apiClient.get<ListMyAppointmentsResponse>(API_ENDPOINTS.APPOINTMENTS.MY, { params });
 };

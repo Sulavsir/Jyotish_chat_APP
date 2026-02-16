@@ -41,6 +41,7 @@ export const QUERY_KEYS = {
       limit: number;
       search?: string;
       status?: string;
+      statuses?: string;
     }) => ['appointments', 'my', filters] as const,
     DETAIL: (id: string) => ['appointments', 'detail', id] as const,
     AVAILABILITY: (astrologerId: string, date: string) =>
