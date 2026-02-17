@@ -22,10 +22,9 @@ import { emailService } from '../services/email.service';
 
 const notificationService = new NotificationService();
 
-const BOOKING_TYPE_LABELS: Record<BookingType, string> = {
-  [BookingType.APPOINTMENT]: 'Appointment',
-  [BookingType.KUNDALI_REVIEW]: 'Full Kundali Review',
-};
+const BOOKING_TYPE_LABELS = {
+  [BookingType.KUNDALI_REVIEW]: 'Appointment for Full Kundali Review',
+} as Record<BookingType, string>;
 
 export async function appointmentSessionProcessor(job: Job) {
   const now = new Date();
@@ -93,7 +92,7 @@ export async function appointmentSessionProcessor(job: Job) {
     where: {
       status: AppointmentStatus.CONFIRMED,
       scheduledAt: { gte: windowStart, lte: windowEnd },
-      bookingType: { in: [BookingType.APPOINTMENT, BookingType.KUNDALI_REVIEW] },
+      bookingType: BookingType.KUNDALI_REVIEW,
     },
     select: {
       id: true,

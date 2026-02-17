@@ -10,6 +10,7 @@ import {
   DialogClose,
   Button,
   Input,
+  DateInput,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import {
@@ -21,7 +22,7 @@ import type { BookingType } from '@/types/appointment.types';
 import type { CreateSlotBody } from '@/services/astrologerSlots.service';
 import { TimeRangeMultiSelect } from './TimeRangeMultiSelect';
 import { PendingSessionEditModal, type PendingSlotSession } from './PendingSessionEditModal';
-import { CalendarDays, Sparkles, Plus, X } from 'lucide-react';
+import { Sparkles, Plus, X } from 'lucide-react';
 
 const SLOT_TYPE_LABEL = 'Appointment for Full Kundali Review';
 
@@ -170,16 +171,12 @@ export function AddSlotsModal({
             </div>
             <div>
               <label className="text-xs text-white/70 mb-1 block">Date</label>
-              <div className="relative">
-                <Input
-                  type="date"
-                  min={minDate}
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full border-white/20 !text-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-                <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-yellow-500" />
-              </div>
+              <DateInput
+                min={minDate}
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full border-white/20"
+              />
             </div>
             <div>
               <label className="text-xs text-white/70 mb-1 block">

@@ -50,6 +50,7 @@ model User {
   ratingsGiven                 Rating[]               @relation("ClientRatings")
   coinTransactions             CoinTransaction[]      @relation("CoinTransactions")
   jyotishBookingRequests       JyotishBookingRequest[]
+  kundaliMatchRequests         KundaliMatchRequest[]
   clientProfiles               ClientProfile[]
 
   @@index([phone])
@@ -149,10 +150,10 @@ model Admin {
   isActive           Boolean     @default(true)
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
-  auditLogs          AuditLog[]
-  resolvedComplaints Complaint[] @relation("ResolvedComplaints")
-  adminChats         AdminChat[] @relation("AdminAdminChats")
-
+  auditLogs             AuditLog[]
+  resolvedComplaints    Complaint[]           @relation("ResolvedComplaints")
+  adminChats            AdminChat[]           @relation("AdminAdminChats")
+  kundaliMatchReviews   KundaliMatchRequest[] @relation("KundaliMatchReviewedBy")
   @@index([email])
   @@index([isActive])
 }
@@ -711,6 +712,38 @@ model JyotishBookingRequest {
   @@index([status, createdAt])
 }
 
+enum KundaliMatchStatus {
+  PENDING
+  REVIEWED
+}
+
+// Kundali match requests
+model KundaliMatchRequest {
+  id                  String              @id @default(uuid())
+  userId               String
+  boyDateOfBirth       DateTime
+  boyTimeOfBirth      String
+  boyPlaceOfBirth     String
+  girlDateOfBirth     DateTime
+  girlTimeOfBirth     String
+  girlPlaceOfBirth    String
+  status              KundaliMatchStatus   @default(PENDING)
+  adminReviewMessage  String?              // Long text reply from admin
+  coinsDeducted       Int
+  coinTransactionId   String?
+  reviewedAt          DateTime?
+  reviewedByAdminId   String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedByAdmin     Admin?               @relation("KundaliMatchReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model PricingPlan {
   id              String    @id @default(uuid())
   name            String // e.g., "1 Day Unlimited", "50 Chats Pack"
@@ -1116,6 +1149,7 @@ enum PlatformCoinRateType {
   BROADCAST_SEND
   APPOINTMENT
   KUNDALI_REVIEW
+  KUNDALI_MATCH
 }
 
 model PlatformCoinRate {

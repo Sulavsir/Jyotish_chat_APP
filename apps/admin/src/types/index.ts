@@ -6,6 +6,7 @@ export * from './admin.types';
 export * from './astrologer.types';
 export * from './pricing.types';
 export * from './complaint.types';
+export * from './kundaliMatch.types';
 
 // Re-export commonly used types for convenience
 export type {

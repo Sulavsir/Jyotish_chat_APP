@@ -7,7 +7,8 @@ export type PlatformCoinRateType =
   | 'BROADCAST_PER_MESSAGE'
   | 'BROADCAST_SEND'
   | 'APPOINTMENT'
-  | 'KUNDALI_REVIEW';
+  | 'KUNDALI_REVIEW'
+  | 'KUNDALI_MATCH';
 
 export interface PlatformCoinRates {
   CHAT_PER_MESSAGE: number;
@@ -15,6 +16,7 @@ export interface PlatformCoinRates {
   BROADCAST_SEND: number;
   APPOINTMENT: number;
   KUNDALI_REVIEW: number;
+  KUNDALI_MATCH: number;
 }
 
 export interface CoinBalance {

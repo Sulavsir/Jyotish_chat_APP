@@ -50,6 +50,9 @@ export const ADMIN_ROUTES = {
   
   // Appointments
   APPOINTMENTS: '/admin/appointments',
+
+  // Kundali Match
+  KUNDALI_MATCH: '/admin/kundali-match',
   
   // Earnings
   EARNINGS: '/admin/earnings',

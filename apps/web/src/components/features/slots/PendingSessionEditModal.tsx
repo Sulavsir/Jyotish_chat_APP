@@ -8,7 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
   Button,
-  Input,
+  DateInput,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { getMinSlotDate } from '@/constants/slot.constants';
@@ -76,8 +76,7 @@ export function PendingSessionEditModal({
         <div className="space-y-4">
           <div>
             <label className="text-xs text-white/70 mb-1 block">Date</label>
-            <Input
-              type="date"
+            <DateInput
               min={getMinSlotDate()}
               value={date}
               onChange={(e) => setDate(e.target.value)}

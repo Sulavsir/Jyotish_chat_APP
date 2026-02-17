@@ -29,6 +29,7 @@ import Image from 'next/image';
 import horoscopeImage from '@/assets/images/cj2.png';
 import { TwinklingStars } from '@/components/ui/TwinklingStars';
 import { BookJyotishServiceModal } from '@/components/features/jyotish-bookings';
+import { KundaliMatchModal } from '@/components/features/kundali-match/KundaliMatchModal';
 import { JyotishBookingType } from '@jyotish/shared';
 import {
   Sparkles,
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const [isPanditModalOpen, setIsPanditModalOpen] = useState(false);
   const [isVaastuModalOpen, setIsVaastuModalOpen] = useState(false);
   const [isKathaModalOpen, setIsKathaModalOpen] = useState(false);
+  const [isKundaliMatchModalOpen, setIsKundaliMatchModalOpen] = useState(false);
 
   const isProfileComplete = useMemo(() => {
     if (!user) return false;
@@ -688,6 +690,7 @@ export default function DashboardPage() {
               onOpenVaastuModal={() => setIsVaastuModalOpen(true)}
               onOpenKathaModal={() => setIsKathaModalOpen(true)}
               onOpenKundaliReviewModal={() => setIsAppointmentModalOpen(true)}
+              onOpenKundaliMatchModal={() => setIsKundaliMatchModalOpen(true)}
             />
           </div>
         </div>
@@ -716,6 +719,11 @@ export default function DashboardPage() {
           onClose={() => setIsKathaModalOpen(false)}
           type={JyotishBookingType.KATHA_VACHAK}
           title="Book Katha Vachak"
+        />
+        <KundaliMatchModal
+          isOpen={isKundaliMatchModalOpen}
+          onClose={() => setIsKundaliMatchModalOpen(false)}
+          onSuccess={() => setIsKundaliMatchModalOpen(false)}
         />
       </div>
     </DashboardLayout>

@@ -30,6 +30,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  DateInput,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import {
@@ -47,7 +48,7 @@ import { getAstrologerPermissionsFromUser } from '@/lib/auth';
 import { showErrorToast, showSuccessToast } from '@/lib/error-handler';
 import type { AstrologerSlot, BookingType } from '@/types/appointment.types';
 import { getSlotTimeRangeOptions, getMinSlotDate } from '@/constants/slot.constants';
-import { Clock, Trash2, Pencil, Plus, ChevronDown, CalendarDays } from 'lucide-react';
+import { Clock, Trash2, Pencil, Plus, ChevronDown } from 'lucide-react';
 
 const SLOT_TYPE_LABEL = 'Appointment for Full Kundali Review';
 
@@ -442,16 +443,12 @@ export default function JyotishSlotsPage() {
           <div className="space-y-4">
             <div>
               <label className="text-xs text-white/70 mb-1 block">Date</label>
-              <div className="relative">
-                <Input
-                  type="date"
-                  min={getMinSlotDate()}
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full bg-white/5 border-white/20 text-white [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
-                />
-                <CalendarDays className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-yellow-500" />
-              </div>
+              <DateInput
+                min={getMinSlotDate()}
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="w-full bg-white/5 border-white/20 text-white"
+              />
             </div>
             <div>
               <label className="text-xs text-white/70 mb-1 block">Time (30 min)</label>

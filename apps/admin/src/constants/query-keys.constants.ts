@@ -84,6 +84,13 @@ export const ADMIN_QUERY_KEYS = {
       filters ? (['admin', 'jyotish-bookings', 'list', filters] as const) : (['admin', 'jyotish-bookings', 'list'] as const),
   },
 
+  // Kundali Match
+  KUNDALI_MATCH: {
+    ALL: ['admin', 'kundali-match'] as const,
+    LIST: (page?: number) => (page ? ['admin', 'kundali-match', 'list', page] as const : ['admin', 'kundali-match', 'list'] as const),
+    DETAIL: (id: string) => ['admin', 'kundali-match', 'detail', id] as const,
+  },
+
   // Complaints
   COMPLAINTS: {
     ALL: ['admin', 'complaints'] as const,

@@ -13,6 +13,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  DateInput,
 } from '@jyotish/ui';
 import { UserPlus, User as UserIcon } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,6 +23,7 @@ import { z } from 'zod';
 import type { User, ClientProfile } from '@jyotish/shared';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { QUERY_KEYS } from '@/constants';
+import { showErrorToast } from '@/lib/error-handler';
 import { formatBirthSummary } from '@/utils/birth-details.utils';
 
 type AddFamilyFormValues = z.infer<typeof createClientProfileSchema>;
@@ -83,9 +85,7 @@ export function SelectProfileSection({
       onSelectProfileId(data.profile.id);
       toast.success('Family member added');
     },
-    onError: (err: Error) => {
-      toast.error(err.message || 'Failed to add');
-    },
+    onError: (err) => showErrorToast(err),
   });
 
   const defaultFormValues: AddFamilyFormValues = {
@@ -220,9 +220,8 @@ export function SelectProfileSection({
                   <Label htmlFor="profile-dob" className="text-gray-400">
                     Date of birth
                   </Label>
-                  <Input
+                  <DateInput
                     id="profile-dob"
-                    type="date"
                     {...form.register('dateOfBirth')}
                     className="mt-1 bg-white/5 border-white/10 text-white"
                   />

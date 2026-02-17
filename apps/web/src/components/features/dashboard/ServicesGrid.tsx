@@ -32,6 +32,7 @@ interface ServicesGridProps {
   onOpenVaastuModal: () => void;
   onOpenKathaModal: () => void;
   onOpenKundaliReviewModal?: () => void;
+  onOpenKundaliMatchModal?: () => void;
 }
 
 export function ServicesGrid({
@@ -39,6 +40,7 @@ export function ServicesGrid({
   onOpenVaastuModal,
   onOpenKathaModal,
   onOpenKundaliReviewModal,
+  onOpenKundaliMatchModal,
 }: ServicesGridProps) {
   const router = useRouter();
 
@@ -65,13 +67,24 @@ export function ServicesGrid({
       icon: <Sun className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.HOROSCOPE),
     },
-    {
-      id: 'kundali-match',
-      name: 'Kundali Match',
-      icon: <GitCompareArrows className="h-6 w-6" />,
-      onClick: () => {},
-      disabled: true,
-    },
+    ...(onOpenKundaliMatchModal
+      ? [
+          {
+            id: 'kundali-match',
+            name: 'Kundali Match',
+            icon: <GitCompareArrows className="h-6 w-6" />,
+            onClick: onOpenKundaliMatchModal,
+          },
+        ]
+      : [
+          {
+            id: 'kundali-match',
+            name: 'Kundali Match',
+            icon: <GitCompareArrows className="h-6 w-6" />,
+            onClick: () => {},
+            disabled: true,
+          },
+        ]),
     {
       id: 'pandit',
       name: 'Book Pandit Ji',
@@ -95,6 +108,7 @@ export function ServicesGrid({
       name: 'Travel Predictions',
       icon: <Plane className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.CHAT),
+      disabled: true,
     },
   ];
 

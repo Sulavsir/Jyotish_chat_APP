@@ -22,6 +22,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  DateInput,
 } from '@jyotish/ui';
 import { X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +32,7 @@ import { z } from 'zod';
 import type { ClientProfile } from '@jyotish/shared';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { QUERY_KEYS } from '@/constants';
+import { showErrorToast } from '@/lib/error-handler';
 
 type AddFamilyFormValues = z.infer<typeof createClientProfileSchema>;
 
@@ -88,9 +90,7 @@ export function AddFamilyMemberModal({ isOpen, onClose, onSuccess }: AddFamilyMe
       onSuccess?.(data.profile);
       toast.success('Family member added');
     },
-    onError: (err: Error) => {
-      toast.error(err.message || 'Failed to add');
-    },
+    onError: (err) => showErrorToast(err),
   });
 
   const handleClose = () => {
@@ -154,9 +154,8 @@ export function AddFamilyMemberModal({ isOpen, onClose, onSuccess }: AddFamilyMe
               <Label htmlFor="add-profile-dob" className="text-gray-300">
                 Date of birth
               </Label>
-              <Input
+              <DateInput
                 id="add-profile-dob"
-                type="date"
                 {...form.register('dateOfBirth')}
                 className="mt-1 bg-white/5 border-white/10 text-white"
               />

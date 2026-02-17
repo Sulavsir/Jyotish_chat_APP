@@ -200,7 +200,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
       handleClose();
     },
     onError: (error) => {
-      showErrorToast(error, 'Failed to book');
+      showErrorToast(error);
       setBookingSlotId(null);
     },
   });

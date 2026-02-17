@@ -23,7 +23,10 @@ export async function updateCoinRates(req: AuthRequest, res: Response, next: Nex
   try {
     const body = req.body as UpdatePlatformCoinRatesInput;
     const rates = await platformCoinRateService.updateRates(body);
-    return sendSuccess(res, { rates });
+    return sendSuccess(res, {
+      rates,
+      message: 'Coin rates updated successfully.',
+    });
   } catch (error) {
     next(error);
   }

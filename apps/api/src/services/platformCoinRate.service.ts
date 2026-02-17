@@ -23,6 +23,7 @@ export interface UpdatePlatformCoinRatesInput {
   BROADCAST_SEND?: number;
   APPOINTMENT?: number;
   KUNDALI_REVIEW?: number;
+  KUNDALI_MATCH?: number;
 }
 
 const RATE_TYPES: PlatformCoinRateType[] = [
@@ -31,6 +32,7 @@ const RATE_TYPES: PlatformCoinRateType[] = [
   'BROADCAST_SEND',
   'APPOINTMENT',
   'KUNDALI_REVIEW',
+  'KUNDALI_MATCH',
 ];
 
 /**
@@ -42,13 +44,14 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
     select: { coins: true },
   });
   if (!row) {
-    // Fallback defaults when admin has not set rates: chat 200, broadcast 100, appointment 300
+    // Fallback defaults when admin has not set rates
     const defaults: Record<PlatformCoinRateType, number> = {
       CHAT_PER_MESSAGE: 200,
       BROADCAST_PER_MESSAGE: 100,
       BROADCAST_SEND: 100,
       APPOINTMENT: 300,
       KUNDALI_REVIEW: 500,
+      KUNDALI_MATCH: 0,
     };
     return defaults[rateType] ?? 0;
   }
@@ -62,19 +65,22 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
 export async function getRatesForClient(): Promise<
   Record<PlatformCoinRateType, number>
 > {
-  const [chat, broadcastMsg, broadcastSend, appointment, kundaliReview] = await Promise.all([
-    getRate('CHAT_PER_MESSAGE'),
-    getRate('BROADCAST_PER_MESSAGE'),
-    getRate('BROADCAST_SEND'),
-    getRate('APPOINTMENT'),
-    getRate('KUNDALI_REVIEW'),
-  ]);
+  const [chat, broadcastMsg, broadcastSend, appointment, kundaliReview, kundaliMatch] =
+    await Promise.all([
+      getRate('CHAT_PER_MESSAGE'),
+      getRate('BROADCAST_PER_MESSAGE'),
+      getRate('BROADCAST_SEND'),
+      getRate('APPOINTMENT'),
+      getRate('KUNDALI_REVIEW'),
+      getRate('KUNDALI_MATCH'),
+    ]);
   return {
     CHAT_PER_MESSAGE: chat,
     BROADCAST_PER_MESSAGE: broadcastMsg,
     BROADCAST_SEND: broadcastSend,
     APPOINTMENT: appointment,
     KUNDALI_REVIEW: kundaliReview,
+    KUNDALI_MATCH: kundaliMatch,
   };
 }
 
@@ -93,6 +99,7 @@ export async function getAllRates(): Promise<PlatformCoinRateRow[]> {
     BROADCAST_SEND: 100,
     APPOINTMENT: 300,
     KUNDALI_REVIEW: 500,
+    KUNDALI_MATCH: 0,
   };
   for (const rateType of RATE_TYPES) {
     if (!existing.has(rateType)) {

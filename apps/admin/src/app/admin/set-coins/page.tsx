@@ -4,24 +4,45 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Card, CardContent, CardHeader, CardTitle, Label, Input, LoadingButton } from '@jyotish/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Input,
+  LoadingButton,
+  Button,
+} from '@jyotish/ui';
 import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { PlatformCoinRateRow, PlatformCoinRateType } from '@/types';
+import { toast } from 'sonner';
 
 const RATE_LABELS: Record<PlatformCoinRateType, string> = {
   CHAT_PER_MESSAGE: 'Chat (per message)',
   BROADCAST_PER_MESSAGE: 'Broadcast chat (per message)',
   BROADCAST_SEND: 'Broadcast send (per message)',
   APPOINTMENT: 'Appointment',
+  KUNDALI_REVIEW: 'Appointment for Full Kundali Review',
+  KUNDALI_MATCH: 'Kundali Match',
 };
 
 export default function SetCoinsPage() {
   const queryClient = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [editing, setEditing] = useState<Record<PlatformCoinRateType, string>>({
     CHAT_PER_MESSAGE: '',
     BROADCAST_PER_MESSAGE: '',
     BROADCAST_SEND: '',
     APPOINTMENT: '',
+    KUNDALI_REVIEW: '',
+    KUNDALI_MATCH: '',
   });
 
   const { data: ratesData, isLoading, isError, error } = useQuery({
@@ -39,6 +60,8 @@ export default function SetCoinsPage() {
         BROADCAST_PER_MESSAGE: '',
         BROADCAST_SEND: '',
         APPOINTMENT: '',
+        KUNDALI_REVIEW: '',
+        KUNDALI_MATCH: '',
       };
       rates.forEach((r: PlatformCoinRateRow) => {
         next[r.rateType] = String(r.coins);
@@ -50,20 +73,35 @@ export default function SetCoinsPage() {
   const mutation = useMutation({
     mutationFn: (body: Record<PlatformCoinRateType, number>) =>
       adminApi.coinRates.update(body),
-    onSuccess: () => {
+    onSuccess: (data: { rates: PlatformCoinRateRow[]; message?: string }) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.COIN_RATES.ALL });
+      setConfirmOpen(false);
+      toast.success(data.message ?? 'Coin rates updated successfully.');
+    },
+    onError: (err: Error) => {
+      setConfirmOpen(false);
+      toast.error(err.message ?? 'Failed to save coin rates.');
     },
   });
 
-  const handleSave = () => {
+  const getSavePayload = (): Record<PlatformCoinRateType, number> | null => {
     const body: Record<string, number> = {};
     (Object.keys(editing) as PlatformCoinRateType[]).forEach((key) => {
       const v = parseInt(editing[key], 10);
       if (!Number.isNaN(v) && v >= 0) body[key] = v;
     });
-    if (Object.keys(body).length) {
-      mutation.mutate(body as Record<PlatformCoinRateType, number>);
-    }
+    return Object.keys(body).length
+      ? (body as Record<PlatformCoinRateType, number>)
+      : null;
+  };
+
+  const handleSaveClick = () => {
+    if (getSavePayload()) setConfirmOpen(true);
+  };
+
+  const handleConfirmSave = () => {
+    const body = getSavePayload();
+    if (body) mutation.mutate(body);
   };
 
   const hasChanges =
@@ -80,7 +118,7 @@ export default function SetCoinsPage() {
         <div>
           <h2 className="text-3xl font-bold text-white">Coin Settings</h2>
           <p className="text-slate-400 mt-1">
-            Set coins deducted for chat, broadcast, and appointment. Defaults (200, 100, 300) apply
+            Set coins deducted for chat, broadcast, appointment, and kundali match. Defaults apply
             if not set.
           </p>
         </div>
@@ -122,7 +160,7 @@ export default function SetCoinsPage() {
                 </div>
                 <div className="flex justify-end pt-2">
                   <LoadingButton
-                    onClick={handleSave}
+                    onClick={handleSaveClick}
                     loading={mutation.isPending}
                     loadingText="Saving..."
                     disabled={!hasChanges}
@@ -131,19 +169,40 @@ export default function SetCoinsPage() {
                     Save changes
                   </LoadingButton>
                 </div>
-                {mutation.isError && (
-                  <p className="text-red-400 text-sm">
-                    {mutation.error instanceof Error ? mutation.error.message : 'Save failed'}
-                  </p>
-                )}
-                {mutation.isSuccess && (
-                  <p className="text-emerald-400 text-sm">Rates updated.</p>
-                )}
               </>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle>Save coin rates?</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              This will update the platform coin rates. Users will see the new rates for chat,
+              broadcast, appointment, and kundali match.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              className="border-slate-600 text-slate-300"
+              onClick={() => setConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <LoadingButton
+              loading={mutation.isPending}
+              loadingText="Saving..."
+              onClick={handleConfirmSave}
+              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+            >
+              Save changes
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

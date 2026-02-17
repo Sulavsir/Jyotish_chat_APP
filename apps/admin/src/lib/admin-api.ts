@@ -515,11 +515,11 @@ export const adminApi = {
 
     update: async (
       body: UpdatePlatformCoinRatesBody
-    ): Promise<{ rates: PlatformCoinRateRow[] }> => {
-      const response = await apiClient.put<{ rates: PlatformCoinRateRow[] }>(
-        API_ENDPOINTS.COIN_RATES.UPDATE,
-        body
-      );
+    ): Promise<{ rates: PlatformCoinRateRow[]; message?: string }> => {
+      const response = await apiClient.put<{
+        rates: PlatformCoinRateRow[];
+        message?: string;
+      }>(API_ENDPOINTS.COIN_RATES.UPDATE, body);
       return response;
     },
   },
@@ -680,6 +680,33 @@ export const adminApi = {
     },
     cancel: async (id: string, data?: CancelAppointmentPayload): Promise<Appointment> => {
       return apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data ?? {});
+    },
+  },
+
+  /**
+   * Kundali Match
+   */
+  kundaliMatch: {
+    list: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+    }): Promise<{
+      requests: import('@/types/kundaliMatch.types').KundaliMatchRequest[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }> => {
+      return apiClient.get(API_ENDPOINTS.KUNDALI_MATCH.LIST, { params });
+    },
+    get: async (
+      id: string
+    ): Promise<{ request: import('@/types/kundaliMatch.types').KundaliMatchRequest }> => {
+      return apiClient.get(API_ENDPOINTS.KUNDALI_MATCH.GET(id));
+    },
+    submitReview: async (
+      id: string,
+      body: { adminReviewMessage: string }
+    ): Promise<{ request: import('@/types/kundaliMatch.types').KundaliMatchRequest }> => {
+      return apiClient.post(API_ENDPOINTS.KUNDALI_MATCH.SUBMIT_REVIEW(id), body);
     },
   },
 

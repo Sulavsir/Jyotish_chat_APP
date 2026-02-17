@@ -46,6 +46,11 @@ import {
   listQuestionCategoriesQuerySchema,
 } from '@jyotish/shared';
 import { jyotishBookingController, adminCoinRatesController } from '../controllers';
+import * as kundaliMatchController from '../controllers/kundaliMatch.controller';
+import {
+  listAdminKundaliMatchQuerySchema,
+  submitKundaliMatchReviewSchema,
+} from '../validators/kundaliMatch.validators';
 
 const router = Router();
 
@@ -367,6 +372,25 @@ router.patch(
   '/pricing/:id/toggle',
   auditLogger(AuditAction.ADMIN_ACTION, 'PricingPlan'),
   pricingController.togglePlanStatus
+);
+
+// ==================== Kundali Match ====================
+router.get(
+  '/kundali-match',
+  validateQuery(listAdminKundaliMatchQuerySchema),
+  asyncHandler(kundaliMatchController.listAdmin)
+);
+router.get(
+  '/kundali-match/:id',
+  validateParams(uuidParamSchema),
+  asyncHandler(kundaliMatchController.getByIdAdmin)
+);
+router.post(
+  '/kundali-match/:id/review',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchRequest'),
+  validateParams(uuidParamSchema),
+  validateBody(submitKundaliMatchReviewSchema),
+  asyncHandler(kundaliMatchController.submitReview)
 );
 
 // ==================== Platform Coin Rates (admin-configurable) ====================

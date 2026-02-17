@@ -31,6 +31,10 @@ export const API_ENDPOINTS = {
     CREATE: '/api/v1/jyotish-bookings',
     MY: '/api/v1/jyotish-bookings/my',
   },
+  KUNDALI_MATCH: {
+    CREATE: '/api/v1/kundali-match',
+    MY: '/api/v1/kundali-match/my',
+  },
   AUTH: {
     CHECK_PHONE: '/api/v1/auth/check-phone',
     SEND_OTP: '/api/v1/auth/send-otp',

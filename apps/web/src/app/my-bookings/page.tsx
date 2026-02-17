@@ -7,12 +7,21 @@ import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { QUERY_KEYS } from '@/constants';
 import jyotishBookingService from '@/services/jyotishBooking.service';
 import appointmentService from '@/services/appointment.service';
+import kundaliMatchService, {
+  type KundaliMatchRequest,
+  type KundaliMatchStatus,
+} from '@/services/kundaliMatch.service';
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Pagination,
   PaginationContent,
   PaginationItem,
@@ -26,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -36,7 +44,7 @@ import {
 } from '@jyotish/ui';
 import { AstrologerCategory, JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
-import { Coins } from 'lucide-react';
+import { Coins, Eye } from 'lucide-react';
 
 type MyBookingsResponse = Awaited<ReturnType<typeof jyotishBookingService.listMine>>;
 type MyBooking = MyBookingsResponse['bookings'][number];
@@ -44,7 +52,7 @@ type MyBooking = MyBookingsResponse['bookings'][number];
 type MyAppointmentsResponse = Awaited<ReturnType<typeof appointmentService.listMine>>;
 type MyAppointment = MyAppointmentsResponse['appointments'][number];
 
-type Section = 'BOOKINGS' | 'APPOINTMENTS';
+type Section = 'BOOKINGS' | 'APPOINTMENTS' | 'KUNDALI_MATCH';
 
 function typeLabel(t: JyotishBookingType) {
   if (t === JyotishBookingType.PANDIT) return 'Pandit Ji';
@@ -114,6 +122,7 @@ export default function MyBookingsPage() {
   const [type, setType] = useState<'ALL' | JyotishBookingType>('ALL');
   const [status, setStatus] = useState<'ALL' | JyotishBookingStatus>('ALL');
   const [page, setPage] = useState(1);
+  const [viewReviewText, setViewReviewText] = useState<string | null>(null);
   const limit = 10;
 
   const params = useMemo(
@@ -194,6 +203,42 @@ export default function MyBookingsPage() {
     return out;
   }, [apptPagination.page, apptPagination.totalPages]);
 
+  const [kmPage, setKmPage] = useState(1);
+  const kmLimit = 10;
+  const kmParams = useMemo(
+    () => ({ page: kmPage, limit: kmLimit }),
+    [kmPage]
+  );
+  const { data: kmData, isLoading: isKmLoading } = useQuery({
+    queryKey: QUERY_KEYS.KUNDALI_MATCH.MY_LIST(kmParams),
+    queryFn: () => kundaliMatchService.listMine(kmParams),
+    placeholderData: (prev) => prev,
+    enabled: section === 'KUNDALI_MATCH',
+  });
+  const kundaliMatchRequests = kmData?.requests ?? [];
+  const kmPagination = kmData?.pagination ?? { page: 1, limit: kmLimit, total: 0, totalPages: 1 };
+  const kmPages = useMemo(() => {
+    const total = kmPagination.totalPages;
+    const current = kmPagination.page;
+    const window = 2;
+    const start = Math.max(1, current - window);
+    const end = Math.min(total, current + window);
+    const out: number[] = [];
+    for (let i = start; i <= end; i++) out.push(i);
+    return out;
+  }, [kmPagination.page, kmPagination.totalPages]);
+
+  function kundaliMatchStatusBadge(s: KundaliMatchStatus) {
+    if (s === 'REVIEWED') {
+      return (
+        <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Reviewed</Badge>
+      );
+    }
+    return (
+      <Badge className="bg-yellow-500/15 text-yellow-200 border border-yellow-500/30">Pending</Badge>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-3">
@@ -228,6 +273,17 @@ export default function MyBookingsPage() {
             onClick={() => setSection('APPOINTMENTS')}
           >
             Appointments
+          </Button>
+          <Button
+            variant={section === 'KUNDALI_MATCH' ? 'default' : 'outline'}
+            className={
+              section === 'KUNDALI_MATCH'
+                ? 'bg-purple-600 hover:bg-purple-700'
+                : 'border-white/20 text-white hover:bg-white/10'
+            }
+            onClick={() => setSection('KUNDALI_MATCH')}
+          >
+            Kundali Match
           </Button>
         </div>
 
@@ -296,7 +352,7 @@ export default function MyBookingsPage() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : section === 'APPOINTMENTS' ? (
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <div className="md:flex-1 md:min-w-[520px]">
               <Search
@@ -341,16 +397,181 @@ export default function MyBookingsPage() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         <Card className="bg-black/40 backdrop-blur-md border-white/10">
           <CardHeader>
             <CardTitle className="text-white">
-              {section === 'BOOKINGS' ? 'Bookings' : 'Appointments'}
+              {section === 'BOOKINGS'
+                ? 'Bookings'
+                : section === 'APPOINTMENTS'
+                  ? 'Appointments'
+                  : 'Kundali Match'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {section === 'BOOKINGS' ? (
+            {section === 'KUNDALI_MATCH' ? (
+              isKmLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : kundaliMatchRequests.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4">🔮</div>
+                  <p className="text-gray-300 mb-2">No kundali match requests yet</p>
+                  <p className="text-sm text-gray-500">
+                    Submit a request from the dashboard Services section (Kundali Match).
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto rounded-xl border border-white/10">
+                    <Table className="bg-black/20">
+                      <TableHeader>
+                        <TableRow className="bg-gradient-to-r from-purple-900/60 via-indigo-950/60 to-slate-900/60 hover:bg-gradient-to-r hover:from-purple-900/60 hover:via-indigo-950/60 hover:to-slate-900/60">
+                          <TableHead className="text-slate-200 border-r border-slate-700/60 w-[72px]">
+                            S.N.
+                          </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60">
+                            Requested
+                          </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[140px]">
+                            Boy (DOB, TOB, POB)
+                          </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[140px]">
+                            Girl (DOB, TOB, POB)
+                          </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60">
+                            Coins
+                          </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60">
+                            Status
+                          </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[240px]">
+                            Review
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {kundaliMatchRequests.map((r: KundaliMatchRequest, idx: number) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="whitespace-nowrap border-r border-slate-700/40 text-slate-300">
+                              {(kmPagination.page - 1) * kmPagination.limit + idx + 1}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-slate-200 border-r border-slate-700/40">
+                              {new Date(r.createdAt).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </TableCell>
+                            <TableCell className="border-r border-slate-700/40 text-sm text-slate-200">
+                              <div className="min-w-0">
+                                <div>
+                                  {typeof r.boyDateOfBirth === 'string'
+                                    ? r.boyDateOfBirth.slice(0, 10)
+                                    : new Date(r.boyDateOfBirth).toISOString().slice(0, 10)}
+                                </div>
+                                <div className="text-xs text-slate-400">{r.boyTimeOfBirth}</div>
+                                <div className="text-xs truncate" title={r.boyPlaceOfBirth}>
+                                  {r.boyPlaceOfBirth}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="border-r border-slate-700/40 text-sm text-slate-200">
+                              <div className="min-w-0">
+                                <div>
+                                  {typeof r.girlDateOfBirth === 'string'
+                                    ? r.girlDateOfBirth.slice(0, 10)
+                                    : new Date(r.girlDateOfBirth).toISOString().slice(0, 10)}
+                                </div>
+                                <div className="text-xs text-slate-400">{r.girlTimeOfBirth}</div>
+                                <div className="text-xs truncate" title={r.girlPlaceOfBirth}>
+                                  {r.girlPlaceOfBirth}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                              <span className="inline-flex items-center gap-1 text-amber-400">
+                                <Coins className="h-4 w-4" />
+                                {r.coinsDeducted}
+                              </span>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap border-r border-slate-700/40">
+                              {kundaliMatchStatusBadge(r.status)}
+                            </TableCell>
+                            <TableCell className="border-r border-slate-700/40 max-w-[320px]">
+                              {r.adminReviewMessage ? (
+                                <div
+                                  className="group relative inline-flex items-start gap-2 w-full min-w-0 cursor-pointer"
+                                  onClick={() => setViewReviewText(r.adminReviewMessage ?? null)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      setViewReviewText(r.adminReviewMessage ?? null);
+                                    }
+                                  }}
+                                  role="button"
+                                  tabIndex={0}
+                                  title="View full review"
+                                >
+                                  <p className="text-sm text-white/90 whitespace-pre-wrap line-clamp-3 flex-1 min-w-0">
+                                    {r.adminReviewMessage}
+                                  </p>
+                                  <span className="flex shrink-0 items-center justify-center w-7 h-7 rounded-md bg-white/10 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Eye className="h-4 w-4" />
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {kmPagination.total > 0 ? (
+                    <div className="pt-6">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              disabled={kmPagination.page <= 1}
+                              onClick={() => setKmPage((p) => Math.max(1, p - 1))}
+                            />
+                          </PaginationItem>
+                          {kmPages.map((p) => (
+                            <PaginationItem key={p}>
+                              <PaginationLink
+                                isActive={p === kmPagination.page}
+                                onClick={() => setKmPage(p)}
+                              >
+                                {p}
+                              </PaginationLink>
+                            </PaginationItem>
+                          ))}
+                          <PaginationItem>
+                            <PaginationNext
+                              disabled={kmPagination.page >= kmPagination.totalPages}
+                              onClick={() =>
+                                setKmPage((p) => Math.min(kmPagination.totalPages, p + 1))
+                              }
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                      <div className="text-center text-xs text-slate-400 mt-2">
+                        Showing page {kmPagination.page} of {kmPagination.totalPages} •{' '}
+                        {kmPagination.total} total
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )
+            ) : section === 'BOOKINGS' ? (
               isLoading ? (
                 <div className="space-y-3">
                   <Skeleton className="h-16 w-full" />
@@ -686,6 +907,26 @@ export default function MyBookingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!viewReviewText} onOpenChange={(open) => !open && setViewReviewText(null)}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-white">Kundali Match Review</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto rounded-lg bg-slate-800/50 border border-slate-700 p-4">
+            <p className="text-sm text-white/90 whitespace-pre-wrap">{viewReviewText ?? ''}</p>
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="outline"
+              className="border-slate-600 text-slate-300"
+              onClick={() => setViewReviewText(null)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

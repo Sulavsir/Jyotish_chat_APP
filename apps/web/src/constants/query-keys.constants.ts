@@ -29,6 +29,13 @@ export const QUERY_KEYS = {
     }) => ['jyotish-bookings', 'my', filters] as const,
   },
 
+  // Kundali Match
+  KUNDALI_MATCH: {
+    ALL: ['kundali-match'] as const,
+    MY_LIST: (filters: { page: number; limit: number; status?: string }) =>
+      ['kundali-match', 'my', filters] as const,
+  },
+
   // Appointments
   APPOINTMENTS: {
     ALL: ['appointments'] as const,

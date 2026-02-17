@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { showErrorToast } from '@/lib/error-handler';
 import {
   Button,
   Dialog,
@@ -23,6 +24,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  DateInput,
 } from '@jyotish/ui';
 import {
   JyotishBookingType,
@@ -147,9 +149,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
       toast.success('Booking request submitted. Admin will review it soon.');
       onClose();
     },
-    onError: (e: Error) => {
-      toast.error(e.message || 'Failed to submit booking request');
-    },
+    onError: (e) => showErrorToast(e),
   });
 
   return (
@@ -220,8 +220,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
             <Label className="text-white">
               Select date <span className="text-red-400">*</span>
             </Label>
-            <Input
-              type="date"
+            <DateInput
               min={todayISO()}
               value={bookingDate}
               onChange={(e) => setBookingDate(e.target.value)}

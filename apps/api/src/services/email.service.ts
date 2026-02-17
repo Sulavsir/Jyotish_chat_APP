@@ -17,7 +17,7 @@ class EmailService {
   private initializationAttempted: boolean = false;
 
   /**
-   * Lazy initialization - only initialize when needed (after dotenv has loaded)
+   * Lazy initialization
    */
   private ensureInitialized() {
     // Only initialize once
@@ -31,7 +31,7 @@ class EmailService {
 
   private initializeTransporter() {
     const isDevelopment = process.env.NODE_ENV === 'development';
-    
+
     // Use production-specific env vars in production, regular ones in development
     const smtpHost = isDevelopment
       ? process.env.SMTP_HOST?.trim()
@@ -231,12 +231,16 @@ class EmailService {
             <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h3 style="margin-top: 0; color: #d97706;">Registration Status:</h3>
               <p style="color: #dc2626; font-weight: bold;">Your registration request has been reviewed and unfortunately, we are unable to approve it at this time.</p>
-              ${rejectionReason ? `
+              ${
+                rejectionReason
+                  ? `
                 <div style="margin-top: 15px; padding: 15px; background: #fef3c7; border-radius: 5px;">
                   <strong>Reason:</strong>
                   <p style="margin: 10px 0 0 0;">${rejectionReason}</p>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
 
             <p style="font-size: 16px;">If you believe this decision was made in error, or if you have additional information to provide, please contact our support team for further assistance.</p>
@@ -266,7 +270,7 @@ class EmailService {
     }
   ): Promise<boolean> {
     const { appointmentTypeLabel, clientName, scheduledAt, durationMinutes } = options;
-    const websiteUrl = process.env.FRONTEND_URL || 'https://chatjyotish.com';
+    const websiteUrl = process.env.FRONTEND_URL;
     const scheduledFormatted = scheduledAt.toLocaleString(undefined, {
       weekday: 'short',
       year: 'numeric',

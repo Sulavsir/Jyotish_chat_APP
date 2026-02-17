@@ -98,7 +98,7 @@ export default function AppointmentsPage() {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.APPOINTMENTS.ALL });
       setCancelModalAppointment(null);
       setCancelReason('');
-      toast.success('Appointment cancelled');
+      toast.success('Appointment cancelled successfully.');
     },
     onError: (e: Error) => toast.error(e.message || 'Failed to cancel appointment'),
   });

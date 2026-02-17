@@ -589,6 +589,65 @@ export const deductCoinsForBooking = async (
 };
 
 /**
+ * Deduct coins for Kundali Match request (admin-reviewed service; no astrologer earning).
+ */
+export const deductCoinsForKundaliMatch = async (
+  userId: string
+): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
+  const coinCost = await getRate('KUNDALI_MATCH');
+  if (coinCost <= 0) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance, coinTransactionId: '', coinCost: 0 };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { coins: true, id: true },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  if (user.coins < coinCost) {
+    throw new AppError(
+      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.INSUFFICIENT_COINS
+    );
+  }
+
+  const balanceBefore = user.coins;
+  const balanceAfter = balanceBefore - coinCost;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const coinTx = await tx.coinTransaction.create({
+      data: {
+        userId,
+        amount: -coinCost,
+        type: CoinTransactionType.DEDUCT,
+        reason: CoinTransactionReason.PURCHASE,
+        balanceBefore,
+        balanceAfter,
+      },
+    });
+    await tx.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: coinCost } },
+      select: { id: true, coins: true },
+    });
+    return { coinTx, balance: balanceAfter };
+  });
+
+  return {
+    userId,
+    balance: result.balance,
+    coinTransactionId: result.coinTx.id,
+    coinCost,
+  };
+};
+
+/**
  * Link an appointment to an existing coin earning (sets appointmentId on the earning for this transaction)
  */
 export const linkAppointmentToCoinEarning = async (

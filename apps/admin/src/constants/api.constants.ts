@@ -103,6 +103,12 @@ export const API_ENDPOINTS = {
     CANCEL: (id: string) => `/api/v1/admin/appointments/${id}/cancel`,
   },
 
+  KUNDALI_MATCH: {
+    LIST: '/api/v1/admin/kundali-match',
+    GET: (id: string) => `/api/v1/admin/kundali-match/${id}`,
+    SUBMIT_REVIEW: (id: string) => `/api/v1/admin/kundali-match/${id}/review`,
+  },
+
   PRICING: {
     // Pricing Plans
     LIST: '/api/v1/admin/pricing',
