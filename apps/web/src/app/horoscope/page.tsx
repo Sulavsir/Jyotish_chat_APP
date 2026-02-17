@@ -80,21 +80,25 @@ export default function HoroscopePage() {
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                 <div className="flex flex-wrap gap-2">
-                  {HOROSCOPE_CATEGORIES.map((c) => (
-                    <Button
-                      key={c.value}
-                      variant={category === c.value ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setCategory(c.value)}
-                      className={
-                        category === c.value
-                          ? 'bg-purple-600 hover:bg-purple-700 border-purple-500'
-                          : 'border-white/20 text-gray-300 hover:bg-white/10'
-                      }
-                    >
-                      {c.label}
-                    </Button>
-                  ))}
+                  {HOROSCOPE_CATEGORIES.map((c) => {
+                    const isActive = category === c.value;
+                    return (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setCategory(c.value)}
+                        className={[
+                          'px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium border transition-colors',
+                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+                          isActive
+                            ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_18px_rgba(168,85,247,0.6)]'
+                            : 'bg-transparent border-white/20 text-gray-300 hover:bg-white/10 hover:border-purple-400/60',
+                        ].join(' ')}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="flex items-center gap-2">
