@@ -7,13 +7,7 @@ import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Label,
-  Textarea,
-  ArrowLeftIcon,
-  Button,
-  DateInput,
-} from '@jyotish/ui';
+import { Label, Textarea, ArrowLeftIcon, Button, DateInput } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { CreateHoroscopeRequest, HoroscopeCategory } from '@/types';
@@ -43,7 +37,9 @@ const formSchema = z.object({
   category: z
     .string()
     .min(1, 'Select period')
-    .refine((v) => CATEGORIES.includes(v as HoroscopeCategory), { message: 'Select a valid period' }),
+    .refine((v) => CATEGORIES.includes(v as HoroscopeCategory), {
+      message: 'Select a valid period',
+    }),
   date: z.string().min(1, 'Date is required'),
   content: z.string().min(1, 'Content is required').max(50000),
 });
@@ -164,9 +160,7 @@ export default function CreateHoroscopePage() {
                   className="mt-1.5 w-full bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
                   iconClassName="text-purple-400"
                 />
-                {errors.date && (
-                  <p className="text-red-400 text-sm mt-1">{errors.date.message}</p>
-                )}
+                {errors.date && <p className="text-red-400 text-sm mt-1">{errors.date.message}</p>}
                 <p className="text-xs text-slate-500 mt-1">
                   For weekly/monthly/yearly, use any date in that period
                 </p>
@@ -193,7 +187,7 @@ export default function CreateHoroscopePage() {
           </div>
 
           {/* Actions - aligned from start */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex justify-end items-center gap-3">
             <Button
               type="button"
               variant="outline"

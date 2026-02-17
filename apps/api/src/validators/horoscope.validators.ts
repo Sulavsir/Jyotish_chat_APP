@@ -129,7 +129,10 @@ export const updateHoroscopeBodySchema = z.object({
  * List horoscopes query schema (admin)
  */
 export const listHoroscopesQuerySchema = z.object({
-  category: z.enum(VALID_HOROSCOPE_CATEGORIES).optional(),
+  category: z.enum(VALID_HOROSCOPE_CATEGORIES, {
+    required_error: 'Category is required',
+    invalid_type_error: 'Category must be DAILY, WEEKLY, MONTHLY, or YEARLY',
+  }),
   zodiacSign: z
     .string()
     .toUpperCase()

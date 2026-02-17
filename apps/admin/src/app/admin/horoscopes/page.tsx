@@ -21,14 +21,14 @@ const ZODIAC_SIGNS = [
 export default function AdminHoroscopesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [categoryFilter, setCategoryFilter] = useState<HoroscopeCategory | ''>('');
+  const [categoryFilter, setCategoryFilter] = useState<HoroscopeCategory>('DAILY');
   const [zodiacFilter, setZodiacFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
 
   const listParams = useMemo<ListHoroscopesParams>(() => ({
-    ...(categoryFilter && { category: categoryFilter as HoroscopeCategory }),
+    category: categoryFilter,
     ...(zodiacFilter && { zodiacSign: zodiacFilter }),
     ...(dateFrom && { dateFrom }),
     ...(dateTo && { dateTo }),
@@ -144,10 +144,9 @@ export default function AdminHoroscopesPage() {
             <Label className="text-xs text-slate-400 mb-1 block">Category</Label>
             <select
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value as HoroscopeCategory | '')}
+              onChange={(e) => setCategoryFilter(e.target.value as HoroscopeCategory)}
               className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
             >
-              <option value="">All</option>
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -194,10 +193,10 @@ export default function AdminHoroscopesPage() {
             keyExtractor={(row) => row.id}
             emptyState={{
               title: 'No horoscopes found',
-              description: categoryFilter || zodiacFilter || dateFrom || dateTo
+              description: zodiacFilter || dateFrom || dateTo
                 ? 'Try adjusting filters'
-                : 'Add your first horoscope entry',
-              action: !categoryFilter && !zodiacFilter && !dateFrom && !dateTo
+                : `No ${categoryFilter.toLowerCase()} horoscopes yet. Add your first entry.`,
+              action: !zodiacFilter && !dateFrom && !dateTo
                 ? { label: 'Add Horoscope', onClick: () => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE) }
                 : undefined,
               icon: <></>,
