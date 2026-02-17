@@ -80,8 +80,11 @@ export const QUERY_KEYS = {
 
   // Horoscope
   HOROSCOPE: {
-    MY_DAILY: ['horoscope', 'my-daily'] as const,
-    GET: (sign: string, date: string) => ['horoscope', sign, date] as const,
+    MY_HOROSCOPE: ['horoscope', 'my-horoscope'] as const,
+    GET: (sign: string, category: string, date?: string) =>
+      date
+        ? (['horoscope', sign, category, date] as const)
+        : (['horoscope', sign, category] as const),
   },
 
   // Questionnaires (question categories and questions)

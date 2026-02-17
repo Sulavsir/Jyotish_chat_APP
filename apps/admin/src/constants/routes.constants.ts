@@ -64,6 +64,11 @@ export const ADMIN_ROUTES = {
   PRICING: '/admin/pricing',
   PRICING_CREATE: '/admin/pricing/create',
   PRICING_EDIT: (id: string) => `/admin/pricing/${id}/edit`,
+
+  // Horoscopes
+  HOROSCOPES: '/admin/horoscopes',
+  HOROSCOPES_CREATE: '/admin/horoscopes/create',
+  HOROSCOPES_EDIT: (id: string) => `/admin/horoscopes/${id}/edit`,
 } as const;
 
 export type AdminRoute = typeof ADMIN_ROUTES[keyof typeof ADMIN_ROUTES];

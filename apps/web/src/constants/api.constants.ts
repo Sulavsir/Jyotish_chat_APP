@@ -90,10 +90,14 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/api/v1/consultations/${id}`,
   },
   HOROSCOPE: {
-    GET: '/api/v1/horoscopes',
-    MY_DAILY: '/api/v1/horoscopes/my-daily',
+    DAILY: (zodiacSign: string) => `/api/v1/horoscopes/daily/${encodeURIComponent(zodiacSign)}`,
+    WEEKLY: (zodiacSign: string) => `/api/v1/horoscopes/weekly/${encodeURIComponent(zodiacSign)}`,
+    MONTHLY: (zodiacSign: string) => `/api/v1/horoscopes/monthly/${encodeURIComponent(zodiacSign)}`,
+    YEARLY: (zodiacSign: string) => `/api/v1/horoscopes/yearly/${encodeURIComponent(zodiacSign)}`,
+    MY_HOROSCOPE: '/api/v1/horoscopes/my-horoscope',
     SUBSCRIBE: '/api/v1/horoscopes/subscribe',
     UNSUBSCRIBE: '/api/v1/horoscopes/unsubscribe',
+    SUBSCRIPTION: '/api/v1/horoscopes/subscription',
   },
   QUESTIONNAIRES: {
     PUBLIC_LIST: '/api/v1/public/questionnaires',
@@ -155,6 +159,10 @@ export const API_ENDPOINTS = {
     RATES: '/api/v1/coins/rates',
     ADD: '/api/v1/coins/add',
     TRANSACTIONS: '/api/v1/coins/transactions',
+  },
+  PAYMENTS: {
+    CREATE_ORDER: '/api/v1/payments/create-order',
+    VERIFY: '/api/v1/payments/verify',
   },
   PRICING: '/api/v1/pricing',
   ADMIN_CHAT: {

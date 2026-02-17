@@ -14,15 +14,13 @@ import { AppError } from '../middleware/error-handler';
 
 /**
  * Get daily horoscope for a zodiac sign
- * GET /api/v1/horoscope/daily/:zodiacSign
+ * GET /api/v1/horoscopes/daily/:zodiacSign?date=YYYY-MM-DD
  */
 export const getDailyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
   const date = req.query.date ? new Date(req.query.date as string) : undefined;
 
-  // Get daily horoscope via service
-  const horoscope = await horoscopeService.getDailyHoroscope(zodiacSign.toUpperCase(), date);
-
+  const horoscope = await horoscopeService.getDailyHoroscope(zodiacSign, date);
   return sendSuccess(res, {
     horoscope,
     message: 'Daily horoscope retrieved successfully',
@@ -31,14 +29,13 @@ export const getDailyHoroscope = async (req: AuthRequest, res: Response, next: N
 
 /**
  * Get weekly horoscope for a zodiac sign
- * GET /api/v1/horoscope/weekly/:zodiacSign
+ * GET /api/v1/horoscopes/weekly/:zodiacSign?date=YYYY-MM-DD
  */
 export const getWeeklyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
+  const date = req.query.date ? new Date(req.query.date as string) : undefined;
 
-  // Get weekly horoscope via service
-  const horoscope = await horoscopeService.getWeeklyHoroscope(zodiacSign.toUpperCase());
-
+  const horoscope = await horoscopeService.getWeeklyHoroscope(zodiacSign, date);
   return sendSuccess(res, {
     horoscope,
     message: 'Weekly horoscope retrieved successfully',
@@ -47,17 +44,31 @@ export const getWeeklyHoroscope = async (req: AuthRequest, res: Response, next: 
 
 /**
  * Get monthly horoscope for a zodiac sign
- * GET /api/v1/horoscope/monthly/:zodiacSign
+ * GET /api/v1/horoscopes/monthly/:zodiacSign?date=YYYY-MM-DD
  */
 export const getMonthlyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
+  const date = req.query.date ? new Date(req.query.date as string) : undefined;
 
-  // Get monthly horoscope via service
-  const horoscope = await horoscopeService.getMonthlyHoroscope(zodiacSign.toUpperCase());
-
+  const horoscope = await horoscopeService.getMonthlyHoroscope(zodiacSign, date);
   return sendSuccess(res, {
     horoscope,
     message: 'Monthly horoscope retrieved successfully',
+  });
+};
+
+/**
+ * Get yearly horoscope for a zodiac sign
+ * GET /api/v1/horoscopes/yearly/:zodiacSign?date=YYYY-MM-DD
+ */
+export const getYearlyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const { zodiacSign } = req.params;
+  const date = req.query.date ? new Date(req.query.date as string) : undefined;
+
+  const horoscope = await horoscopeService.getYearlyHoroscope(zodiacSign, date);
+  return sendSuccess(res, {
+    horoscope,
+    message: 'Yearly horoscope retrieved successfully',
   });
 };
 

@@ -765,6 +765,54 @@ export const adminApi = {
   },
 
   /**
+   * Horoscopes (admin CRUD)
+   */
+  horoscopes: {
+    list: async (params?: import('@/types').ListHoroscopesParams): Promise<import('@/types').ListHoroscopesResponse> => {
+      const response = await apiClient.get<import('@/types').ListHoroscopesResponse>(
+        API_ENDPOINTS.HOROSCOPES.LIST,
+        { params }
+      );
+      return response;
+    },
+
+    get: async (id: string): Promise<{ horoscope: import('@/types').AdminHoroscopeEntry }> => {
+      const response = await apiClient.get<{ horoscope: import('@/types').AdminHoroscopeEntry }>(
+        API_ENDPOINTS.HOROSCOPES.GET(id)
+      );
+      return response;
+    },
+
+    create: async (
+      data: import('@/types').CreateHoroscopeRequest
+    ): Promise<{ horoscope: import('@/types').AdminHoroscopeEntry }> => {
+      const response = await apiClient.post<{ horoscope: import('@/types').AdminHoroscopeEntry }>(
+        API_ENDPOINTS.HOROSCOPES.CREATE,
+        data
+      );
+      return response;
+    },
+
+    update: async (
+      id: string,
+      data: import('@/types').UpdateHoroscopeRequest
+    ): Promise<{ horoscope: import('@/types').AdminHoroscopeEntry }> => {
+      const response = await apiClient.patch<{ horoscope: import('@/types').AdminHoroscopeEntry }>(
+        API_ENDPOINTS.HOROSCOPES.UPDATE(id),
+        data
+      );
+      return response;
+    },
+
+    delete: async (id: string): Promise<{ message: string }> => {
+      const response = await apiClient.delete<{ message: string }>(
+        API_ENDPOINTS.HOROSCOPES.DELETE(id)
+      );
+      return response;
+    },
+  },
+
+  /**
    * Admin Chat (Support Widget)
    */
   adminChat: {

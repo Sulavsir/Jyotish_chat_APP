@@ -13,6 +13,7 @@ export * from './complaint';
 export * from './astrologer';
 export * from './broadcast';
 export * from './rating';
+export * from './horoscope.types';
 
 // Frontend-specific types
 export interface ApiResponse<T = unknown> {

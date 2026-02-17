@@ -2,21 +2,27 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { Button } from '@jyotish/ui';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Button, LoadingButton } from '@jyotish/ui';
 import { Check, Sparkles, Zap, Clock, Infinity as InfinityIcon } from 'lucide-react';
 import { ROUTES, QUERY_KEYS } from '@/constants';
 import { Navbar } from '@/components/ui';
 import { pricingService } from '@/services/pricing.service';
+import { paymentService } from '@/services/payment.service';
 import type { PricingPlan } from '@/types/pricing.types';
+import type { CreateOrderResponse } from '@/types/payment.types';
 import { useAuthStore } from '@/store/auth-store';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
+import { GetPayCheckout } from '@/components/payment/GetPayCheckout';
+import { toast } from 'sonner';
+import { showErrorToast } from '@/lib/error-handler';
 
 type TabFilter = 'all' | 'packs' | 'unlimited';
 
 function PricingContent() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<TabFilter>('all');
+  const [checkoutData, setCheckoutData] = useState<CreateOrderResponse | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data, isLoading } = useQuery({
@@ -24,8 +30,35 @@ function PricingContent() {
     queryFn: () => pricingService.getPlans(),
   });
 
+  const createOrderMutation = useMutation({
+    mutationFn: (params: { amount: number; coins: number; planId?: string }) =>
+      paymentService.createOrder({
+        amount: params.amount,
+        coins: params.coins,
+        planId: params.planId,
+      }),
+    onSuccess: (result) => {
+      setCheckoutData(result);
+    },
+    onError: (err) => {
+      showErrorToast(err);
+    },
+  });
+
   const plans = data?.plans || [];
   const loading = isLoading;
+
+  const handleBuyClick = (plan: PricingPlan) => {
+    if (!isAuthenticated) {
+      router.push(ROUTES.LOGIN);
+      return;
+    }
+    createOrderMutation.mutate({
+      amount: plan.priceInNrs,
+      coins: plan.coins,
+      planId: plan.id,
+    });
+  };
 
   const filteredPlans = plans.filter((plan) => {
     if (selectedTab === 'packs') return !plan.isUnlimited;
@@ -300,18 +333,11 @@ function PricingContent() {
                       </div>
 
                       {/* CTA Button */}
-                      <Button
-                        onClick={() => {
-                          // Check authentication before proceeding
-                          if (!isAuthenticated) {
-                            router.push(ROUTES.LOGIN);
-                            return;
-                          }
-                          // If authenticated, proceed to payment
-                          router.push(
-                            `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`
-                          );
-                        }}
+                      <LoadingButton
+                        onClick={() => handleBuyClick(plan)}
+                        loading={createOrderMutation.isPending}
+                        loadingText="Preparing..."
+                        disabled={createOrderMutation.isPending}
                         className={`w-full py-3.5 rounded-xl font-semibold ${
                           plan.isFeatured
                             ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-lg shadow-purple-500/30'
@@ -319,7 +345,7 @@ function PricingContent() {
                         }`}
                       >
                         Buy Now
-                      </Button>
+                      </LoadingButton>
                     </div>
                   </div>
                 );
@@ -337,6 +363,15 @@ function PricingContent() {
               <p className="text-gray-300">Check back soon for exciting offers!</p>
             </div>
           )}
+
+          {/* GetPay checkout - loads script and opens payment when checkoutData is set */}
+          <GetPayCheckout
+            checkoutData={checkoutData}
+            onError={(msg) => {
+              setCheckoutData(null);
+              toast.error(msg);
+            }}
+          />
 
           {/* Info Section */}
           <div className="mt-20 text-center">

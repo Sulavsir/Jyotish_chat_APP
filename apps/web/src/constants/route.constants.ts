@@ -29,6 +29,8 @@ export const ROUTES = {
   SETTINGS: '/settings',
   PRICING: '/pricing',
   PAYMENT: '/payment',
+  PAYMENT_SUCCESS: '/payment-success',
+  PAYMENT_FAIL: '/payment-fail',
   COIN_TRANSACTIONS: '/coins/transactions',
   ASTROLOGERS: '/astrologers',
   ASTROLOGER_PROFILE: '/astrologers/[id]',

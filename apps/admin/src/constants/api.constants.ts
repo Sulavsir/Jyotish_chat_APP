@@ -129,6 +129,14 @@ export const API_ENDPOINTS = {
     DISMISS: (id: string) => `/api/v1/admin/complaints/${id}/dismiss`,
   },
 
+  HOROSCOPES: {
+    LIST: '/api/v1/admin/horoscopes',
+    GET: (id: string) => `/api/v1/admin/horoscopes/${id}`,
+    CREATE: '/api/v1/admin/horoscopes',
+    UPDATE: (id: string) => `/api/v1/admin/horoscopes/${id}`,
+    DELETE: (id: string) => `/api/v1/admin/horoscopes/${id}`,
+  },
+
   ADMIN_CHAT: {
     // Admin Chat (Support Widget)
     LIST: '/api/v1/admin-chat/admin/all',

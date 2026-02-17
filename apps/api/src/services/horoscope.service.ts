@@ -3,77 +3,137 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { getCanonicalDateForCategory } from '@jyotish/shared';
 import { HOROSCOPE_CONFIG } from '../constants';
-import type { 
-  HoroscopeData, 
-  SubscriptionData, 
-  SubscriptionFrequency, 
-  ZodiacSign,
+import type {
+  SubscriptionData,
+  SubscriptionFrequency,
   HoroscopeResponse,
-  HoroscopeSubscriptionEntity
+  HoroscopeSubscriptionEntity,
 } from '../types';
+import { HoroscopeCategory } from '@jyotish/shared';
 
 export class HoroscopeService {
+  private toResponse(
+    zodiacSign: string,
+    date: Date,
+    content: string,
+    category: HoroscopeCategory
+  ): HoroscopeResponse {
+    return {
+      zodiacSign,
+      date,
+      prediction: content,
+      category,
+    };
+  }
+
   /**
-   * Get daily horoscope for a zodiac sign
+   * Get daily horoscope for a zodiac sign (from DB)
    */
   async getDailyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
-    const targetDate = date || new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = date ? new Date(date) : new Date();
+    const canonical = getCanonicalDateForCategory('DAILY', targetDate);
 
-    // TODO: Integrate with actual horoscope API or database
-    // For now, return mock data structure
-    return {
-      zodiacSign,
-      date: targetDate,
-      prediction:
-        'This is a placeholder horoscope. Integration with horoscope data source pending.',
-      category: 'DAILY',
-      love: 4,
-      career: 3,
-      health: 5,
-      finance: 3,
-    };
+    const row = await prisma.horoscope.findFirst({
+      where: {
+        zodiacSign: zodiacSign.toUpperCase() as any,
+        category: 'DAILY',
+        date: canonical,
+      },
+    });
+
+    if (row) {
+      return this.toResponse(row.zodiacSign, row.date, row.content, row.category as HoroscopeCategory);
+    }
+
+    return this.toResponse(
+      zodiacSign.toUpperCase(),
+      canonical,
+      'No horoscope available for this date. Check back later.',
+      HoroscopeCategory.DAILY
+    );
   }
 
   /**
-   * Get weekly horoscope for a zodiac sign
+   * Get weekly horoscope for a zodiac sign (from DB)
    */
-  async getWeeklyHoroscope(zodiacSign: string): Promise<HoroscopeResponse> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  async getWeeklyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+    const targetDate = date ? new Date(date) : new Date();
+    const canonical = getCanonicalDateForCategory('WEEKLY', targetDate);
 
-    return {
-      zodiacSign,
-      date: today,
-      prediction:
-        'This is a placeholder weekly horoscope. Integration with horoscope data source pending.',
-      category: 'WEEKLY',
-      love: 4,
-      career: 3,
-      health: 5,
-      finance: 3,
-    };
+    const row = await prisma.horoscope.findFirst({
+      where: {
+        zodiacSign: zodiacSign.toUpperCase() as any,
+        category: 'WEEKLY',
+        date: canonical,
+      },
+    });
+
+    if (row) {
+      return this.toResponse(row.zodiacSign, row.date, row.content, row.category as HoroscopeCategory);
+    }
+
+    return this.toResponse(
+      zodiacSign.toUpperCase(),
+      canonical,
+      'No weekly horoscope available for this period. Check back later.',
+      HoroscopeCategory.WEEKLY
+    );
   }
 
   /**
-   * Get monthly horoscope for a zodiac sign
+   * Get monthly horoscope for a zodiac sign (from DB)
    */
-  async getMonthlyHoroscope(zodiacSign: string): Promise<HoroscopeResponse> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  async getMonthlyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+    const targetDate = date ? new Date(date) : new Date();
+    const canonical = getCanonicalDateForCategory('MONTHLY', targetDate);
 
-    return {
-      zodiacSign,
-      date: today,
-      prediction:
-        'This is a placeholder monthly horoscope. Integration with horoscope data source pending.',
-      category: 'MONTHLY',
-      love: 4,
-      career: 3,
-      health: 5,
-      finance: 3,
-    };
+    const row = await prisma.horoscope.findFirst({
+      where: {
+        zodiacSign: zodiacSign.toUpperCase() as any,
+        category: 'MONTHLY',
+        date: canonical,
+      },
+    });
+
+    if (row) {
+      return this.toResponse(row.zodiacSign, row.date, row.content, row.category as HoroscopeCategory);
+    }
+
+    return this.toResponse(
+      zodiacSign.toUpperCase(),
+      canonical,
+      'No monthly horoscope available for this month. Check back later.',
+      HoroscopeCategory.MONTHLY
+    );
+  }
+
+  /**
+   * Get yearly horoscope for a zodiac sign (from DB)
+   */
+  async getYearlyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+    const targetDate = date ? new Date(date) : new Date();
+    const canonical = getCanonicalDateForCategory('YEARLY', targetDate);
+
+    const row = await prisma.horoscope.findFirst({
+      where: {
+        zodiacSign: zodiacSign.toUpperCase() as any,
+        category: 'YEARLY',
+        date: canonical,
+      },
+    });
+
+    if (row) {
+      return this.toResponse(row.zodiacSign, row.date, row.content, row.category as HoroscopeCategory);
+    }
+
+    return this.toResponse(
+      zodiacSign.toUpperCase(),
+      canonical,
+      'No yearly horoscope available for this year. Check back later.',
+      HoroscopeCategory.YEARLY
+    );
   }
 
   /**
@@ -204,6 +264,122 @@ export class HoroscopeService {
    */
   isValidZodiacSign(sign: string): boolean {
     return HOROSCOPE_CONFIG.VALID_ZODIAC_SIGNS.includes(sign.toUpperCase() as any);
+  }
+
+  // ==================== Admin CRUD ====================
+
+  /**
+   * Create horoscope entry (admin)
+   */
+  async createHoroscope(data: {
+    zodiacSign: string;
+    category: HoroscopeCategory;
+    date: Date;
+    content: string;
+  }) {
+    const canonical = getCanonicalDateForCategory(data.category, data.date);
+    return prisma.horoscope.create({
+      data: {
+        zodiacSign: data.zodiacSign.toUpperCase() as any,
+        category: data.category,
+        date: canonical,
+        content: data.content,
+      },
+    });
+  }
+
+  /**
+   * List horoscopes with filters (admin)
+   */
+  async listHoroscopes(params: {
+    category?: HoroscopeCategory;
+    zodiacSign?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(100, Math.max(1, params.limit ?? 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (params.category) where.category = params.category;
+    if (params.zodiacSign) where.zodiacSign = params.zodiacSign.toUpperCase();
+    if (params.dateFrom || params.dateTo) {
+      where.date = {};
+      if (params.dateFrom) where.date.gte = new Date(params.dateFrom);
+      if (params.dateTo) {
+        const d = new Date(params.dateTo);
+        d.setHours(23, 59, 59, 999);
+        where.date.lte = d;
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.horoscope.findMany({
+        where,
+        orderBy: [{ date: 'desc' }, { zodiacSign: 'asc' }],
+        skip,
+        take: limit,
+      }),
+      prisma.horoscope.count({ where }),
+    ]);
+
+    return {
+      horoscopes: items,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get horoscope by id (admin)
+   */
+  async getHoroscopeById(id: string) {
+    return prisma.horoscope.findUnique({
+      where: { id },
+    });
+  }
+
+  /**
+   * Update horoscope (admin)
+   */
+  async updateHoroscope(
+    id: string,
+    data: { zodiacSign?: string; category?: HoroscopeCategory; date?: Date; content?: string }
+  ) {
+    const existing = await prisma.horoscope.findUnique({ where: { id } });
+    if (!existing) return null;
+
+    const payload: any = {};
+    if (data.content !== undefined) payload.content = data.content;
+    if (data.zodiacSign !== undefined) payload.zodiacSign = data.zodiacSign.toUpperCase();
+    if (data.category !== undefined) payload.category = data.category;
+    if (data.date !== undefined) {
+      payload.date = getCanonicalDateForCategory(
+        (data.category ?? existing.category) as HoroscopeCategory,
+        data.date
+      );
+    }
+
+    return prisma.horoscope.update({
+      where: { id },
+      data: payload,
+    });
+  }
+
+  /**
+   * Delete horoscope (admin)
+   */
+  async deleteHoroscope(id: string) {
+    return prisma.horoscope.delete({
+      where: { id },
+    });
   }
 }
 

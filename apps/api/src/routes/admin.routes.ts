@@ -51,6 +51,12 @@ import {
   listAdminKundaliMatchQuerySchema,
   submitKundaliMatchReviewSchema,
 } from '../validators/kundaliMatch.validators';
+import { adminHoroscopeController } from '../controllers';
+import {
+  createHoroscopeBodySchema,
+  updateHoroscopeBodySchema,
+  listHoroscopesQuerySchema,
+} from '../validators/horoscope.validators';
 
 const router = Router();
 
@@ -399,6 +405,34 @@ router.put(
   '/coin-rates',
   validateBody(updatePlatformCoinRatesSchema),
   asyncHandler(adminCoinRatesController.updateCoinRates)
+);
+
+// ==================== Horoscope Management (admin) ====================
+router.get(
+  '/horoscopes',
+  validateQuery(listHoroscopesQuerySchema),
+  asyncHandler(adminHoroscopeController.listHoroscopes)
+);
+router.get(
+  '/horoscopes/:id',
+  validateParams(uuidParamSchema),
+  asyncHandler(adminHoroscopeController.getHoroscopeById)
+);
+router.post(
+  '/horoscopes',
+  validateBody(createHoroscopeBodySchema),
+  asyncHandler(adminHoroscopeController.createHoroscope)
+);
+router.patch(
+  '/horoscopes/:id',
+  validateParams(uuidParamSchema),
+  validateBody(updateHoroscopeBodySchema),
+  asyncHandler(adminHoroscopeController.updateHoroscope)
+);
+router.delete(
+  '/horoscopes/:id',
+  validateParams(uuidParamSchema),
+  asyncHandler(adminHoroscopeController.deleteHoroscope)
 );
 
 // ==================== Complaint Management Routes ====================

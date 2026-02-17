@@ -139,3 +139,33 @@ export function getDateRangeForCategory(
 
   return { start, end };
 }
+
+/**
+ * Get canonical date for horoscope category (for DB storage and lookup).
+ * One row per (zodiacSign, canonicalDate, category).
+ */
+export function getCanonicalDateForCategory(
+  category: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY',
+  date: Date = new Date()
+): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+
+  switch (category) {
+    case 'DAILY':
+      return d;
+    case 'WEEKLY': {
+      const dayOfWeek = d.getDay();
+      d.setDate(d.getDate() - dayOfWeek);
+      return d;
+    }
+    case 'MONTHLY':
+      d.setDate(1);
+      return d;
+    case 'YEARLY':
+      d.setMonth(0, 1);
+      return d;
+    default:
+      return d;
+  }
+}

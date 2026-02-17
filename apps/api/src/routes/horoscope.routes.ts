@@ -6,6 +6,7 @@ import { horoscopeController } from '../controllers';
 import {
   zodiacSignParamSchema,
   dailyHoroscopeQuerySchema,
+  periodHoroscopeQuerySchema,
   subscribeHoroscopeSchema,
   updateSubscriptionSchema,
 } from '../validators';
@@ -24,6 +25,7 @@ router.get(
 router.get(
   '/weekly/:zodiacSign',
   validateParams(zodiacSignParamSchema),
+  validateQuery(periodHoroscopeQuerySchema),
   asyncHandler(horoscopeController.getWeeklyHoroscope)
 );
 
@@ -31,7 +33,16 @@ router.get(
 router.get(
   '/monthly/:zodiacSign',
   validateParams(zodiacSignParamSchema),
+  validateQuery(periodHoroscopeQuerySchema),
   asyncHandler(horoscopeController.getMonthlyHoroscope)
+);
+
+// Get yearly horoscope by zodiac sign
+router.get(
+  '/yearly/:zodiacSign',
+  validateParams(zodiacSignParamSchema),
+  validateQuery(periodHoroscopeQuerySchema),
+  asyncHandler(horoscopeController.getYearlyHoroscope)
 );
 
 // Get user's horoscope (based on their zodiac sign)

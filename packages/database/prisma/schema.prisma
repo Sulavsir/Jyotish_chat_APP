@@ -603,7 +603,7 @@ model Payment {
   userId         String
   consultationId String?       @unique
   amount         Float
-  currency       String        @default("USD")
+  currency       String        @default("NPR")
   status         PaymentStatus @default(PENDING)
   paymentMethod  String
   transactionId  String?       @unique

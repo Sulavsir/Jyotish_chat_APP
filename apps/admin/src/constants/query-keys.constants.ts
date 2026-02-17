@@ -67,6 +67,14 @@ export const ADMIN_QUERY_KEYS = {
     DETAIL: (id: string) => ['admin', 'pricing', 'detail', id] as const,
   },
 
+  // Horoscopes
+  HOROSCOPES: {
+    ALL: ['admin', 'horoscopes'] as const,
+    LIST: (params?: { category?: string; zodiacSign?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
+      params ? (['admin', 'horoscopes', 'list', params] as const) : (['admin', 'horoscopes', 'list'] as const),
+    DETAIL: (id: string) => ['admin', 'horoscopes', 'detail', id] as const,
+  },
+
   // Dashboard Stats
   DASHBOARD: {
     STATS: () => ['admin', 'dashboard', 'stats'] as const,
