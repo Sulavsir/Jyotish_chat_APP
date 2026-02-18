@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { getRashiDisplayName } from '@jyotish/shared';
+import { getRashiDisplayName, HoroscopeCategory } from '@jyotish/shared';
 import { horoscopeService } from '@/services/horoscopeService';
 import { QUERY_KEYS } from '@/constants';
 import { ZODIAC_SIGNS } from '@/constants/horoscope.constants';
@@ -19,11 +19,16 @@ export function PublicTodayRashifal() {
 
   const queries = useQueries({
     queries: ZODIAC_SIGNS.map((sign) => ({
-      queryKey: QUERY_KEYS.HOROSCOPE.GET(sign.value, 'DAILY', today, PUBLIC_HOROSCOPE_LANGUAGE),
+      queryKey: QUERY_KEYS.HOROSCOPE.GET(
+        sign.value,
+        HoroscopeCategory.DAILY,
+        today,
+        PUBLIC_HOROSCOPE_LANGUAGE
+      ),
       queryFn: () =>
         horoscopeService.getHoroscope({
           zodiacSign: sign.value,
-          category: 'DAILY',
+          category: HoroscopeCategory.DAILY,
           date: today,
           language: PUBLIC_HOROSCOPE_LANGUAGE,
         }),

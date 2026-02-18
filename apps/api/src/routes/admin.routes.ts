@@ -66,11 +66,6 @@ import {
   listSubhaSahitDatesQuerySchema,
   updateSubhaSahitDateBodySchema,
 } from '../validators/subha-sahit.validators';
-import {
-  createSubhaSahitDatesBodySchema,
-  listSubhaSahitDatesQuerySchema,
-  updateSubhaSahitDateBodySchema,
-} from '../validators/subha-sahit.validators';
 
 const router = Router();
 
