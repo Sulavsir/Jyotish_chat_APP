@@ -22,9 +22,11 @@ export function Navbar() {
 
   const navLinks = [
     { name: 'Home', href: ROUTES.HOME },
+    { name: "Today's Horoscope", href: ROUTES.HOROSCOPES },
+    { name: 'Subha Sahit', href: ROUTES.SUBHA_SAHIT },
     { name: 'Astrologers', href: ROUTES.ASTROLOGERS },
     { name: 'Pricing', href: ROUTES.PRICING },
-    { name: 'About', href: '/about' },
+    { name: 'About', href: ROUTES.ABOUT },
   ];
 
   const isActive = (href: string) => pathname === href;

@@ -86,21 +86,21 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
       <div className="flex flex-col gap-3">
         {/* Instant Connection Card - always visible */}
 
-        {/* Full Kundali Review Card - text + button, same shimmer */}
+        {/* Full Kundali Review Card - responsive: stack on xs, row on sm+; full-width button on small */}
         {onOpenKundaliReview && (
-          <div className="relative rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-indigo-500/10 to-transparent p-4 shadow-lg shadow-purple-500/30 animate-in fade-in slide-in-from-bottom-4 delay-200 overflow-hidden">
+          <div className="relative rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-indigo-500/10 to-transparent p-3 sm:p-4 shadow-lg shadow-purple-500/30 animate-in fade-in slide-in-from-bottom-4 delay-200 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/15 to-transparent -translate-x-full animate-[shimmer_2s_linear_infinite]" />
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 relative z-10">
-              <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="flex flex-col  xl:flex-row  xl:justify-between gap-3 relative z-10 min-w-0">
+              <div className="flex items-start gap-3 min-w-0">
                 <div className="p-2 rounded-lg bg-purple-500/30 border border-purple-500/50 scale-110 -rotate-2 shrink-0">
                   <Sparkles className="h-4 w-4 text-purple-100" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white mb-1">Full Kundali Review</p>
-                  <p className="text-xs text-gray-200">
-                    Book a detailed kundali analysis with expert Jyotish. Get insights on your
-                    chart, planetary positions, and personalized guidance—scheduled at your chosen
-                    time.
+                <div className="min-w-0 ">
+                  <p className="text-sm font-semibold text-white mb-0.5 sm:mb-1">
+                    Full Kundali Review
+                  </p>
+                  <p className="text-xs text-gray-200 ">
+                    Book a detailed kundali analysis with expert Jyotish.
                   </p>
                 </div>
               </div>
@@ -108,7 +108,7 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
                 onClick={onOpenKundaliReview}
                 variant="outline"
                 color="neutral"
-                className="shrink-0 !border-white/30 !bg-white/5 hover:!bg-white/10 hover:!border-white/50 active:!border-purple-400 active:!bg-white/20 active:ring-2 active:ring-purple-400/50 active:scale-[0.98] focus-visible:!ring-2 focus-visible:!ring-purple-400/60 focus-visible:!ring-offset-2 focus-visible:!ring-offset-slate-900 transition-all"
+                className="w-full lg:w-auto xl:self-end shrink-0 !border-white/30 !bg-white/5 hover:!bg-white/10 hover:!border-white/50 active:!border-purple-400 active:!bg-white/20 active:ring-2 active:ring-purple-400/50 active:scale-[0.98] focus-visible:!ring-2 focus-visible:!ring-purple-400/60 focus-visible:!ring-offset-2 focus-visible:!ring-offset-slate-900 transition-all"
               >
                 Full Kundali Review
               </Button>

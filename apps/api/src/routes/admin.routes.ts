@@ -45,7 +45,7 @@ import {
   updateQuestionCategorySchema,
   listQuestionCategoriesQuerySchema,
 } from '@jyotish/shared';
-import { jyotishBookingController, adminCoinRatesController } from '../controllers';
+import { jyotishBookingController, adminCoinRatesController, tipController, subhaSahitController } from '../controllers';
 import * as kundaliMatchController from '../controllers/kundaliMatch.controller';
 import {
   listAdminKundaliMatchQuerySchema,
@@ -53,10 +53,24 @@ import {
 } from '../validators/kundaliMatch.validators';
 import { adminHoroscopeController } from '../controllers';
 import {
-  createHoroscopeBodySchema,
+  createHoroscopesBodySchema,
   updateHoroscopeBodySchema,
   listHoroscopesQuerySchema,
 } from '../validators/horoscope.validators';
+import {
+  createTipsBodySchema,
+  listTipsQuerySchema,
+} from '../validators/tip.validators';
+import {
+  createSubhaSahitDatesBodySchema,
+  listSubhaSahitDatesQuerySchema,
+  updateSubhaSahitDateBodySchema,
+} from '../validators/subha-sahit.validators';
+import {
+  createSubhaSahitDatesBodySchema,
+  listSubhaSahitDatesQuerySchema,
+  updateSubhaSahitDateBodySchema,
+} from '../validators/subha-sahit.validators';
 
 const router = Router();
 
@@ -407,6 +421,19 @@ router.put(
   asyncHandler(adminCoinRatesController.updateCoinRates)
 );
 
+// ==================== Daily Tips (admin-managed) ====================
+router.get(
+  '/tips',
+  validateQuery(listTipsQuerySchema),
+  asyncHandler(tipController.listTips)
+);
+router.post(
+  '/tips',
+  validateBody(createTipsBodySchema),
+  asyncHandler(tipController.createTips)
+);
+router.delete('/tips/:id', asyncHandler(tipController.deleteTip));
+
 // ==================== Horoscope Management (admin) ====================
 router.get(
   '/horoscopes',
@@ -419,9 +446,9 @@ router.get(
   asyncHandler(adminHoroscopeController.getHoroscopeById)
 );
 router.post(
-  '/horoscopes',
-  validateBody(createHoroscopeBodySchema),
-  asyncHandler(adminHoroscopeController.createHoroscope)
+  '/horoscopes/bulk',
+  validateBody(createHoroscopesBodySchema),
+  asyncHandler(adminHoroscopeController.createHoroscopes)
 );
 router.patch(
   '/horoscopes/:id',
@@ -433,6 +460,29 @@ router.delete(
   '/horoscopes/:id',
   validateParams(uuidParamSchema),
   asyncHandler(adminHoroscopeController.deleteHoroscope)
+);
+
+// ==================== Subha Sahit Management (admin) ====================
+router.get(
+  '/subha-sahit',
+  validateQuery(listSubhaSahitDatesQuerySchema),
+  asyncHandler(subhaSahitController.listDates)
+);
+router.post(
+  '/subha-sahit',
+  validateBody(createSubhaSahitDatesBodySchema),
+  asyncHandler(subhaSahitController.createDates)
+);
+router.put(
+  '/subha-sahit/:id',
+  validateParams(uuidParamSchema),
+  validateBody(updateSubhaSahitDateBodySchema),
+  asyncHandler(subhaSahitController.updateDate)
+);
+router.delete(
+  '/subha-sahit/:id',
+  validateParams(uuidParamSchema),
+  asyncHandler(subhaSahitController.deleteDate)
 );
 
 // ==================== Complaint Management Routes ====================

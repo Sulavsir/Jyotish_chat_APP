@@ -1,13 +1,29 @@
 /**
- * Dashboard Layout - Layout for authenticated pages
+ * Dashboard Layout - Client app layout with sidebar (same pattern as Jyotish).
+ * Navbar: logo, language, coins, notification, profile.
+ * Sidebar: Dashboard, Astrologers, Chat, My Bookings, Horoscope, Pricing, Profile.
  */
 
 'use client';
 
 import { ReactNode, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard,
+  MessageCircle,
+  CalendarCheck,
+  Star,
+  Wallet,
+  User,
+  Sparkles,
+  LogOut,
+  Menu,
+  X,
+} from 'lucide-react';
+import { AppSidebar } from '@jyotish/ui';
 import { useAuth, useRequireAuth } from '@/hooks';
 import { ROUTES } from '@/constants';
 import { cn } from '@/lib/utils';
@@ -23,16 +39,6 @@ interface DashboardLayoutProps {
   children: ReactNode;
 }
 
-const navigation = [
-  { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: '🏠' },
-  { name: 'Astrologers', href: ROUTES.ASTROLOGERS, icon: '🔮' },
-  { name: 'Chat', href: ROUTES.CHAT, icon: '💬' },
-  { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: '📝' },
-  { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: '⭐' },
-  { name: 'Pricing', href: ROUTES.PRICING, icon: '💰' },
-  { name: 'Profile', href: ROUTES.PROFILE, icon: '👤' },
-];
-
 function LanguageDropdown() {
   const language = useQuestionnaireLanguageStore((s) => s.language);
   const setLanguage = useQuestionnaireLanguageStore((s) => s.setLanguage);
@@ -43,7 +49,7 @@ function LanguageDropdown() {
     setPortalContainer(document.getElementById('dropdown-portal-root'));
   }, []);
 
-  const handleSelect = (value: 'NEPALI' | 'HINDI' | 'ENGLISH') => {
+  const handleSelect = (value: (typeof QUESTIONNAIRE_LANGUAGES)[number]) => {
     setLanguage(value);
     setOpen(false);
   };
@@ -80,16 +86,40 @@ function LanguageDropdown() {
   );
 }
 
+const ProfileBadge = ({ showProfileAlert }: { showProfileAlert: boolean }) =>
+  showProfileAlert ? (
+    <span
+      className="flex-shrink-0 w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"
+      title="Complete your profile or set password"
+    />
+  ) : null;
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { user } = useRequireAuth();
   const { handleLogout } = useAuth();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogoutClick = () => {
-    setIsLogoutModalOpen(true);
-  };
+  const showProfileAlert = Boolean(user && (!user.profileCompleted || !user.hasPassword));
+
+  const sidebarItems = [
+    { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: <LayoutDashboard className="h-4 w-4" /> },
+    { name: 'Astrologers', href: ROUTES.ASTROLOGERS, icon: <Sparkles className="h-4 w-4" /> },
+    { name: 'Chat', href: ROUTES.CHAT, icon: <MessageCircle className="h-4 w-4" /> },
+    { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: <CalendarCheck className="h-4 w-4" /> },
+    { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: <Star className="h-4 w-4" /> },
+    { name: 'Pricing', href: ROUTES.PRICING, icon: <Wallet className="h-4 w-4" /> },
+    {
+      name: 'Profile',
+      href: ROUTES.PROFILE,
+      icon: <User className="h-4 w-4" />,
+      badge: <ProfileBadge showProfileAlert={showProfileAlert} />,
+    },
+  ];
+
+  const handleLogoutClick = () => setIsLogoutModalOpen(true);
 
   const handleLogoutConfirm = async () => {
     setIsLoggingOut(true);
@@ -103,110 +133,140 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen relative">
-      {/* Cosmic Background */}
       <div className="fixed inset-0 z-0">
-        <Image
-          src={spaceImage}
-          alt="Cosmic Space"
-          fill
-          className="object-cover"
-          quality={90}
-          priority
-        />
+        <Image src={spaceImage} alt="" fill className="object-cover" quality={90} priority />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70" />
       </div>
 
-      {/* Content */}
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50 overflow-visible">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between h-16">
-              {/* Logo */}
-              <Link
-                href={ROUTES.DASHBOARD}
-                className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 drop-shadow-[0_0_20px_rgba(220,20,60,0.6)]"
-              >
-                Chat Jyotish
-              </Link>
+      <div className="relative z-50 flex flex-col h-screen overflow-hidden">
+        <div className="flex-shrink-0 h-14 lg:h-16" aria-hidden />
 
-              {/* Navigation */}
-              <nav className="hidden md:flex space-x-2">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 relative',
-                      pathname === item.href
-                        ? 'bg-purple-600/40 text-white shadow-[0_0_15px_rgba(168,85,247,0.6)] backdrop-blur-sm'
-                        : 'text-gray-300 hover:bg-white/10 hover:text-white'
-                    )}
-                  >
-                    <span>{item.icon}</span>
-                    {item.name}
-                    {/* Info badge for incomplete profile or password not set */}
-                    {item.href === ROUTES.PROFILE &&
-                      (!user?.profileCompleted || !user?.hasPassword) && (
-                        <span className="absolute -top-1 -right-1 group/badge">
-                          <span
-                            className="w-4 h-4 rounded-full flex items-center justify-center animate-pulse"
-                            style={{
-                              backgroundColor: !user?.profileCompleted ? '#3b82f6' : '#eab308',
-                            }}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              className="w-2.5 h-2.5 text-white"
-                            >
-                              <circle cx="12" cy="12" r="10"></circle>
-                              <line x1="12" y1="16" x2="12" y2="12"></line>
-                              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                            </svg>
-                          </span>
-                          {/* Tooltip */}
-                          <span
-                            className="absolute left-6 top-0 bg-gray-900 text-white text-xs rounded-lg px-3 py-1.5 opacity-0 group-hover/badge:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg border whitespace-nowrap"
-                            style={{
-                              borderColor: !user?.profileCompleted ? '#3b82f6' : '#eab308',
-                            }}
-                          >
-                            {!user?.profileCompleted ? 'Complete your profile' : 'Set a password'}
-                          </span>
-                        </span>
-                      )}
-                  </Link>
-                ))}
-              </nav>
-
-              {/* Notifications & User Menu */}
-              <div className="flex items-center gap-2 overflow-visible">
-                <LanguageDropdown />
-                <CoinDisplay themeColor="purple" />
-                <NotificationBell themeColor="purple" />
-                <ProfileDropdown
-                  user={user}
-                  profileRoute={ROUTES.PROFILE}
-                  settingsRoute={ROUTES.SETTINGS}
-                  onLogout={handleLogoutClick}
-                  themeColor="purple"
-                />
-              </div>
-            </div>
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <div className="hidden lg:block flex-shrink-0 h-full min-h-0">
+            <AppSidebar
+              items={sidebarItems}
+              currentPath={pathname}
+              themeColor="purple"
+              onLogout={handleLogoutClick}
+              logoutLabel="Logout"
+              logoutIcon={<LogOut className="h-4 w-4" />}
+              renderLink={({ href, className, children }) => (
+                <Link href={href} className={className}>
+                  {children}
+                </Link>
+              )}
+            />
           </div>
-        </header>
 
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-4">{children}</main>
+          <main className="flex-1 min-h-0 overflow-auto">
+            <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-8">{children}</div>
+          </main>
+        </div>
       </div>
 
-      {/* Logout Confirmation Modal */}
+      {/* Header + mobile menu portaled to body with z-[100000] so they sit above the fake cursor (z-99999) */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <div className="fixed inset-x-0 top-0 z-[100000] pointer-events-none">
+            <div className="pointer-events-auto">
+              <header className="flex-shrink-0 border-b border-white/10 bg-black/10 backdrop-blur-md">
+                <div className="flex items-center h-14 lg:h-16 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen((o) => !o)}
+                    className="lg:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                  >
+                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                  </button>
+                  <div className="w-40 lg:w-56 flex-shrink-0 flex items-center pl-2 lg:pl-6">
+                    <Link
+                      href={ROUTES.DASHBOARD}
+                      className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity"
+                    >
+                      <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+                        Chat Jyotish
+                      </span>
+                    </Link>
+                  </div>
+                  <div className="flex-1 min-w-0" />
+                  <div className="flex items-center justify-end gap-2 pr-2 lg:pr-6 flex-shrink-0">
+                    <LanguageDropdown />
+                    <CoinDisplay themeColor="purple" />
+                    <NotificationBell themeColor="purple" />
+                    <ProfileDropdown
+                      user={user}
+                      profileRoute={ROUTES.PROFILE}
+                      settingsRoute={ROUTES.SETTINGS}
+                      onLogout={handleLogoutClick}
+                      themeColor="purple"
+                    />
+                  </div>
+                </div>
+              </header>
+            </div>
+            {mobileMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-[100000] bg-black/50 backdrop-blur-sm lg:hidden pointer-events-auto"
+                  aria-hidden
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+                <aside
+                  className="fixed top-0 left-0 bottom-0 z-[100001] w-72 max-w-[85vw] bg-[#0f0e14]/95 border-r border-white/10 shadow-xl lg:hidden flex flex-col pointer-events-auto"
+                  aria-label="Mobile menu"
+                >
+                  <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                    <span className="font-semibold text-white">Menu</span>
+                    <button
+                      type="button"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+                      aria-label="Close menu"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <nav className="p-3 flex-1 overflow-auto space-y-1">
+                    {sidebarItems.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border',
+                            isActive
+                              ? 'bg-purple-500/15 text-purple-400 border-purple-500/20'
+                              : 'text-gray-300 hover:text-white hover:bg-white/[0.04] border-transparent'
+                          )}
+                        >
+                          {item.icon && <span className="h-4 w-4 flex-shrink-0">{item.icon}</span>}
+                          <span>{item.name}</span>
+                          {item.badge}
+                        </Link>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        handleLogoutClick();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.04] text-sm font-medium transition-colors border border-transparent"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Logout</span>
+                    </button>
+                  </nav>
+                </aside>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
+
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}

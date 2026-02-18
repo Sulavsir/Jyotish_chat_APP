@@ -61,6 +61,64 @@ export const TIME = {
 // Questionnaire languages (for question categories). Type QuestionnaireLanguage is in types/index.ts
 export const QUESTIONNAIRE_LANGUAGES = ['NEPALI', 'HINDI', 'ENGLISH'] as const;
 
+// Rashi (zodiac) display names by language for UI (dropdowns, cards)
+export const RASHI_DISPLAY_NAMES: Record<
+  (typeof QUESTIONNAIRE_LANGUAGES)[number],
+  Record<string, string>
+> = {
+  ENGLISH: {
+    ARIES: 'Aries',
+    TAURUS: 'Taurus',
+    GEMINI: 'Gemini',
+    CANCER: 'Cancer',
+    LEO: 'Leo',
+    VIRGO: 'Virgo',
+    LIBRA: 'Libra',
+    SCORPIO: 'Scorpio',
+    SAGITTARIUS: 'Sagittarius',
+    CAPRICORN: 'Capricorn',
+    AQUARIUS: 'Aquarius',
+    PISCES: 'Pisces',
+  },
+  NEPALI: {
+    ARIES: 'मेष',
+    TAURUS: 'वृष',
+    GEMINI: 'मिथुन',
+    CANCER: 'कर्कट',
+    LEO: 'सिंह',
+    VIRGO: 'कन्या',
+    LIBRA: 'तुला',
+    SCORPIO: 'वृश्चिक',
+    SAGITTARIUS: 'धनु',
+    CAPRICORN: 'मकर',
+    AQUARIUS: 'कुम्भ',
+    PISCES: 'मीन',
+  },
+  HINDI: {
+    ARIES: 'मेष',
+    TAURUS: 'वृषभ',
+    GEMINI: 'मिथुन',
+    CANCER: 'कर्क',
+    LEO: 'सिंह',
+    VIRGO: 'कन्या',
+    LIBRA: 'तुला',
+    SCORPIO: 'वृश्चिक',
+    SAGITTARIUS: 'धनु',
+    CAPRICORN: 'मकर',
+    AQUARIUS: 'कुम्भ',
+    PISCES: 'मीन',
+  },
+};
+
+/** Get rashi display name for a zodiac sign value and language (e.g. for Select Rashi dropdown) */
+export function getRashiDisplayName(
+  zodiacSignValue: string,
+  language: (typeof QUESTIONNAIRE_LANGUAGES)[number] = 'ENGLISH'
+): string {
+  const names = RASHI_DISPLAY_NAMES[language];
+  return names[zodiacSignValue] ?? zodiacSignValue;
+}
+
 // Astrologer proof of astrology upload
 const ASTROLOGER_PROOF_ALLOWED_TYPES = [
   'image/jpeg',

@@ -23,6 +23,8 @@ const VALID_FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY'] as const;
 
 const VALID_HOROSCOPE_CATEGORIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
 
+const VALID_LANGUAGES = ['NEPALI', 'HINDI', 'ENGLISH'] as const;
+
 const optionalDateSchema = z
   .string()
   .optional()
@@ -53,6 +55,7 @@ export const zodiacSignParamSchema = z.object({
  */
 export const dailyHoroscopeQuerySchema = z.object({
   date: optionalDateSchema,
+  language: z.enum(VALID_LANGUAGES).optional(),
 });
 
 /**
@@ -60,6 +63,7 @@ export const dailyHoroscopeQuerySchema = z.object({
  */
 export const periodHoroscopeQuerySchema = z.object({
   date: optionalDateSchema,
+  language: z.enum(VALID_LANGUAGES).optional(),
 });
 
 /**
@@ -82,6 +86,13 @@ export const updateSubscriptionSchema = z.object({
     .string()
     .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format. Use HH:MM (24-hour format)')
     .optional(),
+});
+
+/**
+ * My horoscope query schema (language optional)
+ */
+export const myHoroscopeQuerySchema = z.object({
+  language: z.enum(VALID_LANGUAGES).optional(),
 });
 
 // ==================== Admin Horoscope CRUD ====================
@@ -108,6 +119,14 @@ export const createHoroscopeBodySchema = z.object({
     .min(1, 'Date is required')
     .refine((val) => !isNaN(new Date(val).getTime()), { message: 'Invalid date format' }),
   content: z.string().min(1, 'Content is required').max(50000, 'Content too long'),
+  language: z.enum(VALID_LANGUAGES).optional(),
+});
+
+/**
+ * Bulk create horoscopes body schema (admin) – add more rashi details at once
+ */
+export const createHoroscopesBodySchema = z.object({
+  horoscopes: z.array(createHoroscopeBodySchema).min(1, 'At least one horoscope entry is required'),
 });
 
 /**
@@ -123,6 +142,7 @@ export const updateHoroscopeBodySchema = z.object({
   category: z.enum(VALID_HOROSCOPE_CATEGORIES).optional(),
   date: z.string().refine((val) => !isNaN(new Date(val).getTime())).optional(),
   content: z.string().min(1).max(50000).optional(),
+  language: z.enum(VALID_LANGUAGES).optional(),
 });
 
 /**
@@ -138,6 +158,7 @@ export const listHoroscopesQuerySchema = z.object({
     .toUpperCase()
     .refine((val) => !val || VALID_ZODIAC_SIGNS.includes(val as (typeof VALID_ZODIAC_SIGNS)[number]))
     .optional(),
+  language: z.enum(VALID_LANGUAGES).optional(),
   dateFrom: optionalDateSchema,
   dateTo: optionalDateSchema,
   page: z.string().optional().transform((v) => (v ? parseInt(v, 10) : 1)),

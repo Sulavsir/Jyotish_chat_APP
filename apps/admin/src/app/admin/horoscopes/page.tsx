@@ -7,22 +7,18 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, DateInput, Label } from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
-import type { AdminHoroscopeEntry, HoroscopeCategory, ListHoroscopesParams } from '@/types';
+import { getRashiDisplayName } from '@jyotish/shared';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, HOROSCOPE_CATEGORIES, ZODIAC_SIGNS } from '@/constants';
+import type { AdminHoroscopeEntry, HoroscopeCategory, HoroscopeLanguage, ListHoroscopesParams } from '@/types';
 import { toast } from 'sonner';
 import { RefreshCw, Plus, Pencil, Trash2 } from 'lucide-react';
-
-const CATEGORIES: HoroscopeCategory[] = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
-const ZODIAC_SIGNS = [
-  'ARIES', 'TAURUS', 'GEMINI', 'CANCER', 'LEO', 'VIRGO',
-  'LIBRA', 'SCORPIO', 'SAGITTARIUS', 'CAPRICORN', 'AQUARIUS', 'PISCES',
-];
 
 export default function AdminHoroscopesPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<HoroscopeCategory>('DAILY');
   const [zodiacFilter, setZodiacFilter] = useState('');
+  const [languageFilter, setLanguageFilter] = useState<HoroscopeLanguage | ''>('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -30,11 +26,12 @@ export default function AdminHoroscopesPage() {
   const listParams = useMemo<ListHoroscopesParams>(() => ({
     category: categoryFilter,
     ...(zodiacFilter && { zodiacSign: zodiacFilter }),
+    ...(languageFilter && { language: languageFilter }),
     ...(dateFrom && { dateFrom }),
     ...(dateTo && { dateTo }),
     page,
     limit: 20,
-  }), [categoryFilter, zodiacFilter, dateFrom, dateTo, page]);
+  }), [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, page]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.LIST(listParams),
@@ -53,11 +50,21 @@ export default function AdminHoroscopesPage() {
   const horoscopes = data?.horoscopes ?? [];
   const pagination = data?.pagination;
 
+  const HOROSCOPE_LANGUAGES: HoroscopeLanguage[] = ['NEPALI', 'HINDI', 'ENGLISH'];
+
   const columns: AdminTableColumn<AdminHoroscopeEntry>[] = [
     {
       header: 'Rashi',
       accessor: (row) => (
-        <span className="font-medium text-white">{row.zodiacSign}</span>
+        <span className="font-medium text-white">
+          {getRashiDisplayName(row.zodiacSign, (row.language ?? 'NEPALI') as 'NEPALI' | 'HINDI' | 'ENGLISH')}
+        </span>
+      ),
+    },
+    {
+      header: 'Language',
+      accessor: (row) => (
+        <span className="text-slate-300 text-sm">{row.language ?? 'NEPALI'}</span>
       ),
     },
     {
@@ -147,7 +154,7 @@ export default function AdminHoroscopesPage() {
               onChange={(e) => setCategoryFilter(e.target.value as HoroscopeCategory)}
               className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
             >
-              {CATEGORIES.map((c) => (
+              {HOROSCOPE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -163,6 +170,19 @@ export default function AdminHoroscopesPage() {
               {ZODIAC_SIGNS.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs text-slate-400 mb-1 block">Language</Label>
+            <select
+              value={languageFilter}
+              onChange={(e) => setLanguageFilter(e.target.value as HoroscopeLanguage | '')}
+              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[120px]"
+            >
+              <option value="">All</option>
+              <option value="NEPALI">NEPALI</option>
+              <option value="HINDI">HINDI</option>
+              <option value="ENGLISH">ENGLISH</option>
             </select>
           </div>
           <div>
@@ -193,10 +213,10 @@ export default function AdminHoroscopesPage() {
             keyExtractor={(row) => row.id}
             emptyState={{
               title: 'No horoscopes found',
-              description: zodiacFilter || dateFrom || dateTo
+              description: zodiacFilter || languageFilter || dateFrom || dateTo
                 ? 'Try adjusting filters'
                 : `No ${categoryFilter.toLowerCase()} horoscopes yet. Add your first entry.`,
-              action: !zodiacFilter && !dateFrom && !dateTo
+              action: !zodiacFilter && !languageFilter && !dateFrom && !dateTo
                 ? { label: 'Add Horoscope', onClick: () => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE) }
                 : undefined,
               icon: <></>,

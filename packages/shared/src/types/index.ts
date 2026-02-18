@@ -271,6 +271,20 @@ export interface QuestionnaireCategory {
   questions: QuestionnaireQuestion[];
 }
 
+// Daily tips (dashboard tips for clients / jyotish)
+export type TipAudience = 'CLIENT' | 'JYOTISH' | 'BOTH';
+
+export interface DailyTip {
+  id: string;
+  date: string | Date;
+  language: QuestionnaireLanguage;
+  audience: TipAudience;
+  text: string;
+  isActive: boolean;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
 // WebSocket event types
 export interface SocketEvents {
   // Client to server

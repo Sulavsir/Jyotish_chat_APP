@@ -17,6 +17,7 @@ export interface GetHoroscopeParams {
   zodiacSign: string;
   category: HoroscopeCategory;
   date?: string;
+  language?: string;
 }
 
 export interface HoroscopeApiResponse {
@@ -29,17 +30,23 @@ export const horoscopeService = {
    * Get horoscope for zodiac sign and category (day/week/month/year)
    */
   async getHoroscope(params: GetHoroscopeParams): Promise<HoroscopeApiResponse> {
-    const { zodiacSign, category, date } = params;
+    const { zodiacSign, category, date, language } = params;
     const url = CATEGORY_ENDPOINTS[category](zodiacSign);
-    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    const search = new URLSearchParams();
+    if (date) search.set('date', date);
+    if (language) search.set('language', language);
+    const query = search.toString() ? `?${search.toString()}` : '';
     return apiClient.get<HoroscopeApiResponse>(`${url}${query}`);
   },
 
   /**
-   * Get my horoscope (authenticated user's sign + daily)
+   * Get my horoscope (authenticated user's sign + daily), optionally by language
    */
-  async getMyHoroscope(): Promise<HoroscopeApiResponse> {
-    return apiClient.get<HoroscopeApiResponse>(API_ENDPOINTS.HOROSCOPE.MY_HOROSCOPE);
+  async getMyHoroscope(language?: string): Promise<HoroscopeApiResponse> {
+    const url = language
+      ? `${API_ENDPOINTS.HOROSCOPE.MY_HOROSCOPE}?language=${encodeURIComponent(language)}`
+      : API_ENDPOINTS.HOROSCOPE.MY_HOROSCOPE;
+    return apiClient.get<HoroscopeApiResponse>(url);
   },
 
   /**

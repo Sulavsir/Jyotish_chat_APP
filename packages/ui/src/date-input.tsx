@@ -5,7 +5,6 @@ import { CalendarDaysIcon } from './icons';
 
 export interface DateInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   className?: string;
-  /** Icon color class (default: text-yellow-500) */
   iconClassName?: string;
 }
 

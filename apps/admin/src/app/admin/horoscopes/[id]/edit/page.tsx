@@ -16,37 +16,26 @@ import {
   DateInput,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
-import type { UpdateHoroscopeRequest, HoroscopeCategory } from '@/types';
+import { getRashiDisplayName } from '@jyotish/shared';
+import type { QuestionnaireLanguage } from '@jyotish/shared';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, HOROSCOPE_CATEGORIES, ZODIAC_SIGNS } from '@/constants';
+import type { UpdateHoroscopeRequest, HoroscopeCategory, HoroscopeLanguage } from '@/types';
 import { toast } from 'sonner';
 
-const CATEGORIES: HoroscopeCategory[] = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
-const ZODIAC_SIGNS = [
-  'ARIES',
-  'TAURUS',
-  'GEMINI',
-  'CANCER',
-  'LEO',
-  'VIRGO',
-  'LIBRA',
-  'SCORPIO',
-  'SAGITTARIUS',
-  'CAPRICORN',
-  'AQUARIUS',
-  'PISCES',
-];
+const HOROSCOPE_LANGUAGES: HoroscopeLanguage[] = ['NEPALI', 'HINDI', 'ENGLISH'];
 
 const formSchema = z.object({
   zodiacSign: z
     .string()
     .min(1, 'Select a Rashi')
-    .refine((v) => ZODIAC_SIGNS.includes(v), { message: 'Select a valid Rashi' }),
+    .refine((v) => (ZODIAC_SIGNS as readonly string[]).includes(v), { message: 'Select a valid Rashi' }),
   category: z
     .string()
     .min(1, 'Select period')
-    .refine((v) => CATEGORIES.includes(v as HoroscopeCategory), { message: 'Select a valid period' }),
+    .refine((v) => HOROSCOPE_CATEGORIES.includes(v as HoroscopeCategory), { message: 'Select a valid period' }),
   date: z.string().min(1, 'Date is required'),
   content: z.string().min(1, 'Content is required').max(50000),
+  language: z.enum(HOROSCOPE_LANGUAGES as unknown as [string, ...string[]]).optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -72,6 +61,7 @@ export default function EditHoroscopePage() {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -80,6 +70,7 @@ export default function EditHoroscopePage() {
       category: 'DAILY',
       date: '',
       content: '',
+      language: 'NEPALI',
     },
   });
 
@@ -90,6 +81,7 @@ export default function EditHoroscopePage() {
         category: horoscope.category,
         date: new Date(horoscope.date).toISOString().slice(0, 10),
         content: horoscope.content,
+        language: (horoscope.language as HoroscopeLanguage) ?? 'NEPALI',
       });
     }
   }, [horoscope, reset]);
@@ -111,6 +103,7 @@ export default function EditHoroscopePage() {
       category: data.category as HoroscopeCategory,
       date: data.date,
       content: data.content,
+      language: data.language as HoroscopeLanguage,
     });
   };
 
@@ -173,12 +166,13 @@ export default function EditHoroscopePage() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Details row */}
           <div className="cosmic-card p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="space-y-1.5">
                 <Label htmlFor="zodiacSign" className="text-slate-200">
                   Rashi <span className="text-red-400">*</span>
                 </Label>
                 <select
+                  key={`edit-rashi-${watch('language') ?? 'NEPALI'}`}
                   id="zodiacSign"
                   {...register('zodiacSign')}
                   className={selectClassName}
@@ -186,7 +180,7 @@ export default function EditHoroscopePage() {
                 >
                   {ZODIAC_SIGNS.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {getRashiDisplayName(s, (watch('language') ?? 'NEPALI') as QuestionnaireLanguage)}
                     </option>
                   ))}
                 </select>
@@ -206,7 +200,7 @@ export default function EditHoroscopePage() {
                   className={selectClassName}
                   aria-invalid={!!errors.category}
                 >
-                  {CATEGORIES.map((c) => (
+                  {HOROSCOPE_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>
@@ -233,6 +227,20 @@ export default function EditHoroscopePage() {
                     {errors.date.message}
                   </p>
                 )}
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="language" className="text-slate-200">
+                  Language
+                </Label>
+                <select
+                  id="language"
+                  {...register('language')}
+                  className={selectClassName}
+                >
+                  {HOROSCOPE_LANGUAGES.map((lang) => (
+                    <option key={lang} value={lang}>{lang}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

@@ -18,6 +18,7 @@ import {
   LogOut,
   Coins,
 } from 'lucide-react';
+import { AppSidebar } from '@jyotish/ui';
 import { useAuth, useRequireAuth } from '@/hooks';
 import { ROUTES, USER_ROLES } from '@/constants';
 import { cn } from '@/lib/utils';
@@ -32,16 +33,6 @@ interface JyotishLayoutProps {
   children: ReactNode;
 }
 
-const navIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  Dashboard: LayoutDashboard,
-  Chats: MessageSquare,
-  Consultations: Calendar,
-  Appointments: CalendarDays,
-  'My slots': Clock,
-  'My Earnings': Coins,
-  Profile: User,
-};
-
 export function JyotishLayout({ children }: JyotishLayoutProps) {
   const pathname = usePathname();
   const { user } = useRequireAuth();
@@ -52,14 +43,18 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const { canAccessAppointments: hasAppointmentAccess, canAcceptBroadcastMessages } =
     getAstrologerPermissionsFromUser(user);
 
-  const navigation = [
-    { name: 'Dashboard', href: ROUTES.JYOTISH_DASHBOARD },
-    { name: 'Chats', href: ROUTES.JYOTISH_CHAT },
-    { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS },
-    ...(hasAppointmentAccess ? [{ name: 'Appointments', href: ROUTES.JYOTISH_APPOINTMENTS }] : []),
-    ...(hasAppointmentAccess ? [{ name: 'My slots', href: ROUTES.JYOTISH_SLOTS }] : []),
-    { name: 'My Earnings', href: ROUTES.JYOTISH_EARNINGS },
-    { name: 'Profile', href: ROUTES.JYOTISH_PROFILE },
+  const sidebarItems = [
+    { name: 'Dashboard', href: ROUTES.JYOTISH_DASHBOARD, icon: <LayoutDashboard className="h-4 w-4" /> },
+    { name: 'Chats', href: ROUTES.JYOTISH_CHAT, icon: <MessageSquare className="h-4 w-4" /> },
+    { name: 'Consultations', href: ROUTES.JYOTISH_CONSULTATIONS, icon: <Calendar className="h-4 w-4" /> },
+    ...(hasAppointmentAccess
+      ? [{ name: 'Appointments', href: ROUTES.JYOTISH_APPOINTMENTS, icon: <CalendarDays className="h-4 w-4" /> }]
+      : []),
+    ...(hasAppointmentAccess
+      ? [{ name: 'My slots', href: ROUTES.JYOTISH_SLOTS, icon: <Clock className="h-4 w-4" /> }]
+      : []),
+    { name: 'My Earnings', href: ROUTES.JYOTISH_EARNINGS, icon: <Coins className="h-4 w-4" /> },
+    { name: 'Profile', href: ROUTES.JYOTISH_PROFILE, icon: <User className="h-4 w-4" /> },
   ];
 
   const handleLogoutClick = () => setIsLogoutModalOpen(true);
@@ -113,36 +108,19 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
         </header>
 
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          <aside className="w-56 flex-shrink-0 hidden md:block border-r border-white/[0.06] bg-[#0f0e14]/50">
-            <nav className="p-3 space-y-1">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = navIcons[item.name as keyof typeof navIcons];
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                        : 'text-[#a8a29e] hover:text-[#fafaf9] hover:bg-white/[0.04] border border-transparent'
-                    )}
-                  >
-                    {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-              <button
-                onClick={handleLogoutClick}
-                className="md:hidden w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#a8a29e] hover:text-[#fafaf9] hover:bg-white/[0.04] text-sm font-medium transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </button>
-            </nav>
-          </aside>
+          <AppSidebar
+            items={sidebarItems}
+            currentPath={pathname}
+            themeColor="orange"
+            onLogout={handleLogoutClick}
+            logoutLabel="Logout"
+            logoutIcon={<LogOut className="h-4 w-4" />}
+            renderLink={({ href, className, children }) => (
+              <Link href={href} className={className}>
+                {children}
+              </Link>
+            )}
+          />
 
           <main className="flex-1 min-h-0 overflow-auto">
             <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-24 md:pb-8">{children}</div>
@@ -151,9 +129,8 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
 
         {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-16 border-t border-white/[0.06] bg-[#0f0e14]/90 backdrop-blur-xl">
-          {navigation.slice(0, 4).map((item) => {
+          {sidebarItems.slice(0, 4).map((item) => {
             const isActive = pathname === item.href;
-            const Icon = navIcons[item.name as keyof typeof navIcons];
             return (
               <Link
                 key={item.name}
@@ -163,7 +140,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
                   isActive ? 'text-amber-400' : 'text-[#78716c] hover:text-[#a8a29e]'
                 )}
               >
-                {Icon && <Icon className="h-5 w-5" />}
+                {item.icon && <span className="h-5 w-5 flex items-center justify-center">{item.icon}</span>}
                 <span className="text-[10px] font-medium">{item.name}</span>
               </Link>
             );

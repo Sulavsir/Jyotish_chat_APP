@@ -32,7 +32,6 @@ import { formatAdminDate } from '@/utils/helpers';
 import { generatePageNumbers } from '@/utils/helpers';
 import { RefreshCw } from 'lucide-react';
 
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 interface JyotishBookingsResponse {
   bookings: Array<
@@ -101,7 +100,7 @@ export default function PanditBookingsPage() {
       adminApi.jyotishBookings.list({
         type: JyotishBookingType.PANDIT,
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: PAGINATION_DEFAULTS.LIMIT,
         search: searchTerm || undefined,
       }),
   });
@@ -109,7 +108,7 @@ export default function PanditBookingsPage() {
   const bookings = bookingsResponse?.bookings ?? [];
   const pagination = bookingsResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: PAGINATION_DEFAULTS.LIMIT,
     total: 0,
     totalPages: 0,
   };

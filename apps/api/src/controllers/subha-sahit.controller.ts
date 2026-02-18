@@ -1,0 +1,110 @@
+/**
+ * Subha Sahit Controller - Auspicious dates for Pandit Ji bookings
+ */
+
+import { Request, Response, NextFunction } from 'express';
+import { sendSuccess } from '../utils';
+import { subhaSahitService } from '../services/subha-sahit.service';
+
+/**
+ * Public: Get available dates for Pandit Ji booking
+ * GET /api/v1/subha-sahit/available
+ */
+export const getAvailableDates = async (req: Request, res: Response, next: NextFunction) => {
+  const { occasion, dateFrom, dateTo } = req.query as {
+    occasion?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  };
+
+  const dates = await subhaSahitService.getAvailableDates({
+    occasion,
+    dateFrom,
+    dateTo,
+  });
+
+  return sendSuccess(res, { dates });
+};
+
+/**
+ * Public: Get all unique occasions
+ * GET /api/v1/subha-sahit/occasions
+ */
+export const getOccasions = async (req: Request, res: Response, next: NextFunction) => {
+  const occasions = await subhaSahitService.getOccasions();
+  return sendSuccess(res, { occasions });
+};
+
+/**
+ * Admin: Create one or more Subha Sahit dates
+ * POST /api/v1/admin/subha-sahit
+ */
+export const createDates = async (req: Request, res: Response, next: NextFunction) => {
+  const { dates: items } = req.body as {
+    dates: Array<{
+      date: string;
+      occasion: string;
+      description?: string;
+    }>;
+  };
+
+  const created = await subhaSahitService.createDates(items);
+  return sendSuccess(res, { dates: created });
+};
+
+/**
+ * Admin: List Subha Sahit dates
+ * GET /api/v1/admin/subha-sahit
+ */
+export const listDates = async (req: Request, res: Response, next: NextFunction) => {
+  const { occasion, dateFrom, dateTo, page, limit } = req.query as {
+    occasion?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  };
+
+  const result = await subhaSahitService.listDates({
+    occasion,
+    dateFrom,
+    dateTo,
+    page,
+    limit,
+  });
+
+  return sendSuccess(res, result);
+};
+
+/**
+ * Admin: Update a Subha Sahit date
+ * PUT /api/v1/admin/subha-sahit/:id
+ */
+export const updateDate = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const { date, occasion, description, isActive } = req.body as {
+    date?: string;
+    occasion?: string;
+    description?: string | null;
+    isActive?: boolean;
+  };
+
+  const updated = await subhaSahitService.updateDate(id, {
+    date,
+    occasion,
+    description,
+    isActive,
+  });
+
+  return sendSuccess(res, { date: updated });
+};
+
+/**
+ * Admin: Delete a Subha Sahit date
+ * DELETE /api/v1/admin/subha-sahit/:id
+ */
+export const deleteDate = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  await subhaSahitService.deleteDate(id);
+  return sendSuccess(res, { message: 'Subha Sahit date deleted successfully' });
+};

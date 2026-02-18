@@ -182,6 +182,11 @@ export interface ComplaintsListResponse {
   total: number;
 }
 
+type ListTipsResponse = import('@/types').ListTipsResponse;
+type ListTipsParams = import('@/types').ListTipsParams;
+type CreateTipRequest = import('@/types').CreateTipRequest;
+type CreateTipsRequest = import('@/types').CreateTipsRequest;
+
 // Re-export for backward compatibility
 export type AppointmentResponse = Appointment;
 
@@ -329,6 +334,66 @@ export const adminApi = {
         API_ENDPOINTS.ASTROLOGERS.REJECT_REGISTRATION(id),
         data
       );
+      return response;
+    },
+  },
+
+  /**
+   * Daily Predictions (Tips)
+   */
+  tips: {
+    list: async (params?: ListTipsParams): Promise<ListTipsResponse> => {
+      const response = await apiClient.get<ListTipsResponse>(API_ENDPOINTS.TIPS.LIST, {
+        params,
+      });
+      return response;
+    },
+
+    /** Create one or more tips. Send { tips: [...] } with one or many items. */
+    create: async (data: CreateTipsRequest): Promise<{ tips: import('@/types').AdminDailyTip[] }> => {
+      const response = await apiClient.post<{ tips: import('@/types').AdminDailyTip[] }>(
+        API_ENDPOINTS.TIPS.CREATE,
+        data
+      );
+      return response;
+    },
+
+    delete: async (id: string): Promise<{ message: string }> => {
+      const response = await apiClient.delete<{ message: string }>(API_ENDPOINTS.TIPS.DELETE(id));
+      return response;
+    },
+  },
+
+  /**
+   * Subha Sahit (Auspicious Dates)
+   */
+  subhaSahit: {
+    list: async (params?: import('@/types').ListSubhaSahitDatesParams): Promise<import('@/types').ListSubhaSahitDatesResponse> => {
+      const response = await apiClient.get<import('@/types').ListSubhaSahitDatesResponse>(
+        API_ENDPOINTS.SUBHA_SAHIT.LIST,
+        { params }
+      );
+      return response;
+    },
+
+    create: async (data: import('@/types').CreateSubhaSahitDatesRequest): Promise<import('@/types').CreateSubhaSahitDatesResponse> => {
+      const response = await apiClient.post<import('@/types').CreateSubhaSahitDatesResponse>(
+        API_ENDPOINTS.SUBHA_SAHIT.CREATE,
+        data
+      );
+      return response;
+    },
+
+    update: async (id: string, data: import('@/types').UpdateSubhaSahitDateRequest): Promise<import('@/types').UpdateSubhaSahitDateResponse> => {
+      const response = await apiClient.put<import('@/types').UpdateSubhaSahitDateResponse>(
+        API_ENDPOINTS.SUBHA_SAHIT.UPDATE(id),
+        data
+      );
+      return response;
+    },
+
+    delete: async (id: string): Promise<{ message: string }> => {
+      const response = await apiClient.delete<{ message: string }>(API_ENDPOINTS.SUBHA_SAHIT.DELETE(id));
       return response;
     },
   },
@@ -783,11 +848,11 @@ export const adminApi = {
       return response;
     },
 
-    create: async (
-      data: import('@/types').CreateHoroscopeRequest
-    ): Promise<{ horoscope: import('@/types').AdminHoroscopeEntry }> => {
-      const response = await apiClient.post<{ horoscope: import('@/types').AdminHoroscopeEntry }>(
-        API_ENDPOINTS.HOROSCOPES.CREATE,
+    createBulk: async (
+      data: import('@/types').CreateHoroscopesBulkRequest
+    ): Promise<{ horoscopes: import('@/types').AdminHoroscopeEntry[] }> => {
+      const response = await apiClient.post<{ horoscopes: import('@/types').AdminHoroscopeEntry[] }>(
+        API_ENDPOINTS.HOROSCOPES.BULK_CREATE,
         data
       );
       return response;

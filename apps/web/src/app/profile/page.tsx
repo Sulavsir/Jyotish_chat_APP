@@ -45,9 +45,12 @@ import { profileEditSchema, type ProfileEditFormData } from '@/lib/validations';
 import type { ApiError } from '@/types/auth';
 import { CoinDisplay } from '@/components/ui';
 import { ZODIAC_SIGNS } from '@/constants';
+import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
+import { getRashiDisplayName } from '@jyotish/shared';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const language = useQuestionnaireLanguageStore((s) => s.language);
   const { user } = useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
   const { setUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -526,10 +529,10 @@ export default function ProfilePage() {
                         {...register('zodiacSign')}
                         className="w-full px-3 py-2 bg-white/5 border-2 border-white/20 rounded-md text-white text-sm transition-all duration-300 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20"
                       >
-                        <option value="" className="bg-slate-900 text-white">Select Zodiac Sign</option>
+                        <option value="" className="bg-slate-900 text-white">Select Rashi</option>
                         {ZODIAC_SIGNS.map((sign) => (
                           <option key={sign} value={sign} className="bg-slate-900 text-white">
-                            {sign.charAt(0) + sign.slice(1).toLowerCase()}
+                            {getRashiDisplayName(sign, language)}
                           </option>
                         ))}
                       </select>
@@ -542,7 +545,7 @@ export default function ProfilePage() {
                       {(() => {
                         const zodiac = (user as { zodiacSign?: string })?.zodiacSign;
                         return zodiac ? (
-                          zodiac.charAt(0) + zodiac.slice(1).toLowerCase()
+                          getRashiDisplayName(zodiac, language)
                         ) : (
                           <span className="text-gray-500 italic">Not set</span>
                         );

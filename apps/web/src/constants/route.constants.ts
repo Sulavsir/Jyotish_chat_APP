@@ -7,6 +7,8 @@ export const ROUTES = {
   // Public Routes
   HOME: '/',
   ABOUT: '/about',
+  HOROSCOPES: '/horoscopes',
+  SUBHA_SAHIT: '/subha-sahit',
 
   // Client Auth Routes
   LOGIN: '/auth/login',

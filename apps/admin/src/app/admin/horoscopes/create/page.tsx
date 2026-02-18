@@ -1,92 +1,87 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Label, Textarea, ArrowLeftIcon, Button, DateInput } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
-import type { CreateHoroscopeRequest, HoroscopeCategory } from '@/types';
+import { getRashiDisplayName } from '@jyotish/shared';
+import type { QuestionnaireLanguage } from '@jyotish/shared';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, HOROSCOPE_CATEGORIES, ZODIAC_SIGNS } from '@/constants';
+import type { CreateHoroscopeRequest, HoroscopeCategory, HoroscopeLanguage } from '@/types';
 import { toast } from 'sonner';
+import { Plus, Trash2 } from 'lucide-react';
 
-const CATEGORIES: HoroscopeCategory[] = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
-const ZODIAC_SIGNS = [
-  'ARIES',
-  'TAURUS',
-  'GEMINI',
-  'CANCER',
-  'LEO',
-  'VIRGO',
-  'LIBRA',
-  'SCORPIO',
-  'SAGITTARIUS',
-  'CAPRICORN',
-  'AQUARIUS',
-  'PISCES',
-];
-
-const formSchema = z.object({
-  zodiacSign: z
-    .string()
-    .min(1, 'Select a Rashi')
-    .refine((v) => ZODIAC_SIGNS.includes(v), { message: 'Select a valid Rashi' }),
-  category: z
-    .string()
-    .min(1, 'Select period')
-    .refine((v) => CATEGORIES.includes(v as HoroscopeCategory), {
-      message: 'Select a valid period',
-    }),
-  date: z.string().min(1, 'Date is required'),
-  content: z.string().min(1, 'Content is required').max(50000),
-});
-
-type FormData = z.infer<typeof formSchema>;
+const HOROSCOPE_LANGUAGES: HoroscopeLanguage[] = ['NEPALI', 'HINDI', 'ENGLISH'];
 
 const selectClassName =
   'mt-1.5 h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-4 py-3 text-sm text-white placeholder:text-slate-400 hover:border-purple-400/50 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 disabled:opacity-50';
 
+interface BulkRow {
+  id: string;
+  zodiacSign: string;
+  content: string;
+}
+
 export default function CreateHoroscopePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      date: new Date().toISOString().slice(0, 10),
-    },
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([
+    { id: '1', zodiacSign: '', content: '' },
+  ]);
+  const [bulkShared, setBulkShared] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    category: 'DAILY' as HoroscopeCategory,
+    language: 'NEPALI' as HoroscopeLanguage,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: CreateHoroscopeRequest) => adminApi.horoscopes.create(data),
-    onSuccess: () => {
+  const createBulkMutation = useMutation({
+    mutationFn: (data: { horoscopes: CreateHoroscopeRequest[] }) => adminApi.horoscopes.createBulk(data),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.ALL });
-      toast.success('Horoscope created');
+      const count = variables.horoscopes.length;
+      toast.success(count === 1 ? 'Horoscope created' : `${count} horoscopes created`);
       router.push(ADMIN_ROUTES.HOROSCOPES);
     },
     onError: (e: Error) => toast.error(e?.message || 'Create failed'),
   });
 
-  const onSubmit = (data: FormData) => {
-    createMutation.mutate({
-      zodiacSign: data.zodiacSign,
-      category: data.category as HoroscopeCategory,
-      date: data.date,
-      content: data.content,
+  const addBulkRow = () => {
+    setBulkRows((prev) => [...prev, { id: String(Date.now()), zodiacSign: '', content: '' }]);
+  };
+
+  const removeBulkRow = (id: string) => {
+    setBulkRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
+  };
+
+  const updateBulkRow = (id: string, field: 'zodiacSign' | 'content', value: string) => {
+    setBulkRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+    );
+  };
+
+  const onSubmitBulk = () => {
+    const valid = bulkRows.filter((r) => r.zodiacSign && r.content.trim());
+    if (valid.length === 0) {
+      toast.error('Add at least one rashi with content');
+      return;
+    }
+    createBulkMutation.mutate({
+      horoscopes: valid.map((r) => ({
+        zodiacSign: r.zodiacSign,
+        category: bulkShared.category,
+        date: bulkShared.date,
+        content: r.content.trim(),
+        language: bulkShared.language,
+      })),
     });
   };
 
   return (
     <AdminLayout>
       <div className="w-full max-w-full text-left space-y-6">
-        {/* Header - aligned from start */}
         <div className="flex items-center gap-4">
           <button
             type="button"
@@ -99,113 +94,126 @@ export default function CreateHoroscopePage() {
           <div>
             <h1 className="text-3xl font-bold cosmic-text">Add Horoscope</h1>
             <p className="text-slate-400 mt-1">
-              Add daily, weekly, monthly or yearly horoscope for a Rashi
+              Add one or more rashi entries. Same date, period and language for all; add a row per Rashi.
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Details row: Rashi, Period, Date - full width from start */}
-          <div className="cosmic-card p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-1.5">
-                <Label htmlFor="zodiacSign" className="text-slate-200">
-                  Rashi <span className="text-red-400">*</span>
-                </Label>
-                <select
-                  id="zodiacSign"
-                  {...register('zodiacSign')}
-                  className={selectClassName}
-                  aria-invalid={!!errors.zodiacSign}
-                >
-                  <option value="">Select Rashi</option>
-                  {ZODIAC_SIGNS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                {errors.zodiacSign && (
-                  <p className="text-red-400 text-sm mt-1">{errors.zodiacSign.message}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="category" className="text-slate-200">
-                  Period <span className="text-red-400">*</span>
-                </Label>
-                <select
-                  id="category"
-                  {...register('category')}
-                  className={selectClassName}
-                  aria-invalid={!!errors.category}
-                >
-                  <option value="">Select period</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && (
-                  <p className="text-red-400 text-sm mt-1">{errors.category.message}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="date" className="text-slate-200">
-                  Date <span className="text-red-400">*</span>
-                </Label>
-                <DateInput
-                  id="date"
-                  {...register('date')}
-                  className="mt-1.5 w-full bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
-                  iconClassName="text-purple-400"
-                />
-                {errors.date && <p className="text-red-400 text-sm mt-1">{errors.date.message}</p>}
-                <p className="text-xs text-slate-500 mt-1">
-                  For weekly/monthly/yearly, use any date in that period
-                </p>
-              </div>
+        <div className="cosmic-card p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div>
+              <Label className="text-slate-200 text-xs">Date</Label>
+              <DateInput
+                value={bulkShared.date}
+                onChange={(e) => setBulkShared((s) => ({ ...s, date: e.target.value }))}
+                className="mt-1 h-11 w-full bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
+                iconClassName="text-purple-400"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-200 text-xs">Period</Label>
+              <select
+                value={bulkShared.category}
+                onChange={(e) =>
+                  setBulkShared((s) => ({ ...s, category: e.target.value as HoroscopeCategory }))
+                }
+                className={selectClassName}
+              >
+                {HOROSCOPE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-slate-200 text-xs">Language</Label>
+              <select
+                value={bulkShared.language}
+                onChange={(e) =>
+                  setBulkShared((s) => ({ ...s, language: e.target.value as HoroscopeLanguage }))
+                }
+                className={selectClassName}
+              >
+                {HOROSCOPE_LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>{lang}</option>
+                ))}
+              </select>
             </div>
           </div>
-
-          {/* Content - full width card */}
-          <div className="cosmic-card p-6">
-            <Label htmlFor="content" className="text-slate-200">
-              Horoscope text <span className="text-red-400">*</span>
-            </Label>
-            <Textarea
-              id="content"
-              {...register('content')}
-              rows={14}
-              placeholder="Enter the horoscope prediction for this Rashi and period..."
-              className="mt-1.5 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-4 py-3 text-sm text-white placeholder:text-slate-500 hover:border-purple-400/50 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 resize-y min-h-[280px]"
-              aria-invalid={!!errors.content}
-            />
-            {errors.content && (
-              <p className="text-red-400 text-sm mt-1">{errors.content.message}</p>
-            )}
+          <div className="space-y-3">
+            {bulkRows.map((row) => (
+              <div
+                key={row.id}
+                className="flex flex-col sm:flex-row gap-3 items-start sm:items-center"
+              >
+                <div className="w-full sm:w-48 flex-shrink-0">
+                  <select
+                    key={`bulk-rashi-${bulkShared.language}-${row.id}`}
+                    value={row.zodiacSign}
+                    onChange={(e) => updateBulkRow(row.id, 'zodiacSign', e.target.value)}
+                    className={selectClassName}
+                  >
+                    <option value="">Select Rashi</option>
+                    {ZODIAC_SIGNS.map((s) => (
+                      <option key={s} value={s}>
+                        {getRashiDisplayName(s, bulkShared.language as QuestionnaireLanguage)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Textarea
+                    value={row.content}
+                    onChange={(e) => updateBulkRow(row.id, 'content', e.target.value)}
+                    placeholder="Content for this Rashi..."
+                    rows={2}
+                    className="w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => removeBulkRow(row.id)}
+                  disabled={bulkRows.length <= 1}
+                  className="border-slate-600 text-slate-400 hover:text-red-400 shrink-0"
+                  aria-label="Remove row"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
           </div>
-
-          {/* Actions - aligned from start */}
-          <div className="flex justify-end items-center gap-3">
+          <div className="flex flex-wrap gap-3 mt-4">
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES)}
-              disabled={createMutation.isPending}
-              className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+              onClick={addBulkRow}
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
             >
-              Cancel
+              <Plus className="h-4 w-4" />
+              Add row
             </Button>
             <LoadingButton
-              type="submit"
-              isLoading={createMutation.isPending}
-              loadingText="Saving..."
+              type="button"
+              isLoading={createBulkMutation.isPending}
+              loadingText="Creating..."
+              onClick={onSubmitBulk}
             >
-              Save horoscope
+              Save
             </LoadingButton>
           </div>
-        </form>
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES)}
+            className="border-slate-600 text-slate-300 hover:bg-slate-800"
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
     </AdminLayout>
   );

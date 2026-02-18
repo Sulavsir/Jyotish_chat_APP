@@ -42,3 +42,4 @@ export * from './dashboardRotatingCopy.validators';
 export * from './jyotishBooking.validators';
 export * from './broadcastMessage.validators';
 export * from './adminAstrologer.validators';
+export * from './tip.validators';

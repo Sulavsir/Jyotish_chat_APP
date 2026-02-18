@@ -39,6 +39,7 @@ import { QUERY_KEYS } from '@/constants';
 import type { PublicAstrologerProfile } from '@/types/astrologer';
 import astrologerService from '@/services/astrologer.service';
 import { getImageUrl } from '@/utils/image.utils';
+import { subhaSahitService } from '@/services/subha-sahit.service';
 
 type Props = {
   isOpen: boolean;
@@ -59,21 +60,37 @@ function astrologerMeta(a: PublicAstrologerProfile): string | null {
 }
 
 export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props) {
-  const categories = useMemo(() => {
-    if (type === JyotishBookingType.PANDIT) return [...PANDIT_BOOKING_CATEGORIES];
-    if (type === JyotishBookingType.VAASTU) return [...VAASTU_BOOKING_CATEGORIES];
-    return [...KATHA_VACHAK_BOOKING_CATEGORIES];
-  }, [type]);
-
   const [bookingDate, setBookingDate] = useState<string>('');
   const [category, setCategory] = useState<string>('');
   const [details, setDetails] = useState<string>('');
   const [location, setLocation] = useState<string>('');
   const [preferredAstrologerId, setPreferredAstrologerId] = useState<string | undefined>(undefined);
+  const [dateError, setDateError] = useState<string>('');
 
   const needsAstrologerSelection = type === JyotishBookingType.KATHA_VACHAK;
+  const needsSubhaSahit = type === JyotishBookingType.PANDIT;
 
   const astrologerSearch = '';
+
+  // Subha Sahit occasions (for Pandit Ji categories)
+  const { data: subhaOccasionsResp } = useQuery({
+    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE(),
+    queryFn: () => subhaSahitService.getOccasions(),
+    enabled: type === JyotishBookingType.PANDIT,
+  });
+
+  const panditOccasions = useMemo(
+    () => subhaOccasionsResp?.occasions ?? [],
+    [subhaOccasionsResp?.occasions]
+  );
+
+  const categories = useMemo(() => {
+    if (type === JyotishBookingType.PANDIT) {
+      return panditOccasions.length ? panditOccasions : PANDIT_BOOKING_CATEGORIES;
+    }
+    if (type === JyotishBookingType.VAASTU) return [...VAASTU_BOOKING_CATEGORIES];
+    return [...KATHA_VACHAK_BOOKING_CATEGORIES];
+  }, [type, panditOccasions]);
 
   const { data: astrologersResp, isLoading: isAstrologersLoading } = useQuery({
     queryKey: QUERY_KEYS.ASTROLOGERS.LIST({
@@ -104,6 +121,19 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     [eligibleAstrologers, preferredAstrologerId]
   );
 
+  const { data: subhaSahitResp } = useQuery({
+    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({
+      dateFrom: todayISO(),
+    }),
+    queryFn: () => subhaSahitService.getAvailableDates({ dateFrom: todayISO() }),
+    enabled: isOpen && needsSubhaSahit,
+  });
+
+  const availableDates = useMemo<string[]>(
+    () => (subhaSahitResp?.dates ?? []).map((d) => d.date.split('T')[0]),
+    [subhaSahitResp?.dates]
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     setBookingDate(todayISO());
@@ -111,7 +141,17 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     setDetails('');
     setLocation('');
     setPreferredAstrologerId(undefined);
+    setDateError('');
   }, [isOpen, categories]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!needsSubhaSahit) return;
+    if (!availableDates.length) return;
+
+    setBookingDate((prev) => (prev && availableDates.includes(prev) ? prev : availableDates[0]));
+    setDateError('');
+  }, [isOpen, needsSubhaSahit, availableDates]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -131,6 +171,9 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
       }
       if (!bookingDate) {
         throw new Error('Booking date is required');
+      }
+      if (needsSubhaSahit && availableDates.length > 0 && !availableDates.includes(bookingDate)) {
+        throw new Error('Please select a Subha Sahit (auspicious) date. Only dates listed by admin are available for Pandit Ji bookings.');
       }
       if (!category) {
         throw new Error('Category is required');
@@ -199,36 +242,71 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
           >
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-2">
-            <Label className="text-white">
-              Reason / Category <span className="text-red-400">*</span>
-            </Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a reason..." />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-white">
-              Select date <span className="text-red-400">*</span>
-            </Label>
-            <DateInput
-              min={todayISO()}
-              value={bookingDate}
-              onChange={(e) => setBookingDate(e.target.value)}
-              required
-            />
-          </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-white">
+                    Reason / Category <span className="text-red-400">*</span>
+                  </Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-               
+                <div className="flex flex-col gap-2">
+                  <Label className="text-white">
+                    Select date <span className="text-red-400">*</span>
+                  </Label>
+
+                  {needsSubhaSahit && availableDates.length > 0 ? (
+                    <Select
+                      value={bookingDate}
+                      onValueChange={(value) => {
+                        setBookingDate(value);
+                        setDateError('');
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a Subha Sahit date..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableDates.map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {new Date(d).toLocaleDateString('en-US', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <DateInput
+                      min={todayISO()}
+                      value={bookingDate}
+                      onChange={(e) => setBookingDate(e.target.value)}
+                      required
+                    />
+                  )}
+
+                  {needsSubhaSahit && !availableDates.length && (
+                    <p className="text-xs text-red-300 mt-1">
+                      No Subha Sahit dates are available yet. Please contact admin to add auspicious dates.
+                    </p>
+                  )}
+
+                  {dateError && (
+                    <p className="text-sm text-red-400 mt-1">{dateError}</p>
+                  )}
+                </div>
               </div>
 
           {needsAstrologerSelection ? (
@@ -329,6 +407,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                   onClick={() => createMutation.mutate()}
                   loading={createMutation.isPending}
                   loadingText="Submitting..."
+                  disabled={!bookingDate || !category || !location.trim() || !!dateError}
                   className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-90 shadow-[0_0_40px_rgba(168,85,247,0.35)]"
                 >
                   Submit request

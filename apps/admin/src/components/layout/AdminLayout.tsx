@@ -298,6 +298,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
     {
       kind: 'link',
+      name: 'Daily Prediction',
+      href: ADMIN_ROUTES.DAILY_PREDICTIONS,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8c-1.657 0-3 .895-3 2 0 1.657 1.343 3 3 3s3 1.343 3 3-1.343 3-3 3m0-14V4m0 0a4 4 0 014 4M8 4a4 4 0 014-4"
+          />
+        </svg>
+      ),
+    },
+    {
+      kind: 'link',
       name: 'Horoscopes',
       href: ADMIN_ROUTES.HOROSCOPES,
       icon: (
@@ -307,6 +322,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+          />
+        </svg>
+      ),
+    },
+    {
+      kind: 'link',
+      name: 'Subha Sahit',
+      href: ADMIN_ROUTES.SUBHA_SAHIT,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
       ),

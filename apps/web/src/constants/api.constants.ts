@@ -89,6 +89,13 @@ export const API_ENDPOINTS = {
     MY: '/api/v1/consultations/my',
     UPDATE: (id: string) => `/api/v1/consultations/${id}`,
   },
+  TIPS: {
+    TODAY: '/api/v1/tips/today',
+  },
+  SUBHA_SAHIT: {
+    AVAILABLE: '/api/v1/subha-sahit/available',
+    OCCASIONS: '/api/v1/subha-sahit/occasions',
+  },
   HOROSCOPE: {
     DAILY: (zodiacSign: string) => `/api/v1/horoscopes/daily/${encodeURIComponent(zodiacSign)}`,
     WEEKLY: (zodiacSign: string) => `/api/v1/horoscopes/weekly/${encodeURIComponent(zodiacSign)}`,

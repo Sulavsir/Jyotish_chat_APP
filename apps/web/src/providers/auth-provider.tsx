@@ -19,6 +19,8 @@ const PUBLIC_ROUTES = [
   ROUTES.FORGOT_PASSWORD,
   ROUTES.PRICING,
   ROUTES.ASTROLOGERS, // listing is public
+  ROUTES.HOROSCOPES, // public horoscope page - view all rashis
+  ROUTES.SUBHA_SAHIT, // public Subha Sahit dates page
   ROUTES.JYOTISH_LOGIN,
   ROUTES.JYOTISH_VERIFY_OTP,
   ROUTES.JYOTISH_SET_PASSWORD,

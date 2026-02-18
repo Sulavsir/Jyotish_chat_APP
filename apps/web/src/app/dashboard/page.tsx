@@ -5,10 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { QUERY_KEYS, ROUTES } from '@/constants';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
+
   Alert,
   AlertTitle,
   AlertDescription,
@@ -24,6 +21,7 @@ import { BookAppointmentButton, BookAppointmentModal } from '@/components/featur
 import { OnlineAstrologersCard } from '@/components/features/dashboard/OnlineAstrologersCard';
 import { AskQuestionsSection } from '@/components/features/dashboard/AskQuestionsSection';
 import { ServicesGrid } from '@/components/features/dashboard/ServicesGrid';
+import { DashboardWelcomeSection } from '@/components/features/dashboard/DashboardWelcomeSection';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import Image from 'next/image';
 import horoscopeImage from '@/assets/images/cj2.png';
@@ -31,12 +29,12 @@ import { TwinklingStars } from '@/components/ui/TwinklingStars';
 import { BookJyotishServiceModal } from '@/components/features/jyotish-bookings';
 import { KundaliMatchModal } from '@/components/features/kundali-match/KundaliMatchModal';
 import { JyotishBookingType } from '@jyotish/shared';
+import { DashboardTip } from '@/components/features/jyotish-dashboard';
+import { DashboardRashiHoroscopeCard } from '@/components/features/dashboard/DashboardRashiHoroscopeCard';
 import {
   Sparkles,
-  MessageCircle,
   CalendarDays,
   BookOpen,
-  Sun,
   HeartHandshake,
   MapPin,
   ScrollText,
@@ -492,44 +490,41 @@ export default function DashboardPage() {
             animation-delay: 1.8s;
           }
         `}</style>
-        {/* Welcome Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              Welcome, {user?.name || 'User'}! 🌟
-            </h1>
-            <p className="text-gray-400">
-              Your cosmic journey begins here. Explore your horoscope, chat with astrologers, or
-              book a consultation.
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <RequestInstantChatButton />
-            <BookAppointmentButton />
-          </div>
-        </div>
+        <DashboardWelcomeSection
+          userName={user?.name}
+          actions={
+            <>
+              <RequestInstantChatButton />
+              <BookAppointmentButton />
+            </>
+          }
+        />
 
-        {/* Welcome Alert - Dismissible Example */}
-        {showWelcomeAlert && (
+        {/* Profile incomplete alert – only when profile is not complete */}
+        {!isProfileComplete && user && showWelcomeAlert && (
           <Alert variant="info" dismissible onDismiss={() => setShowWelcomeAlert(false)}>
-            <AlertTitle>Welcome to Jyotish!</AlertTitle>
+            <AlertTitle>Complete your profile</AlertTitle>
             <AlertDescription>
-              Explore your personalized horoscope, chat with expert astrologers, and discover cosmic
-              insights.{' '}
-              {!isProfileComplete && user && (
-                <Button
-                  onClick={() => router.push(ROUTES.PROFILE)}
-                  variant="link"
-                  color="info"
-                  size="sm"
-                  className="text-white"
-                >
-                  Complete your profile
-                </Button>
-              )}
+              To access features like horoscope, chat with astrologers, and bookings, you need to
+              complete your profile with birth details.{' '}
+              <Button
+                onClick={() => router.push(ROUTES.PROFILE)}
+                variant="link"
+                color="info"
+                size="sm"
+                className="text-white"
+              >
+                Complete your profile
+              </Button>
             </AlertDescription>
           </Alert>
         )}
+
+        {/* User's rashi horoscope + Tip for today side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-4">
+          <DashboardRashiHoroscopeCard userZodiacSign={(user as { zodiacSign?: string })?.zodiacSign} />
+          <DashboardTip audience="CLIENT" />
+        </div>
 
         {/* New Section: Online Astrologers & Ask Questions */}
         <div className="relative rounded-2xl p-[1px] bg-gradient-to-r from-purple-500/50 via-indigo-500/20 to-amber-500/40">

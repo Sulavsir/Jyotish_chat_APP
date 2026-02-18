@@ -526,17 +526,18 @@ model Appointment {
 }
 
 model Horoscope {
-  id         String            @id @default(uuid())
+  id         String               @id @default(uuid())
   zodiacSign ZodiacSign
   date       DateTime
   content    String
   category   HoroscopeCategory
+  language   QuestionnaireLanguage @default(NEPALI)
   metadata   Json?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
 
-  @@unique([zodiacSign, date, category])
-  @@index([zodiacSign, date])
+  @@unique([zodiacSign, date, category, language])
+  @@index([zodiacSign, date, category, language])
   @@index([date])
 }
 
@@ -551,6 +552,39 @@ model HoroscopeSubscription {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
+}
+
+enum TipAudience {
+  CLIENT
+  JYOTISH
+  BOTH
+}
+
+model DailyTip {
+  id        String                @id @default(uuid())
+  date      DateTime
+  language  QuestionnaireLanguage @default(ENGLISH)
+  audience  TipAudience           @default(BOTH)
+  text      String
+  isActive  Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([date, language, audience, isActive])
+}
+
+model SubhaSahitDate {
+  id          String   @id @default(uuid())
+  date        DateTime @db.Date
+  occasion    String   
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date, isActive])
+  @@index([occasion])
+  @@index([date, occasion, isActive])
 }
 
 model Notification {

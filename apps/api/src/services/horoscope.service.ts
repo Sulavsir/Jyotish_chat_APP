@@ -4,6 +4,7 @@
 
 import { prisma } from '@jyotish/database';
 import { getCanonicalDateForCategory } from '@jyotish/shared';
+import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { HOROSCOPE_CONFIG } from '../constants';
 import type {
   SubscriptionData,
@@ -12,6 +13,8 @@ import type {
   HoroscopeSubscriptionEntity,
 } from '../types';
 import { HoroscopeCategory } from '@jyotish/shared';
+
+const DEFAULT_HOROSCOPE_LANGUAGE: QuestionnaireLanguage = 'NEPALI';
 
 export class HoroscopeService {
   private toResponse(
@@ -29,17 +32,23 @@ export class HoroscopeService {
   }
 
   /**
-   * Get daily horoscope for a zodiac sign (from DB)
+   * Get daily horoscope for a zodiac sign (from DB), optionally by language
    */
-  async getDailyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+  async getDailyHoroscope(
+    zodiacSign: string,
+    date?: Date,
+    language?: QuestionnaireLanguage
+  ): Promise<HoroscopeResponse> {
     const targetDate = date ? new Date(date) : new Date();
     const canonical = getCanonicalDateForCategory('DAILY', targetDate);
+    const lang = language ?? DEFAULT_HOROSCOPE_LANGUAGE;
 
     const row = await prisma.horoscope.findFirst({
       where: {
         zodiacSign: zodiacSign.toUpperCase() as any,
         category: 'DAILY',
         date: canonical,
+        language: lang,
       },
     });
 
@@ -56,17 +65,23 @@ export class HoroscopeService {
   }
 
   /**
-   * Get weekly horoscope for a zodiac sign (from DB)
+   * Get weekly horoscope for a zodiac sign (from DB), optionally by language
    */
-  async getWeeklyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+  async getWeeklyHoroscope(
+    zodiacSign: string,
+    date?: Date,
+    language?: QuestionnaireLanguage
+  ): Promise<HoroscopeResponse> {
     const targetDate = date ? new Date(date) : new Date();
     const canonical = getCanonicalDateForCategory('WEEKLY', targetDate);
+    const lang = language ?? DEFAULT_HOROSCOPE_LANGUAGE;
 
     const row = await prisma.horoscope.findFirst({
       where: {
         zodiacSign: zodiacSign.toUpperCase() as any,
         category: 'WEEKLY',
         date: canonical,
+        language: lang,
       },
     });
 
@@ -83,17 +98,23 @@ export class HoroscopeService {
   }
 
   /**
-   * Get monthly horoscope for a zodiac sign (from DB)
+   * Get monthly horoscope for a zodiac sign (from DB), optionally by language
    */
-  async getMonthlyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+  async getMonthlyHoroscope(
+    zodiacSign: string,
+    date?: Date,
+    language?: QuestionnaireLanguage
+  ): Promise<HoroscopeResponse> {
     const targetDate = date ? new Date(date) : new Date();
     const canonical = getCanonicalDateForCategory('MONTHLY', targetDate);
+    const lang = language ?? DEFAULT_HOROSCOPE_LANGUAGE;
 
     const row = await prisma.horoscope.findFirst({
       where: {
         zodiacSign: zodiacSign.toUpperCase() as any,
         category: 'MONTHLY',
         date: canonical,
+        language: lang,
       },
     });
 
@@ -110,17 +131,23 @@ export class HoroscopeService {
   }
 
   /**
-   * Get yearly horoscope for a zodiac sign (from DB)
+   * Get yearly horoscope for a zodiac sign (from DB), optionally by language
    */
-  async getYearlyHoroscope(zodiacSign: string, date?: Date): Promise<HoroscopeResponse> {
+  async getYearlyHoroscope(
+    zodiacSign: string,
+    date?: Date,
+    language?: QuestionnaireLanguage
+  ): Promise<HoroscopeResponse> {
     const targetDate = date ? new Date(date) : new Date();
     const canonical = getCanonicalDateForCategory('YEARLY', targetDate);
+    const lang = language ?? DEFAULT_HOROSCOPE_LANGUAGE;
 
     const row = await prisma.horoscope.findFirst({
       where: {
         zodiacSign: zodiacSign.toUpperCase() as any,
         category: 'YEARLY',
         date: canonical,
+        language: lang,
       },
     });
 
@@ -244,9 +271,12 @@ export class HoroscopeService {
   }
 
   /**
-   * Get horoscope by zodiac sign (for user profile)
+   * Get horoscope by zodiac sign (for user profile), optionally by language
    */
-  async getHoroscopeForUser(userId: string): Promise<HoroscopeResponse> {
+  async getHoroscopeForUser(
+    userId: string,
+    language?: QuestionnaireLanguage
+  ): Promise<HoroscopeResponse> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { zodiacSign: true },
@@ -256,7 +286,7 @@ export class HoroscopeService {
       throw new Error('User zodiac sign not set');
     }
 
-    return await this.getDailyHoroscope(user.zodiacSign);
+    return await this.getDailyHoroscope(user.zodiacSign, undefined, language);
   }
 
   /**
@@ -269,23 +299,33 @@ export class HoroscopeService {
   // ==================== Admin CRUD ====================
 
   /**
-   * Create horoscope entry (admin)
+   * Create one or more horoscope entries (admin) – single or bulk; same API
    */
-  async createHoroscope(data: {
-    zodiacSign: string;
-    category: HoroscopeCategory;
-    date: Date;
-    content: string;
-  }) {
-    const canonical = getCanonicalDateForCategory(data.category, data.date);
-    return prisma.horoscope.create({
-      data: {
-        zodiacSign: data.zodiacSign.toUpperCase() as any,
-        category: data.category,
-        date: canonical,
-        content: data.content,
-      },
-    });
+  async createHoroscopes(
+    items: Array<{
+      zodiacSign: string;
+      category: HoroscopeCategory;
+      date: Date;
+      content: string;
+      language?: QuestionnaireLanguage;
+    }>
+  ) {
+    const created = [];
+    for (const data of items) {
+      const canonical = getCanonicalDateForCategory(data.category, data.date);
+      const language = data.language ?? DEFAULT_HOROSCOPE_LANGUAGE;
+      const row = await prisma.horoscope.create({
+        data: {
+          zodiacSign: data.zodiacSign.toUpperCase() as any,
+          category: data.category,
+          date: canonical,
+          content: data.content,
+          language,
+        },
+      });
+      created.push(row);
+    }
+    return created;
   }
 
   /**
@@ -294,6 +334,7 @@ export class HoroscopeService {
   async listHoroscopes(params: {
     category?: HoroscopeCategory;
     zodiacSign?: string;
+    language?: QuestionnaireLanguage;
     dateFrom?: string;
     dateTo?: string;
     page?: number;
@@ -306,6 +347,7 @@ export class HoroscopeService {
     const where: any = {};
     if (params.category) where.category = params.category;
     if (params.zodiacSign) where.zodiacSign = params.zodiacSign.toUpperCase();
+    if (params.language) where.language = params.language;
     if (params.dateFrom || params.dateTo) {
       where.date = {};
       if (params.dateFrom) where.date.gte = new Date(params.dateFrom);
@@ -351,7 +393,13 @@ export class HoroscopeService {
    */
   async updateHoroscope(
     id: string,
-    data: { zodiacSign?: string; category?: HoroscopeCategory; date?: Date; content?: string }
+    data: {
+      zodiacSign?: string;
+      category?: HoroscopeCategory;
+      date?: Date;
+      content?: string;
+      language?: QuestionnaireLanguage;
+    }
   ) {
     const existing = await prisma.horoscope.findUnique({ where: { id } });
     if (!existing) return null;
@@ -360,6 +408,7 @@ export class HoroscopeService {
     if (data.content !== undefined) payload.content = data.content;
     if (data.zodiacSign !== undefined) payload.zodiacSign = data.zodiacSign.toUpperCase();
     if (data.category !== undefined) payload.category = data.category;
+    if (data.language !== undefined) payload.language = data.language;
     if (data.date !== undefined) {
       payload.date = getCanonicalDateForCategory(
         (data.category ?? existing.category) as HoroscopeCategory,

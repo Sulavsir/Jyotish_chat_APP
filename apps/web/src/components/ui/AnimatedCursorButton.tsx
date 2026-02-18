@@ -7,6 +7,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Pointer } from 'lucide-react';
 
 interface AnimatedCursorButtonProps {
@@ -390,6 +391,22 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
     }
   }, [showOnce, isVisible]);
 
+  // Find scrollable ancestor (e.g. main with overflow-auto) so we react to in-container scroll
+  const getScrollContainers = useCallback(() => {
+    const el = targetButtonRef.current;
+    if (!el) return [];
+    const containers: HTMLElement[] = [];
+    let parent: HTMLElement | null = el.parentElement;
+    while (parent) {
+      const { overflow, overflowY } = getComputedStyle(parent);
+      if (/(auto|scroll|overlay)/.test(overflow) || /(auto|scroll|overlay)/.test(overflowY)) {
+        containers.push(parent);
+      }
+      parent = parent.parentElement;
+    }
+    return containers;
+  }, []);
+
   // Check viewport on scroll/resize and restart animation if button comes into view
   useEffect(() => {
     const checkViewportAndAnimate = () => {
@@ -415,27 +432,47 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
     window.addEventListener('resize', checkViewportAndAnimate, { passive: true });
     window.addEventListener('wheel', checkViewportAndAnimate, { passive: true });
 
+    // Also listen to scroll on the scrollable main (sidebar layout); defer so button ref is set
+    let scrollCleanup: (() => void) | undefined;
+    const t = setTimeout(() => {
+      const scrollContainers = getScrollContainers();
+      scrollContainers.forEach((container) => {
+        container.addEventListener('scroll', checkViewportAndAnimate, { passive: true });
+      });
+      scrollCleanup = () => {
+        scrollContainers.forEach((container) => {
+          container.removeEventListener('scroll', checkViewportAndAnimate);
+        });
+      };
+    }, 300);
+
     return () => {
+      clearTimeout(t);
+      scrollCleanup?.();
       window.removeEventListener('scroll', checkViewportAndAnimate, { capture: true });
       window.removeEventListener('resize', checkViewportAndAnimate);
       window.removeEventListener('wheel', checkViewportAndAnimate);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVisible, showOnce, runAnimation, isButtonInViewport]);
+  }, [isVisible, showOnce, runAnimation, isButtonInViewport, getScrollContainers]);
 
-  // Always render cursor element - control visibility via styles only
-  return (
+  // Portal cursor and ripple to document.body so position:fixed is always viewport-relative
+  // (avoids wrong positioning when layout has sidebar or scrollable main)
+  const cursorContent = (
     <>
       {/* Animated Cursor - Continuously visible */}
       <div
         ref={cursorRef}
-        className="fixed pointer-events-none z-[9999]"
+        className="fixed pointer-events-none"
         style={{
+          left: 0,
+          top: 0,
           opacity: isVisible ? 1 : 0,
           visibility: isVisible ? 'visible' : 'hidden',
           transform: 'translate(-50%, -50%)',
           transition: 'opacity 0.2s ease, visibility 0.2s ease',
           willChange: 'transform, opacity',
+          zIndex: 99999,
         }}
       >
         <div className="relative">
@@ -472,8 +509,10 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
       {/* Ripple effect on click */}
       <div
         ref={rippleRef}
-        className="fixed pointer-events-none z-[9998] rounded-full border-3"
+        className="fixed pointer-events-none rounded-full border-3"
         style={{
+          left: 0,
+          top: 0,
           width: '80px',
           height: '80px',
           opacity: 0,
@@ -482,8 +521,14 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
           borderColor: cursorColor,
           borderWidth: '3px',
           backgroundColor: `${cursorColor}30`,
+          zIndex: 99998,
         }}
       />
     </>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(cursorContent, document.body);
+  }
+  return null;
 };

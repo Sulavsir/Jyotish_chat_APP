@@ -80,11 +80,16 @@ export const QUERY_KEYS = {
 
   // Horoscope
   HOROSCOPE: {
-    MY_HOROSCOPE: ['horoscope', 'my-horoscope'] as const,
-    GET: (sign: string, category: string, date?: string) =>
-      date
-        ? (['horoscope', sign, category, date] as const)
-        : (['horoscope', sign, category] as const),
+    MY_HOROSCOPE: (language?: string) =>
+      language ? (['horoscope', 'my-horoscope', language] as const) : (['horoscope', 'my-horoscope'] as const),
+    GET: (sign: string, category: string, date?: string, language?: string) =>
+      ['horoscope', sign, category, date ?? '', language ?? ''] as const,
+  },
+
+  // Tips (daily dashboard tips)
+  TIPS: {
+    TODAY: (audience: string, language: string) =>
+      ['tips', 'today', audience, language] as const,
   },
 
   // Questionnaires (question categories and questions)
@@ -180,4 +185,10 @@ export const QUERY_KEYS = {
   },
   // Admin coin rates
   ADMIN_COIN_RATES: ['admin', 'coin-rates'] as const,
+
+  // Subha Sahit (auspicious dates)
+  SUBHA_SAHIT: {
+    AVAILABLE: (params?: { occasion?: string; dateFrom?: string; dateTo?: string }) =>
+      params ? (['subha-sahit', 'available', params] as const) : (['subha-sahit', 'available'] as const),
+  },
 } as const;

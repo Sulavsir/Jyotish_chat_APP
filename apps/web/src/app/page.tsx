@@ -8,6 +8,7 @@ import {
   CTASection,
   Footer,
 } from '@/components/home';
+import { SubhaSahitSection } from '@/components/home/SubhaSahitSection';
 import { Navbar } from '@/components/ui';
 
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
     <div className="min-h-screen bg-black">
       <Navbar />
       <HeroSection />
+      <SubhaSahitSection />
       <HoroscopeFeatureSection />
       <HowItWorksSection />
       <ServicesSection />

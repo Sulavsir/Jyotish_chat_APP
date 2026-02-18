@@ -8,3 +8,5 @@ export * from './validators.constants';
 export * from './app.constants';
 export * from './query-keys.constants';
 export * from './appointment.constants';
+export * from './daily-predictions.constants';
+export * from './horoscope.constants';

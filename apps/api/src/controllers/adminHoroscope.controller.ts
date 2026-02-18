@@ -14,10 +14,11 @@ import { AppError } from '../middleware/error-handler';
  * GET /api/v1/admin/horoscopes
  */
 export const listHoroscopes = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  const { category, zodiacSign, dateFrom, dateTo, page, limit } = req.query as any;
+  const { category, zodiacSign, language, dateFrom, dateTo, page, limit } = req.query as any;
   const result = await horoscopeService.listHoroscopes({
     category,
     zodiacSign,
+    language,
     dateFrom,
     dateTo,
     page,
@@ -40,18 +41,21 @@ export const getHoroscopeById = async (req: AuthRequest, res: Response, next: Ne
 };
 
 /**
- * Create horoscope
- * POST /api/v1/admin/horoscopes
+ * Create one or more horoscopes (bulk API handles single entry too)
+ * POST /api/v1/admin/horoscopes/bulk
  */
-export const createHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  const { zodiacSign, category, date, content } = req.body;
-  const horoscope = await horoscopeService.createHoroscope({
-    zodiacSign,
-    category,
-    date: new Date(date),
-    content,
-  });
-  return sendSuccess(res, { horoscope }, HTTP_STATUS.CREATED);
+export const createHoroscopes = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const { horoscopes: items } = req.body as { horoscopes: Array<{ zodiacSign: string; category: string; date: string; content: string; language?: string }> };
+  const created = await horoscopeService.createHoroscopes(
+    items.map((item) => ({
+      zodiacSign: item.zodiacSign,
+      category: item.category as any,
+      date: new Date(item.date),
+      content: item.content,
+      language: item.language as any,
+    }))
+  );
+  return sendSuccess(res, { horoscopes: created }, HTTP_STATUS.CREATED);
 };
 
 /**
@@ -60,12 +64,13 @@ export const createHoroscope = async (req: AuthRequest, res: Response, next: Nex
  */
 export const updateHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { id } = req.params;
-  const { zodiacSign, category, date, content } = req.body;
+  const { zodiacSign, category, date, content, language } = req.body;
   const horoscope = await horoscopeService.updateHoroscope(id, {
     ...(zodiacSign && { zodiacSign }),
     ...(category && { category }),
     ...(date && { date: new Date(date) }),
     ...(content !== undefined && { content }),
+    ...(language !== undefined && { language }),
   });
   if (!horoscope) {
     throw new AppError('Horoscope not found', HTTP_STATUS.NOT_FOUND);

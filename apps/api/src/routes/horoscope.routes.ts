@@ -9,6 +9,7 @@ import {
   periodHoroscopeQuerySchema,
   subscribeHoroscopeSchema,
   updateSubscriptionSchema,
+  myHoroscopeQuerySchema,
 } from '../validators';
 
 const router = Router();
@@ -46,7 +47,12 @@ router.get(
 );
 
 // Get user's horoscope (based on their zodiac sign)
-router.get('/my-horoscope', authenticate, asyncHandler(horoscopeController.getMyHoroscope));
+router.get(
+  '/my-horoscope',
+  authenticate,
+  validateQuery(myHoroscopeQuerySchema),
+  asyncHandler(horoscopeController.getMyHoroscope)
+);
 
 // Subscribe to horoscope notifications
 router.post(

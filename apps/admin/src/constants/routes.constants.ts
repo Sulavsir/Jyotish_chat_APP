@@ -69,6 +69,14 @@ export const ADMIN_ROUTES = {
   HOROSCOPES: '/admin/horoscopes',
   HOROSCOPES_CREATE: '/admin/horoscopes/create',
   HOROSCOPES_EDIT: (id: string) => `/admin/horoscopes/${id}/edit`,
+
+  // Daily Predictions (Tips)
+  DAILY_PREDICTIONS: '/admin/daily-predictions',
+  DAILY_PREDICTIONS_CREATE: '/admin/daily-predictions/create',
+
+  // Subha Sahit (Auspicious Dates)
+  SUBHA_SAHIT: '/admin/subha-sahit',
+  SUBHA_SAHIT_CREATE: '/admin/subha-sahit/create',
 } as const;
 
 export type AdminRoute = typeof ADMIN_ROUTES[keyof typeof ADMIN_ROUTES];

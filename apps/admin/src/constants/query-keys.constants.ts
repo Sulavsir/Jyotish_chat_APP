@@ -75,6 +75,20 @@ export const ADMIN_QUERY_KEYS = {
     DETAIL: (id: string) => ['admin', 'horoscopes', 'detail', id] as const,
   },
 
+  // Tips (Daily Predictions)
+  TIPS: {
+    ALL: ['admin', 'tips'] as const,
+    LIST: (params?: { language?: string; audience?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
+      params ? (['admin', 'tips', 'list', params] as const) : (['admin', 'tips', 'list'] as const),
+  },
+
+  // Subha Sahit (Auspicious Dates)
+  SUBHA_SAHIT: {
+    ALL: ['admin', 'subha-sahit'] as const,
+    LIST: (params?: { occasion?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
+      params ? (['admin', 'subha-sahit', 'list', params] as const) : (['admin', 'subha-sahit', 'list'] as const),
+  },
+
   // Dashboard Stats
   DASHBOARD: {
     STATS: () => ['admin', 'dashboard', 'stats'] as const,

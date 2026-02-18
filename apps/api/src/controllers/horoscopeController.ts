@@ -14,13 +14,14 @@ import { AppError } from '../middleware/error-handler';
 
 /**
  * Get daily horoscope for a zodiac sign
- * GET /api/v1/horoscopes/daily/:zodiacSign?date=YYYY-MM-DD
+ * GET /api/v1/horoscopes/daily/:zodiacSign?date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
  */
 export const getDailyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
   const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  const language = req.query.language as string | undefined;
 
-  const horoscope = await horoscopeService.getDailyHoroscope(zodiacSign, date);
+  const horoscope = await horoscopeService.getDailyHoroscope(zodiacSign, date, language as any);
   return sendSuccess(res, {
     horoscope,
     message: 'Daily horoscope retrieved successfully',
@@ -29,13 +30,14 @@ export const getDailyHoroscope = async (req: AuthRequest, res: Response, next: N
 
 /**
  * Get weekly horoscope for a zodiac sign
- * GET /api/v1/horoscopes/weekly/:zodiacSign?date=YYYY-MM-DD
+ * GET /api/v1/horoscopes/weekly/:zodiacSign?date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
  */
 export const getWeeklyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
   const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  const language = req.query.language as string | undefined;
 
-  const horoscope = await horoscopeService.getWeeklyHoroscope(zodiacSign, date);
+  const horoscope = await horoscopeService.getWeeklyHoroscope(zodiacSign, date, language as any);
   return sendSuccess(res, {
     horoscope,
     message: 'Weekly horoscope retrieved successfully',
@@ -44,13 +46,14 @@ export const getWeeklyHoroscope = async (req: AuthRequest, res: Response, next: 
 
 /**
  * Get monthly horoscope for a zodiac sign
- * GET /api/v1/horoscopes/monthly/:zodiacSign?date=YYYY-MM-DD
+ * GET /api/v1/horoscopes/monthly/:zodiacSign?date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
  */
 export const getMonthlyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
   const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  const language = req.query.language as string | undefined;
 
-  const horoscope = await horoscopeService.getMonthlyHoroscope(zodiacSign, date);
+  const horoscope = await horoscopeService.getMonthlyHoroscope(zodiacSign, date, language as any);
   return sendSuccess(res, {
     horoscope,
     message: 'Monthly horoscope retrieved successfully',
@@ -59,13 +62,14 @@ export const getMonthlyHoroscope = async (req: AuthRequest, res: Response, next:
 
 /**
  * Get yearly horoscope for a zodiac sign
- * GET /api/v1/horoscopes/yearly/:zodiacSign?date=YYYY-MM-DD
+ * GET /api/v1/horoscopes/yearly/:zodiacSign?date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
  */
 export const getYearlyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const { zodiacSign } = req.params;
   const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  const language = req.query.language as string | undefined;
 
-  const horoscope = await horoscopeService.getYearlyHoroscope(zodiacSign, date);
+  const horoscope = await horoscopeService.getYearlyHoroscope(zodiacSign, date, language as any);
   return sendSuccess(res, {
     horoscope,
     message: 'Yearly horoscope retrieved successfully',
@@ -74,17 +78,15 @@ export const getYearlyHoroscope = async (req: AuthRequest, res: Response, next: 
 
 /**
  * Get horoscope for authenticated user (based on their zodiac sign)
- * GET /api/v1/horoscope/my-horoscope
+ * GET /api/v1/horoscopes/my-horoscope?language=NEPALI|HINDI|ENGLISH
  */
 export const getMyHoroscope = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  // Check authentication
   if (!req.user?.id) {
     throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED);
   }
+  const language = req.query.language as string | undefined;
 
-  // Get user's horoscope via service
-  const horoscope = await horoscopeService.getHoroscopeForUser(req.user.id);
-
+  const horoscope = await horoscopeService.getHoroscopeForUser(req.user.id, language as any);
   return sendSuccess(res, {
     horoscope,
     message: 'Your horoscope retrieved successfully',

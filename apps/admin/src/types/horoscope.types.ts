@@ -4,12 +4,15 @@
 
 export type HoroscopeCategory = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
+export type HoroscopeLanguage = 'NEPALI' | 'HINDI' | 'ENGLISH';
+
 export interface AdminHoroscopeEntry {
   id: string;
   zodiacSign: string;
   date: string;
   content: string;
   category: HoroscopeCategory;
+  language?: HoroscopeLanguage;
   metadata: unknown;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +21,7 @@ export interface AdminHoroscopeEntry {
 export interface ListHoroscopesParams {
   category?: HoroscopeCategory;
   zodiacSign?: string;
+  language?: HoroscopeLanguage;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -39,6 +43,11 @@ export interface CreateHoroscopeRequest {
   category: HoroscopeCategory;
   date: string;
   content: string;
+  language?: HoroscopeLanguage;
+}
+
+export interface CreateHoroscopesBulkRequest {
+  horoscopes: CreateHoroscopeRequest[];
 }
 
 export interface UpdateHoroscopeRequest {
@@ -46,4 +55,5 @@ export interface UpdateHoroscopeRequest {
   category?: HoroscopeCategory;
   date?: string;
   content?: string;
+  language?: HoroscopeLanguage;
 }

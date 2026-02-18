@@ -132,9 +132,22 @@ export const API_ENDPOINTS = {
   HOROSCOPES: {
     LIST: '/api/v1/admin/horoscopes',
     GET: (id: string) => `/api/v1/admin/horoscopes/${id}`,
-    CREATE: '/api/v1/admin/horoscopes',
+    BULK_CREATE: '/api/v1/admin/horoscopes/bulk',
     UPDATE: (id: string) => `/api/v1/admin/horoscopes/${id}`,
     DELETE: (id: string) => `/api/v1/admin/horoscopes/${id}`,
+  },
+
+  TIPS: {
+    LIST: '/api/v1/admin/tips',
+    CREATE: '/api/v1/admin/tips',
+    DELETE: (id: string) => `/api/v1/admin/tips/${id}`,
+  },
+
+  SUBHA_SAHIT: {
+    LIST: '/api/v1/admin/subha-sahit',
+    CREATE: '/api/v1/admin/subha-sahit',
+    UPDATE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
+    DELETE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
   },
 
   ADMIN_CHAT: {
