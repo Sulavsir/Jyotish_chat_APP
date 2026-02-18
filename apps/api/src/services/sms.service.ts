@@ -126,7 +126,7 @@ class SMSService {
    * Send OTP SMS
    */
   async sendOTP(phoneNumber: string, otp: string): Promise<boolean> {
-    const message = `Your Chat Jyotish verification code is: ${otp}. Valid for 10 minutes. Do not share this code with anyone.`;
+    const message = `Your Chat Jyotishi verification code is: ${otp}. Valid for 10 minutes. Do not share this code with anyone.`;
     return this.sendSMS(phoneNumber, message);
   }
 
@@ -134,7 +134,7 @@ class SMSService {
    * Send welcome SMS
    */
   async sendWelcome(phoneNumber: string, name: string): Promise<boolean> {
-    const message = `Namaste ${name}! Welcome to Chat Jyotish. Your cosmic journey begins now. For support, visit our website.`;
+    const message = `Namaste ${name}! Welcome to Chat Jyotishi. Your cosmic journey begins now. For support, visit our website.`;
     return this.sendSMS(phoneNumber, message);
   }
 
@@ -146,7 +146,7 @@ class SMSService {
     astrologerName: string,
     dateTime: string
   ): Promise<boolean> {
-    const message = `Reminder: Your consultation with ${astrologerName} is scheduled for ${dateTime}. Chat Jyotish`;
+    const message = `Reminder: Your consultation with ${astrologerName} is scheduled for ${dateTime}. Chat Jyotishi`;
     return this.sendSMS(phoneNumber, message);
   }
 
@@ -154,7 +154,7 @@ class SMSService {
    * Send notification
    */
   async sendNotification(phoneNumber: string, text: string): Promise<boolean> {
-    return this.sendSMS(phoneNumber, `${text} - Chat Jyotish`);
+    return this.sendSMS(phoneNumber, `${text} - Chat Jyotishi`);
   }
 }
 

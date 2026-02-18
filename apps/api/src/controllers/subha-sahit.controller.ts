@@ -36,6 +36,16 @@ export const getOccasions = async (req: Request, res: Response, next: NextFuncti
 };
 
 /**
+ * Admin: Create a new Subha Sahit occasion
+ * POST /api/v1/admin/subha-sahit/occasions
+ */
+export const createOccasion = async (req: Request, res: Response, next: NextFunction) => {
+  const { name } = req.body as { name: string };
+  const occasion = await subhaSahitService.createOccasion(name);
+  return sendSuccess(res, { occasion });
+};
+
+/**
  * Admin: Create one or more Subha Sahit dates
  * POST /api/v1/admin/subha-sahit
  */

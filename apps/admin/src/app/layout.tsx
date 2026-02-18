@@ -21,13 +21,13 @@ export const metadata: Metadata = {
     template: '%s | CJ Admin',
   },
   description:
-    'CJ Admin is the control panel for managing astrologers, clients, chats, earnings, pricing, and platform configuration for Chat Jyotish.',
+    'CJ Admin is the control panel for managing astrologers, clients, chats, earnings, pricing, and platform configuration for Chat Jyotishi.',
   applicationName: 'CJ Admin',
   metadataBase: getMetadataBase(),
   openGraph: {
     title: 'CJ Admin - Jyotish Control Panel',
     description:
-      'Monitor live consultations, manage astrologers and clients, review chats and complaints, and configure the Chat Jyotish platform.',
+      'Monitor live consultations, manage astrologers and clients, review chats and complaints, and configure the Chat Jyotishi platform.',
     url: '/',
     siteName: 'CJ Admin',
     type: 'website',
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'CJ Admin - Jyotish Control Panel',
     description:
-      'Monitor live consultations, manage astrologers and clients, review chats and complaints, and configure the Chat Jyotish platform.',
+      'Monitor live consultations, manage astrologers and clients, review chats and complaints, and configure the Chat Jyotishi platform.',
   },
   icons: {
     icon: [

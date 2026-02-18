@@ -117,7 +117,7 @@ class EmailService {
 
     try {
       const info = await this.transporter.sendMail({
-        from: `"Chat Jyotish" <${process.env.SMTP_USER}>`,
+        from: `"Chat Jyotishi" <${process.env.SMTP_USER}>`,
         to,
         subject,
         text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
@@ -152,7 +152,7 @@ class EmailService {
     category: string,
     appointmentFee?: number | null
   ): Promise<boolean> {
-    const subject = 'Your Astrologer Registration Has Been Approved - Chat Jyotish';
+    const subject = 'Your Astrologer Registration Has Been Approved - Chat Jyotishi';
 
     const html = `
       <!DOCTYPE html>
@@ -193,7 +193,7 @@ class EmailService {
             </div>
 
             <p style="font-size: 14px; color: #666; margin-top: 30px;">If you have any questions, please contact our support team.</p>
-            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotish Team</strong></p>
+            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotishi Team</strong></p>
           </div>
         </body>
       </html>
@@ -210,7 +210,7 @@ class EmailService {
     email: string,
     rejectionReason: string
   ): Promise<boolean> {
-    const subject = 'Astrologer Registration Update - Chat Jyotish';
+    const subject = 'Astrologer Registration Update - Chat Jyotishi';
 
     const html = `
       <!DOCTYPE html>
@@ -226,7 +226,7 @@ class EmailService {
           </div>
           <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e0e0e0;">
             <p style="font-size: 16px;">Namaste <strong>${astrologerName}</strong>,</p>
-            <p style="font-size: 16px;">Thank you for your interest in joining Chat Jyotish as an astrologer.</p>
+            <p style="font-size: 16px;">Thank you for your interest in joining Chat Jyotishi as an astrologer.</p>
             
             <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
               <h3 style="margin-top: 0; color: #d97706;">Registration Status:</h3>
@@ -246,7 +246,7 @@ class EmailService {
             <p style="font-size: 16px;">If you believe this decision was made in error, or if you have additional information to provide, please contact our support team for further assistance.</p>
             
             <p style="font-size: 14px; color: #666; margin-top: 30px;">We appreciate your understanding.</p>
-            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotish Team</strong></p>
+            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotishi Team</strong></p>
           </div>
         </body>
       </html>
@@ -280,7 +280,7 @@ class EmailService {
       minute: '2-digit',
     });
 
-    const subject = `Reminder: ${appointmentTypeLabel} in 1 hour - Chat Jyotish`;
+    const subject = `Reminder: ${appointmentTypeLabel} in 1 hour - Chat Jyotishi`;
 
     const html = `
       <!DOCTYPE html>
@@ -312,11 +312,11 @@ class EmailService {
             <div style="text-align: center; margin: 30px 0;">
               <a href="${websiteUrl}" 
                  style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Open Chat Jyotish
+                Open Chat Jyotishi
               </a>
             </div>
 
-            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotish Team</strong></p>
+            <p style="font-size: 14px; color: #666;">Best regards,<br><strong>Chat Jyotishi Team</strong></p>
           </div>
         </body>
       </html>

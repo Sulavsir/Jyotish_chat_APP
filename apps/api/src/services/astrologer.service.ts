@@ -8,7 +8,10 @@ import { UserRole, AstrologerCategory } from '@jyotish/shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES } from '../constants';
-import { ASTROLOGER_ACCOUNT_STATUS, ASTROLOGER_CREATED_BY } from '../constants/astrologer.constants';
+import {
+  ASTROLOGER_ACCOUNT_STATUS,
+  ASTROLOGER_CREATED_BY,
+} from '../constants/astrologer.constants';
 import { AppError } from '../middleware/error-handler';
 import { sessionService } from './session.service';
 import { emailService } from './email.service';
@@ -205,7 +208,7 @@ export class AstrologerService {
         address: data.address ?? null,
         accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
         isActive: true,
-        isVerified: false, 
+        isVerified: false,
       },
       select: {
         id: true,
@@ -726,8 +729,8 @@ export class AstrologerService {
         accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING,
         registrationRequestedAt: new Date(),
         createdBy: ASTROLOGER_CREATED_BY.SELF_REGISTERED,
-        isActive: false, 
-        category: AstrologerCategory.ORDINARY, 
+        isActive: false,
+        category: AstrologerCategory.ORDINARY,
         commissionRate: 0.0,
       },
       select: {
@@ -747,11 +750,7 @@ export class AstrologerService {
   /**
 cle   * Get all pending registration requests with pagination and search
    */
-  async getPendingRegistrations(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-  }) {
+  async getPendingRegistrations(params?: { page?: number; limit?: number; search?: string }) {
     const { page = 1, limit = 10, search } = params || {};
     const skip = (page - 1) * limit;
 
@@ -880,7 +879,7 @@ cle   * Get all pending registration requests with pagination and search
 
       // Send SMS if phone is Nepali
       if (updated.phone && isNepaliPhoneNumber(updated.phone)) {
-        const smsMessage = `Namaste ${updated.name}! Your astrologer registration has been approved. You can now log in to Chat Jyotish and start providing consultations. Category: ${updated.category}.`;
+        const smsMessage = `Namaste ${updated.name}! Your astrologer registration has been approved. You can now log in to Chat Jyotishi and start providing consultations. Category: ${updated.category}.`;
         await smsService.sendNotification(updated.phone, smsMessage);
       }
     } catch (error) {

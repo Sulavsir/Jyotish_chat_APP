@@ -88,3 +88,7 @@ export const getAvailableDatesQuerySchema = z.object({
       { message: 'Invalid dateTo format' }
     ),
 });
+
+export const createSubhaSahitOccasionBodySchema = z.object({
+  name: z.string().min(1, 'Occasion name is required').max(100, 'Occasion name is too long'),
+});

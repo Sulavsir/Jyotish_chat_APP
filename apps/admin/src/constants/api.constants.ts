@@ -148,6 +148,8 @@ export const API_ENDPOINTS = {
     CREATE: '/api/v1/admin/subha-sahit',
     UPDATE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
     DELETE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
+    OCCASIONS: '/api/v1/subha-sahit/occasions',
+    CREATE_OCCASION: '/api/v1/admin/subha-sahit/occasions',
   },
 
   ADMIN_CHAT: {

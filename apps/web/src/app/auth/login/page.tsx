@@ -123,7 +123,7 @@ export default function LoginPage() {
   const verifyOTPMutation = useMutation({
     mutationFn: authApi.verifyOTP,
     onSuccess: async (data) => {
-      displaySuccess(data.isNewUser ? 'Welcome to Chat Jyotish!' : 'Welcome back!');
+      displaySuccess(data.isNewUser ? 'Welcome to Chat Jyotishi!' : 'Welcome back!');
 
       // Fetch user details from /me endpoint
       try {

@@ -1,4 +1,4 @@
-# Chat Jyotish - Real-time Astrology Consultation Platform
+# Chat Jyotishi - Real-time Astrology Consultation Platform
 
 A modern, scalable astrology consultation platform with real-time chat, notifications, and automated daily horoscope delivery.
 

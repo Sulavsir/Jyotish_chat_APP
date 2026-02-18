@@ -185,7 +185,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity"
                     >
                       <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
-                        Chat Jyotish
+                        Chat Jyotishi
                       </span>
                     </Link>
                   </div>

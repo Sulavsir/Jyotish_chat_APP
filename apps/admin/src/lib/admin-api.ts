@@ -396,6 +396,19 @@ export const adminApi = {
       const response = await apiClient.delete<{ message: string }>(API_ENDPOINTS.SUBHA_SAHIT.DELETE(id));
       return response;
     },
+
+    getOccasions: async (): Promise<{ occasions: string[] }> => {
+      const response = await apiClient.get<{ occasions: string[] }>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS);
+      return response;
+    },
+
+    createOccasion: async (name: string): Promise<{ occasion: { id: string; name: string; isActive: boolean } }> => {
+      const response = await apiClient.post<{ occasion: { id: string; name: string; isActive: boolean } }>(
+        API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION,
+        { name }
+      );
+      return response;
+    },
   },
 
   /**

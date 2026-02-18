@@ -6,7 +6,7 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Chat Jyotish API',
+      title: 'Chat Jyotishi API',
       version: '1.0.0',
       description: 'API documentation for Jyotish astrology consultation platform',
     },

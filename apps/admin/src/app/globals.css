@@ -140,6 +140,45 @@ select {
   background: var(--moon-glow);
 }
 
+/* Hide scrollbar by default, show on hover with fade */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.scrollbar-show {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--cosmic-purple) var(--asteroid-gray); /* Firefox */
+  -ms-overflow-style: auto; /* IE and Edge */
+  transition: scrollbar-color 0.3s ease; /* Firefox transition */
+}
+
+.scrollbar-show::-webkit-scrollbar {
+  width: 10px;
+  transition: width 0.3s ease;
+}
+
+.scrollbar-show::-webkit-scrollbar-track {
+  background: var(--asteroid-gray);
+  transition: opacity 0.3s ease;
+}
+
+.scrollbar-show::-webkit-scrollbar-thumb {
+  background: var(--cosmic-purple);
+  border-radius: 5px;
+  transition: opacity 0.3s ease, background 0.3s ease;
+}
+
+.scrollbar-show::-webkit-scrollbar-thumb:hover {
+  background: var(--moon-glow);
+}
+
 /* Glass morphism effect */
 .glass {
   background: rgba(30, 41, 59, 0.7);
@@ -238,4 +277,21 @@ select {
   );
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
+}
+
+/* Sidebar border that extends full scrollable height */
+.sidebar-border-wrapper {
+  position: relative;
+}
+
+.sidebar-border-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: rgb(51 65 85);
+  pointer-events: none;
+  z-index: 10;
 }

@@ -22,40 +22,40 @@ const getMetadataBase = (): URL => {
 
 export const metadata: Metadata = {
   title: {
-    default: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
-    template: '%s | Chat Jyotish',
+    default: 'Chat Jyotishi (CJ) - Astrology Consultation Platform',
+    template: '%s | Chat Jyotishi',
   },
   description:
-    'Chat Jyotish (CJ) lets you connect with professional astrologers for real-time consultations, instant chat, and personalized horoscopes.',
+    'Chat Jyotishi (CJ) lets you connect with professional astrologers for real-time consultations, instant chat, and personalized horoscopes.',
   keywords: [
-    'Chat Jyotish',
+    'Chat Jyotishi',
     'CJ',
     'online astrology',
     'astrologer chat',
     'horoscope',
     'kundli',
     'jyotish consultation',
-    'chat jyotish',
+    'Chat Jyotishi',
     'jyotish chat',
     'jyotish consultation',
     'jyotish chat',
-    'chat jyotish autonomous technology',
+    'Chat Jyotishi autonomous technology',
     'autonomous technology',
     'Autonomous Technology',
   ],
-  applicationName: 'Chat Jyotish',
+  applicationName: 'Chat Jyotishi',
   metadataBase: getMetadataBase(),
   openGraph: {
-    title: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
+    title: 'Chat Jyotishi (CJ) - Astrology Consultation Platform',
     description:
       'Talk to verified astrologers in real-time, get instant guidance, and manage your consultations in one place.',
     url: '/',
-    siteName: 'Chat Jyotish',
+    siteName: 'Chat Jyotishi',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Chat Jyotish (CJ) - Astrology Consultation Platform',
+    title: 'Chat Jyotishi (CJ) - Astrology Consultation Platform',
     description:
       'Talk to verified astrologers in real-time, get instant guidance, and manage your consultations in one place.',
   },

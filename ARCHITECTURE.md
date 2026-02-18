@@ -1,4 +1,4 @@
-# Chat Jyotish - System Architecture
+# Chat Jyotishi - System Architecture
 
 Visual and detailed architecture documentation for the Jyotish platform.
 

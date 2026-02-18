@@ -87,6 +87,7 @@ export const ADMIN_QUERY_KEYS = {
     ALL: ['admin', 'subha-sahit'] as const,
     LIST: (params?: { occasion?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
       params ? (['admin', 'subha-sahit', 'list', params] as const) : (['admin', 'subha-sahit', 'list'] as const),
+    OCCASIONS: () => ['admin', 'subha-sahit', 'occasions'] as const,
   },
 
   // Dashboard Stats

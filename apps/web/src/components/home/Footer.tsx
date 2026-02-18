@@ -10,7 +10,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
             <h3 className="text-white font-bold text-2xl mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-              Chat Jyotish
+              Chat Jyotishi
             </h3>
             <p className="text-sm leading-relaxed">
               Your trusted partner in navigating life&apos;s journey through ancient astrological
@@ -67,7 +67,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-gray-800 mt-12 pt-8 text-center text-sm">
-          <p>&copy; 2024 Chat Jyotish. All rights reserved.</p>
+          <p>&copy; 2026 Chat Jyotishii. All rights reserved.</p>
         </div>
       </div>
     </footer>

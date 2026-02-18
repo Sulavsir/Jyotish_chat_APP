@@ -143,7 +143,7 @@ export default function SetPasswordPage() {
     <div className="min-h-screen flex relative overflow-hidden">
       {/* Navbar */}
       <Navbar />
-      
+
       {/* Full Background Image */}
       <div className="absolute inset-0">
         <Image
@@ -163,7 +163,7 @@ export default function SetPasswordPage() {
           {/* Logo */}
           <div className="text-center mb-8">
             <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 drop-shadow-[0_0_30px_rgba(220,20,60,0.6)] mb-2">
-              Chat Jyotish
+              Chat Jyotishi
             </h1>
             <p className="text-gray-300 text-sm">Secure your account</p>
           </div>

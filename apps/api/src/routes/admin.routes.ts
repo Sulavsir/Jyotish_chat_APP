@@ -65,6 +65,7 @@ import {
   createSubhaSahitDatesBodySchema,
   listSubhaSahitDatesQuerySchema,
   updateSubhaSahitDateBodySchema,
+  createSubhaSahitOccasionBodySchema,
 } from '../validators/subha-sahit.validators';
 
 const router = Router();
@@ -462,6 +463,11 @@ router.get(
   '/subha-sahit',
   validateQuery(listSubhaSahitDatesQuerySchema),
   asyncHandler(subhaSahitController.listDates)
+);
+router.post(
+  '/subha-sahit/occasions',
+  validateBody(createSubhaSahitOccasionBodySchema),
+  asyncHandler(subhaSahitController.createOccasion)
 );
 router.post(
   '/subha-sahit',

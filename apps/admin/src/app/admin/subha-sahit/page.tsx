@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label } from '@jyotish/ui';
+import { Button, DateInput, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input } from '@jyotish/ui';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, PAGINATION_DEFAULTS } from '@/constants';
 import type { ListSubhaSahitDatesParams, SubhaSahitDate } from '@/types';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
@@ -31,6 +31,15 @@ export default function SubhaSahitPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
+  const [newOccasion, setNewOccasion] = useState('');
+
+  const { data: occasionsData } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(),
+    queryFn: () => adminApi.subhaSahit.getOccasions(),
+  });
+
+  const occasions = occasionsData?.occasions ?? [];
 
   const listParams: ListSubhaSahitDatesParams = useMemo(
     () => ({
@@ -125,6 +134,21 @@ export default function SubhaSahitPage() {
     },
   ];
 
+  const handleAddOccasion = async () => {
+    const trimmed = newOccasion.trim();
+    if (!trimmed) return;
+    try {
+      await adminApi.subhaSahit.createOccasion(trimmed);
+      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS() });
+      toast.success('Occasion added');
+      setIsOccasionModalOpen(false);
+      setNewOccasion('');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to add occasion';
+      toast.error(message);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -143,6 +167,15 @@ export default function SubhaSahitPage() {
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
               Refresh
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsOccasionModalOpen(true)}
+              size="sm"
+              className="border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Occasion
             </Button>
             <Button
               onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
@@ -166,17 +199,11 @@ export default function SubhaSahitPage() {
               className="mt-1.5 h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
             >
               <option value="">All occasions</option>
-              <option value="Puja">Puja</option>
-              <option value="Wedding">Wedding</option>
-              <option value="House Warming">House Warming</option>
-              <option value="Namkaran (Naming Ceremony)">Namkaran (Naming Ceremony)</option>
-              <option value="Annaprashan (First Rice)">Annaprashan (First Rice)</option>
-              <option value="Bratabandha">Bratabandha</option>
-              <option value="Mundan">Mundan</option>
-              <option value="Griha Pravesh">Griha Pravesh</option>
-              <option value="Business Opening">Business Opening</option>
-              <option value="Vehicle Purchase">Vehicle Purchase</option>
-              <option value="Other">Other</option>
+              {occasions.map((occ) => (
+                <option key={occ} value={occ}>
+                  {occ}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -283,6 +310,39 @@ export default function SubhaSahitPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
+        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-purple-600/40 text-white max-w-md shadow-2xl shadow-purple-900/40">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-purple-100">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-600/30 border border-purple-500/60">
+                <Plus className="h-4 w-4" />
+              </span>
+              Add new occasion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-3">
+            <Label className="text-slate-200 text-sm">Occasion name</Label>
+            <Input
+              value={newOccasion}
+              onChange={(e) => setNewOccasion(e.target.value)}
+              placeholder="e.g. Satyanarayan Puja"
+              className="bg-slate-900/70 border-purple-600/50 focus:border-purple-400 text-white placeholder-slate-500"
+            />
+            <p className="text-xs text-slate-400">
+              This occasion will appear in all Subha Sahit dropdowns and filters, and can be used while creating dates and booking Pandit Ji.
+            </p>
+          </div>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setIsOccasionModalOpen(false)} className="border-slate-700">
+              Cancel
+            </Button>
+            <Button onClick={handleAddOccasion} disabled={!newOccasion.trim()}>
+              Add Occasion
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

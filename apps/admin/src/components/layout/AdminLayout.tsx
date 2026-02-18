@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAdminStore } from '@/store/admin-store';
@@ -60,6 +60,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [isValidatingSession, setIsValidatingSession] = useState(true);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [adminStatus, setAdminStatus] = useState<'available' | 'busy'>('available');
+  const [showScrollbar, setShowScrollbar] = useState(false);
+  const scrollbarTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const { isConnected, isConnecting, error: socketError, on, off } = useAdminSocket();
 
   // Unread admin chat count (sidebar badge)
@@ -144,6 +146,36 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const toggleAdminStatus = () => {
     setAdminStatus((prev) => (prev === 'available' ? 'busy' : 'available'));
   };
+
+  // Handle scrollbar visibility on hover
+  const handleSidebarMouseEnter = () => {
+    if (scrollbarTimeoutRef.current) {
+      clearTimeout(scrollbarTimeoutRef.current);
+      scrollbarTimeoutRef.current = null;
+    }
+    setShowScrollbar(true);
+  };
+
+  const handleSidebarMouseLeave = () => {
+    // Clear any existing timeout
+    if (scrollbarTimeoutRef.current) {
+      clearTimeout(scrollbarTimeoutRef.current);
+    }
+    // Hide scrollbar after 2 seconds
+    scrollbarTimeoutRef.current = setTimeout(() => {
+      setShowScrollbar(false);
+      scrollbarTimeoutRef.current = null;
+    }, 2000);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollbarTimeoutRef.current) {
+        clearTimeout(scrollbarTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const navigation: Array<NavLinkItem | NavGroupItem> = [
     {
@@ -355,162 +387,171 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen flex overflow-hidden">
       {/* Sidebar */}
       <aside
         className={`${
           sidebarOpen ? 'w-64' : 'w-20'
-        } cosmic-card transition-all duration-300 flex flex-col border-r border-slate-700 relative z-10`}
+        } transition-all duration-300 flex flex-col relative z-10 max-h-screen overflow-y-auto border border-purple-400 bg-slate-950/80 ${
+          showScrollbar ? 'scrollbar-show' : 'scrollbar-hide'
+        }`}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
-        {/* Logo */}
-        <div className="p-6 border-b border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center glow">
-              <StarIcon className="w-6 h-6 text-white" />
-            </div>
-            {sidebarOpen && (
-              <div>
-                <h2 className="font-bold text-white">Jyotish</h2>
-                <p className="text-xs text-slate-400">Admin Panel</p>
+        {/* Colorful vertical accent over sidebar items */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-cosmic-purple via-nebula-pink to-cosmic-purple shadow-[0_0_15px_rgba(168,85,247,0.7)]" />
+
+        <div className="flex flex-col h-full">
+          {/* Logo */}
+          <div className="p-6 border-b border-purple-400">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center glow">
+                <StarIcon className="w-6 h-6 text-white" />
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 relative z-20">
-          {navigation.map((item) => {
-            if (item.kind === 'group') {
-              const childActive = item.children.some((c) => pathname === c.href);
-              // Always keep the accordion open when one of its child routes is active.
-              const isOpen = childActive || openGroup === item.key;
-              return (
-                <div key={item.name} className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => setOpenGroup((prev) => (prev === item.key ? null : item.key))}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
-                      childActive
-                        ? 'bg-gradient-to-r from-cosmic-purple/40 to-nebula-pink/20 text-white'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                    }`}
-                  >
-                    <span className="relative">
-                      {item.icon}
-                      {item.key === 'chat-management' && unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
-                    </span>
-                    {sidebarOpen && (
-                      <>
-                        <span
-                          className="font-medium flex-1 min-w-0 text-left truncate"
-                          title={item.name}
-                        >
-                          {item.name}
-                        </span>
-                        <svg
-                          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
-                      </>
-                    )}
-                  </button>
-
-                  {sidebarOpen && isOpen && (
-                    <div className="ml-6 pl-3 border-l border-slate-700 space-y-1">
-                      {item.children.map((c) => {
-                        const active = pathname === c.href;
-                        const isAdminChats = c.href === ADMIN_ROUTES.ADMIN_CHATS;
-                        return (
-                          <Link
-                            key={c.href}
-                            href={c.href}
-                            className={`block px-3 py-2 rounded-md text-sm transition-colors ${
-                              active
-                                ? 'text-white bg-slate-800/60'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
-                            }`}
-                            title={c.name}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate min-w-0">{c.name}</span>
-                              {isAdminChats && unreadCount > 0 && (
-                                <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
-                                  {unreadCount}
-                                </span>
-                              )}
-                            </div>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
+              {sidebarOpen && (
+                <div>
+                  <h2 className="font-bold text-white">Jyotish</h2>
+                  <p className="text-xs text-slate-400 ">Admin Panel</p>
                 </div>
-              );
-            }
+              )}
+            </div>
+          </div>
 
-            const isActive = pathname === item.href;
-            const isAdminChats = item.href === ADMIN_ROUTES.ADMIN_CHATS;
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer relative ${
-                  isActive
-                    ? 'bg-gradient-to-r from-cosmic-purple to-nebula-pink text-white glow'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-                }`}
-                title={item.name}
-              >
-                {item.icon}
-                {sidebarOpen && (
-                  <div className="flex items-center justify-between w-full">
-                    <span className="font-medium truncate min-w-0">{item.name}</span>
-                    {isAdminChats && unreadCount > 0 && (
-                      <span className="ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
-                        {unreadCount}
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-2 relative z-20">
+            {navigation.map((item) => {
+              if (item.kind === 'group') {
+                const childActive = item.children.some((c) => pathname === c.href);
+                // Always keep the accordion open when one of its child routes is active.
+                const isOpen = childActive || openGroup === item.key;
+                return (
+                  <div key={item.name} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => setOpenGroup((prev) => (prev === item.key ? null : item.key))}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                        childActive
+                          ? 'bg-gradient-to-r from-cosmic-purple/40 to-nebula-pink/20 text-white'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                      }`}
+                    >
+                      <span className="relative">
+                        {item.icon}
+                        {item.key === 'chat-management' && unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
                       </span>
+                      {sidebarOpen && (
+                        <>
+                          <span
+                            className="font-medium flex-1 min-w-0 text-left truncate"
+                            title={item.name}
+                          >
+                            {item.name}
+                          </span>
+                          <svg
+                            className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+
+                    {sidebarOpen && isOpen && (
+                      <div className="ml-6 pl-3 border-l border-slate-700 space-y-1">
+                        {item.children.map((c) => {
+                          const active = pathname === c.href;
+                          const isAdminChats = c.href === ADMIN_ROUTES.ADMIN_CHATS;
+                          return (
+                            <Link
+                              key={c.href}
+                              href={c.href}
+                              className={`block px-3 py-2 rounded-md text-sm transition-colors ${
+                                active
+                                  ? 'text-white bg-slate-800/60'
+                                  : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                              }`}
+                              title={c.name}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="truncate min-w-0">{c.name}</span>
+                                {isAdminChats && unreadCount > 0 && (
+                                  <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                                    {unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+                );
+              }
 
-        {/* Toggle Sidebar */}
-        <Button
-          variant="ghost"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-4 border-t border-slate-700 text-slate-400 hover:text-white"
-        >
-          <svg
-            className={`w-6 h-6 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+              const isActive = pathname === item.href;
+              const isAdminChats = item.href === ADMIN_ROUTES.ADMIN_CHATS;
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer relative ${
+                    isActive
+                      ? 'bg-gradient-to-r from-cosmic-purple to-nebula-pink text-white glow'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+                  }`}
+                  title={item.name}
+                >
+                  {item.icon}
+                  {sidebarOpen && (
+                    <div className="flex items-center justify-between w-full">
+                      <span className="font-medium truncate min-w-0">{item.name}</span>
+                      {isAdminChats && unreadCount > 0 && (
+                        <span className="ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Toggle Sidebar */}
+          <Button
+            variant="ghost"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-4 border-t border-slate-700 text-slate-400 hover:text-white"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-            />
-          </svg>
-        </Button>
+            <svg
+              className={`w-6 h-6 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+              />
+            </svg>
+          </Button>
+        </div>
       </aside>
 
       {/* Main Content */}
