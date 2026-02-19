@@ -11,9 +11,11 @@ import { MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth-store';
 import { ROUTES } from '@/constants';
+import { useTranslations } from '@/hooks/useTranslations';
 
 export function SimpleRequestChatButton() {
   const router = useRouter();
+  const { t } = useTranslations();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const handleClick = () => {
@@ -38,7 +40,7 @@ export function SimpleRequestChatButton() {
       <MessageSquare className="h-5 w-5 relative z-10 animate-pulse group-hover:animate-none group-hover:scale-110 transition-transform duration-300" />
       <span className="relative z-10 inline-block overflow-hidden">
         <span className="relative inline-block text-white">
-          Start Live Chat with Jyotish
+          {t('startLiveChat')}
           {/* Shimmer overlay effect */}
           <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer pointer-events-none" />
         </span>

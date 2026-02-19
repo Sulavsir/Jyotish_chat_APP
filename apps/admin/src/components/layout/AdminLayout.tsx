@@ -1,8 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+
+import chatJyotishiLogo from '@jyotish/ui/assets/chatjyotishilogo2.png';
 import { useAdminStore } from '@/store/admin-store';
 import { adminApi } from '@/lib/admin-api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -405,9 +408,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Logo */}
           <div className="p-6 border-b border-purple-400">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center glow">
-                <StarIcon className="w-6 h-6 text-white" />
-              </div>
+              <Image
+                src={chatJyotishiLogo}
+                alt="Chat Jyotishi"
+                width={120}
+                height={40}
+                className="h-10 w-auto object-contain"
+              />
               {sidebarOpen && (
                 <div>
                   <h2 className="font-bold text-white">Jyotish</h2>

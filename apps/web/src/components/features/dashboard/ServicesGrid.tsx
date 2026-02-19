@@ -19,6 +19,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ROUTES } from '@/constants';
+import { useTranslations } from '@/hooks/useTranslations';
+
 interface Service {
   id: string;
   name: string;
@@ -43,11 +45,12 @@ export function ServicesGrid({
   onOpenKundaliMatchModal,
 }: ServicesGridProps) {
   const router = useRouter();
+  const { t } = useTranslations();
 
   const services: Service[] = [
     {
       id: 'chat',
-      name: 'Chat with Jyotish',
+      name: t('chatWithJyotish'),
       icon: <MessageCircle className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.ASTROLOGERS),
     },
@@ -55,7 +58,7 @@ export function ServicesGrid({
       ? [
           {
             id: 'kundali-review',
-            name: 'Full Kundali Review',
+            name: t('fullKundaliReview'),
             icon: <Sparkles className="h-6 w-6" />,
             onClick: onOpenKundaliReviewModal,
           },
@@ -63,7 +66,7 @@ export function ServicesGrid({
       : []),
     {
       id: 'horoscope',
-      name: 'Daily Horoscope',
+      name: t('dailyHoroscope'),
       icon: <Sun className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.HOROSCOPE),
     },
@@ -71,7 +74,7 @@ export function ServicesGrid({
       ? [
           {
             id: 'kundali-match',
-            name: 'Kundali Match',
+            name: t('kundaliMatch'),
             icon: <GitCompareArrows className="h-6 w-6" />,
             onClick: onOpenKundaliMatchModal,
           },
@@ -79,7 +82,7 @@ export function ServicesGrid({
       : [
           {
             id: 'kundali-match',
-            name: 'Kundali Match',
+            name: t('kundaliMatch'),
             icon: <GitCompareArrows className="h-6 w-6" />,
             onClick: () => {},
             disabled: true,
@@ -87,25 +90,25 @@ export function ServicesGrid({
         ]),
     {
       id: 'pandit',
-      name: 'Book Pandit Ji',
+      name: t('bookPanditJi'),
       icon: <ScrollText className="h-6 w-6" />,
       onClick: onOpenPanditModal,
     },
     {
       id: 'vaastu',
-      name: 'Book Vaastu Sastri',
+      name: t('bookVaastuSastri'),
       icon: <BookOpen className="h-6 w-6" />,
       onClick: onOpenVaastuModal,
     },
     {
       id: 'katha',
-      name: 'Katha Vachak',
+      name: t('kathaVachak'),
       icon: <HeartHandshake className="h-6 w-6" />,
       onClick: onOpenKathaModal,
     },
     {
       id: 'instant',
-      name: 'Travel Predictions',
+      name: t('travelPredictions'),
       icon: <Plane className="h-6 w-6" />,
       onClick: () => router.push(ROUTES.CHAT),
       disabled: true,

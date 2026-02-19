@@ -9,3 +9,4 @@ export * from './useSocket';
 export * from './useChat';
 export * from './useRedirectIfAuthenticated';
 export * from './useCoinRates';
+export * from './useTranslations';

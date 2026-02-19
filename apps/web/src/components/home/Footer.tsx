@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ROUTES } from '@/constants';
 import { TwinklingStars } from '@/components/ui/TwinklingStars';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 export function Footer() {
   return (
@@ -9,9 +10,7 @@ export function Footer() {
       <div className="container mx-auto px-4 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
-            <h3 className="text-white font-bold text-2xl mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
-              Chat Jyotishi
-            </h3>
+            <AppLogo href={ROUTES.HOME} height={48} className="mb-4" />
             <p className="text-sm leading-relaxed">
               Your trusted partner in navigating life&apos;s journey through ancient astrological
               wisdom.

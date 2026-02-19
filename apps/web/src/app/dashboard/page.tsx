@@ -23,6 +23,7 @@ import { AskQuestionsSection } from '@/components/features/dashboard/AskQuestion
 import { ServicesGrid } from '@/components/features/dashboard/ServicesGrid';
 import { DashboardWelcomeSection } from '@/components/features/dashboard/DashboardWelcomeSection';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
+import { useTranslations } from '@/hooks/useTranslations';
 import Image from 'next/image';
 import horoscopeImage from '@/assets/images/cj2.png';
 import { TwinklingStars } from '@/components/ui/TwinklingStars';
@@ -45,6 +46,7 @@ import dashboardRotatingCopyService from '@/services/dashboardRotatingCopy.servi
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { t } = useTranslations();
   const { user, isCheckingAccess } = useRequireAuth({
     requiredRole: USER_ROLES.CLIENT,
   });
@@ -150,7 +152,7 @@ export default function DashboardPage() {
 
   // Show loading state while checking access - prevents any flash of content
   if (isCheckingAccess) {
-    return <LoadingScreenWithBackground message="Verifying access..." />;
+    return <LoadingScreenWithBackground message={t('verifyingAccess')} />;
   }
 
   return (
@@ -503,10 +505,9 @@ export default function DashboardPage() {
         {/* Profile incomplete alert – only when profile is not complete */}
         {!isProfileComplete && user && showWelcomeAlert && (
           <Alert variant="info" dismissible onDismiss={() => setShowWelcomeAlert(false)}>
-            <AlertTitle>Complete your profile</AlertTitle>
+            <AlertTitle>{t('completeYourProfile')}</AlertTitle>
             <AlertDescription>
-              To access features like horoscope, chat with astrologers, and bookings, you need to
-              complete your profile with birth details.{' '}
+              {t('completeProfileDesc')}{' '}
               <Button
                 onClick={() => router.push(ROUTES.PROFILE)}
                 variant="link"
@@ -514,7 +515,7 @@ export default function DashboardPage() {
                 size="sm"
                 className="text-white"
               >
-                Complete your profile
+                {t('goToProfile')}
               </Button>
             </AlertDescription>
           </Alert>
@@ -593,7 +594,7 @@ export default function DashboardPage() {
                 <div className="max-w-2xl">
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-200">
                     <Sparkles className="h-4 w-4 text-purple-300" />
-                    <span>Your spiritual companion</span>
+                    <span>{t('yourSpiritualCompanion')}</span>
                   </div>
 
                   <h2 className="mt-3 text-2xl md:text-3xl font-bold text-yellow-400 leading-tight min-h-[56px]">
@@ -623,15 +624,15 @@ export default function DashboardPage() {
 
                   <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-                      <p className="text-sm font-semibold text-yellow-300">Instant Guidance</p>
+                      <p className="text-sm font-semibold text-yellow-300">{t('instantGuidance')}</p>
                       <p className="text-sm text-gray-400 mt-1">
-                        Verified Jyotish सँग real-time chat गरेर तुरुन्त उत्तर पाउनुहोस्।
+                        {t('instantGuidanceDesc')}
                       </p>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-                      <p className="text-sm font-semibold text-yellow-300">Personalized Insights</p>
+                      <p className="text-sm font-semibold text-yellow-300">{t('personalizedInsights')}</p>
                       <p className="text-sm text-gray-400 mt-1">
-                        जन्म विवरण अनुसार kundali review, match, र future predictions।
+                        {t('personalizedInsightsDesc')}
                       </p>
                     </div>
                   </div>
@@ -640,12 +641,12 @@ export default function DashboardPage() {
                 {!isProfileComplete && (
                   <div className="hidden lg:flex flex-col gap-3 min-w-[240px]">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs text-gray-400">Quick tip</p>
+                      <p className="text-xs text-gray-400">{t('quickTip')}</p>
                       <p className="text-sm text-white font-semibold mt-1">
-                        Profile पूरा गर्नुहोस्
+                        {t('completeProfileTip')}
                       </p>
                       <p className="text-sm text-gray-400 mt-1">
-                        Accurate insights को लागि जन्म विवरण र प्रोफाइल पूरा गर्नुहोस्।
+                        {t('completeProfileTipDesc')}
                       </p>
                       <Button
                         onClick={() => router.push(ROUTES.PROFILE)}
@@ -653,7 +654,7 @@ export default function DashboardPage() {
                         size="sm"
                         className="mt-3 w-full border-white/10 text-white hover:bg-white/10"
                       >
-                        Go to Profile
+                        {t('goToProfile')}
                       </Button>
                     </div>
                   </div>
@@ -673,9 +674,9 @@ export default function DashboardPage() {
             <div className="pointer-events-none absolute -bottom-24 -left-20 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl motion-safe:animate-pulse" />
             <div className="flex items-end justify-between gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white">Services</h2>
+                <h2 className="text-2xl font-bold text-white">{t('services')}</h2>
                 <p className="text-gray-400 text-sm mb-2">
-                  Choose what you want to do next. Chat is highlighted for quick help.
+                  {t('servicesDesc')}
                 </p>
               </div>
             </div>
@@ -701,19 +702,19 @@ export default function DashboardPage() {
           isOpen={isPanditModalOpen}
           onClose={() => setIsPanditModalOpen(false)}
           type={JyotishBookingType.PANDIT}
-          title="Book Pandit Ji"
+          title={t('bookPanditJiTitle')}
         />
         <BookJyotishServiceModal
           isOpen={isVaastuModalOpen}
           onClose={() => setIsVaastuModalOpen(false)}
           type={JyotishBookingType.VAASTU}
-          title="Book Vaastu Sastri"
+          title={t('bookVaastuSastriTitle')}
         />
         <BookJyotishServiceModal
           isOpen={isKathaModalOpen}
           onClose={() => setIsKathaModalOpen(false)}
           type={JyotishBookingType.KATHA_VACHAK}
-          title="Book Katha Vachak"
+          title={t('bookKathaVachakTitle')}
         />
         <KundaliMatchModal
           isOpen={isKundaliMatchModalOpen}

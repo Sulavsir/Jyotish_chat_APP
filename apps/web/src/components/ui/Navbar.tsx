@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { ROUTES } from '@/constants';
+import { AppLogo } from './AppLogo';
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -42,14 +43,7 @@ export function Navbar() {
       <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-12 xl:px-16">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href={ROUTES.HOME} className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/50 group-hover:shadow-purple-500/80 transition-all">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Jyotish
-            </span>
-          </Link>
+          <AppLogo href={ROUTES.HOME} height={44} className="group" />
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">

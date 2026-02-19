@@ -17,12 +17,14 @@ import { USER_ROLES } from '@/constants/role.constants';
 import { ASTROLOGER_CATEGORY } from '@/constants/appointment.constants';
 import { SimpleRequestChatButton } from './SimpleRequestChatButton';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
+import { useTranslations } from '@/hooks/useTranslations';
 
 interface OnlineAstrologersCardProps {
   onOpenKundaliReview?: () => void;
 }
 
 export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologersCardProps) {
+  const { t } = useTranslations();
   const onlineUsers = useStore((state) => state.onlineUsers);
   const showExtraInfoCards = useAskQuestionsLayoutStore((state) => state.showExtraInfoCards);
 
@@ -65,7 +67,7 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
                 {isLoading ? (
                   <Skeleton className="h-5 w-40 bg-white/20" />
                 ) : (
-                  `${onlineCount} Astrologers Online Now`
+                  t('astrologersOnlineNow', { count: onlineCount })
                 )}
               </span>
             </div>
@@ -97,10 +99,10 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
                 </div>
                 <div className="min-w-0 ">
                   <p className="text-sm font-semibold text-white mb-0.5 sm:mb-1">
-                    Full Kundali Review
+                    {t('fullKundaliReview')}
                   </p>
                   <p className="text-xs text-gray-200 ">
-                    Book a detailed kundali analysis with expert Jyotish.
+                    {t('fullKundaliReviewDesc')}
                   </p>
                 </div>
               </div>
@@ -110,7 +112,7 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
                 color="neutral"
                 className="w-full lg:w-auto xl:self-end shrink-0 !border-white/30 !bg-white/5 hover:!bg-white/10 hover:!border-white/50 active:!border-purple-400 active:!bg-white/20 active:ring-2 active:ring-purple-400/50 active:scale-[0.98] focus-visible:!ring-2 focus-visible:!ring-purple-400/60 focus-visible:!ring-offset-2 focus-visible:!ring-offset-slate-900 transition-all"
               >
-                Full Kundali Review
+                {t('fullKundaliReview')}
               </Button>
             </div>
           </div>
@@ -127,10 +129,9 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
                   <MessageSquare className="h-4 w-4 text-yellow-100" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white mb-1">Instant Connection</p>
+                  <p className="text-sm font-semibold text-white mb-1">{t('instantConnection')}</p>
                   <p className="text-xs text-gray-200">
-                    Get instant answers from verified Jyotish who are currently online and ready to
-                    chat.
+                    {t('instantConnectionDesc')}
                   </p>
                 </div>
               </div>
@@ -143,10 +144,9 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
                   <Circle className="h-4 w-4 text-yellow-100 fill-yellow-300" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white mb-1">Verified Jyotish</p>
+                  <p className="text-sm font-semibold text-white mb-1">{t('verifiedJyotish')}</p>
                   <p className="text-xs text-gray-200">
-                    Only approved Jyotish with completed profiles and ratings appear here for
-                    instant chat.
+                    {t('verifiedJyotishDesc')}
                   </p>
                 </div>
               </div>
@@ -172,7 +172,7 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
         <div className="flex flex-col gap-3 mt-5">
           <div className="flex items-center gap-2">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            <span className="text-xs text-gray-400 font-medium">Available Now</span>
+            <span className="text-xs text-gray-400 font-medium">{t('availableNow')}</span>
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </div>
           <div className="flex items-center justify-center gap-4">
@@ -201,8 +201,8 @@ export function OnlineAstrologersCard({ onOpenKundaliReview }: OnlineAstrologers
       ) : (
         <div className="flex flex-col items-center justify-center gap-3 py-8 rounded-xl border border-white/10 bg-gradient-to-br from-yellow-500/5 via-orange-500/5 to-transparent">
           <Circle className="h-8 w-8 text-gray-500" />
-          <p className="text-sm text-gray-400 text-center">No astrologers online at the moment</p>
-          <p className="text-xs text-gray-500 text-center">Check back soon!</p>
+          <p className="text-sm text-gray-400 text-center">{t('noAstrologersOnline')}</p>
+          <p className="text-xs text-gray-500 text-center">{t('checkBackSoon')}</p>
         </div>
       )}
     </div>

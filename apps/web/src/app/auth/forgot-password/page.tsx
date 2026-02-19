@@ -16,7 +16,7 @@ import {
 } from '@jyotish/ui';
 import { toast } from 'sonner';
 import spaceImage from '@/assets/images/space.jpg';
-import { Navbar } from '@/components/ui';
+import { Navbar, AppLogo } from '@/components/ui';
 
 export default function ForgotPasswordPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -72,9 +72,7 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="text-center mb-8">
-            <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 drop-shadow-[0_0_30px_rgba(220,20,60,0.6)] mb-2">
-              Chat Jyotishi
-            </h1>
+            <AppLogo href={ROUTES.HOME} height={56} className="inline-block mb-2" />
             <p className="text-gray-300 text-sm">Reset your password</p>
           </div>
 

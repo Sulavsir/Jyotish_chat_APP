@@ -33,6 +33,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
+import { useTranslations } from '@/hooks/useTranslations';
 import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
@@ -45,6 +46,7 @@ const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
 
 export function AskQuestionsSection() {
+  const { t } = useTranslations();
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { socket, isConnected } = useSocket();
@@ -206,7 +208,7 @@ export function AskQuestionsSection() {
     if (!selectedAstrologerId || !user) return;
     const messageToSend = directMessage.trim() || directQuestion.trim();
     if (!messageToSend) {
-      setDirectMessageError('Message cannot be empty');
+      setDirectMessageError(t('messageCannotBeEmpty'));
       return;
     }
     setDirectMessageError('');
@@ -219,7 +221,7 @@ export function AskQuestionsSection() {
 
     const messageToSend = directMessage.trim() || directQuestion.trim();
     if (!messageToSend) {
-      setDirectMessageError('Message cannot be empty');
+      setDirectMessageError(t('messageCannotBeEmpty'));
       return;
     }
     setDirectMessageError('');
@@ -262,7 +264,7 @@ export function AskQuestionsSection() {
     }
     const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
     if (!messageToSend) {
-      setBroadcastMessageError('Message cannot be empty');
+      setBroadcastMessageError(t('messageCannotBeEmpty'));
       return;
     }
     setBroadcastMessageError('');
@@ -287,7 +289,7 @@ export function AskQuestionsSection() {
 
     const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
     if (!messageToSend) {
-      setBroadcastMessageError('Message cannot be empty');
+      setBroadcastMessageError(t('messageCannotBeEmpty'));
       return;
     }
     setBroadcastMessageError('');
@@ -341,8 +343,8 @@ export function AskQuestionsSection() {
           isOpen={isWaitingForAcceptance && !!pendingMessage}
           onCancel={handleCancelRequest}
           timeRemaining={timeRemaining}
-          title="Searching for Available Jyotish"
-          subtitle="Your message has been broadcasted. Waiting for an astrologer to accept..."
+          title={t('searchingForJyotish')}
+          subtitle={t('messageBroadcastedWaiting')}
         />
       </>
     );
@@ -353,9 +355,9 @@ export function AskQuestionsSection() {
       <div className="flex flex-col gap-4 h-full transition-all duration-300">
         {/* Header */}
         <div className="animate-in fade-in slide-in-from-right-4 delay-100">
-          <h3 className="text-xl font-bold text-white mb-2">तपाईंको प्रश्न राख्नुहोस्।</h3>
+          <h3 className="text-xl font-bold text-white mb-2">{t('askYourQuestion')}</h3>
           <p className="text-sm text-gray-400">
-            Choose how you want to reach Jyotish: one-on-one or broadcast to everyone.
+            {t('chooseHowToContact')}
           </p>
         </div>
 
@@ -372,7 +374,7 @@ export function AskQuestionsSection() {
               }`}
             >
               <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.35)]" />
-              Chat with specific Jyotish
+              {t('chatWithSpecificJyotish')}
             </button>
             <button
               type="button"
@@ -384,9 +386,9 @@ export function AskQuestionsSection() {
               }`}
             >
               <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-orange-500/20 border border-orange-400/60 text-[10px] text-orange-200">
-                All
+                {t('all')}
               </span>
-              Publish to all Jyotish
+              {t('publishToAllJyotish')}
             </button>
           </div>
         </div>
@@ -412,7 +414,7 @@ export function AskQuestionsSection() {
               <div className="flex flex-col items-center justify-center py-6 px-4 rounded-xl border border-white/10 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-transparent animate-in fade-in delay-200">
                 <MessageSquare className="h-10 w-10 text-purple-400/60 mb-2 animate-pulse" />
                 <p className="text-sm text-gray-300 text-center">
-                  Select a Jyotish from the dropdown above to start a private chat.
+                  {t('selectJyotishToStart')}
                 </p>
               </div>
             )}
@@ -423,7 +425,7 @@ export function AskQuestionsSection() {
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
                   {/* Category Selection */}
                   <div className="w-full">
-                    <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
+                    <label className="text-sm text-gray-300 mb-2 block">{t('selectCategory')}</label>
                     <Select
                       value={directCategory}
                       onValueChange={(value) =>
@@ -433,11 +435,11 @@ export function AskQuestionsSection() {
                       }
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a category" />
+                        <SelectValue placeholder={t('selectCategoryPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CLEAR">
-                          <span className="text-gray-400">Clear selection</span>
+                          <span className="text-gray-400">{t('clearSelection')}</span>
                         </SelectItem>
                         {questionCategories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
@@ -454,7 +456,7 @@ export function AskQuestionsSection() {
                   {/* Question Selection (if category selected) */}
                   {directCategoryData && (
                     <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
-                      <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
+                      <label className="text-sm text-gray-300 mb-2 block">{t('selectQuestion')}</label>
                       <Select
                         value={directQuestion}
                         onValueChange={(value) => {
@@ -467,11 +469,11 @@ export function AskQuestionsSection() {
                         }}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a question or type your own" />
+                          <SelectValue placeholder={t('selectQuestionPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent className="max-h-[200px] [&_[data-radix-select-scroll-up-button]]:hidden [&_[data-radix-select-scroll-down-button]]:hidden">
                           <SelectItem value="CLEAR_QUESTION">
-                            <span className="text-gray-400">Clear question</span>
+                            <span className="text-gray-400">{t('clearQuestion')}</span>
                           </SelectItem>
                           {directCategoryData.questions.map((question) => (
                             <SelectItem key={question.id} value={question.text}>
@@ -487,8 +489,8 @@ export function AskQuestionsSection() {
                   <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
                     <label className="text-sm text-gray-300 mb-2 block">
                       {directQuestion
-                        ? 'Edit question before sending to this Jyotish'
-                        : 'Type your question for this Jyotish'}
+                        ? t('editQuestionBeforeSending')
+                        : t('typeQuestionForJyotish')}
                     </label>
                     <textarea
                       value={directMessage}
@@ -497,7 +499,7 @@ export function AskQuestionsSection() {
                         handleDirectMessageChange(e.target.value);
                       }}
                       placeholder={
-                        directQuestion ? directQuestion : 'Type your question for this Jyotish...'
+                        directQuestion ? directQuestion : t('typeQuestionHere')
                       }
                       className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
                     />
@@ -511,8 +513,10 @@ export function AskQuestionsSection() {
                 {showInsufficientCoinsBanner && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2">
                     <p className="text-sm text-amber-100">
-                      You need at least {requiredCoinsDirect} coins (deducted when Jyotish
-                      accepts). Your balance: {coinBalance}. Please top up to book.
+                      {t('youNeedCoins', {
+                        count: requiredCoinsDirect,
+                        balance: coinBalance,
+                      })}
                     </p>
                     <Button
                       onClick={() => {
@@ -521,7 +525,7 @@ export function AskQuestionsSection() {
                       }}
                       className="bg-amber-600 hover:bg-amber-700 text-white"
                     >
-                      Top up
+                      {t('topUp')}
                     </Button>
                   </div>
                 )}
@@ -534,7 +538,7 @@ export function AskQuestionsSection() {
                     className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
                   >
                     <MessageSquare className="h-4 w-4" />
-                    Start Chat
+                    {t('startChat')}
                   </Button>
                 </div>
               </>
@@ -550,12 +554,11 @@ export function AskQuestionsSection() {
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-2.5 w-2.5 rounded-full bg-orange-400 animate-pulse" />
                 <p className="text-sm font-medium text-orange-100">
-                  Your question will be published to all available Jyotish.
+                  {t('yourQuestionPublishedToAll')}
                 </p>
               </div>
               <p className="text-xs text-orange-200/80">
-                The first astrologer to accept will start a private chat with you. Make your
-                question clear so the right Jyotish can respond.
+                {t('firstToAcceptStartsChat')}
               </p>
             </div>
 
@@ -563,7 +566,7 @@ export function AskQuestionsSection() {
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
               {/* Category Selection */}
               <div className="w-full">
-                <label className="text-sm text-gray-300 mb-2 block">Select Category</label>
+                <label className="text-sm text-gray-300 mb-2 block">{t('selectCategory')}</label>
                 <Select
                   value={broadcastCategory}
                   onValueChange={(value) =>
@@ -573,11 +576,11 @@ export function AskQuestionsSection() {
                   }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder={t('selectCategoryPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CLEAR">
-                      <span className="text-gray-400">Clear selection</span>
+                      <span className="text-gray-400">{t('clearSelection')}</span>
                     </SelectItem>
                     {questionCategories.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
@@ -594,7 +597,7 @@ export function AskQuestionsSection() {
               {/* Question Selection (if category selected) */}
               {broadcastCategoryData && (
                 <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
-                  <label className="text-sm text-gray-300 mb-2 block">Select Question</label>
+                  <label className="text-sm text-gray-300 mb-2 block">{t('selectQuestion')}</label>
                   <Select
                     value={broadcastQuestion}
                     onValueChange={(value) => {
@@ -607,11 +610,11 @@ export function AskQuestionsSection() {
                     }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a question or type your own" />
+                      <SelectValue placeholder={t('selectQuestionPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent className="max-h-[200px] [&_[data-radix-select-scroll-up-button]]:hidden [&_[data-radix-select-scroll-down-button]]:hidden">
                       <SelectItem value="CLEAR_QUESTION">
-                        <span className="text-gray-400">Clear question</span>
+                        <span className="text-gray-400">{t('clearQuestion')}</span>
                       </SelectItem>
                       {broadcastCategoryData.questions.map((question) => (
                         <SelectItem key={question.id} value={question.text}>
@@ -627,8 +630,8 @@ export function AskQuestionsSection() {
               <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
                 <label className="text-sm text-gray-300 mb-2 block">
                   {broadcastQuestion
-                    ? 'Or edit question before publishing to all Jyotish'
-                    : 'Or type your question to publish to all Jyotish'}
+                    ? t('orEditBeforePublish')
+                    : t('orTypeToAll')}
                 </label>
                 <textarea
                   value={broadcastMessage}
@@ -639,7 +642,7 @@ export function AskQuestionsSection() {
                   placeholder={
                     broadcastQuestion
                       ? broadcastQuestion
-                      : 'Type your question to publish to all Jyotish...'
+                      : t('typeQuestionToPublishPlaceholder')
                   }
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
                 />
@@ -655,11 +658,11 @@ export function AskQuestionsSection() {
                 onClick={handleOpenBroadcastProfileModal}
                 disabled={!finalBroadcastMessage}
                 loading={isSending}
-                loadingText="Sending..."
+                loadingText={t('sending')}
                 className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
               >
                 <MessageSquare className="h-4 w-4" />
-                Publish Message to All Jyotish
+                {t('sendMessageToAll')}
               </LoadingButton>
             </div>
           </>
@@ -697,8 +700,8 @@ export function AskQuestionsSection() {
         isOpen={showDirectProfileModal}
         onClose={() => setShowDirectProfileModal(false)}
         onConfirm={handleDirectProfileConfirm}
-        title="Select profile"
-        confirmLabel="Start Chat"
+        title={t('selectProfile')}
+        confirmLabel={t('startChat')}
       />
 
       {/* Select Profile modal - opens when user clicks Publish to All Jyotish (broadcast) */}
@@ -706,8 +709,8 @@ export function AskQuestionsSection() {
         isOpen={showBroadcastProfileModal}
         onClose={() => setShowBroadcastProfileModal(false)}
         onConfirm={handleBroadcastProfileConfirm}
-        title="Select profile"
-        confirmLabel="Publish"
+        title={t('selectProfile')}
+        confirmLabel={t('publish')}
         isLoading={isSending}
       />
     </>

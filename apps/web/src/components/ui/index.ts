@@ -22,5 +22,6 @@ export * from './Tooltip';
 export * from './DropdownMenu';
 export * from './EmojiPicker';
 export * from './Navbar';
+export * from './AppLogo';
 export * from './AnimatedCursorButton';
 export * from './JyotishMatchingModal';

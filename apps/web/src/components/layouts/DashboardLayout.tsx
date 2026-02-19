@@ -24,6 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { AppSidebar } from '@jyotish/ui';
+import { AppLogo } from '@/components/ui/AppLogo';
 import { useAuth, useRequireAuth } from '@/hooks';
 import { ROUTES } from '@/constants';
 import { cn } from '@/lib/utils';
@@ -179,15 +180,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   >
                     {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
                   </button>
-                  <div className="w-40 lg:w-56 flex-shrink-0 flex items-center pl-2 lg:pl-6">
-                    <Link
+                  <div className="flex-shrink-0 flex items-center gap-2 pl-2 lg:pl-6 min-w-0">
+                    <AppLogo
                       href={ROUTES.DASHBOARD}
-                      className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity"
-                    >
-                      <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
-                        Chat Jyotishi
+                      height={32}
+                      blendWithDarkBackground
+                      className="flex-shrink-0"
+                    />
+                    <span className="hidden sm:inline whitespace-nowrap">
+                      <span className="text-lg font-semibold text-purple-400">Client</span>
+                      <span className="text-xs font-medium text-slate-400 uppercase tracking-wider ml-1">
+                        Portal
                       </span>
-                    </Link>
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0" />
                   <div className="flex items-center justify-end gap-2 pr-2 lg:pr-6 flex-shrink-0">
@@ -216,8 +221,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   className="fixed top-0 left-0 bottom-0 z-[100001] w-72 max-w-[85vw] bg-[#0f0e14]/95 border-r border-white/10 shadow-xl lg:hidden flex flex-col pointer-events-auto"
                   aria-label="Mobile menu"
                 >
-                  <div className="p-4 border-b border-white/10 flex items-center justify-between">
-                    <span className="font-semibold text-white">Menu</span>
+                  <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AppLogo
+                        href={ROUTES.DASHBOARD}
+                        height={32}
+                        blendWithDarkBackground
+                        className="flex-shrink-0"
+                      />
+                      <span className="whitespace-nowrap">
+                        <span className="text-sm font-semibold text-purple-400">Client</span>
+                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider ml-1">
+                          Portal
+                        </span>
+                      </span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setMobileMenuOpen(false)}

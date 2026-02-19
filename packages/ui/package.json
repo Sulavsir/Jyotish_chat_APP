@@ -4,6 +4,10 @@
   "private": true,
   "main": "./src/index.tsx",
   "types": "./src/index.tsx",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./assets/*": "./assets/*"
+  },
   "scripts": {
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "type-check": "tsc --noEmit"
