@@ -19,6 +19,8 @@ interface ConfirmDialogProps {
   cancelText?: string;
   isDestructive?: boolean;
   isLoading?: boolean;
+  /** e.g. "z-[100010]" to show above other modals */
+  overlayClassName?: string;
 }
 
 export function ConfirmDialog({
@@ -31,9 +33,10 @@ export function ConfirmDialog({
   cancelText = 'Cancel',
   isDestructive = false,
   isLoading = false,
+  overlayClassName,
 }: ConfirmDialogProps) {
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} showCloseButton={false}>
+    <Dialog isOpen={isOpen} onClose={onClose} showCloseButton={false} overlayClassName={overlayClassName}>
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>

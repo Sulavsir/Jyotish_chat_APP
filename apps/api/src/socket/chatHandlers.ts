@@ -8,7 +8,6 @@ import {
   AppointmentStatus,
 } from '@prisma/client';
 import { MessageType, UserRole, AstrologerCategory } from '@jyotish/shared';
-import { onlineUsers } from './index';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import { ERROR_CODES } from '@/constants/http.constants';
 
@@ -551,14 +550,11 @@ export function chatHandlers(io: Server, socket: Socket) {
             }
           : null;
 
-        // Send to receiver if online
-        const receiverSocketId = onlineUsers.get(receiverId);
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit('chat:receive', {
-            ...messageWithSender,
-            turnState: turnStateInfo,
-          });
-        }
+        // Send to receiver by room (works across API instances when using Redis adapter)
+        io.to(`user:${receiverId}`).emit('chat:receive', {
+          ...messageWithSender,
+          turnState: turnStateInfo,
+        });
 
         // Send confirmation to sender
         socket.emit('chat:sent', {
@@ -639,10 +635,8 @@ export function chatHandlers(io: Server, socket: Socket) {
           });
         }
 
-        // Send real-time notification if receiver is online
-        if (receiverSocketId) {
-          io.to(receiverSocketId).emit('notification:new', notification);
-        }
+        // Send real-time notification to receiver by room (works across instances)
+        io.to(`user:${receiverId}`).emit('notification:new', notification);
       } catch (error) {
         console.error('Error sending message:', error);
         socket.emit('chat:error', { message: 'Failed to send message' });
@@ -650,15 +644,12 @@ export function chatHandlers(io: Server, socket: Socket) {
     }
   );
 
-  // Typing indicator
+  // Typing indicator (room-based for multi-instance)
   socket.on('chat:typing', (data: { receiverId: string; isTyping: boolean }) => {
-    const receiverSocketId = onlineUsers.get(data.receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('chat:typing-indicator', {
-        senderId: user.id,
-        isTyping: data.isTyping,
-      });
-    }
+    io.to(`user:${data.receiverId}`).emit('chat:typing-indicator', {
+      senderId: user.id,
+      isTyping: data.isTyping,
+    });
   });
 
   // Mark messages as read

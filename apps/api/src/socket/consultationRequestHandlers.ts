@@ -60,10 +60,8 @@ export async function broadcastNewConsultationRequest(
     `📢 Broadcasting new consultation request ${request.id} to ${onlineAstrologers.size} online astrologers`
   );
 
-  // Broadcast to all online astrologers
-  onlineAstrologers.forEach((socketId, astrologerId) => {
-    io.to(socketId).emit('consultationRequest:new', request);
-  });
+  // Broadcast to all astrologers by room (works across API instances with Redis adapter)
+  io.to('astrologers').emit('consultationRequest:new', request);
 
   // Also create notifications for all astrologers (even offline ones)
   try {
@@ -110,36 +108,32 @@ export async function broadcastConsultationRequestAccepted(
 ) {
   console.log(`✅ Consultation request ${request.id} accepted by astrologer ${astrologerId}`);
 
-  // Remove from all astrologers except the one who accepted
-  onlineAstrologers.forEach((socketId, astrId) => {
+  // Remove from all astrologers except the one who accepted (room-based for multi-instance)
+  const astrologerIds = getOnlineAstrologerIds();
+  for (const astrId of astrologerIds) {
     if (astrId !== astrologerId) {
-      io.to(socketId).emit('consultationRequest:removed', { requestId: request.id });
+      io.to(`astrologer:${astrId}`).emit('consultationRequest:removed', { requestId: request.id });
     } else {
-      // Send confirmation to accepting astrologer
-      io.to(socketId).emit('consultationRequest:accepted', request);
+      io.to(`astrologer:${astrologerId}`).emit('consultationRequest:accepted', request);
     }
+  }
+
+  // Notify the client by room (works across instances)
+  io.to(`user:${request.clientId}`).emit('consultationRequest:accepted', {
+    requestId: request.id,
+    astrologer: request.acceptedAstrologer,
   });
 
-  // Notify the client
-  const clientSocketId = await getSocketIdByUserId(request.clientId);
-  if (clientSocketId) {
-    io.to(clientSocketId).emit('consultationRequest:accepted', {
+  await notificationService.createNotification({
+    userId: request.clientId,
+    title: 'Consultation Request Accepted',
+    message: `${request.acceptedAstrologer?.name || 'An astrologer'} has accepted your consultation request`,
+    type: 'CONSULTATION_BOOKING' as any,
+    metadata: {
       requestId: request.id,
-      astrologer: request.acceptedAstrologer,
-    });
-
-    // Also send notification
-    await notificationService.createNotification({
-      userId: request.clientId,
-      title: 'Consultation Request Accepted',
-      message: `${request.acceptedAstrologer?.name || 'An astrologer'} has accepted your consultation request`,
-      type: 'CONSULTATION_BOOKING' as any,
-      metadata: {
-        requestId: request.id,
-        astrologerId,
-      },
-    });
-  }
+      astrologerId,
+    },
+  });
 }
 
 /**
@@ -148,10 +142,8 @@ export async function broadcastConsultationRequestAccepted(
 export async function broadcastConsultationRequestCancelled(io: Server, requestId: string) {
   console.log(`❌ Consultation request ${requestId} cancelled`);
 
-  // Remove from all astrologers' lists
-  onlineAstrologers.forEach((socketId) => {
-    io.to(socketId).emit('consultationRequest:removed', { requestId });
-  });
+  // Remove from all astrologers by room (multi-instance safe)
+  io.to('astrologers').emit('consultationRequest:removed', { requestId });
 }
 
 /**
@@ -160,19 +152,7 @@ export async function broadcastConsultationRequestCancelled(io: Server, requestI
 export async function broadcastConsultationRequestExpired(io: Server, requestId: string) {
   console.log(`⏰ Consultation request ${requestId} expired`);
 
-  // Remove from all astrologers' lists
-  onlineAstrologers.forEach((socketId) => {
-    io.to(socketId).emit('consultationRequest:removed', { requestId });
-  });
-}
-
-/**
- * Helper function to get socket ID by user ID
- */
-async function getSocketIdByUserId(userId: string): Promise<string | null> {
-  // Import onlineUsers from the main socket index
-  const { onlineUsers } = await import('./index');
-  return onlineUsers.get(userId) || null;
+  io.to('astrologers').emit('consultationRequest:removed', { requestId });
 }
 
 /**

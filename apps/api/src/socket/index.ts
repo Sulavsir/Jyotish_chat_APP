@@ -120,9 +120,10 @@ export function setupSocketHandlers(io: Server) {
     // Join user-specific room for targeted messages
     socket.join(`user:${user.id}`);
 
-    // If astrologer, join astrologers room for broadcast messages
+    // If astrologer, join astrologers room and per-astrologer room (for Redis adapter / multi-instance)
     if (user.role === UserRole.ASTROLOGER) {
       socket.join('astrologers');
+      socket.join(`astrologer:${user.id}`);
       console.log(`Astrologer ${user.id} joined astrologers room`);
     }
 

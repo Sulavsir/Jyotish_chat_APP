@@ -18,7 +18,8 @@ import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat, deductCoinsForBroadcastMessage, refundCoins } from './coin.service';
-import { requiresCoinsForChat, getBroadcastChatCoinCost } from '../constants/coin.constants';
+import { requiresCoinsForChat } from '../constants/coin.constants';
+import { getRate } from './platformCoinRate.service';
 
 export interface CreateBroadcastMessageData {
   clientId: string;
@@ -304,7 +305,8 @@ export async function cancelBroadcastMessage(messageId: string, clientId: string
     );
   }
 
-  const refundAmount = getBroadcastChatCoinCost();
+  // Refund the same amount that was charged (BROADCAST_SEND rate)
+  const refundAmount = await getRate('BROADCAST_SEND');
   await refundCoins(clientId, refundAmount);
 
   const updatedMessage = await prisma.broadcastMessage.update({

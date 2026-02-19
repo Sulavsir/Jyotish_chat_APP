@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { ROUTE_BUILDERS } from '@/constants';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export function BroadcastMessageBar() {
   const { socket, isConnected } = useSocket();
@@ -28,6 +29,7 @@ export function BroadcastMessageBar() {
   const router = useRouter();
   const [pendingMessages, setPendingMessages] = useState<BroadcastMessage[]>([]);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [messageIdToDiscard, setMessageIdToDiscard] = useState<string | null>(null);
 
   // Load pending broadcast messages on mount
   useEffect(() => {
@@ -134,19 +136,22 @@ export function BroadcastMessageBar() {
 
   async function handleDismiss(messageId: string) {
     try {
-      // Optimistically remove from UI
       setPendingMessages((prev) => prev.filter((m) => m.id !== messageId));
+      setMessageIdToDiscard(null);
 
-      // Call API to persist the dismissal
       await broadcastMessageService.dismissMessage(messageId);
 
       toast.success('Request declined successfully');
     } catch (error: any) {
       console.error('Error dismissing broadcast message:', error);
       toast.error(error.message || 'Failed to dismiss request');
-
-      // Reload messages on error to restore state
       loadPendingMessages();
+    }
+  }
+
+  function handleConfirmDiscard() {
+    if (messageIdToDiscard) {
+      handleDismiss(messageIdToDiscard);
     }
   }
 
@@ -191,7 +196,8 @@ export function BroadcastMessageBar() {
               </div>
             </div>
             <button
-              onClick={() => handleDismiss(currentMessage.id)}
+              type="button"
+              onClick={() => setMessageIdToDiscard(currentMessage.id)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors group"
               disabled={accepting === currentMessage.id}
             >
@@ -257,13 +263,25 @@ export function BroadcastMessageBar() {
               Accept & Chat
             </LoadingButton>
             <button
-              onClick={() => handleDismiss(currentMessage.id)}
+              type="button"
+              onClick={() => setMessageIdToDiscard(currentMessage.id)}
               disabled={accepting === currentMessage.id}
               className="px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
             >
               Later
             </button>
           </div>
+
+          <ConfirmDialog
+            isOpen={messageIdToDiscard !== null}
+            onClose={() => setMessageIdToDiscard(null)}
+            onConfirm={handleConfirmDiscard}
+            title="Discard this request?"
+            description="Are you sure you want to discard this request? The client will need to send a new request to connect with an astrologer."
+            confirmText="Yes, discard"
+            cancelText="Cancel"
+            isDestructive
+          />
 
           {/* Connection Status */}
           {!isConnected && (

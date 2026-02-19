@@ -7,6 +7,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Minimize2, User, Search, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
 import { useAuthStore } from '@/store/auth-store';
@@ -239,25 +240,25 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
   const statusInfo = getStatusInfo();
   const StatusIcon = statusInfo.icon;
 
-  return (
+  const modalContent = (
     <>
       {/* Backdrop - click to minimize, only blur when not minimized */}
       {!isMinimized && (
         <div
-          className="fixed inset-0 z-[9998] bg-black/20 backdrop-blur-sm"
+          className="fixed inset-0 z-[100002] bg-black/20 backdrop-blur-sm"
           onClick={() => setIsMinimized(true)}
         />
       )}
 
-      {/* Modal - Centered like other modals */}
+      {/* Modal - Centered; timer bar at top of the modal card */}
       {!isMinimized ? (
         <div
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] transition-all duration-300 w-[600px] max-w-[90vw]"
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[100003] transition-all duration-300 w-[600px] max-w-[90vw]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden max-h-[85vh] flex flex-col">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+            {/* Timer bar at top of modal */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between shrink-0 rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="h-3 w-3 bg-green-400 rounded-full animate-ping absolute -top-1 -right-1" />
@@ -289,149 +290,149 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
                 )}
               </div>
             </div>
-
             {/* Content */}
             <div className="p-6 overflow-y-auto flex-1">
-              <p className="text-gray-600 text-sm mb-4 text-center">{subtitle}</p>
+                <p className="text-gray-600 text-sm mb-4 text-center">{subtitle}</p>
 
-              {/* Status Alert Cards */}
-              <div className="flex flex-col gap-2 mb-4">
-                <div
-                  className={`flex items-center gap-3 p-3 rounded-lg border ${statusInfo.bgColor} ${statusInfo.borderColor}`}
-                >
-                  <StatusIcon className={`h-4 w-4 ${statusInfo.color}`} />
-                  <span className={`text-sm font-medium ${statusInfo.color}`}>
-                    {statusInfo.message}
-                  </span>
-                </div>
-              </div>
-
-              {/* Animation Container */}
-              <div className="relative bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-8 mb-4 h-[320px] flex items-center justify-center">
-                <svg
-                  width="300"
-                  height="300"
-                  viewBox="0 0 300 300"
-                  className="absolute inset-0 w-full h-full"
-                >
-                  {/* Connection lines */}
-                  {jyotishNodes.map((node) => {
-                    const pos = getNodePosition(node, centerX, centerY);
-                    return (
-                      <line
-                        key={`line-${node.id}`}
-                        x1={centerX}
-                        y1={centerY}
-                        x2={pos.x}
-                        y2={pos.y}
-                        stroke="rgba(147, 51, 234, 0.1)"
-                        strokeWidth="1"
-                      />
-                    );
-                  })}
-
-                  {/* Signal path */}
-                  <line
-                    x1={centerX}
-                    y1={centerY}
-                    x2={signalX}
-                    y2={signalY}
-                    stroke={
-                      signalState === 'waiting'
-                        ? 'rgba(255, 215, 0, 0.6)'
-                        : 'rgba(147, 51, 234, 0.6)'
-                    }
-                    strokeWidth="2"
-                    strokeDasharray="4 4"
-                    className="animate-pulse"
-                  />
-
-                  {/* Signal pulse */}
-                  <circle
-                    cx={signalX}
-                    cy={signalY}
-                    r={8 + Math.sin(Date.now() / 100) * 2}
-                    fill={
-                      signalState === 'waiting'
-                        ? 'rgba(255, 215, 0, 0.8)'
-                        : 'rgba(147, 51, 234, 0.8)'
-                    }
-                    className="transition-all duration-100"
-                  >
-                    {signalState === 'waiting' && (
-                      <animate
-                        attributeName="r"
-                        values="8;12;8"
-                        dur="1s"
-                        repeatCount="indefinite"
-                      />
-                    )}
-                  </circle>
-
-                  {/* Center user node */}
-                  <circle
-                    cx={centerX}
-                    cy={centerY}
-                    r="25"
-                    fill="rgba(147, 51, 234, 0.2)"
-                    stroke="rgba(147, 51, 234, 0.8)"
-                    strokeWidth="3"
-                  />
-                </svg>
-
-                {/* Overlay Jyotish Avatars */}
-                <div className="relative w-full h-full">
-                  {jyotishNodes.map((node, index) => {
-                    const angleRad = (node.angle * Math.PI) / 180;
-                    const x = 50 + Math.cos(angleRad) * 33.33; // Percentage-based positioning
-                    const y = 50 + Math.sin(angleRad) * 33.33;
-                    const isCurrentTarget = index === currentTargetIndex;
-
-                    return (
-                      <div
-                        key={node.id}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
-                        style={{
-                          left: `${x}%`,
-                          top: `${y}%`,
-                        }}
-                      >
-                        <Avatar
-                          className={`h-10 w-10 border-2 transition-all ${
-                            isCurrentTarget && signalState === 'waiting'
-                              ? 'border-purple-600 ring-4 ring-purple-200 scale-110'
-                              : 'border-purple-300'
-                          }`}
-                        >
-                          <AvatarImage src={node.avatar} />
-                          <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-xs">
-                            <User className="h-5 w-5" />
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                    );
-                  })}
-
-                  {/* Center User Avatar */}
+                {/* Status Alert Cards */}
+                <div className="flex flex-col gap-2 mb-4">
                   <div
-                    className="absolute transform -translate-x-1/2 -translate-y-1/2"
-                    style={{ left: '50%', top: '50%' }}
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${statusInfo.bgColor} ${statusInfo.borderColor}`}
                   >
-                    <Avatar className="h-12 w-12 border-3 border-purple-600 ring-4 ring-purple-200">
-                      <AvatarImage src={userAvatarUrl || undefined} alt={user?.name || 'User'} />
-                      <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold">
-                        {user?.name ? userInitials : <User className="h-6 w-6" />}
-                      </AvatarFallback>
-                    </Avatar>
+                    <StatusIcon className={`h-4 w-4 ${statusInfo.color}`} />
+                    <span className={`text-sm font-medium ${statusInfo.color}`}>
+                      {statusInfo.message}
+                    </span>
                   </div>
+                </div>
+
+                {/* Animation Container */}
+                <div className="relative bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-8 mb-4 h-[320px] flex items-center justify-center">
+                  <svg
+                    width="300"
+                    height="300"
+                    viewBox="0 0 300 300"
+                    className="absolute inset-0 w-full h-full"
+                  >
+                    {/* Connection lines */}
+                    {jyotishNodes.map((node) => {
+                      const pos = getNodePosition(node, centerX, centerY);
+                      return (
+                        <line
+                          key={`line-${node.id}`}
+                          x1={centerX}
+                          y1={centerY}
+                          x2={pos.x}
+                          y2={pos.y}
+                          stroke="rgba(147, 51, 234, 0.1)"
+                          strokeWidth="1"
+                        />
+                      );
+                    })}
+
+                    {/* Signal path */}
+                    <line
+                      x1={centerX}
+                      y1={centerY}
+                      x2={signalX}
+                      y2={signalY}
+                      stroke={
+                        signalState === 'waiting'
+                          ? 'rgba(255, 215, 0, 0.6)'
+                          : 'rgba(147, 51, 234, 0.6)'
+                      }
+                      strokeWidth="2"
+                      strokeDasharray="4 4"
+                      className="animate-pulse"
+                    />
+
+                    {/* Signal pulse */}
+                    <circle
+                      cx={signalX}
+                      cy={signalY}
+                      r={8 + Math.sin(Date.now() / 100) * 2}
+                      fill={
+                        signalState === 'waiting'
+                          ? 'rgba(255, 215, 0, 0.8)'
+                          : 'rgba(147, 51, 234, 0.8)'
+                      }
+                      className="transition-all duration-100"
+                    >
+                      {signalState === 'waiting' && (
+                        <animate
+                          attributeName="r"
+                          values="8;12;8"
+                          dur="1s"
+                          repeatCount="indefinite"
+                        />
+                      )}
+                    </circle>
+
+                    {/* Center user node */}
+                    <circle
+                      cx={centerX}
+                      cy={centerY}
+                      r="25"
+                      fill="rgba(147, 51, 234, 0.2)"
+                      stroke="rgba(147, 51, 234, 0.8)"
+                      strokeWidth="3"
+                    />
+                  </svg>
+
+                  {/* Overlay Jyotish Avatars */}
+                  <div className="relative w-full h-full">
+                    {jyotishNodes.map((node, index) => {
+                      const angleRad = (node.angle * Math.PI) / 180;
+                      const x = 50 + Math.cos(angleRad) * 33.33; // Percentage-based positioning
+                      const y = 50 + Math.sin(angleRad) * 33.33;
+                      const isCurrentTarget = index === currentTargetIndex;
+
+                      return (
+                        <div
+                          key={node.id}
+                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+                          style={{
+                            left: `${x}%`,
+                            top: `${y}%`,
+                          }}
+                        >
+                          <Avatar
+                            className={`h-10 w-10 border-2 transition-all ${
+                              isCurrentTarget && signalState === 'waiting'
+                                ? 'border-purple-600 ring-4 ring-purple-200 scale-110'
+                                : 'border-purple-300'
+                            }`}
+                          >
+                            <AvatarImage src={node.avatar} />
+                            <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-xs">
+                              <User className="h-5 w-5" />
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                      );
+                    })}
+
+                    {/* Center User Avatar */}
+                    <div
+                      className="absolute transform -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: '50%', top: '50%' }}
+                    >
+                      <Avatar className="h-12 w-12 border-3 border-purple-600 ring-4 ring-purple-200">
+                        <AvatarImage src={userAvatarUrl || undefined} alt={user?.name || 'User'} />
+                        <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold">
+                          {user?.name ? userInitials : <User className="h-6 w-6" />}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       ) : (
+        /* Minimized bar at top of screen */
         <div
-          className="fixed left-1/2 -translate-x-1/2 bottom-4 z-[9999] transition-all duration-300 cursor-pointer"
+          className="fixed left-1/2 -translate-x-1/2 top-4 z-[100003] transition-all duration-300 cursor-pointer"
           onClick={(e) => {
             // Only reopen if clicking on the container, not on buttons
             if (
@@ -481,7 +482,7 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
         </div>
       )}
 
-      {/* Cancel Confirmation Modal */}
+      {/* Cancel Confirmation Modal - above matching modal */}
       <ConfirmDialog
         isOpen={showCancelConfirm}
         onClose={() => setShowCancelConfirm(false)}
@@ -491,7 +492,11 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
         confirmText="Yes, Cancel"
         cancelText="No, Continue"
         isDestructive={true}
+        overlayClassName="z-[100010]"
       />
     </>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 };

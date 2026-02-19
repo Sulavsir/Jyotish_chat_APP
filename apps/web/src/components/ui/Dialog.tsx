@@ -15,6 +15,8 @@ interface DialogProps {
   children: ReactNode;
   className?: string;
   showCloseButton?: boolean;
+  /** Optional class for the overlay container (e.g. z-index when used inside another modal) */
+  overlayClassName?: string;
 }
 
 export function Dialog({
@@ -23,6 +25,7 @@ export function Dialog({
   children,
   className,
   showCloseButton = true,
+  overlayClassName,
 }: DialogProps) {
   // Handle escape key
   useEffect(() => {
@@ -52,7 +55,7 @@ export function Dialog({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className={cn('fixed inset-0 flex items-center justify-center p-4', overlayClassName ?? 'z-[9999]')}>
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"

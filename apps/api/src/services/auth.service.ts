@@ -7,7 +7,6 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '@jyotish/database';
 import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES, TOKEN_TYPES } from '../constants';
 import { AppError } from '../middleware/error-handler';
-import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
 import { UserRole } from '@jyotish/shared';
 import type {
@@ -256,10 +255,7 @@ export class AuthService {
    * Login user with phone after OTP verification
    * Creates session with hashed refresh token
    */
-  async loginWithPhone(
-    phoneNumber: string,
-    deviceInfo: any
-  ): Promise<LoginResult> {
+  async loginWithPhone(phoneNumber: string, deviceInfo: any): Promise<LoginResult> {
     const user = await prisma.user.findUnique({
       where: { phone: phoneNumber },
       select: {

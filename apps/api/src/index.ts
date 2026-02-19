@@ -6,12 +6,14 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { setupSwagger } from './config/swagger';
 import { errorHandler } from './middleware/error-handler';
 import { setupSocketHandlers } from './socket';
 import { setSocketInstance } from './utils/socket-instance';
+import { getSocketRedisAdapter, closeSocketRedisClients } from './config/socket-redis';
 import routes from './routes';
 
 // Load environment variables from the API directory
@@ -141,6 +143,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Parse cookies for httpOnly refresh token
 app.use(morgan('dev'));
 
+// Global API rate limit (per IP). Set RATE_LIMIT_MAX=0 to disable. For 10k+ concurrent traffic, use multiple instances + load balancer.
+const rateLimitMax = Math.max(0, parseInt(process.env.RATE_LIMIT_MAX ?? '500', 10));
+const rateLimitWindowMs = Math.max(1000, parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? '60000', 10)); // 1 min default
+if (rateLimitMax > 0) {
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: rateLimitWindowMs,
+      max: rateLimitMax,
+      message: { success: false, message: 'Too many requests, please try again later.' },
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  );
+}
+
 // Serve static files from uploads directory with CORS headers
 app.use('/uploads', cors(), express.static(path.join(__dirname, '../uploads')));
 
@@ -155,31 +173,42 @@ app.use('/api/v1', routes);
 // Setup Swagger documentation
 setupSwagger(app);
 
-// Socket.io setup
-setupSocketHandlers(io);
-setSocketInstance(io); // Make io accessible to controllers
-
-// Start appointment chat ender worker
-import { startAppointmentChatEnderWorker } from './workers/appointmentChatEnder';
-startAppointmentChatEnderWorker();
-
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server
-const PORT = Number(process.env.PORT) || 4000;
-const HOST = '0.0.0.0'; // Listen on all network interfaces
+// Start server (async so we can attach Socket.io Redis adapter when Redis is configured)
+async function start() {
+  const adapter = await getSocketRedisAdapter();
+  if (adapter) {
+    io.adapter(adapter);
+  }
 
-httpServer.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📚 Local: http://localhost:${PORT}/api-docs`);
-  console.log(`🌐 Network: http://192.168.0.206:${PORT}/api-docs`);
-  console.log(`🔌 WebSocket server ready on all interfaces`);
+  setupSocketHandlers(io);
+  setSocketInstance(io);
+
+  const { startAppointmentChatEnderWorker } = await import('./workers/appointmentChatEnder');
+  startAppointmentChatEnderWorker();
+
+  const PORT = Number(process.env.PORT) || 4000;
+  const HOST = '0.0.0.0';
+
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📚 Local: http://localhost:${PORT}/api-docs`);
+    console.log(`🌐 Network: http://192.168.0.206:${PORT}/api-docs`);
+    console.log(`🔌 WebSocket server ready on all interfaces`);
+  });
+}
+
+start().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
+  await closeSocketRedisClients();
   httpServer.close(() => {
     console.log('HTTP server closed');
   });

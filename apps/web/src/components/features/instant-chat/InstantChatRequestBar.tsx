@@ -7,13 +7,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Avatar, AvatarImage, AvatarFallback, Button } from '@jyotish/ui';
+import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
 import { MessageSquare, X, Clock, Check, User } from 'lucide-react';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { getImageUrl } from '@/utils/image.utils';
 import { LoadingButton } from '@/components/ui';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ROUTE_BUILDERS } from '@/constants';
 
 interface InstantChatRequest {
@@ -38,6 +39,7 @@ export const InstantChatRequestBar: React.FC = () => {
   const { socket, isConnected } = useSocket();
   const [requests, setRequests] = useState<InstantChatRequest[]>([]);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [requestIdToDiscard, setRequestIdToDiscard] = useState<string | null>(null);
   const [autoRemoveTimers, setAutoRemoveTimers] = useState<Map<string, NodeJS.Timeout>>(new Map());
 
   // Listen for socket events
@@ -159,6 +161,13 @@ export const InstantChatRequestBar: React.FC = () => {
 
   const handleDismiss = (requestId: string) => {
     setRequests((prev) => prev.filter((r) => r.id !== requestId));
+    setRequestIdToDiscard(null);
+  };
+
+  const handleConfirmDiscard = () => {
+    if (requestIdToDiscard) {
+      handleDismiss(requestIdToDiscard);
+    }
   };
 
   if (requests.length === 0) {
@@ -166,19 +175,33 @@ export const InstantChatRequestBar: React.FC = () => {
   }
 
   return (
-    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-2xl w-full px-4">
-      <div className="space-y-3">
-        {requests.map((request) => (
-          <InstantChatRequestCard
-            key={request.id}
-            request={request}
-            accepting={accepting === request.id}
-            onAccept={() => handleAccept(request.id)}
-            onDismiss={() => handleDismiss(request.id)}
-          />
-        ))}
+    <>
+      <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-2xl w-full px-4">
+        <div className="space-y-3">
+          {requests.map((request) => (
+            <InstantChatRequestCard
+              key={request.id}
+              request={request}
+              accepting={accepting === request.id}
+              onAccept={() => handleAccept(request.id)}
+              onDismissClick={() => setRequestIdToDiscard(request.id)}
+              onExpire={() => handleDismiss(request.id)}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+
+      <ConfirmDialog
+        isOpen={requestIdToDiscard !== null}
+        onClose={() => setRequestIdToDiscard(null)}
+        onConfirm={handleConfirmDiscard}
+        title="Discard this request?"
+        description="Are you sure you want to discard this request? The client will need to send a new request to connect with an astrologer."
+        confirmText="Yes, discard"
+        cancelText="Cancel"
+        isDestructive={true}
+      />
+    </>
   );
 };
 
@@ -186,14 +209,16 @@ interface InstantChatRequestCardProps {
   request: InstantChatRequest;
   accepting: boolean;
   onAccept: () => void;
-  onDismiss: () => void;
+  onDismissClick: () => void;
+  onExpire: () => void;
 }
 
 const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
   request,
   accepting,
   onAccept,
-  onDismiss,
+  onDismissClick,
+  onExpire,
 }) => {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
@@ -205,7 +230,7 @@ const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
       setTimeRemaining(remaining);
 
       if (remaining === 0) {
-        onDismiss();
+        onExpire();
       }
     };
 
@@ -213,7 +238,7 @@ const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
     const interval = setInterval(calculateTimeRemaining, 1000);
 
     return () => clearInterval(interval);
-  }, [request.expiresAt, onDismiss]);
+  }, [request.expiresAt, onExpire]);
 
   return (
     <div className="bg-gradient-to-r from-orange-600 to-amber-600 text-white p-4 rounded-lg shadow-2xl animate-in slide-in-from-top duration-300">
@@ -262,9 +287,19 @@ const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
             Accept
           </LoadingButton>
           <button
-            onClick={onDismiss}
+            type="button"
+            onClick={onDismissClick}
+            disabled={accepting}
+            className="text-sm px-2 py-1.5 hover:bg-white/20 rounded transition-colors"
+          >
+            Later
+          </button>
+          <button
+            type="button"
+            onClick={onDismissClick}
             disabled={accepting}
             className="p-1 hover:bg-white/20 rounded transition-colors"
+            title="Discard"
           >
             <X className="h-5 w-5" />
           </button>

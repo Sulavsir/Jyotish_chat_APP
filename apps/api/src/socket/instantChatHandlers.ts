@@ -83,7 +83,7 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
             });
 
             // Emit real-time notification to astrologer
-            io.to(`user_${astrologer.id}`).emit('notification:new', notification);
+            io.to(`user:${astrologer.id}`).emit('notification:new', notification);
           } catch (error) {
             console.error(`Failed to create notification for astrologer ${astrologer.id}:`, error);
           }
@@ -137,7 +137,7 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
       });
 
       // Notify client that their request was accepted
-      io.to(`user_${result.request.clientId}`).emit('instantChat:requestAccepted', {
+      io.to(`user:${result.request.clientId}`).emit('instantChat:requestAccepted', {
         request: result.request,
         chatId: result.chatId,
         astrologer: result.request.acceptedAstrologer,
@@ -163,7 +163,7 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
 
       // Schedule auto-removal of request bar after 40 seconds
       setTimeout(() => {
-        io.to(`user_${userId}`).emit('instantChat:removeRequestBar', {
+        io.to(`user:${userId}`).emit('instantChat:removeRequestBar', {
           requestId: data.requestId,
         });
       }, 40000); // 40 seconds

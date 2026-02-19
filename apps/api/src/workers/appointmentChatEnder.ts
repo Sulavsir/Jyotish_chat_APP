@@ -76,13 +76,13 @@ export async function endExpiredAppointmentChats() {
         if (io) {
           const message = `Your appointment time with ${chat.astrologerParticipant.name} has ended. Please book another appointment to continue chatting.`;
 
-          io.to(`user_${chat.participant1Id}`).emit('chat:ended', {
+          io.to(`user:${chat.participant1Id}`).emit('chat:ended', {
             chatId: chat.id,
             reason: 'APPOINTMENT_EXPIRED',
             message,
           });
 
-          io.to(`user_${chat.participant2Id}`).emit('chat:ended', {
+          io.to(`user:${chat.participant2Id}`).emit('chat:ended', {
             chatId: chat.id,
             reason: 'APPOINTMENT_EXPIRED',
             message: 'Appointment time has ended. The chat has been closed.',

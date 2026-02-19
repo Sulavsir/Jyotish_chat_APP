@@ -109,7 +109,10 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       setIsWaitingForAcceptance(true);
       setPendingMessage(msg);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      toast.success('Looking for available astrologers...');
+      toast.success('Message request sent to all online Jyotish.', {
+        description: 'Waiting for an astrologer to accept...',
+        duration: 4000,
+      });
     });
 
     socket.on(
@@ -181,9 +184,13 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
       setTimeRemaining(remaining);
       if (remaining === 0) {
+        setIsSending(false);
         setIsWaitingForAcceptance(false);
         setPendingMessage(null);
-        toast.error('No astrologers available right now. Please try again.');
+        toast.info('Request expired. Send new one.', {
+          description: 'No astrologers accepted in time. Try again when more are online.',
+          duration: 4000,
+        });
       }
     };
     calculateTimeRemaining();
