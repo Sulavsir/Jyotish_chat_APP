@@ -160,8 +160,7 @@ export class SubhaSahitService {
   }
 
   /**
-   * Public: Get available dates for Pandit Ji booking (only active dates)
-   * Excludes placeholder dates (2099-12-31) used for occasion management
+   * Public: get available dates for Pandit Ji booking
    */
   async getAvailableDates(params: {
     dateFrom?: string;
@@ -172,10 +171,16 @@ export class SubhaSahitService {
     const placeholderDate = new Date('2099-12-31');
     placeholderDate.setHours(0, 0, 0, 0);
 
+    // Default to today - only show upcoming dates (not yesterday or earlier)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const where: any = {
       isActive: true,
       date: {
         not: placeholderDate,
+        // Always filter to only show dates from today onwards
+        gte: params.dateFrom ? new Date(params.dateFrom) : today,
       },
     };
 
@@ -183,18 +188,10 @@ export class SubhaSahitService {
       where.occasion = { contains: params.occasion, mode: 'insensitive' };
     }
 
-    if (params.dateFrom || params.dateTo) {
-      where.date = {};
-      if (params.dateFrom) {
-        const from = new Date(params.dateFrom);
-        from.setHours(0, 0, 0, 0);
-        where.date.gte = from;
-      }
-      if (params.dateTo) {
-        const to = new Date(params.dateTo);
-        to.setHours(23, 59, 59, 999);
-        where.date.lte = to;
-      }
+    if (params.dateTo) {
+      const to = new Date(params.dateTo);
+      to.setHours(23, 59, 59, 999);
+      where.date.lte = to;
     }
 
     const rows = await prisma.subhaSahitDate.findMany({

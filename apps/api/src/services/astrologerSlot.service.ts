@@ -8,9 +8,8 @@ import { prisma } from '@jyotish/database';
 import { SlotType, SlotStatus, Prisma } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { SLOT_DURATION_MINUTES } from '../constants/astrologer.constants';
 import type { AstrologerSlotRow } from '../types/appointment.types';
-
-const SLOT_DURATION_MINUTES = 30;
 
 export function getSlotDurationMs(): number {
   return SLOT_DURATION_MINUTES * 60 * 1000;

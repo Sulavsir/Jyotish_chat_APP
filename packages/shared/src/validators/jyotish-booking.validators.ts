@@ -44,21 +44,31 @@ export const createJyotishBookingRequestSchema = z
       });
     }
 
-    const allowedByType: Record<JyotishBookingType, readonly string[]> = {
-      [JyotishBookingType.PANDIT]: PANDIT_BOOKING_CATEGORIES,
-      [JyotishBookingType.VAASTU]: VAASTU_BOOKING_CATEGORIES,
-      [JyotishBookingType.KATHA_VACHAK]: KATHA_VACHAK_BOOKING_CATEGORIES,
-    };
+    if (data.type === JyotishBookingType.PANDIT) {
+      if (!data.category || data.category.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Category is required',
+          path: ['category'],
+        });
+      }
+    } else {
+      const allowedByType: Partial<Record<JyotishBookingType, readonly string[]>> = {
+        [JyotishBookingType.VAASTU]: VAASTU_BOOKING_CATEGORIES,
+        [JyotishBookingType.KATHA_VACHAK]: KATHA_VACHAK_BOOKING_CATEGORIES,
+      };
 
-    const allowed = allowedByType[data.type] ?? [];
-
-    const isAllowed = (allowed as readonly string[]).includes(data.category);
-    if (!isAllowed) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Invalid category for selected booking type',
-        path: ['category'],
-      });
+      const allowed = allowedByType[data.type];
+      if (allowed) {
+        const isAllowed = (allowed as readonly string[]).includes(data.category);
+        if (!isAllowed) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Invalid category for selected booking type',
+            path: ['category'],
+          });
+        }
+      }
     }
   });
 
@@ -66,4 +76,3 @@ export const adminUpdateJyotishBookingStatusSchema = z.object({
   status: z.nativeEnum(JyotishBookingStatus),
   adminNotes: z.string().max(1000, 'Admin notes is too long').optional(),
 });
-

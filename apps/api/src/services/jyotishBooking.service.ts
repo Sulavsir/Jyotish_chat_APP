@@ -4,6 +4,7 @@
 
 import { prisma, JyotishBookingStatus, JyotishBookingType } from '@jyotish/database';
 import { AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
+import { subhaSahitService } from './subha-sahit.service';
 
 export const jyotishBookingService = {
   async createForClient(input: {
@@ -15,6 +16,74 @@ export const jyotishBookingService = {
     details?: string;
     location: string;
   }) {
+    // Validate booking date is not in the past (not yesterday or earlier)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const bookingDateOnly = new Date(input.bookingDate);
+    bookingDateOnly.setHours(0, 0, 0, 0);
+
+    if (bookingDateOnly < today) {
+      throw new AppError(
+        'Booking date cannot be in the past. Please select today or a future date.',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    if (input.type === JyotishBookingType.PANDIT) {
+      // Validate category is either a standard PANDIT category or a valid occasion
+      const occasions = await subhaSahitService.getOccasions();
+      const validCategories = [...occasions];
+
+      if (!validCategories.includes(input.category)) {
+        throw new AppError(
+          'Invalid category for Pandit Ji booking. Please select a valid occasion or category.',
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+
+      // Check if the date is a Subha Sahit date for the selected occasion/category
+      const dateStr = bookingDateOnly.toISOString().split('T')[0];
+      const availableDates = await subhaSahitService.getAvailableDates({
+        dateFrom: dateStr,
+        dateTo: dateStr,
+        occasion: input.category, // Filter by the selected occasion/category
+      });
+
+      const isSubhaSahit = availableDates.some(
+        (d) => d.date.toISOString().split('T')[0] === dateStr
+      );
+
+      if (!isSubhaSahit) {
+        throw new AppError(
+          `Pandit Ji bookings can only be made on Subha Sahit (auspicious) dates for "${input.category}". Please select a date from the available dates for this occasion.`,
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+
+      // Check if the client already has a booking for this date
+      const existingBooking = await prisma.jyotishBookingRequest.findFirst({
+        where: {
+          clientId: input.clientId,
+          type: JyotishBookingType.PANDIT,
+          bookingDate: bookingDateOnly,
+          status: {
+            in: [JyotishBookingStatus.PENDING, JyotishBookingStatus.APPROVED],
+          },
+        },
+      });
+
+      if (existingBooking) {
+        throw new AppError(
+          `You already have a Pandit Ji booking for ${dateStr}. You cannot book multiple times for the same date.`,
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+    }
+
     return prisma.jyotishBookingRequest.create({
       data: {
         clientId: input.clientId,
@@ -207,4 +276,3 @@ export const jyotishBookingService = {
     });
   },
 };
-

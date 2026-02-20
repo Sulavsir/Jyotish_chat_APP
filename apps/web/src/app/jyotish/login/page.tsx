@@ -7,7 +7,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES, USER_ROLES } from '@/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@jyotish/ui';
-import { LoadingButton, LoadingScreenWithBackground, Navbar, AppLogo } from '@/components/ui';
+import { LoadingButton, LoadingScreenWithBackground, Navbar } from '@/components/ui';
+import { Sparkles } from 'lucide-react';
 import { FormInput, FormPasswordInput } from '@/components/form';
 import { useAuthStore } from '@/store/auth-store';
 import { useRedirectIfAuthenticated } from '@/hooks';
@@ -93,7 +94,9 @@ export default function JyotishLoginPage() {
               <Card className="border border-slate-700/80 bg-slate-900 shadow-2xl shadow-black/40 rounded-2xl overflow-hidden">
                 <CardHeader className="space-y-1 text-center pb-2 pt-8 lg:pt-10">
                   <div className="flex justify-center mb-2">
-                    <AppLogo href={ROUTES.JYOTISH_LOGIN} height={52} />
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                      <Sparkles className="w-6 h-6 text-amber-400" />
+                    </div>
                   </div>
                   <CardTitle className="text-xl font-semibold text-white tracking-tight">
                     Jyotish Portal

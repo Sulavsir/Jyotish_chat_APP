@@ -121,37 +121,77 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     [eligibleAstrologers, preferredAstrologerId]
   );
 
+  // Fetch Subha Sahit dates filtered by selected occasion/category
   const { data: subhaSahitResp } = useQuery({
     queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({
       dateFrom: todayISO(),
+      occasion: needsSubhaSahit && category ? category : undefined,
     }),
-    queryFn: () => subhaSahitService.getAvailableDates({ dateFrom: todayISO() }),
+    queryFn: () =>
+      subhaSahitService.getAvailableDates({
+        dateFrom: todayISO(),
+        occasion: needsSubhaSahit && category ? category : undefined,
+      }),
     enabled: isOpen && needsSubhaSahit,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 
-  const availableDates = useMemo<string[]>(
-    () => (subhaSahitResp?.dates ?? []).map((d) => d.date.split('T')[0]),
-    [subhaSahitResp?.dates]
-  );
+  const availableDates = useMemo<string[]>(() => {
+    const today = todayISO();
+    const dates = (subhaSahitResp?.dates ?? [])
+      .map((d) => d.date.split('T')[0])
+      .filter((dateStr) => {
+        return dateStr >= today;
+      })
+      .sort(); 
+    return dates;
+  }, [subhaSahitResp?.dates]);
 
+  // Reset form when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    setBookingDate(todayISO());
     setCategory(categories[0] ?? '');
     setDetails('');
     setLocation('');
     setPreferredAstrologerId(undefined);
     setDateError('');
-  }, [isOpen, categories]);
+    // Don't set bookingDate here - let the category/date effect handle it
+    if (!needsSubhaSahit) {
+      setBookingDate(todayISO());
+    } else {
+      setBookingDate(''); // Will be set when dates load
+    }
+  }, [isOpen, categories, needsSubhaSahit]);
 
+  // When category or available dates change, update selected date
   useEffect(() => {
     if (!isOpen) return;
     if (!needsSubhaSahit) return;
-    if (!availableDates.length) return;
+    
+    // If no category selected yet, don't set a date
+    if (!category) {
+      setBookingDate('');
+      setDateError('');
+      return;
+    }
 
-    setBookingDate((prev) => (prev && availableDates.includes(prev) ? prev : availableDates[0]));
+    // If no dates available for this occasion, clear date
+    if (!availableDates.length) {
+      setBookingDate('');
+      setDateError('');
+      return;
+    }
+
+    // If current selected date is not in available dates for this occasion, reset to first available
+    setBookingDate((prev) => {
+      if (prev && availableDates.includes(prev)) {
+        return prev; // Keep current date if it's still valid for this occasion
+      }
+      return availableDates[0]; // Otherwise select first available date
+    });
     setDateError('');
-  }, [isOpen, needsSubhaSahit, availableDates]);
+  }, [isOpen, needsSubhaSahit, availableDates, category]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -172,8 +212,23 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
       if (!bookingDate) {
         throw new Error('Booking date is required');
       }
+      // Validate date is not in the past
+      const selectedDate = new Date(bookingDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        throw new Error('Booking date cannot be in the past. Please select today or a future date.');
+      }
+
+      // For PANDIT bookings, validate that the date is a Subha Sahit date
       if (needsSubhaSahit && availableDates.length > 0 && !availableDates.includes(bookingDate)) {
         throw new Error('Please select a Subha Sahit (auspicious) date. Only dates listed by admin are available for Pandit Ji bookings.');
+      }
+      
+      if (needsSubhaSahit && availableDates.length === 0) {
+        throw new Error('No Subha Sahit dates are available. Please contact admin to add auspicious dates.');
       }
       if (!category) {
         throw new Error('Category is required');
@@ -246,7 +301,17 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                   <Label className="text-white">
                     Reason / Category <span className="text-red-400">*</span>
                   </Label>
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select
+                    value={category}
+                    onValueChange={(value) => {
+                      setCategory(value);
+                      // Reset date when category changes - dates will be filtered by new occasion
+                      if (needsSubhaSahit) {
+                        setBookingDate('');
+                        setDateError('');
+                      }
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a reason..." />
                     </SelectTrigger>
@@ -265,29 +330,52 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                     Select date <span className="text-red-400">*</span>
                   </Label>
 
-                  {needsSubhaSahit && availableDates.length > 0 ? (
-                    <Select
-                      value={bookingDate}
-                      onValueChange={(value) => {
-                        setBookingDate(value);
-                        setDateError('');
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a Subha Sahit date..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableDates.map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {new Date(d).toLocaleDateString('en-US', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
+                  {needsSubhaSahit ? (
+                    <>
+                      {!category ? (
+                        <div className="text-sm text-amber-300/80 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                          Please select a category/occasion first to see available Subha Sahit dates.
+                        </div>
+                      ) : availableDates.length > 0 ? (
+                        <Select
+                          value={bookingDate}
+                          onValueChange={(value) => {
+                            setBookingDate(value);
+                            setDateError('');
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={`Select a Subha Sahit date for ${category}...`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableDates.map((d) => {
+                              // Find the date object to show occasion info
+                              const dateObj = subhaSahitResp?.dates.find(
+                                (sd) => sd.date.split('T')[0] === d
+                              );
+                              return (
+                                <SelectItem key={d} value={d}>
+                                  {new Date(d).toLocaleDateString('en-US', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                  })}
+                                  {dateObj?.description && (
+                                    <span className="text-xs text-gray-400 ml-2">
+                                      ({dateObj.description})
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              );
                             })}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="text-sm text-red-300/90 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                          No Subha Sahit dates are available for &quot;{category}&quot;. Please select a different occasion or contact admin to add dates for this occasion.
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <DateInput
                       min={todayISO()}
@@ -295,12 +383,6 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                       onChange={(e) => setBookingDate(e.target.value)}
                       required
                     />
-                  )}
-
-                  {needsSubhaSahit && !availableDates.length && (
-                    <p className="text-xs text-red-300 mt-1">
-                      No Subha Sahit dates are available yet. Please contact admin to add auspicious dates.
-                    </p>
                   )}
 
                   {dateError && (
