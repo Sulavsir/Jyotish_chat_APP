@@ -16,13 +16,18 @@ export const jyotishBookingService = {
     details?: string;
     location: string;
   }) {
-    // Validate booking date is not in the past (not yesterday or earlier)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const bookingDateOnly = new Date(input.bookingDate);
-    bookingDateOnly.setHours(0, 0, 0, 0);
+    // Normalize dates to UTC for consistent comparison
+    // Extract date string from the input date (which is already UTC from controller)
+    const bookingDateStr = input.bookingDate.toISOString().split('T')[0];
+    const bookingDateUTC = new Date(`${bookingDateStr}T00:00:00.000Z`);
+    
+    // Get today's date in UTC
+    const todayUTC = new Date();
+    todayUTC.setUTCHours(0, 0, 0, 0);
+    const todayStr = todayUTC.toISOString().split('T')[0];
 
-    if (bookingDateOnly < today) {
+    // Validate booking date is not in the past (not yesterday or earlier)
+    if (bookingDateStr < todayStr) {
       throw new AppError(
         'Booking date cannot be in the past. Please select today or a future date.',
         HTTP_STATUS.BAD_REQUEST,
@@ -44,15 +49,17 @@ export const jyotishBookingService = {
       }
 
       // Check if the date is a Subha Sahit date for the selected occasion/category
-      const dateStr = bookingDateOnly.toISOString().split('T')[0];
       const availableDates = await subhaSahitService.getAvailableDates({
-        dateFrom: dateStr,
-        dateTo: dateStr,
+        dateFrom: bookingDateStr,
+        dateTo: bookingDateStr,
         occasion: input.category, // Filter by the selected occasion/category
       });
 
       const isSubhaSahit = availableDates.some(
-        (d) => d.date.toISOString().split('T')[0] === dateStr
+        (d) => {
+          const availableDateStr = d.date.toISOString().split('T')[0];
+          return availableDateStr === bookingDateStr;
+        }
       );
 
       if (!isSubhaSahit) {
@@ -64,11 +71,18 @@ export const jyotishBookingService = {
       }
 
       // Check if the client already has a booking for this date
+      // Use date range query to match any booking on this date (regardless of time component)
+      const startOfDay = new Date(`${bookingDateStr}T00:00:00.000Z`);
+      const endOfDay = new Date(`${bookingDateStr}T23:59:59.999Z`);
+
       const existingBooking = await prisma.jyotishBookingRequest.findFirst({
         where: {
           clientId: input.clientId,
           type: JyotishBookingType.PANDIT,
-          bookingDate: bookingDateOnly,
+          bookingDate: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
           status: {
             in: [JyotishBookingStatus.PENDING, JyotishBookingStatus.APPROVED],
           },
@@ -77,7 +91,7 @@ export const jyotishBookingService = {
 
       if (existingBooking) {
         throw new AppError(
-          `You already have a Pandit Ji booking for ${dateStr}. You cannot book multiple times for the same date.`,
+          `You already have a Pandit Ji booking for ${bookingDateStr}. You cannot book multiple times for the same date.`,
           HTTP_STATUS.BAD_REQUEST,
           ERROR_CODES.VALIDATION_ERROR
         );
@@ -90,7 +104,7 @@ export const jyotishBookingService = {
         type: input.type,
         preferredAstrologerId: input.preferredAstrologerId,
         category: input.category,
-        bookingDate: input.bookingDate,
+        bookingDate: bookingDateUTC, // Use normalized UTC date
         details: input.details,
         location: input.location,
         status: JyotishBookingStatus.PENDING,
