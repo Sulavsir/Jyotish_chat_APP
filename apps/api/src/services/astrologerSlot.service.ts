@@ -147,7 +147,8 @@ export async function listAvailableForClient(
 ): Promise<AstrologerSlotRow[]> {
   const { astrologerId, slotType, fromDate, toDate } = input;
   const nextDayStart = startOfNextDay();
-  const minStart = fromDate && new Date(fromDate) > nextDayStart ? new Date(fromDate) : nextDayStart;
+  const minStart =
+    fromDate && new Date(fromDate) > nextDayStart ? new Date(fromDate) : nextDayStart;
   const where: Prisma.AstrologerSlotWhereInput = {
     astrologerId,
     slotType,
