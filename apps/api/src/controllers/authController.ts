@@ -17,6 +17,8 @@ import {
   logUserLogin,
   logUserLogout,
   logUserRegister,
+  isProduction,
+  isDevelopment,
 } from '../utils';
 import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG } from '../constants';
 import { otpService, authService, userService, sessionService } from '../services';
@@ -58,8 +60,7 @@ export async function sendOTP(req: AuthRequest, res: Response, next: NextFunctio
     );
   }
 
-  // Check rate limiting (production only)
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction()) {
     const isRateLimited = await otpService.checkRateLimit(phoneNumber);
     if (isRateLimited) {
       throw new AppError(
@@ -70,16 +71,14 @@ export async function sendOTP(req: AuthRequest, res: Response, next: NextFunctio
     }
   }
 
-  // Send OTP via service
   const result = await otpService.sendOTP(phoneNumber);
 
   return sendSuccess(res, {
     sessionId: result.sessionId,
     isExistingUser: result.isExistingUser,
     message: 'OTP sent successfully',
-    expiresIn: OTP_CONFIG.OTP_EXPIRY_MINUTES * 60, // Return expiry in seconds
-    // Only include OTP in development mode for testing (NEVER in production)
-    ...(process.env.NODE_ENV === 'development' && result.otp && { otp: result.otp }),
+    expiresIn: OTP_CONFIG.OTP_EXPIRY_MINUTES * 60,
+    ...(result.otp && { otp: result.otp }),
   });
 }
 
@@ -267,7 +266,7 @@ export async function requestLoginOTP(req: AuthRequest, res: Response, next: Nex
   }
 
   // Check rate limiting 
-  if (process.env.NODE_ENV === 'production') {
+  if (isProduction()) {
     const isRateLimited = await otpService.checkRateLimit(phoneNumber);
     if (isRateLimited) {
       throw new AppError(
@@ -278,15 +277,13 @@ export async function requestLoginOTP(req: AuthRequest, res: Response, next: Nex
     }
   }
 
-  // Send OTP via service
   const result = await otpService.sendOTP(phoneNumber);
 
   return sendSuccess(res, {
     sessionId: result.sessionId,
     message: 'OTP sent successfully',
     expiresIn: OTP_CONFIG.OTP_EXPIRY_MINUTES * 60, // Return expiry in seconds
-    // Only include OTP in development mode for testing (NEVER in production)
-    ...(process.env.NODE_ENV === 'development' && result.otp && { otp: result.otp }),
+    ...(isDevelopment() && result.otp && { otp: result.otp }),
   });
 }
 
@@ -321,7 +318,7 @@ export async function verifyLoginOTP(req: AuthRequest, res: Response, next: Next
  * POST /api/v1/users/profile-setup
  */
 export async function profileSetup(req: AuthRequest, res: Response, next: NextFunction) {
-  const debug = process.env.NODE_ENV !== 'production';
+  const debug = !isProduction();
   // Check authentication
   if (!req.user?.id) {
     throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);

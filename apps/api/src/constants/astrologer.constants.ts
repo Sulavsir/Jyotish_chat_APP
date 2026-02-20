@@ -2,6 +2,9 @@
  * Astrologer-related constants
  */
 
+/** Duration of each bookable slot in minutes */
+export const SLOT_DURATION_MINUTES = 30;
+
 // Astrologer Account Status enum values
 export const ASTROLOGER_ACCOUNT_STATUS = {
   PENDING: 'PENDING',

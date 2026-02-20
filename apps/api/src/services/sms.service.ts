@@ -1,124 +1,70 @@
-/**
- * SMS Service - Aakash SMS Integration
- * API Documentation: https://sms.aakashsms.com/sms/v3/send
- */
-
 import axios from 'axios';
-
-interface SendSMSRequest {
-  auth_token: string;
-  to: string; // Comma-separated phone numbers
-  text: string;
-}
-
-interface SendSMSResponse {
-  error: boolean;
-  success?: boolean;
-  message?: string;
-  data?: Array<Record<string, unknown>>;
-}
+import { isSmsSendEnabled } from '../utils/env.utils';
+import { SMS_DEFAULT_API_URL, SMS_REQUEST_TIMEOUT_MS } from '../constants/sms.constants';
+import type { SendSMSResponse } from '../types/sms.types';
 
 class SMSService {
-  private apiUrl: string;
-  private isProduction: boolean;
+  private readonly apiUrl: string;
 
   constructor() {
-    this.apiUrl = process.env.SMS_API_URL || 'https://sms.aakashsms.com/sms/v3/send';
-    this.isProduction = process.env.NODE_ENV === 'production';
+    this.apiUrl = process.env.SMS_API_URL || SMS_DEFAULT_API_URL;
   }
 
-  // Lazy-load auth token at runtime instead of constructor
   private getAuthToken(): string {
     return process.env.SMS_AUTH_TOKEN || '';
   }
 
   private formatPhoneNumber(phone: string): string {
-    const cleanPhone = phone.replace(/\D/g, '');
-
-    // If has 977 prefix, remove it to get 10-digit number
-    if (cleanPhone.startsWith('977') && cleanPhone.length === 13) {
-      return cleanPhone.slice(3); // Remove 977 prefix
+    const clean = phone.replace(/\D/g, '');
+    if (clean.startsWith('977') && clean.length === 13) {
+      return clean.slice(3);
     }
-
-    // Validate 10-digit Nepali number
-    if (cleanPhone.match(/^(98|97)\d{8}$/)) {
-      return cleanPhone; // Return as-is (10 digits)
+    if (clean.match(/^(98|97)\d{8}$/)) {
+      return clean;
     }
-
     throw new Error('Invalid Nepali phone number format');
   }
 
   /**
-   * Send SMS via Aakash SMS API
-   * Only sends SMS in production
-   * In development, SMS is skipped and OTP is returned in API response for testing
+   * Send SMS via Aakash API. When SMS is disabled (e.g. dev), returns true without sending.
    */
   async sendSMS(phoneNumber: string, message: string): Promise<boolean> {
-    // In development, skip SMS sending - OTP will be returned in API response
-    if (!this.isProduction) {
-      return true; // Return success so OTP flow continues
+    if (!isSmsSendEnabled()) {
+      return true;
     }
 
-    // Production: Send actual SMS via Aakash SMS API
+    const formattedPhone = this.formatPhoneNumber(phoneNumber);
+    const authToken = this.getAuthToken();
+    if (!authToken) {
+      throw new Error('SMS_AUTH_TOKEN is not configured');
+    }
+
+    const formBody = new URLSearchParams({
+      auth_token: authToken,
+      to: formattedPhone,
+      text: message,
+    }).toString();
+
     try {
-      // Format phone number
-      const formattedPhone = this.formatPhoneNumber(phoneNumber);
-
-      // Validate auth token
-      const authToken = this.getAuthToken();
-      if (!authToken) {
-        throw new Error('SMS_AUTH_TOKEN is not configured');
-      }
-
-      // Prepare request
-      const requestData: SendSMSRequest = {
-        auth_token: authToken,
-        to: formattedPhone,
-        text: message,
-      };
-
-      console.log('📱 Sending SMS to Aakash API:', {
-        url: this.apiUrl,
-        to: formattedPhone,
-        messageLength: message.length,
+      const response = await axios.post<SendSMSResponse>(this.apiUrl, formBody, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: SMS_REQUEST_TIMEOUT_MS,
       });
 
-      // Send SMS via Aakash SMS API
-      const response = await axios.post<SendSMSResponse>(this.apiUrl, requestData, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000, // 10 seconds timeout
-      });
-
-      console.log('📱 Aakash SMS Response:', {
-        error: response.data.error,
-        success: response.data.success,
-        message: response.data.message,
-      });
-
-      // Aakash SMS returns { error: false } on success, { error: true } on failure
       if (!response.data.error) {
-        console.log(`✅ SMS sent successfully to ${formattedPhone}`);
         return true;
-      } else {
-        const errorMsg = `❌ SMS failed: ${response.data.message || 'Unknown error'}`;
-        console.error(errorMsg);
-        throw new Error(errorMsg);
       }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const errorDetails = {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          message: error.response?.data?.message || error.message,
-          url: error.config?.url,
-        };
-        console.error('❌ SMS API Error:', errorDetails);
-        throw new Error(`Failed to send SMS: ${errorDetails.message || 'Network error'}`);
+      const msg = response.data.message || 'Unknown error';
+      throw new Error(msg);
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as SendSMSResponse | undefined;
+        const msg =
+          data?.message ?? (err.response?.data as { message?: string })?.message ?? err.message;
+        console.error('SMS send failed:', msg);
+        throw new Error(`Failed to send SMS: ${msg}`);
       }
-      console.error('❌ SMS Error:', error);
-      throw error instanceof Error ? error : new Error('Failed to send SMS');
+      throw err instanceof Error ? err : new Error('Failed to send SMS');
     }
   }
 

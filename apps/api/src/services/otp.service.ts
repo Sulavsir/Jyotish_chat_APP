@@ -4,7 +4,7 @@
 
 import { prisma } from '@jyotish/database';
 import { UserRole } from '@jyotish/shared';
-import { encrypt, decrypt } from '../utils';
+import { encrypt, decrypt, isSmsSendEnabled, isDevelopment } from '../utils';
 import { smsService } from './sms.service';
 import { OTP_CONFIG } from '../constants';
 import type { OTPSession, SendOTPResult, VerifyOTPResult } from '../types';
@@ -77,14 +77,10 @@ export class OTPService {
    * Send OTP to phone number
    */
   async sendOTP(phoneNumber: string): Promise<SendOTPResult> {
-    // Generate OTP
     const otp = this.generateOTP();
     const expiresAt = new Date(Date.now() + OTP_CONFIG.OTP_EXPIRY_MINUTES * 60 * 1000);
-
-    // Check if user exists (CLIENT only for backward compatibility)
     const isExistingUser = await this.isExistingUser(phoneNumber);
 
-    // Save OTP session with encrypted OTP
     const otpSession = await prisma.oTPSession.create({
       data: {
         phoneNumber,
@@ -93,22 +89,18 @@ export class OTPService {
       },
     });
 
-    // Send OTP via SMS (only in production)
-    // In development, SMS is skipped and OTP is returned in response for testing
-    if (process.env.NODE_ENV === 'production') {
+    if (isSmsSendEnabled()) {
       try {
         await smsService.sendOTP(phoneNumber, otp);
       } catch (error) {
-        // Don't throw error - OTP session is created, user can still verify
-        // Log error for monitoring but don't fail the request
-        console.error('⚠️ Failed to send SMS, but OTP session created:', error);
+        console.error('OTP session created but SMS send failed:', error);
       }
     }
 
     return {
       sessionId: otpSession.id,
       isExistingUser,
-      ...(process.env.NODE_ENV === 'development' && { otp }),
+      ...(isDevelopment() && { otp }),
     };
   }
 

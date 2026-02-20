@@ -15,6 +15,8 @@ export { AppError } from '../middleware/error-handler';
 // Re-export encryption utilities
 export * from './encryption';
 
+export * from './env.utils';
+
 // Re-export async handler
 export * from './async-handler';
 
