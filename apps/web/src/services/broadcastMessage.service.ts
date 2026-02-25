@@ -11,7 +11,10 @@ import type {
   AcceptBroadcastMessageResponse,
   DismissBroadcastMessageResponse,
   CancelBroadcastMessageResponse,
-  MessageType,
+  BroadcastQuestionPricingResponse,
+  PrepareBroadcastQuestionsResponse,
+  SendBroadcastQuestionsRequest,
+  SendBroadcastQuestionsResponse,
 } from '@/types';
 
 const broadcastMessageService = {
@@ -86,6 +89,40 @@ const broadcastMessageService = {
   async getMessage(messageId: string): Promise<BroadcastMessage> {
     const response = await apiClient.get<BroadcastMessage>(
       API_ENDPOINTS.BROADCAST.MESSAGE_BY_ID(messageId)
+    );
+    return response;
+  },
+
+  /**
+   * Get broadcast question pricing tiers (NRs per question count)
+   */
+  async getQuestionPricing(): Promise<BroadcastQuestionPricingResponse> {
+    const response = await apiClient.get<BroadcastQuestionPricingResponse>(
+      API_ENDPOINTS.BROADCAST.QUESTION_PRICING
+    );
+    return response;
+  },
+
+  /**
+   * Prepare multi-question broadcast: validate questions, get total/balance/remaining
+   */
+  async prepareQuestions(questionIds: string[]): Promise<PrepareBroadcastQuestionsResponse> {
+    const response = await apiClient.post<PrepareBroadcastQuestionsResponse>(
+      API_ENDPOINTS.BROADCAST.PREPARE_QUESTIONS,
+      { questionIds }
+    );
+    return response;
+  },
+
+  /**
+   * Send multiple broadcast questions (deduct balance, create one message per question)
+   */
+  async sendQuestions(
+    payload: SendBroadcastQuestionsRequest
+  ): Promise<SendBroadcastQuestionsResponse> {
+    const response = await apiClient.post<SendBroadcastQuestionsResponse>(
+      API_ENDPOINTS.BROADCAST.SEND_QUESTIONS,
+      payload
     );
     return response;
   },

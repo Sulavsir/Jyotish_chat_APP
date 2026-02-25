@@ -24,6 +24,7 @@ import {
   dashboardRotatingCopyController,
   questionnaireController,
 } from '../controllers';
+import * as broadcastQuestionPricingController from '../controllers/broadcastQuestionPricing.controller';
 import { cancelAppointmentSchema } from '../validators/appointment.validators';
 import { queryPaginationSchema } from '../validators/query.validators';
 import { asyncHandler } from '../utils';
@@ -45,6 +46,7 @@ import {
   updateQuestionCategorySchema,
   listQuestionCategoriesQuerySchema,
 } from '@jyotish/shared';
+import { updateBroadcastQuestionPricingBodySchema } from '../validators/broadcastQuestionPricing.validators';
 import { jyotishBookingController, adminCoinRatesController, tipController, subhaSahitController } from '../controllers';
 import * as kundaliMatchController from '../controllers/kundaliMatch.controller';
 import {
@@ -323,6 +325,18 @@ router.delete(
   auditLogger(AuditAction.ADMIN_ACTION, 'QuestionCategory'),
   validateParams(uuidParamSchema),
   asyncHandler(questionnaireController.removeQuestionCategory)
+);
+
+// ==================== Broadcast Question Pricing (NRs per question count) ====================
+router.get(
+  '/broadcast-question-pricing',
+  asyncHandler(broadcastQuestionPricingController.getPricing)
+);
+router.put(
+  '/broadcast-question-pricing',
+  auditLogger(AuditAction.ADMIN_ACTION, 'BroadcastQuestionPricing'),
+  validateBody(updateBroadcastQuestionPricingBodySchema),
+  asyncHandler(broadcastQuestionPricingController.updatePricing)
 );
 
 // ==================== Jyotish Bookings (Pandit/Vaastu) ====================

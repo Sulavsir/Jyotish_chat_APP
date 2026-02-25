@@ -20,6 +20,8 @@ export interface PublicAstrologerProfile {
   experience?: number | null;
   languages?: string[];
   appointmentFee?: number | null;
+  /** NRs per direct chat message for this Jyotish (dynamic pricing) */
+  chatMessageFee?: number | null;
   isOnline: boolean;
   isActive: boolean;
   rating?: number | null;

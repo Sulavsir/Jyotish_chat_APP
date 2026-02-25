@@ -24,13 +24,11 @@ import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { PlatformCoinRateRow, PlatformCoinRateType } from '@/types';
 import { toast } from 'sonner';
 
-const RATE_LABELS: Record<PlatformCoinRateType, string> = {
-  CHAT_PER_MESSAGE: 'Chat (per message)',
+const RATE_LABELS: Partial<Record<PlatformCoinRateType, string>> = {
   BROADCAST_PER_MESSAGE: 'Broadcast chat (per message)',
   BROADCAST_SEND: 'Broadcast send (per message)',
-  APPOINTMENT: 'Appointment',
-  KUNDALI_REVIEW: 'Appointment for Full Kundali Review',
   KUNDALI_MATCH: 'Kundali Match',
+  COINS_PER_NPR: 'NRs per NPR (Purchase Rate)',
 };
 
 export default function SetCoinsPage() {
@@ -43,6 +41,7 @@ export default function SetCoinsPage() {
     APPOINTMENT: '',
     KUNDALI_REVIEW: '',
     KUNDALI_MATCH: '',
+    COINS_PER_NPR: '',
   });
 
   const { data: ratesData, isLoading, isError, error } = useQuery({
@@ -62,6 +61,7 @@ export default function SetCoinsPage() {
         APPOINTMENT: '',
         KUNDALI_REVIEW: '',
         KUNDALI_MATCH: '',
+        COINS_PER_NPR: '',
       };
       rates.forEach((r: PlatformCoinRateRow) => {
         next[r.rateType] = String(r.coins);
@@ -76,11 +76,11 @@ export default function SetCoinsPage() {
     onSuccess: (data: { rates: PlatformCoinRateRow[]; message?: string }) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.COIN_RATES.ALL });
       setConfirmOpen(false);
-      toast.success(data.message ?? 'Coin rates updated successfully.');
+      toast.success(data.message ?? 'NRs rates updated successfully.');
     },
     onError: (err: Error) => {
       setConfirmOpen(false);
-      toast.error(err.message ?? 'Failed to save coin rates.');
+      toast.error(err.message ?? 'Failed to save NRs rates.');
     },
   });
 
@@ -116,17 +116,17 @@ export default function SetCoinsPage() {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-white">Coin Settings</h2>
-          <p className="text-slate-400 mt-1">
-            Set coins deducted for chat, broadcast, appointment, and kundali match. Defaults apply
-            if not set.
-          </p>
+          <h2 className="text-3xl font-bold text-white">NRs Settings</h2>
+            <p className="text-slate-400 mt-1">
+              Set platform-wide NRs for broadcast and kundali-related actions. Per-Jyotish chat and
+              appointment fees are now configured on each astrologer profile.
+            </p>
         </div>
 
         <Card className="cosmic-card border border-slate-700 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white">Rates</CardTitle>
-            <p className="text-sm text-slate-400">Coins per action (0–10000)</p>
+            <p className="text-sm text-slate-400">NRs per action (0–10000)</p>
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading && <p className="text-slate-400">Loading...</p>}
@@ -138,25 +138,29 @@ export default function SetCoinsPage() {
             {!isLoading && !isError && rates.length > 0 && (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {(rates as PlatformCoinRateRow[]).map((row) => (
-                    <div key={row.id} className="space-y-2">
-                      <Label className="text-slate-300">{RATE_LABELS[row.rateType]}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={10000}
-                        step={1}
-                        value={editing[row.rateType]}
-                        onChange={(e) =>
-                          setEditing((prev) => ({
-                            ...prev,
-                            [row.rateType]: e.target.value,
-                          }))
-                        }
-                        className="bg-slate-800 border-slate-600 text-white"
-                      />
-                    </div>
-                  ))}
+                  {(rates as PlatformCoinRateRow[])
+                    .filter((row) => RATE_LABELS[row.rateType])
+                    .map((row) => (
+                      <div key={row.id} className="space-y-2">
+                        <Label className="text-slate-300">
+                          {RATE_LABELS[row.rateType] as string}
+                        </Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10000}
+                          step={1}
+                          value={editing[row.rateType]}
+                          onChange={(e) =>
+                            setEditing((prev) => ({
+                              ...prev,
+                              [row.rateType]: e.target.value,
+                            }))
+                          }
+                          className="bg-slate-800 border-slate-600 text-white"
+                        />
+                      </div>
+                    ))}
                 </div>
                 <div className="flex justify-end pt-2">
                   <LoadingButton
@@ -178,9 +182,9 @@ export default function SetCoinsPage() {
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="bg-slate-900 border-slate-700 text-white">
           <DialogHeader>
-            <DialogTitle>Save coin rates?</DialogTitle>
+            <DialogTitle>Save NRs rates?</DialogTitle>
             <DialogDescription className="text-slate-400">
-              This will update the platform coin rates. Users will see the new rates for chat,
+              This will update the platform NRs rates. Users will see the new rates for chat,
               broadcast, appointment, and kundali match.
             </DialogDescription>
           </DialogHeader>

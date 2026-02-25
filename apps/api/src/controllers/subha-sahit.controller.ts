@@ -11,16 +11,18 @@ import { subhaSahitService } from '../services/subha-sahit.service';
  * GET /api/v1/subha-sahit/available
  */
 export const getAvailableDates = async (req: Request, res: Response, next: NextFunction) => {
-  const { occasion, dateFrom, dateTo } = req.query as {
+  const { occasion, dateFrom, dateTo, language } = req.query as {
     occasion?: string;
     dateFrom?: string;
     dateTo?: string;
+    language?: string;
   };
 
   const dates = await subhaSahitService.getAvailableDates({
     occasion,
     dateFrom,
     dateTo,
+    language,
   });
 
   return sendSuccess(res, { dates });
@@ -31,7 +33,8 @@ export const getAvailableDates = async (req: Request, res: Response, next: NextF
  * GET /api/v1/subha-sahit/occasions
  */
 export const getOccasions = async (req: Request, res: Response, next: NextFunction) => {
-  const occasions = await subhaSahitService.getOccasions();
+  const { language } = req.query as { language?: string };
+  const occasions = await subhaSahitService.getOccasions(language);
   return sendSuccess(res, { occasions });
 };
 
@@ -40,8 +43,8 @@ export const getOccasions = async (req: Request, res: Response, next: NextFuncti
  * POST /api/v1/admin/subha-sahit/occasions
  */
 export const createOccasion = async (req: Request, res: Response, next: NextFunction) => {
-  const { name } = req.body as { name: string };
-  const occasion = await subhaSahitService.createOccasion(name);
+  const { name, language } = req.body as { name: string; language?: string };
+  const occasion = await subhaSahitService.createOccasion(name, language);
   return sendSuccess(res, { occasion });
 };
 
@@ -50,15 +53,16 @@ export const createOccasion = async (req: Request, res: Response, next: NextFunc
  * POST /api/v1/admin/subha-sahit
  */
 export const createDates = async (req: Request, res: Response, next: NextFunction) => {
-  const { dates: items } = req.body as {
+  const { dates: items, language } = req.body as {
     dates: Array<{
       date: string;
       occasion: string;
       description?: string;
     }>;
+    language?: string;
   };
 
-  const created = await subhaSahitService.createDates(items);
+  const created = await subhaSahitService.createDates(items, language);
   return sendSuccess(res, { dates: created });
 };
 

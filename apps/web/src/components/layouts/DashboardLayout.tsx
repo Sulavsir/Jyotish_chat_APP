@@ -38,6 +38,7 @@ import { ProfileDropdown, NotificationBell, CoinDisplay } from '@/components/ui'
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  hideBackground?: boolean;
 }
 
 function LanguageDropdown() {
@@ -95,7 +96,7 @@ const ProfileBadge = ({ showProfileAlert }: { showProfileAlert: boolean }) =>
     />
   ) : null;
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, hideBackground }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { user } = useRequireAuth();
   const { handleLogout } = useAuth();
@@ -133,11 +134,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen relative">
-      <div className="fixed inset-0 z-0">
-        <Image src={spaceImage} alt="" fill className="object-cover" quality={90} priority />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70" />
-      </div>
+    <div className={cn('min-h-screen relative', hideBackground && 'bg-black')}>
+      {!hideBackground && (
+        <div className="fixed inset-0 z-0">
+          <Image src={spaceImage} alt="" fill className="object-cover" quality={90} priority />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70" />
+        </div>
+      )}
 
       <div className="relative z-50 flex flex-col h-screen overflow-hidden">
         <div className="flex-shrink-0 h-14 lg:h-16" aria-hidden />

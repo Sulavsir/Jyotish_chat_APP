@@ -55,10 +55,10 @@ export function CoinDisplay({
       icon: 'text-orange-400',
     },
     yellow: {
-      bg: 'bg-yellow-500/10',
-      border: 'border-yellow-500/20',
-      text: 'text-yellow-400',
-      icon: 'text-yellow-400',
+      bg: 'bg-amber-500/10',
+      border: 'border-amber-500/30',
+      text: 'text-amber-300',
+      icon: 'text-amber-300',
     },
   };
 
@@ -69,11 +69,11 @@ export function CoinDisplay({
       <button
         type="button"
         onClick={() => setIsPurchaseModalOpen(true)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${colors.bg} ${colors.border} ${className} hover:bg-yellow-500/15 transition-colors`}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${colors.bg} ${colors.border} ${className} hover:bg-amber-500/20 transition-colors`}
       >
         <Coins className={`h-4 w-4 ${colors.icon}`} />
         <span className={`text-sm font-semibold ${colors.text}`}>
-          {isLoading ? '...' : balance}
+          {isLoading ? '...' : `${balance} coins`}
         </span>
       </button>
 

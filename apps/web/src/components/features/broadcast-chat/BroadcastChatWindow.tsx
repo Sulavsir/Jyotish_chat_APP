@@ -334,14 +334,14 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         const { balance } = await coinService.getBalance();
         if (balance < broadcastSendCoins) {
           toast.error(
-            `Insufficient coins. Required: ${broadcastSendCoins} coin${broadcastSendCoins === 1 ? '' : 's'} to send a broadcast message. Available: ${balance} coin${balance === 1 ? '' : 's'}.`
+            `Insufficient balance. Required: ${broadcastSendCoins} NRs to send a broadcast message. Available: ${balance} NRs.`
           );
           setRequiredCoins(broadcastSendCoins);
           setShowCoinPurchaseModal(true);
           return;
         }
       } catch (err) {
-        toast.error('Failed to check coin balance. Please try again.');
+        toast.error('Failed to check balance. Please try again.');
         return;
       }
     }

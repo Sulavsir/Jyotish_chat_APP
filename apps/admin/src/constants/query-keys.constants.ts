@@ -87,7 +87,10 @@ export const ADMIN_QUERY_KEYS = {
     ALL: ['admin', 'subha-sahit'] as const,
     LIST: (params?: { occasion?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
       params ? (['admin', 'subha-sahit', 'list', params] as const) : (['admin', 'subha-sahit', 'list'] as const),
-    OCCASIONS: () => ['admin', 'subha-sahit', 'occasions'] as const,
+    OCCASIONS: (language?: string) =>
+      language
+        ? (['admin', 'subha-sahit', 'occasions', language] as const)
+        : (['admin', 'subha-sahit', 'occasions'] as const),
   },
 
   // Dashboard Stats
@@ -99,6 +102,7 @@ export const ADMIN_QUERY_KEYS = {
   WEBSITE: {
     DASHBOARD_ROTATING_COPY: () => ['admin', 'website', 'dashboard', 'rotating-copy'] as const,
     QUESTIONNAIRES: () => ['admin', 'website', 'questionnaires'] as const,
+    BROADCAST_QUESTION_PRICING: () => ['admin', 'website', 'broadcast-question-pricing'] as const,
   },
 
   // Jyotish Bookings

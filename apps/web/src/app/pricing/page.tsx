@@ -8,41 +8,20 @@ import { Check, Sparkles, Zap, Clock, Infinity as InfinityIcon } from 'lucide-re
 import { ROUTES, QUERY_KEYS } from '@/constants';
 import { Navbar } from '@/components/ui';
 import { pricingService } from '@/services/pricing.service';
-import { paymentService } from '@/services/payment.service';
 import type { PricingPlan } from '@/types/pricing.types';
-import type { CreateOrderResponse } from '@/types/payment.types';
 import { useAuthStore } from '@/store/auth-store';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
-import { GetPayCheckout } from '@/components/payment/GetPayCheckout';
-import { toast } from 'sonner';
-import { showErrorToast } from '@/lib/error-handler';
 
 type TabFilter = 'all' | 'packs' | 'unlimited';
 
 function PricingContent() {
   const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<TabFilter>('all');
-  const [checkoutData, setCheckoutData] = useState<CreateOrderResponse | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEYS.PRICING.PLANS,
     queryFn: () => pricingService.getPlans(),
-  });
-
-  const createOrderMutation = useMutation({
-    mutationFn: (params: { amount: number; coins: number; planId?: string }) =>
-      paymentService.createOrder({
-        amount: params.amount,
-        coins: params.coins,
-        planId: params.planId,
-      }),
-    onSuccess: (result) => {
-      setCheckoutData(result);
-    },
-    onError: (err) => {
-      showErrorToast(err);
-    },
   });
 
   const plans = data?.plans || [];
@@ -53,11 +32,8 @@ function PricingContent() {
       router.push(ROUTES.LOGIN);
       return;
     }
-    createOrderMutation.mutate({
-      amount: plan.priceInNrs,
-      coins: plan.coins,
-      planId: plan.id,
-    });
+    // Redirect to payment/checkout page with order details
+    window.location.href = `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`;
   };
 
   const filteredPlans = plans.filter((plan) => {
@@ -158,9 +134,9 @@ function PricingContent() {
             </h1>
 
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Connect with experienced Jyotish astrologers. Each coin = 1 chat with any astrologer.
+              Connect with experienced Jyotish astrologers. 1 NRs = 1 chat with any astrologer.
               <br />
-              <span className="text-purple-400 font-semibold">NPR 100 = 100 Coin = 1 Chat</span>
+              <span className="text-purple-400 font-semibold">NPR 100 = 100 NRs = 1 Chat</span>
             </p>
           </div>
 
@@ -281,7 +257,7 @@ function PricingContent() {
                           ) : (
                             <>
                               <Zap className="w-4 h-4" />
-                              <span className="text-sm">{plan.coins} coins</span>
+                              <span className="text-sm">{plan.coins} NRs</span>
                             </>
                           )}
                         </div>
@@ -335,9 +311,6 @@ function PricingContent() {
                       {/* CTA Button */}
                       <LoadingButton
                         onClick={() => handleBuyClick(plan)}
-                        loading={createOrderMutation.isPending}
-                        loadingText="Preparing..."
-                        disabled={createOrderMutation.isPending}
                         className={`w-full py-3.5 rounded-xl font-semibold ${
                           plan.isFeatured
                             ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-500 hover:to-pink-500 shadow-lg shadow-purple-500/30'
@@ -364,14 +337,6 @@ function PricingContent() {
             </div>
           )}
 
-          {/* GetPay checkout - loads script and opens payment when checkoutData is set */}
-          <GetPayCheckout
-            checkoutData={checkoutData}
-            onError={(msg) => {
-              setCheckoutData(null);
-              toast.error(msg);
-            }}
-          />
 
           {/* Info Section */}
           <div className="mt-20 text-center">

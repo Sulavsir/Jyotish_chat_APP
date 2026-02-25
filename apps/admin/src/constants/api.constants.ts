@@ -88,6 +88,7 @@ export const API_ENDPOINTS = {
   WEBSITE: {
     QUESTIONNAIRES: '/api/v1/admin/questionnaires',
     QUESTIONNAIRE_BY_ID: (id: string) => `/api/v1/admin/questionnaires/${id}`,
+    BROADCAST_QUESTION_PRICING: '/api/v1/admin/broadcast-question-pricing',
   },
 
   JYOTISH_BOOKINGS: {

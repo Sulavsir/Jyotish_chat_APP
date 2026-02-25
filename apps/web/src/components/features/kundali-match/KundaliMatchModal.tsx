@@ -109,7 +109,7 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
           >
             <AlertDescription className="flex items-center gap-2 text-amber-200">
               <Coins className="h-4 w-4 shrink-0 text-amber-400" />
-              Cost: {coinCost} coins · Your balance: {coinBalance}
+              Cost: {coinCost} NRs · Your balance: {coinBalance} NRs
             </AlertDescription>
           </Alert>
 

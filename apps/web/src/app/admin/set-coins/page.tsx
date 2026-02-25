@@ -34,12 +34,11 @@ import type { PlatformCoinRateRow, PlatformCoinRateType } from '@/types/platform
 import { Coins } from 'lucide-react';
 import { toast } from 'sonner';
 
-const RATE_LABELS: Record<PlatformCoinRateType, string> = {
-  CHAT_PER_MESSAGE: 'Chat (per message)',
+const RATE_LABELS: Partial<Record<PlatformCoinRateType, string>> = {
   BROADCAST_PER_MESSAGE: 'Broadcast chat (per message)',
   BROADCAST_SEND: 'Broadcast send (per message)',
-  APPOINTMENT: 'Appointment',
-  KUNDALI_REVIEW: 'Full Kundali Review',
+  KUNDALI_MATCH: 'Kundali Match',
+  COINS_PER_NPR: 'Coins per NPR (Purchase Rate)',
 };
 
 export default function AdminSetCoinsPage() {
@@ -51,6 +50,8 @@ export default function AdminSetCoinsPage() {
     BROADCAST_SEND: '',
     APPOINTMENT: '',
     KUNDALI_REVIEW: '',
+    KUNDALI_MATCH: '',
+    COINS_PER_NPR: '',
   });
 
   const { data: ratesData, isLoading, isError, error } = useQuery({
@@ -69,6 +70,8 @@ export default function AdminSetCoinsPage() {
         BROADCAST_SEND: '',
         APPOINTMENT: '',
         KUNDALI_REVIEW: '',
+        KUNDALI_MATCH: '',
+        COINS_PER_NPR: '',
       };
       rates.forEach((r: PlatformCoinRateRow) => {
         next[r.rateType] = String(r.coins);
@@ -122,7 +125,8 @@ export default function AdminSetCoinsPage() {
           Coin Settings
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Set coins deducted for chat, broadcast, and appointment. If not set, defaults (200, 100, 300) are used.
+          Set coins deducted for broadcast and kundali-related actions. Per-Jyotish chat and appointment
+          pricing is configured on each astrologer profile.
         </p>
       </div>
 
@@ -150,32 +154,34 @@ export default function AdminSetCoinsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(rates as PlatformCoinRateRow[]).map((row) => (
-                      <TableRow key={row.id} className="border-white/10">
-                        <TableCell className="text-white font-medium">
-                          {RATE_LABELS[row.rateType]}
-                        </TableCell>
-                        <TableCell className="text-white/60 text-sm">
-                          {row.description ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={10000}
-                            step={1}
-                            value={editing[row.rateType]}
-                            onChange={(e) =>
-                              setEditing((prev) => ({
-                                ...prev,
-                                [row.rateType]: e.target.value,
-                              }))
-                            }
-                            className="bg-white/10 border-white/20 text-white w-full max-w-[8rem]"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {(rates as PlatformCoinRateRow[])
+                      .filter((row) => RATE_LABELS[row.rateType])
+                      .map((row) => (
+                        <TableRow key={row.id} className="border-white/10">
+                          <TableCell className="text-white font-medium">
+                            {RATE_LABELS[row.rateType] as string}
+                          </TableCell>
+                          <TableCell className="text-white/60 text-sm">
+                            {row.description ?? '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={10000}
+                              step={1}
+                              value={editing[row.rateType]}
+                              onChange={(e) =>
+                                setEditing((prev) => ({
+                                  ...prev,
+                                  [row.rateType]: e.target.value,
+                                }))
+                              }
+                              className="bg-white/10 border-white/20 text-white w-full max-w-[8rem]"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                   </TableBody>
                 </Table>
               </div>

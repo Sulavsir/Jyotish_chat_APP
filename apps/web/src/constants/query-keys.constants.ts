@@ -144,6 +144,7 @@ export const QUERY_KEYS = {
     MY_MESSAGES: ['broadcast', 'my-messages'] as const,
     PENDING: ['broadcast', 'pending'] as const,
     ALL: ['broadcast', 'all'] as const,
+    QUESTION_PRICING: ['broadcast', 'question-pricing'] as const,
   },
 
   // Coins
@@ -186,9 +187,16 @@ export const QUERY_KEYS = {
   // Admin coin rates
   ADMIN_COIN_RATES: ['admin', 'coin-rates'] as const,
 
+  // Fonepay QR payments
+  FONEPAY: {
+    STATUS: (prn: string) => ['fonepay', 'status', prn] as const,
+  },
+
   // Subha Sahit (auspicious dates)
   SUBHA_SAHIT: {
-    AVAILABLE: (params?: { occasion?: string; dateFrom?: string; dateTo?: string }) =>
+    AVAILABLE: (params?: { occasion?: string; dateFrom?: string; dateTo?: string; language?: string }) =>
       params ? (['subha-sahit', 'available', params] as const) : (['subha-sahit', 'available'] as const),
+    OCCASIONS: (language?: string) =>
+      language ? (['subha-sahit', 'occasions', language] as const) : (['subha-sahit', 'occasions'] as const),
   },
 } as const;

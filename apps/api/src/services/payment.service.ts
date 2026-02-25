@@ -9,7 +9,28 @@ import {
   getPayConfig,
   PAYMENT_CURRENCY_DEFAULT,
   PAYMENT_METHOD_GETPAY,
+  PAYMENT_METHOD_FONEPAY_QR,
+  PaymentStatus,
+  FONEPAY_PRN_PREFIX_QR,
+  FONEPAY_PRN_QR_RANDOM_LENGTH,
+  PAYMENT_REMARKS_APP_NAME,
+  PAYMENT_REMARKS_COINS_PREFIX,
+  GETPAY_RESPONSE_STATUS_PENDING,
+  GETPAY_RESPONSE_STATUS_SUCCESS,
+  GETPAY_RESPONSE_STATUS_COMPLETED,
+  GETPAY_RESPONSE_STATUS_CAPTURED,
+  GETPAY_RESPONSE_STATUS_AUTHORIZED,
+  GETPAY_RESPONSE_MESSAGE_SUCCESS,
 } from '../constants/payment.constants';
+import * as fonepayQr from '../payments/fonepay/qr';
+import * as fonepayWeb from '../payments/fonepay/web';
+import type {
+  CreateFonepayQrOrderRequest,
+  CreateFonepayQrOrderResponse,
+  VerifyFonepayQrResponse,
+  CreateFonepayCardOrderRequest,
+  CreateFonepayCardOrderResponse,
+} from '../types/payment.types';
 import { getPayMerchantStatus } from './getpay.api';
 import type { CreateOrderRequest, CreateOrderResponse } from '../types/payment.types';
 import { CoinTransactionReason } from '../types/coin.types';
@@ -18,14 +39,19 @@ import { pricingService } from './pricing.service';
 import { PurchaseMethod } from '../types/pricing.types';
 
 /**
- * Build frontend callback URLs for GetPay redirect (success/fail).
- * orderId is included so the frontend can send it when verifying.
+ * Build callback URLs for GetPay. The bundle redirects to these after OTP.
+ * Use frontend success/fail pages so the app receives the redirect and can verify.
  */
 export function buildCallbackUrls(
-  baseOrigin: string,
+  baseOrigin: string | undefined,
   orderId: string
 ): { successUrl: string; failUrl: string } {
+  if (!baseOrigin) {
+    throw new Error('baseOrigin is undefined. Check FRONTEND_URL or request origin.');
+  }
+
   const origin = baseOrigin.replace(/\/$/, '');
+
   return {
     successUrl: `${origin}/payment-success?orderId=${encodeURIComponent(orderId)}`,
     failUrl: `${origin}/payment-fail?orderId=${encodeURIComponent(orderId)}`,
@@ -39,9 +65,9 @@ export function buildCallbackUrls(
 export async function createOrder(
   userId: string,
   body: CreateOrderRequest,
-  baseOrigin: string
+  baseOrigin?: string
 ): Promise<CreateOrderResponse> {
-  const { papInfo, isConfigured } = getPayConfig();
+  const { papInfo, isConfigured, scriptUrl } = getPayConfig();
 
   if (!isConfigured) {
     throw new AppError(
@@ -53,22 +79,44 @@ export async function createOrder(
 
   const { amount, coins, planId } = body;
 
+  if (!amount || amount <= 0) {
+    throw new AppError(
+      'Invalid payment amount',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const origin = baseOrigin || process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || '';
+
+  if (!origin) {
+    throw new AppError(
+      'Frontend URL is not configured',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      ERROR_CODES.SERVER_ERROR
+    );
+  }
+
+  const cleanOrigin = origin.replace(/\/$/, '');
+
+  // 🧾 Create DB record first
   const payment = await prisma.payment.create({
     data: {
       userId,
       consultationId: null,
       amount,
       currency: PAYMENT_CURRENCY_DEFAULT,
-      status: 'PENDING',
+      status: PaymentStatus.PENDING,
       paymentMethod: PAYMENT_METHOD_GETPAY,
       transactionId: null,
       metadata: { coins, planId: planId ?? null },
     },
   });
 
-  const { successUrl, failUrl } = buildCallbackUrls(baseOrigin, payment.id);
-  const websiteDomain = new URL(successUrl).origin;
-  const { scriptUrl } = getPayConfig();
+  // 🔗 Build callback URLs
+  const successUrl = `${cleanOrigin}/payment-success?orderId=${encodeURIComponent(payment.id)}`;
+
+  const failUrl = `${cleanOrigin}/payment-fail?orderId=${encodeURIComponent(payment.id)}`;
 
   return {
     orderId: payment.id,
@@ -79,7 +127,7 @@ export async function createOrder(
     papInfo,
     successUrl,
     failUrl,
-    websiteDomain,
+    websiteDomain: cleanOrigin,
     scriptUrl,
   };
 }
@@ -100,7 +148,7 @@ export async function verifyPayment(
     throw new AppError('Order not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
   }
 
-  if (payment.status === 'SUCCESS') {
+  if (payment.status === PaymentStatus.SUCCESS) {
     const balance = await prisma.user.findUnique({
       where: { id: userId },
       select: { coins: true },
@@ -112,31 +160,73 @@ export async function verifyPayment(
     };
   }
 
-  let getPayResponse: { status?: string; [key: string]: unknown };
+  // Persist transactionId as soon as we attempt verify (paper trail even if GetPay fails)
+  const transactionIdToStore = token;
+  try {
+    await prisma.payment.update({
+      where: { id: orderId },
+      data: { transactionId: transactionIdToStore },
+    });
+  } catch (e) {
+    // Non-fatal: continue to GetPay verification
+  }
+
+  const POLL_INTERVAL_MS = 5_000;
+  const POLL_MAX_ATTEMPTS = 6;
+
+  let getPayResponse: {
+    status?: string | number;
+    message?: string;
+    transactionId?: string;
+    [key: string]: unknown;
+  };
   try {
     getPayResponse = await getPayMerchantStatus(token);
+    let rawStatus = String(getPayResponse?.status ?? '')
+      .trim()
+      .toUpperCase();
+    if (rawStatus === GETPAY_RESPONSE_STATUS_PENDING && POLL_MAX_ATTEMPTS > 1) {
+      for (let attempt = 1; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        getPayResponse = await getPayMerchantStatus(token);
+        rawStatus = String(getPayResponse?.status ?? '')
+          .trim()
+          .toUpperCase();
+        if (rawStatus !== GETPAY_RESPONSE_STATUS_PENDING) break;
+      }
+    }
   } catch (e) {
     await prisma.payment.update({
       where: { id: orderId },
-      data: { status: 'FAILED' },
+      data: { status: PaymentStatus.FAILED, transactionId: transactionIdToStore },
     });
     const err = e instanceof Error ? e : new Error('Verification failed');
-    throw new AppError(
-      err.message,
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
+    throw new AppError(err.message, HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
 
-  const status = String(getPayResponse?.status ?? '').toUpperCase();
-  if (status !== 'SUCCESS' && status !== 'COMPLETED') {
+  const rawStatus = getPayResponse?.status;
+  const rawMessage = String(getPayResponse?.message ?? '')
+    .trim()
+    .toUpperCase();
+  const statusStr = String(rawStatus ?? '')
+    .trim()
+    .toUpperCase();
+  const isSuccess =
+    rawStatus === 0 ||
+    statusStr === GETPAY_RESPONSE_STATUS_SUCCESS ||
+    statusStr === GETPAY_RESPONSE_STATUS_COMPLETED ||
+    statusStr === GETPAY_RESPONSE_STATUS_CAPTURED ||
+    statusStr === GETPAY_RESPONSE_STATUS_AUTHORIZED ||
+    rawMessage === GETPAY_RESPONSE_MESSAGE_SUCCESS;
+
+  if (!isSuccess) {
     await prisma.payment.update({
       where: { id: orderId },
-      data: { status: 'FAILED' },
+      data: { status: PaymentStatus.FAILED, transactionId: transactionIdToStore },
     });
     return {
       success: false,
-      message: 'Payment was not successful.',
+      message: `Payment was not successful (status: ${String(rawStatus) || rawMessage || 'unknown'}).`,
     };
   }
 
@@ -144,11 +234,15 @@ export async function verifyPayment(
   const coinsToAdd = metadata.coins ?? 0;
   const planId = metadata.planId;
 
+  const finalTransactionId =
+    (getPayResponse.transactionId && String(getPayResponse.transactionId).trim()) ||
+    transactionIdToStore;
+
   await prisma.payment.update({
     where: { id: orderId },
     data: {
-      status: 'SUCCESS',
-      transactionId: token,
+      status: PaymentStatus.SUCCESS,
+      transactionId: finalTransactionId,
     },
   });
 
@@ -174,4 +268,192 @@ export async function verifyPayment(
     message: 'Payment verified. Coins have been added to your account.',
     balance: balance?.coins ?? 0,
   };
+}
+
+/**
+ * Create a Fonepay QR order: Payment (PENDING) + FonepayTransaction (type QR) + generate QR.
+ * Returns orderId, prn, qrMessage, websocketUrl for frontend PaymentQR.
+ */
+export async function createFonepayQrOrder(
+  userId: string,
+  body: CreateFonepayQrOrderRequest
+): Promise<CreateFonepayQrOrderResponse> {
+  const { amount, coins, planId } = body;
+  const prn =
+    FONEPAY_PRN_PREFIX_QR +
+    crypto.randomUUID().replace(/-/g, '').slice(0, FONEPAY_PRN_QR_RANDOM_LENGTH);
+  const remarks1 = PAYMENT_REMARKS_APP_NAME;
+  const remarks2 = `${PAYMENT_REMARKS_COINS_PREFIX}${coins}`;
+
+  const payment = await prisma.payment.create({
+    data: {
+      userId,
+      consultationId: null,
+      amount,
+      currency: PAYMENT_CURRENCY_DEFAULT,
+      status: PaymentStatus.PENDING,
+      paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+      transactionId: null,
+      metadata: { prn, coins, planId: planId ?? null },
+    },
+  });
+
+  const result = await fonepayQr.generateQr({
+    amount: String(amount),
+    remarks1,
+    remarks2,
+    prn,
+  });
+
+  if (!result.success) {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: PaymentStatus.FAILED },
+    });
+    throw new AppError(
+      result.error ?? 'Failed to generate Fonepay QR',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.SERVER_ERROR
+    );
+  }
+
+  return {
+    orderId: payment.id,
+    prn,
+    amount,
+    coins,
+    qrMessage: result.qrMessage,
+    websocketUrl: result.websocketUrl,
+  };
+}
+
+/**
+ * Verify Fonepay QR payment by prn: check status with Fonepay, then update Payment and add coins.
+ */
+export async function verifyFonepayQrPayment(
+  userId: string,
+  prn: string
+): Promise<VerifyFonepayQrResponse> {
+  const payment = await prisma.payment.findFirst({
+    where: {
+      userId,
+      paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+      status: PaymentStatus.PENDING,
+      metadata: { path: ['prn'], equals: prn },
+    },
+  });
+
+  if (!payment) {
+    throw new AppError(
+      'Fonepay QR order not found or already completed',
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODES.NOT_FOUND
+    );
+  }
+
+  const metadata = (payment.metadata as { prn?: string; coins?: number; planId?: string }) ?? {};
+  if (metadata.prn !== prn) {
+    throw new AppError(
+      'Order does not match PRN',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const statusResult = await fonepayQr.checkStatus({ prn });
+  if (!statusResult.success) {
+    return {
+      success: false,
+      message: statusResult.error ?? 'Could not verify payment status',
+    };
+  }
+
+  if (statusResult.paymentStatus !== 'success') {
+    return {
+      success: false,
+      message:
+        statusResult.paymentStatus === 'failed'
+          ? 'Payment failed.'
+          : 'Payment is still pending. Please try again in a moment.',
+    };
+  }
+
+  const coinsToAdd = metadata.coins ?? 0;
+  const planId = metadata.planId;
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      status: PaymentStatus.SUCCESS,
+      transactionId: statusResult.fonepayTraceId ?? prn,
+    },
+  });
+
+  if (planId) {
+    await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
+  } else if (coinsToAdd > 0) {
+    await addCoins(
+      userId,
+      coinsToAdd,
+      CoinTransactionReason.PAYMENT_SUCCESS,
+      undefined,
+      payment.id
+    );
+  }
+
+  const balance = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { coins: true },
+  });
+
+  return {
+    success: true,
+    message: 'Payment verified. Coins have been added to your account.',
+    balance: balance?.coins ?? 0,
+    orderId: payment.id,
+  };
+}
+
+/**
+ * Create Fonepay Web (card) order: Payment PENDING, redirect URL to Fonepay. Uses FONEPAY_WEB_* only.
+ */
+export async function createFonepayCardOrder(
+  userId: string,
+  body: CreateFonepayCardOrderRequest
+): Promise<CreateFonepayCardOrderResponse> {
+  return fonepayWeb.initiatePayment({ userId, body });
+}
+
+/**
+ * Payment abstraction: single entry for Fonepay by mode (QR or WEB).
+ * Use this to avoid mixing gateways and to keep PRN/flow consistent.
+ */
+export type FonepayPayParams =
+  | { gateway: 'fonepay'; mode: 'QR'; amount: number; coins: number; planId?: string }
+  | { gateway: 'fonepay'; mode: 'WEB'; amount: number; coins: number; planId?: string };
+
+export type FonepayPayResult = CreateFonepayQrOrderResponse | CreateFonepayCardOrderResponse;
+
+export async function payWithFonepay(
+  userId: string,
+  params: FonepayPayParams
+): Promise<FonepayPayResult> {
+  const { amount, coins, planId } = params;
+  const body = { amount, coins, planId };
+  if (params.mode === 'QR') {
+    return createFonepayQrOrder(userId, body);
+  }
+  return createFonepayCardOrder(userId, body);
+}
+
+/** Fonepay Web callback query (re-export for controller). */
+export type FonepayCardCallbackQuery = import('../payments/fonepay/web').FonepayWebCallbackQuery;
+
+/**
+ * Handle Fonepay Web callback: verify DV, update Payment, redirect to frontend success/fail.
+ */
+export async function handleFonepayCardCallback(
+  query: FonepayCardCallbackQuery
+): Promise<{ redirectTo: string }> {
+  return fonepayWeb.verifyPayment(query);
 }

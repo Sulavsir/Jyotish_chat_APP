@@ -7,7 +7,9 @@ export type PlatformCoinRateType =
   | 'BROADCAST_PER_MESSAGE'
   | 'BROADCAST_SEND'
   | 'APPOINTMENT'
-  | 'KUNDALI_REVIEW';
+  | 'KUNDALI_REVIEW'
+  | 'KUNDALI_MATCH'
+  | 'COINS_PER_NPR';
 
 export interface PlatformCoinRateRow {
   id: string;
@@ -24,4 +26,6 @@ export interface UpdatePlatformCoinRatesBody {
   BROADCAST_SEND?: number;
   APPOINTMENT?: number;
   KUNDALI_REVIEW?: number;
+  KUNDALI_MATCH?: number;
+  COINS_PER_NPR?: number;
 }

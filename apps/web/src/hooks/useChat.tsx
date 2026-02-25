@@ -118,18 +118,20 @@ export function useChat() {
         if (user.role === UserRole.CLIENT) {
           const { balance } = await coinService.getBalance();
           const { astrologer } = await astrologerService.getPublicProfile(otherUserId);
-          // Use admin-configured CHAT_PER_MESSAGE from backend; PREMIUM/KATHA_VACHAK = 0 (appointment-only)
           const isAppointmentOnly =
             astrologer.category === AstrologerCategory.PREMIUM ||
             astrologer.category === AstrologerCategory.KATHA_VACHAK;
-          const requiredCoinsForChat = isAppointmentOnly ? 0 : rates?.CHAT_PER_MESSAGE;
+          const perMessageNr = astrologer.chatMessageFee && astrologer.chatMessageFee > 0
+            ? astrologer.chatMessageFee
+            : 0;
+          const requiredCoinsForChat = isAppointmentOnly ? 0 : perMessageNr;
           if (
             requiredCoinsForChat != null &&
             requiredCoinsForChat > 0 &&
             balance < requiredCoinsForChat
           ) {
             toast.error(
-              `Insufficient coins. Required: ${requiredCoinsForChat} coin${requiredCoinsForChat === 1 ? '' : 's'} to send a message. Available: ${balance} coin${balance === 1 ? '' : 's'}. Please top up your coins.`
+              `Insufficient balance. Required: ${requiredCoinsForChat} NRs to send a message. Available: ${balance} NRs. Please top up.`
             );
             setPendingChatParams({ otherUserId, consultationId });
             setRequiredCoins(requiredCoinsForChat);

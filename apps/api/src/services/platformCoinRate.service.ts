@@ -24,8 +24,10 @@ export interface UpdatePlatformCoinRatesInput {
   APPOINTMENT?: number;
   KUNDALI_REVIEW?: number;
   KUNDALI_MATCH?: number;
+  COINS_PER_NPR?: number;
 }
 
+/** All platform coin rate types (must match Prisma enum PlatformCoinRateType). */
 const RATE_TYPES: PlatformCoinRateType[] = [
   'CHAT_PER_MESSAGE',
   'BROADCAST_PER_MESSAGE',
@@ -33,6 +35,7 @@ const RATE_TYPES: PlatformCoinRateType[] = [
   'APPOINTMENT',
   'KUNDALI_REVIEW',
   'KUNDALI_MATCH',
+  'COINS_PER_NPR' as PlatformCoinRateType,
 ];
 
 /**
@@ -52,7 +55,8 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
       APPOINTMENT: 300,
       KUNDALI_REVIEW: 500,
       KUNDALI_MATCH: 0,
-    };
+      COINS_PER_NPR: 1,
+    } as Record<PlatformCoinRateType, number>;
     return defaults[rateType] ?? 0;
   }
   return row.coins;
@@ -65,7 +69,7 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
 export async function getRatesForClient(): Promise<
   Record<PlatformCoinRateType, number>
 > {
-  const [chat, broadcastMsg, broadcastSend, appointment, kundaliReview, kundaliMatch] =
+  const [chat, broadcastMsg, broadcastSend, appointment, kundaliReview, kundaliMatch, coinsPerNpr] =
     await Promise.all([
       getRate('CHAT_PER_MESSAGE'),
       getRate('BROADCAST_PER_MESSAGE'),
@@ -73,6 +77,7 @@ export async function getRatesForClient(): Promise<
       getRate('APPOINTMENT'),
       getRate('KUNDALI_REVIEW'),
       getRate('KUNDALI_MATCH'),
+      getRate('COINS_PER_NPR' as PlatformCoinRateType),
     ]);
   return {
     CHAT_PER_MESSAGE: chat,
@@ -81,7 +86,8 @@ export async function getRatesForClient(): Promise<
     APPOINTMENT: appointment,
     KUNDALI_REVIEW: kundaliReview,
     KUNDALI_MATCH: kundaliMatch,
-  };
+    COINS_PER_NPR: coinsPerNpr,
+  } as Record<PlatformCoinRateType, number>;
 }
 
 /**
@@ -100,7 +106,8 @@ export async function getAllRates(): Promise<PlatformCoinRateRow[]> {
     APPOINTMENT: 300,
     KUNDALI_REVIEW: 500,
     KUNDALI_MATCH: 0,
-  };
+    COINS_PER_NPR: 1,
+  } as Record<PlatformCoinRateType, number>;
   for (const rateType of RATE_TYPES) {
     if (!existing.has(rateType)) {
       const created = await prisma.platformCoinRate.create({

@@ -281,7 +281,8 @@ export type PlatformCoinRateType =
   | 'BROADCAST_SEND'
   | 'APPOINTMENT'
   | 'KUNDALI_REVIEW'
-  | 'KUNDALI_MATCH';
+  | 'KUNDALI_MATCH'
+  | 'COINS_PER_NPR';
 
 export interface PlatformCoinRateRow {
   id: string;
@@ -299,6 +300,7 @@ export interface UpdatePlatformCoinRatesBody {
   APPOINTMENT?: number;
   KUNDALI_REVIEW?: number;
   KUNDALI_MATCH?: number;
+  COINS_PER_NPR?: number;
 }
 
 // Admin earnings: astrologers with total coin earnings
@@ -320,4 +322,12 @@ export interface ListAstrologersWithCoinEarningsResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export interface BroadcastQuestionPricingTier {
+  id: string;
+  questionCount: number;
+  amountNr: number;
+  createdAt: string;
+  updatedAt: string;
 }

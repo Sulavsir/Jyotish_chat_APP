@@ -7,11 +7,14 @@ import { Response } from 'express';
 import { UserRole } from '@jyotish/shared';
 import { AuthRequest } from '@/types';
 import { broadcastMessageService } from '../services';
+import * as broadcastQuestionPricingService from '../services/broadcastQuestionPricing.service';
 import { sendSuccess, sendError } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import { getSocketInstance } from '../utils/socket-instance';
 import { prisma } from '@jyotish/database';
 import { AstrologerCategory } from '@prisma/client';
+import { NotificationService } from '../services/notification.service';
+import { NotificationType } from '@jyotish/shared';
 
 type BroadcastMessageControllerError = Error & {
   code?: string;
@@ -343,5 +346,149 @@ export async function getBroadcastMessage(req: AuthRequest, res: Response) {
       'Failed to retrieve broadcast message',
       HTTP_STATUS.INTERNAL_SERVER_ERROR
     );
+  }
+}
+
+/**
+ * GET /api/v1/broadcast-messages/question-pricing
+ * Get broadcast question pricing tiers (client only)
+ */
+export async function getQuestionPricing(req: AuthRequest, res: Response) {
+  try {
+    if (req.user!.role !== UserRole.CLIENT) {
+      return sendError(
+        res,
+        'Only clients can view broadcast question pricing',
+        HTTP_STATUS.FORBIDDEN
+      );
+    }
+
+    const tiers = await broadcastQuestionPricingService.getPricingTiers();
+    return sendSuccess(res, { tiers });
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Error getting question pricing:', error);
+    return sendError(
+      res,
+      err?.message ?? 'Failed to retrieve pricing',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR
+    );
+  }
+}
+
+/**
+ * POST /api/v1/broadcast-messages/prepare-questions
+ * Prepare multi-question broadcast: validate questions, return total/balance/remaining (client only)
+ */
+export async function prepareQuestions(req: AuthRequest, res: Response) {
+  try {
+    if (req.user!.role !== UserRole.CLIENT) {
+      return sendError(
+        res,
+        'Only clients can prepare broadcast questions',
+        HTTP_STATUS.FORBIDDEN
+      );
+    }
+
+    const { questionIds } = req.body as { questionIds: string[] };
+    const clientId = req.user!.id;
+
+    const result = await broadcastQuestionPricingService.prepareBroadcastQuestions(
+      clientId,
+      questionIds
+    );
+    return sendSuccess(res, result);
+  } catch (error: unknown) {
+    const err = error as Error & { statusCode?: number };
+    console.error('Error preparing broadcast questions:', error);
+    const status = err?.statusCode ?? HTTP_STATUS.BAD_REQUEST;
+    return sendError(res, err?.message ?? 'Failed to prepare questions', status);
+  }
+}
+
+/**
+ * POST /api/v1/broadcast-messages/send-questions
+ * Create multiple broadcast messages (deduct balance, create one message per question) and notify astrologers.
+ */
+export async function sendQuestions(req: AuthRequest, res: Response) {
+  try {
+    if (req.user!.role !== UserRole.CLIENT) {
+      return sendError(
+        res,
+        'Only clients can send broadcast questions',
+        HTTP_STATUS.FORBIDDEN
+      );
+    }
+
+    const { questionItems, totalNr, birthDetails } = req.body as {
+      questionItems: { id: string; text: string }[];
+      totalNr: number;
+      birthDetails?: {
+        dateOfBirth?: string;
+        timeOfBirth?: string;
+        placeOfBirth?: string;
+        gender?: string;
+      };
+    };
+    const clientId = req.user!.id;
+
+    const { messages } = await broadcastMessageService.createMultipleBroadcastMessages({
+      clientId,
+      questionItems,
+      totalNr,
+      birthDetails,
+    });
+
+    const io = getSocketInstance();
+    const notificationService = new NotificationService();
+
+    if (io) {
+      const eligibleAstrologers = await prisma.astrologer.findMany({
+        where: {
+          isActive: true,
+          category: {
+            in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+          },
+        },
+        select: { id: true },
+      });
+
+      for (const message of messages) {
+        eligibleAstrologers.forEach((astrologer) => {
+          io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
+        });
+        const notificationPromises = eligibleAstrologers.map((astrologer) =>
+          notificationService.createNotification({
+            astrologerId: astrologer.id,
+            type: NotificationType.BROADCAST_MESSAGE,
+            title: 'New Chat Request',
+            message: 'A client is requesting to chat with an astrologer',
+            metadata: {
+              broadcastMessageId: message.id,
+              clientId: message.clientId,
+              isConfidential: true,
+            },
+          })
+        );
+        await Promise.all(notificationPromises);
+      }
+
+      io.to('astrologers').emit('notification:new', {
+        type: 'BROADCAST_MESSAGE',
+        title: 'New Chat Request',
+        message: 'A client is requesting to chat with an astrologer',
+      });
+    }
+
+    return sendSuccess(
+      res,
+      { messageIds: messages.map((m) => m.id), count: messages.length },
+      HTTP_STATUS.CREATED
+    );
+  } catch (error: unknown) {
+    const err = error as Error & { statusCode?: number };
+    console.error('Error sending broadcast questions:', error);
+    const status = err?.statusCode ?? HTTP_STATUS.BAD_REQUEST;
+    return sendError(res, err?.message ?? 'Failed to send questions', status);
   }
 }

@@ -63,8 +63,8 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         });
       }
 
-      const { getRate } = await import('../services/platformCoinRate.service');
-      const amount = await getRate('KUNDALI_REVIEW');
+      // Use astrologer-specific appointment fee for Full Kundali Review
+      const amount = astrologer.appointmentFee ?? 0;
 
       const appointment = await appointmentService.createAppointment({
         clientId,
@@ -353,9 +353,14 @@ export const confirmAppointment = async (req: AuthRequest, res: Response) => {
     const coinService = await import('../services/coin.service');
     let deduction: { coinTransactionId: string; coinCost: number } | undefined;
     try {
+      const dynamicFee =
+        (appointment.amount as number | null) ??
+        (appointment.astrologer?.appointmentFee as number | null) ??
+        0;
       const result = await coinService.deductCoinsForAppointment(
         appointment.clientId,
-        appointment.astrologerId
+        appointment.astrologerId,
+        dynamicFee
       );
       if (result.coinCost > 0) {
         deduction = { coinTransactionId: result.coinTransactionId, coinCost: result.coinCost };

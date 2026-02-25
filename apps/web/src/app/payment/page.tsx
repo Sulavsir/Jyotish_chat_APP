@@ -1,283 +1,397 @@
 /**
- * Payment Page
- * Handles coin purchase payment flow
+ * Payment/Checkout Page
+ * Choose payment method: GetPay (card) | Fonepay (card) | Fonepay (QR)
+ * Then show the selected checkout UI.
  */
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
-import { Loader2, CheckCircle2, XCircle, Coins } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { coinService } from '@/services/coin.service';
-import type { AddCoinsResponse } from '@/types/coin.types';
-import { QUERY_KEYS } from '@/constants';
+import { Button } from '@jyotish/ui';
+import { Loader2, Coins, ArrowLeft } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { paymentService } from '@/services/payment.service';
+import type { CreateOrderResponse, CreateFonepayQrOrderResponse } from '@/types/payment.types';
+import { GetPayCheckout } from '@/components/payment/GetPayCheckout';
+import { FonepayQRCheckout } from '@/components/payment/FonepayQRCheckout';
 import { toast } from 'sonner';
-import { ROUTES } from '@/constants';
+import { showErrorToast } from '@/lib/error-handler';
+import { ROUTES, PAYMENT_METHOD, type PaymentMethod } from '@/constants';
 
 export default function PaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
-  const [paymentStatus, setPaymentStatus] = useState<'processing' | 'success' | 'failed'>(
-    'processing'
-  );
-  const hasProcessedRef = useRef(false); // Track if payment has been processed
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [checkoutData, setCheckoutData] = useState<CreateOrderResponse | null>(null);
+  const [fonepayQrData, setFonepayQrData] = useState<CreateFonepayQrOrderResponse | null>(null);
 
   const planId = searchParams.get('planId');
-  const amount = searchParams.get('amount');
-  const coins = searchParams.get('coins');
+  const amountParam = searchParams.get('amount');
+  const coinsParam = searchParams.get('coins');
 
-  const addCoinsMutation = useMutation({
-    mutationFn: (data: { amount?: number; paymentId?: string; planId?: string }) =>
-      coinService.addCoins(data),
-    onSuccess: (data) => {
-      // Mark as processed to prevent duplicate calls
-      hasProcessedRef.current = true;
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
-      setPaymentStatus('success');
+  const amount = amountParam ? Number(amountParam) : NaN;
+  const coins = coinsParam ? Number(coinsParam) : NaN;
+  const isValid = !Number.isNaN(amount) && amount > 0 && !Number.isNaN(coins) && coins > 0;
 
-      // Show appropriate success message
-      if (data?.isUnlimited) {
-        toast.success('Unlimited plan activated successfully!');
-      } else {
-        toast.success('Payment successful! Coins added to your account.');
-      }
-
-      // Check if we should retry a pending chat
-      const pendingChatData = sessionStorage.getItem('pendingChatAfterPurchase');
-      if (pendingChatData) {
-        try {
-          const pendingChat = JSON.parse(pendingChatData);
-          sessionStorage.removeItem('pendingChatAfterPurchase');
-
-          // If there's a callback, wait a bit for backend to update then trigger event
-          if (pendingChat.hasCallback) {
-            // Wait for backend to update coins, then trigger event
-            setTimeout(() => {
-              // Trigger a custom event that components can listen to
-              window.dispatchEvent(new CustomEvent('coinsPurchased'));
-            }, 1500);
-          } else if (pendingChat.otherUserId) {
-            // Use useChat hook to start chat after coins are added
-            setTimeout(async () => {
-              const { default: chatService } = await import('@/services/chat.service');
-              try {
-                const { chat } = await chatService.getOrCreateChat({
-                  otherUserId: pendingChat.otherUserId,
-                });
-                if (chat?.id) {
-                  router.push(`/chat?chatId=${chat.id}`);
-                } else {
-                  router.push(`/chat?otherUserId=${pendingChat.otherUserId}`);
-                }
-              } catch (error) {
-                console.error('Error starting chat after purchase:', error);
-                router.push(ROUTES.CHAT);
-              }
-            }, 1500);
-          }
-        } catch (error) {
-          console.error('Error parsing pending chat data:', error);
-        }
-      }
+  const createOrderMutation = useMutation({
+    mutationFn: () =>
+      paymentService.createOrder({
+        amount,
+        coins,
+        planId:
+          planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
+            ? planId
+            : undefined,
+      }),
+    onSuccess: (result) => {
+      setCheckoutData(result);
     },
-    onError: (error) => {
-      // Reset the ref on error so user can retry
-      hasProcessedRef.current = false;
-      setPaymentStatus('failed');
-      toast.error(error instanceof Error ? error.message : 'Payment failed');
+    onError: (err) => {
+      showErrorToast(err);
     },
   });
 
-  const handlePaymentSuccess = React.useCallback(() => {
-    // Prevent multiple calls
-    if (hasProcessedRef.current) {
+  const createFonepayQrMutation = useMutation({
+    mutationFn: () =>
+      paymentService.createFonepayQrOrder({
+        amount,
+        coins,
+        planId:
+          planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
+            ? planId
+            : undefined,
+      }),
+    onSuccess: (result) => {
+      setFonepayQrData(result);
+    },
+    onError: (err) => {
+      showErrorToast(err);
+    },
+  });
+
+  const createFonepayCardMutation = useMutation({
+    mutationFn: () =>
+      paymentService.createFonepayCardOrder({
+        amount,
+        coins,
+        planId:
+          planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
+            ? planId
+            : undefined,
+      }),
+    onSuccess: (result) => {
+      window.location.href = result.redirectUrl;
+    },
+    onError: (err) => {
+      showErrorToast(err);
+    },
+  });
+
+  useEffect(() => {
+    if (!isValid) {
+      router.replace(ROUTES.PRICING);
       return;
     }
+  }, [isValid, router]);
 
-    if (!planId || !amount) {
-      setPaymentStatus('failed');
-      toast.error('Invalid payment parameters');
-      return;
-    }
-
-    // Mark as processing to prevent duplicate calls
-    hasProcessedRef.current = true;
-
-    // If it's a custom coin purchase (not a plan), include amount
-    // If it's a plan, just pass planId (backend will handle it)
-    const isCustomPlan = planId.startsWith('custom-');
-    const coinsAmount = coins ? parseInt(coins, 10) : undefined;
-
-    // Call API with planId (backend will activate unlimited plans or add coins for coin packs)
-    addCoinsMutation.mutate({
-      ...(isCustomPlan && coinsAmount ? { amount: coinsAmount } : {}),
-      planId: isCustomPlan ? undefined : planId, // Only pass planId for actual plans
-    });
-  }, [planId, amount, coins, addCoinsMutation]);
-
-  // Redirect if no plan parameters
-  useEffect(() => {
-    if (!planId || !amount) {
-      router.push(ROUTES.PRICING);
-    }
-  }, [planId, amount, router]);
-
-  // Trigger payment processing immediately when params are valid (only once)
-  useEffect(() => {
-    // Only process if:
-    // 1. Status is processing
-    // 2. PlanId and amount are valid
-    // 3. Haven't processed yet
-    // 4. Mutation is not already in progress
-    if (
-      paymentStatus === 'processing' &&
-      planId &&
-      amount &&
-      !hasProcessedRef.current &&
-      !addCoinsMutation.isPending
-    ) {
-      // Directly call our "payment success" handler which will
-      // call the backend API and update state accordingly.
-      handlePaymentSuccess();
-    }
-  }, [paymentStatus, planId, amount, handlePaymentSuccess, addCoinsMutation.isPending]);
-
-  const handleRetry = () => {
-    // Reset the ref to allow retry
-    hasProcessedRef.current = false;
-    setPaymentStatus('processing');
-    if (planId && amount && coins) {
-      handlePaymentSuccess();
+  const handleSelectGetPay = () => {
+    setPaymentMethod(PAYMENT_METHOD.GETPAY);
+    if (!checkoutData && !createOrderMutation.isPending) {
+      createOrderMutation.mutate();
     }
   };
 
-  const handleGoHome = () => {
-    router.push(ROUTES.DASHBOARD);
+  const handleSelectFonepayCard = () => {
+    setPaymentMethod(PAYMENT_METHOD.FONEPAY_CARD);
+    if (!createFonepayCardMutation.isPending) {
+      createFonepayCardMutation.mutate();
+    }
   };
+
+  const handleSelectFonepayQr = () => {
+    setPaymentMethod(PAYMENT_METHOD.FONEPAY_QR);
+    if (!fonepayQrData && !createFonepayQrMutation.isPending) {
+      createFonepayQrMutation.mutate();
+    }
+  };
+
+  const handleFonepayQrSuccess = () => {
+    window.dispatchEvent(new CustomEvent('coinsPurchased'));
+    router.push(
+      `${ROUTES.PAYMENT_SUCCESS}?orderId=${fonepayQrData?.orderId ?? ''}&source=fonepay-qr`
+    );
+  };
+
+  const handleBackToMethods = () => {
+    setPaymentMethod(null);
+  };
+
+  const handleTopBack = () => {
+    if (paymentMethod !== null) {
+      handleBackToMethods();
+    } else {
+      router.back();
+    }
+  };
+
+  if (!isValid) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-2xl mx-auto py-12">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-purple-600 mx-auto mb-4" />
+            <p className="text-gray-600">Redirecting to pricing…</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  const showMethodSelector = paymentMethod === null;
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-12">
-        {paymentStatus === 'processing' && (
-          <Card className="bg-gradient-to-br from-purple-950 via-indigo-950/90 to-slate-950 border border-purple-500/40 shadow-[0_0_40px_rgba(129,140,248,0.5)]">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-white mb-2">
-                Completing Your Purchase
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500/25 via-purple-500/30 to-blue-500/25 border border-purple-500/40 shadow-[0_0_30px_rgba(129,140,248,0.8)] mb-6">
-                  <Loader2 className="h-12 w-12 text-purple-200 animate-spin" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white mb-2">Processing your payment…</h3>
-                <p className="text-purple-100/80">
-                  This will just take a moment while we add coins to your account.
-                </p>
-                {coins && amount && (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-blue-900/40 border border-purple-500/40 rounded-xl">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-purple-100">Coins:</span>
-                      <span className="text-yellow-300 font-semibold flex items-center gap-1">
-                        <Coins className="h-4 w-4" />
-                        {coins}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm mt-2">
-                      <span className="text-purple-100">Amount:</span>
-                      <span className="text-white font-semibold">Rs. {amount}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <Button
+            onClick={handleTopBack}
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 text-black text-sm md:text-base font-semibold hover:bg-gray-100 hover:text-black"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back</span>
+          </Button>
+        </div>
+      </div>
 
-        {paymentStatus === 'success' && (
-          <Card className="bg-gradient-to-br from-green-950 via-emerald-950/90 to-green-900 border border-green-500/40 shadow-[0_0_40px_rgba(34,197,94,0.5)]">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-white mb-2">
-                Payment Successful
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-500/30 to-emerald-500/30 border border-green-400/50 shadow-[0_0_30px_rgba(34,197,94,0.8)] mb-6">
-                  <CheckCircle2 className="h-12 w-12 text-green-100" />
-                </div>
-                <h3 className="text-2xl font-semibold text-white mb-2">Payment Successful!</h3>
-                <p className="text-green-50/90 mb-6">
-                  {planId && planId.startsWith('custom-')
-                    ? 'Your coins have been added to your account. You&apos;re ready to start chatting.'
-                    : 'Your purchase was successful. You&apos;re ready to start chatting.'}
-                </p>
-                {coins && !planId?.includes('unlimited') && (
-                  <div className="mb-6 p-4 bg-green-800/40 border border-green-400/50 rounded-xl">
-                    <p className="text-green-50 text-sm mb-1">Coins Added</p>
-                    <p className="text-yellow-200 font-bold text-2xl flex items-center justify-center gap-2">
-                      <Coins className="h-6 w-6" />
-                      {coins} Coins
+      <div className="w-full bg-gray-50 min-h-screen py-8">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-8 items-start">
+            {/* Left: Order Information */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Order Information</h2>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Coins className="h-8 w-8 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900">Coins Package</p>
+                    <p className="text-sm text-gray-600">{coins} coins</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900">
+                      NPR {amount.toLocaleString()}
                     </p>
                   </div>
-                )}
-                {planId && !planId.startsWith('custom-') && (
-                  <div className="mb-6 p-4 bg-green-800/40 border border-green-400/50 rounded-xl">
-                    <p className="text-green-50 text-sm mb-1">Plan Activated</p>
-                    <p className="text-green-200 font-bold text-lg">
-                      Your plan has been activated successfully!
+                </div>
+                <div className="pt-4">
+                  <div className="bg-gray-100 rounded-lg px-4 py-3 flex items-center justify-between">
+                    <span className="font-bold text-gray-900">Total:</span>
+                    <span className="font-bold text-lg text-gray-900">
+                      NPR {amount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Payment method choice or checkout */}
+            <div className="bg-white rounded-lg shadow-md px-6 pb-6 pt-6 min-w-0">
+              {showMethodSelector ? (
+                <>
+                  <h2 className="text-lg font-bold text-gray-900 mb-4">Choose payment method</h2>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={handleSelectGetPay}
+                      disabled={createOrderMutation.isPending}
+                      className="w-full flex items-center gap-4 p-6 rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50/50 transition-colors disabled:opacity-60 text-left"
+                    >
+                      <div className="flex-shrink-0 w-32 min-h-[56px] flex items-center justify-start">
+                        <Image
+                          src="/images/payment/getpay.webp"
+                          alt="GetPay"
+                          width={180}
+                          height={56}
+                          className="object-contain max-h-14 w-auto"
+                          unoptimized
+                        />
+                      </div>
+                      {createOrderMutation.isPending && (
+                        <Loader2 className="h-5 w-5 animate-spin text-purple-600 flex-shrink-0 ml-auto" />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSelectFonepayCard}
+                      className="w-full flex items-center gap-3 p-6 rounded-xl border border-gray-200 hover:border-amber-400 hover:bg-amber-50/30 transition-colors text-left"
+                    >
+                      <div className="flex-shrink-0 flex items-center gap-3">
+                        <Image
+                          src="/images/payment/fonepay.png"
+                          alt="Fonepay"
+                          width={140}
+                          height={44}
+                          className="object-contain h-11 w-auto"
+                          unoptimized
+                        />
+                        <span className="font-semibold text-gray-700">Login to pay</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSelectFonepayQr}
+                      disabled={createFonepayQrMutation.isPending}
+                      className="w-full flex items-center gap-3 p-6 rounded-xl border border-gray-200 hover:border-red-500 hover:bg-red-50/30 transition-colors disabled:opacity-60 text-left"
+                    >
+                      <div className="flex-shrink-0 flex items-center gap-3">
+                        <Image
+                          src="/images/payment/fonepay.png"
+                          alt="Fonepay"
+                          width={140}
+                          height={44}
+                          className="object-contain h-11 w-auto"
+                          unoptimized
+                        />
+                        <span className="font-semibold text-gray-700">QR</span>
+                      </div>
+                      {createFonepayQrMutation.isPending && (
+                        <Loader2 className="h-5 w-5 animate-spin text-red-600 flex-shrink-0 ml-auto" />
+                      )}
+                    </button>
+                  </div>
+                </>
+              ) : paymentMethod === PAYMENT_METHOD.GETPAY && checkoutData ? (
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToMethods}
+                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to payment methods
+                  </Button>
+                  <GetPayCheckout
+                    checkoutData={checkoutData}
+                    onError={(msg) => {
+                      toast.error(msg);
+                    }}
+                  />
+                </div>
+              ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD &&
+                createFonepayCardMutation.isPending ? (
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToMethods}
+                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to payment methods
+                  </Button>
+                  <div className="rounded-xl border-2 border-amber-200 bg-amber-50/50 p-6 text-center">
+                    <Loader2 className="h-10 w-10 animate-spin text-amber-600 mx-auto mb-4" />
+                    <p className="text-gray-700 font-medium">Redirecting to Fonepay…</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      You will enter your card details on Fonepay.
                     </p>
                   </div>
-                )}
-                <Button
-                  onClick={handleGoHome}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-                >
-                  Go to Dashboard
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {paymentStatus === 'failed' && (
-          <Card className="bg-gradient-to-br from-red-950 via-rose-950/90 to-red-900 border border-red-500/40 shadow-[0_0_40px_rgba(248,113,113,0.5)]">
-            <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-white mb-2">Payment Failed</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-red-500/30 to-rose-500/30 border border-red-400/50 shadow-[0_0_30px_rgba(248,113,113,0.8)] mb-6">
-                  <XCircle className="h-12 w-12 text-red-100" />
                 </div>
-                <h3 className="text-2xl font-semibold text-white mb-2">Payment Failed</h3>
-                <p className="text-red-50/90 mb-6">
-                  We couldn&apos;t process your payment automatically. Please try again.
-                </p>
-                <div className="flex gap-3 justify-center">
+              ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD &&
+                createFonepayCardMutation.isError ? (
+                <div className="space-y-4">
                   <Button
-                    onClick={handleRetry}
-                    variant="outline"
-                    className="border-red-400/50 text-red-100 hover:bg-red-900/30"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToMethods}
+                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
                   >
-                    Try Again
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to payment methods
                   </Button>
-                  <Button
-                    onClick={handleGoHome}
-                    className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white"
-                  >
-                    Go to Dashboard
-                  </Button>
+                  <div className="rounded-xl border-2 border-red-200 bg-red-50/50 p-6 text-center">
+                    <p className="text-red-700 text-sm">
+                      Could not start Fonepay payment. Please try again.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => createFonepayCardMutation.mutate()}
+                      className="mt-4"
+                    >
+                      Retry
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+              ) : paymentMethod === PAYMENT_METHOD.FONEPAY_QR && fonepayQrData ? (
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToMethods}
+                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to payment methods
+                  </Button>
+                  <FonepayQRCheckout
+                    orderId={fonepayQrData.orderId}
+                    prn={fonepayQrData.prn}
+                    qrMessage={fonepayQrData.qrMessage}
+                    websocketUrl={fonepayQrData.websocketUrl}
+                    onSuccess={handleFonepayQrSuccess}
+                    onError={(msg) => toast.error(msg)}
+                  />
+                </div>
+              ) : createOrderMutation.isPending || createFonepayQrMutation.isPending ? (
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToMethods}
+                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to payment methods
+                  </Button>
+                  <div className="py-12 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+                    <p className="text-gray-600 text-sm">Preparing payment…</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleBackToMethods}
+                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to payment methods
+                  </Button>
+                  <div className="py-12 text-center">
+                    <p className="text-gray-600 mb-4">Choose a payment method above.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

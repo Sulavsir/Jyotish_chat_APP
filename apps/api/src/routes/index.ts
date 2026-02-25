@@ -23,6 +23,7 @@ import adminChatRoutes from './adminChat.routes';
 import jyotishBookingRoutes from './jyotishBooking.routes';
 import kundaliMatchRoutes from './kundaliMatch.routes';
 import paymentRoutes from './payment.routes';
+import fonepayRoutes from './fonepay.routes';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.use('/admin-chat', adminChatRoutes); // Admin chat support widget
 router.use('/jyotish-bookings', jyotishBookingRoutes); // Pandit/Vaastu booking requests
 router.use('/kundali-match', kundaliMatchRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/fonepay', fonepayRoutes);
 
 // Astrologer routes
 router.use('/astrologer', astrologerRoutes);

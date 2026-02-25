@@ -31,8 +31,10 @@ export default function SubhaSahitPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [language, setLanguage] = useState<'en' | 'ne' | 'hi' | ''>('');
   const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
   const [newOccasion, setNewOccasion] = useState('');
+  const [occasionLanguage, setOccasionLanguage] = useState<'en' | 'ne' | 'hi'>('en');
 
   const { data: occasionsData } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(),
@@ -46,10 +48,11 @@ export default function SubhaSahitPage() {
       ...(occasionFilter && { occasion: occasionFilter }),
       ...(dateFrom && { dateFrom }),
       ...(dateTo && { dateTo }),
+      ...(language && { language }),
       page,
       limit: PAGINATION_DEFAULTS.LIMIT,
     }),
-    [occasionFilter, dateFrom, dateTo, page]
+    [occasionFilter, dateFrom, dateTo, language, page]
   );
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -90,6 +93,14 @@ export default function SubhaSahitPage() {
       accessor: (date) => (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
           {date.occasion}
+        </span>
+      ),
+    },
+    {
+      header: 'Language',
+      accessor: (date) => (
+        <span className="text-xs text-slate-400 uppercase">
+          {date.language ?? 'EN'}
         </span>
       ),
     },
@@ -138,7 +149,7 @@ export default function SubhaSahitPage() {
     const trimmed = newOccasion.trim();
     if (!trimmed) return;
     try {
-      await adminApi.subhaSahit.createOccasion(trimmed);
+      await adminApi.subhaSahit.createOccasion(trimmed, occasionLanguage);
       await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS() });
       toast.success('Occasion added');
       setIsOccasionModalOpen(false);
@@ -227,6 +238,22 @@ export default function SubhaSahitPage() {
               }}
               className="bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-slate-200">Language</Label>
+            <select
+              value={language}
+              onChange={(e) => {
+                setLanguage(e.target.value as 'en' | 'ne' | 'hi' | '');
+                setPage(1);
+              }}
+              className="mt-1.5 h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+            >
+              <option value="">All languages</option>
+              <option value="en">English</option>
+              <option value="ne">नेपाली (Nepali)</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+            </select>
           </div>
         </div>
 
@@ -329,6 +356,18 @@ export default function SubhaSahitPage() {
               placeholder="e.g. Satyanarayan Puja"
               className="bg-slate-900/70 border-purple-600/50 focus:border-purple-400 text-white placeholder-slate-500"
             />
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-slate-200 text-xs">Language</Label>
+              <select
+                value={occasionLanguage}
+                onChange={(e) => setOccasionLanguage(e.target.value as 'en' | 'ne' | 'hi')}
+                className="mt-1 h-9 rounded-md border border-purple-500/40 bg-slate-900/60 px-2 py-1 text-xs text-white focus:border-purple-400 focus:outline-none"
+              >
+                <option value="en">English</option>
+                <option value="ne">नेपाली (Nepali)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+              </select>
+            </div>
             <p className="text-xs text-slate-400">
               This occasion will appear in all Subha Sahit dropdowns and filters, and can be used while creating dates and booking Pandit Ji.
             </p>

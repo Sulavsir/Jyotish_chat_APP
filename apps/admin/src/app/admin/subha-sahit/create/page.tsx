@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label, Textarea, ArrowLeftIcon } from '@jyotish/ui';
+import { Button, DateInput, Label, Textarea, ArrowLeftIcon, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES } from '@/constants';
 import { toast } from 'sonner';
@@ -35,10 +35,13 @@ export default function CreateSubhaSahitPage() {
   const initialOccasionFromQuery = searchParams.get('occasion') ?? '';
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<SubhaSahitRow[]>([defaultRow()]);
+  const [language, setLanguage] = useState<'en' | 'ne' | 'hi'>('en');
+  const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
+  const [newOccasion, setNewOccasion] = useState('');
 
   const { data: occasionsData } = useQuery({
-    queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(),
-    queryFn: () => adminApi.subhaSahit.getOccasions(),
+    queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(language),
+    queryFn: () => adminApi.subhaSahit.getOccasions(language),
   });
 
   const occasions = occasionsData?.occasions ?? [];
@@ -90,7 +93,28 @@ export default function CreateSubhaSahitPage() {
       occasion: occasion.trim(),
       description: description.trim() || undefined,
     }));
-    batchMutation.mutate({ dates });
+    batchMutation.mutate({ dates, language });
+  };
+
+  const handleAddOccasionInline = async () => {
+    const trimmed = newOccasion.trim();
+    if (!trimmed) return;
+    try {
+      await adminApi.subhaSahit.createOccasion(trimmed, language);
+      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS() });
+      toast.success('Occasion added');
+      setNewOccasion('');
+      setIsOccasionModalOpen(false);
+      // Pre-fill first empty row with this occasion
+      setRows((prev) =>
+        prev.map((row) =>
+          !row.occasion.trim() ? { ...row, occasion: trimmed } : row
+        )
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to add occasion';
+      toast.error(message);
+    }
   };
 
   return (
@@ -116,6 +140,20 @@ export default function CreateSubhaSahitPage() {
             <p className="text-slate-400 text-lg">
               Create sacred moments. Each date holds its own occasion and story.
             </p>
+            <div className="mt-4 inline-flex items-center gap-3 rounded-full border border-purple-500/40 bg-slate-900/60 px-4 py-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                Language
+              </span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as 'en' | 'ne' | 'hi')}
+                className="bg-transparent text-sm text-purple-200 focus:outline-none"
+              >
+                <option value="en">English</option>
+                <option value="ne">नेपाली (Nepali)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -164,9 +202,21 @@ export default function CreateSubhaSahitPage() {
                       />
                     </div>
                     <div className="space-y-3">
-                      <Label className="text-slate-200 font-semibold text-sm">
-                        Occasion <span className="text-purple-400">*</span>
-                      </Label>
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-slate-200 font-semibold text-sm">
+                          Occasion <span className="text-purple-400">*</span>
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsOccasionModalOpen(true);
+                            setNewOccasion(row.occasion || '');
+                          }}
+                          className="text-xs text-purple-300 hover:text-purple-100 underline-offset-2 hover:underline"
+                        >
+                          Add occasion
+                        </button>
+                      </div>
                       {occasions.length > 0 ? (
                         <select
                           value={row.occasion}
@@ -181,8 +231,18 @@ export default function CreateSubhaSahitPage() {
                           ))}
                         </select>
                       ) : (
-                        <div className="w-full mt-1.5 h-11 rounded-lg border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-slate-400 flex items-center">
-                          No occasions available. Add one from the Subha Sahit page.
+                        <div className="w-full mt-1.5 h-11 rounded-lg border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-slate-400 flex items-center justify-between">
+                          <span>No occasions in this language yet.</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsOccasionModalOpen(true);
+                              setNewOccasion('');
+                            }}
+                            className="text-xs text-purple-300 hover:text-purple-100 underline-offset-2 hover:underline"
+                          >
+                            Add one
+                          </button>
                         </div>
                       )}
                     </div>
@@ -240,6 +300,55 @@ export default function CreateSubhaSahitPage() {
             </div>
           </div>
         </form>
+
+        <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
+          <DialogContent className="bg-slate-900 border border-purple-500/30">
+            <DialogHeader>
+              <DialogTitle className="text-slate-100">Add Occasion for Selected Language</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-slate-200 text-sm">Language</Label>
+                <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/40 bg-slate-900/60 px-3 py-1 text-xs text-purple-200">
+                  {language === 'en' && 'English'}
+                  {language === 'ne' && 'नेपाली (Nepali)'}
+                  {language === 'hi' && 'हिन्दी (Hindi)'}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-occasion" className="text-slate-200 text-sm">
+                  Occasion name
+                </Label>
+                <Input
+                  id="new-occasion"
+                  value={newOccasion}
+                  onChange={(e) => setNewOccasion(e.target.value)}
+                  placeholder="e.g. शुभ विवाह मुहूर्त"
+                  className="bg-slate-900 border-purple-500/40 text-white placeholder-slate-500"
+                />
+              </div>
+            </div>
+            <DialogFooter className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOccasionModalOpen(false)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAddOccasionInline}
+                disabled={!newOccasion.trim()}
+                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Save Occasion
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

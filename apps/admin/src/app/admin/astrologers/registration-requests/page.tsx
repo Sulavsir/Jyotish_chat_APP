@@ -57,6 +57,7 @@ interface ApproveRejectModalProps {
 function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveRejectModalProps) {
   const [category, setCategory] = useState<AstrologerCategory>(AstrologerCategory.ORDINARY);
   const [appointmentFee, setAppointmentFee] = useState<string>('');
+  const [chatMessageFee, setChatMessageFee] = useState<string>('');
   const [commissionRate, setCommissionRate] = useState<string>('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,6 +71,7 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
         await adminApi.astrologers.approveRegistration(request.id, {
           category,
           appointmentFee: appointmentFee ? parseFloat(appointmentFee) : undefined,
+          chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : undefined,
           commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
         });
         toast.success('Registration approved successfully');
@@ -134,6 +136,21 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
                     value={appointmentFee}
                     onChange={(e) => setAppointmentFee(e.target.value)}
                     placeholder="e.g., 500.00"
+                    className="w-full px-4 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Instant Chat Message Fee (Optional, NRs per message)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={chatMessageFee}
+                    onChange={(e) => setChatMessageFee(e.target.value)}
+                    placeholder="e.g., 10.00"
                     className="w-full px-4 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

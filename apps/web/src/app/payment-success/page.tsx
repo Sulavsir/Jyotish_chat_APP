@@ -4,12 +4,103 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
-import { Loader2, CheckCircle2, XCircle, Coins } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Coins, ArrowLeft } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentService } from '@/services/payment.service';
+import broadcastMessageService from '@/services/broadcastMessage.service';
 import { QUERY_KEYS, ROUTES } from '@/constants';
 import { toast } from 'sonner';
 import { showErrorToast } from '@/lib/error-handler';
+import {
+  getPendingBroadcastQuestions,
+  clearPendingBroadcastQuestions,
+} from '@/components/modals/BroadcastRemainingPayModal';
+
+/**
+ * GetPay Step 04: "To fetch token from success/fail URL"
+ * Doc: const url = window.frames[0]?.location.hash || window.location.hash
+ *      const urlParams = new URLSearchParams(url.split("?")[1]);
+ *      const token = urlParams.get("token");
+ * We also read from query (GetPay sometimes uses ?orderid=...&token=...) and accept orderId/orderid.
+ */
+const TOKEN_PARAM_NAMES = ['token', 'transactionId', 'requestId', 'id'] as const;
+
+/**
+ * GetPay appends token with a second "?" or in hash: #?token=...
+ * Normalize so URLSearchParams can parse: collapse multiple ? to &, and #? to ?.
+ */
+function normalizeSearch(search: string): string {
+  const q = search.startsWith('?') ? search.slice(1) : search;
+  if (!q) return q;
+  return q.replace(/#\?/g, '&').replace(/\?+/g, '&');
+}
+
+/** If a param value has "?token=" stuck to it (from unnormalized URL), return the UUID part only. */
+function cleanOrderId(value: string): string {
+  const s = value.trim();
+  const idx = s.indexOf('?');
+  return idx >= 0 ? s.slice(0, idx).trim() : s;
+}
+
+const ORDER_ID_PARAM_NAMES = ['orderId', 'orderid'] as const;
+
+function getParamsFromUrl(): { orderId: string; token: string } {
+  let orderId = '';
+  let token = '';
+  if (typeof window === 'undefined') return { orderId, token };
+
+  const search = window.location.search || '';
+  const normalized = normalizeSearch(search);
+  if (normalized) {
+    const params = new URLSearchParams(normalized);
+    for (const name of ORDER_ID_PARAM_NAMES) {
+      const v = params.get(name)?.trim();
+      if (v) {
+        orderId = cleanOrderId(v);
+        break;
+      }
+    }
+    for (const name of TOKEN_PARAM_NAMES) {
+      const v = params.get(name)?.trim();
+      if (v) {
+        token = v;
+        break;
+      }
+    }
+  }
+
+  if (token) return { orderId, token };
+
+  // 3DS-disabled / iframe return: token often in hash. GetPay: window.frames[0]?.location.hash || window.location.hash
+  let url: string;
+  try {
+    url = window.frames[0]?.location?.href || window.location.href;
+  } catch {
+    url = window.location.href;
+  }
+  // Normalize #? and multiple ? so we can parse (e.g. #?token=yyy or #?orderId=xxx?token=yyy)
+  const hashIdx = url.indexOf('#');
+  const hashPart = hashIdx >= 0 ? url.slice(hashIdx + 1) : '';
+  const queryFromHash = hashPart.replace(/^\?/, '').replace(/\?+/g, '&');
+  if (queryFromHash) {
+    const params = new URLSearchParams(queryFromHash);
+    token = params.get('token')?.trim() ?? '';
+    for (const name of TOKEN_PARAM_NAMES) {
+      if (token) break;
+      token = params.get(name)?.trim() ?? '';
+    }
+    if (!orderId) {
+      for (const name of ORDER_ID_PARAM_NAMES) {
+        const v = params.get(name)?.trim();
+        if (v) {
+          orderId = cleanOrderId(v);
+          break;
+        }
+      }
+    }
+  }
+  return { orderId, token };
+}
 
 export default function PaymentSuccessPage() {
   const router = useRouter();
@@ -17,19 +108,90 @@ export default function PaymentSuccessPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
   const verifiedRef = useRef(false);
+  const verifyInFlightRef = useRef(false);
+  const iframeHandledRef = useRef(false);
+  // Parse orderId and token from URL; normalize ?orderId=xxx?token=yyy (GetPay quirk) to & so both are parsed
+  const [urlParams, setUrlParams] = useState<{ orderId: string; token: string }>(() =>
+    typeof window !== 'undefined' ? getParamsFromUrl() : { orderId: '', token: '' }
+  );
+  const orderId = cleanOrderId(
+    urlParams.orderId ||
+      searchParams.get('orderId') ||
+      searchParams.get('orderid') ||
+      ''
+  );
+  const token = urlParams.token;
 
-  const orderId = searchParams.get('orderId');
-  const token = searchParams.get('token') ?? searchParams.get('transactionId') ?? '';
+  // When in iframe (3DS return), open success URL in new tab / redirect top. Next.js or embedded contexts
+  // may not expose window.self the same way — use window.location or document.location for the current URL.
+  useEffect(() => {
+    if (typeof window === 'undefined' || iframeHandledRef.current) return;
+    const inIframe =
+      typeof window.top !== 'undefined' &&
+      window.top !== window.self;
+    if (!inIframe) return;
+    iframeHandledRef.current = true;
+    const url =
+      (typeof window.location !== 'undefined' && window.location.href) ||
+      (typeof document !== 'undefined' && (document as { location?: { href?: string } }).location?.href) ||
+      '';
+    if (!url) return;
+    console.log('Payment success: iframe detected, opening in new tab and redirecting top');
+    try {
+      window.open(url, '_blank');
+    } catch {
+      // ignore
+    }
+    try {
+      if (window.top && window.top.location != null) {
+        (window.top as Window).location.href = url;
+      }
+    } catch {
+      // top redirect may be blocked; new tab already opened
+    }
+  }, []);
 
+  // Step 04: We send token (from URL) to our backend; backend calls GetPay merchant-status (id + papInfo). No direct request to GetPay from frontend.
   const verifyMutation = useMutation({
     mutationFn: () => paymentService.verifyPayment({ orderId: orderId!, token }),
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       verifiedRef.current = true;
+      verifyInFlightRef.current = false;
       if (data.success) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
         setStatus('success');
         toast.success(data.message);
+        try {
+          const pending = getPendingBroadcastQuestions();
+          if (pending?.questionItems?.length && pending.totalNr >= 0) {
+            clearPendingBroadcastQuestions();
+            await broadcastMessageService.sendQuestions({
+              questionItems: pending.questionItems,
+              totalNr: pending.totalNr,
+              birthDetails: pending.birthDetails,
+            });
+            toast.success(
+              `${pending.questionItems.length} question${pending.questionItems.length === 1 ? '' : 's'} published to all Jyotish.`
+            );
+          }
+        } catch (sendErr) {
+          toast.error(
+            sendErr instanceof Error ? sendErr.message : 'Failed to publish questions. You can try again from the dashboard.'
+          );
+        }
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('getpay_pending_order_id');
+            if (sessionStorage.getItem('pendingChatAfterPurchase')) {
+              sessionStorage.removeItem('pendingChatAfterPurchase');
+              window.dispatchEvent(new CustomEvent('coinsPurchased'));
+            }
+          }
+        } catch {
+          // ignore
+        }
       } else {
         setStatus('failed');
         toast.error(data.message);
@@ -37,21 +199,50 @@ export default function PaymentSuccessPage() {
     },
     onError: (err) => {
       verifiedRef.current = true;
+      verifyInFlightRef.current = false;
       setStatus('failed');
       showErrorToast(err);
     },
+    onSettled: () => {
+      verifyInFlightRef.current = false;
+    },
   });
 
+  // Re-read URL once after mount; if orderId missing but we have token, try sessionStorage (e.g. redirect from /?token=...)
   useEffect(() => {
-    if (!orderId || !token || verifiedRef.current) return;
+    const parsed = getParamsFromUrl();
+    if (parsed.orderId || parsed.token) {
+      let orderId = parsed.orderId;
+      if (!orderId && parsed.token && typeof sessionStorage !== 'undefined') {
+        try {
+          orderId = sessionStorage.getItem('getpay_pending_order_id')?.trim() ?? '';
+        } catch {
+          // ignore
+        }
+      }
+      setUrlParams({ orderId: orderId || parsed.orderId, token: parsed.token });
+    }
+  }, []);
+
+  // Verify when we have both orderId and token — only once (avoid duplicate API call and double toast).
+  useEffect(() => {
+    if (!orderId || !token || verifiedRef.current || verifyInFlightRef.current) return;
+    verifyInFlightRef.current = true;
     verifyMutation.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when orderId/token become available
   }, [orderId, token]);
 
+  // Only treat as failed if we're sure we have no token (allow a short delay for hash/redirect)
   useEffect(() => {
-    if (!orderId && !token && status === 'verifying') {
-      setStatus('failed');
-      toast.error('Invalid payment redirect. Missing order or transaction.');
-    }
+    if (status !== 'verifying' || verifiedRef.current) return;
+    const t = setTimeout(() => {
+      if (verifiedRef.current) return;
+      if (!orderId || !token) {
+        setStatus('failed');
+        toast.error('Invalid payment redirect. Missing order or transaction ID.');
+      }
+    }, 2500);
+    return () => clearTimeout(t);
   }, [orderId, token, status]);
 
   const handleGoDashboard = () => router.push(ROUTES.DASHBOARD);
@@ -59,7 +250,20 @@ export default function PaymentSuccessPage() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-12">
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          <Button
+            onClick={() => router.back()}
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 text-black text-sm md:text-base font-semibold hover:bg-gray-100 hover:text-black"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back</span>
+          </Button>
+        </div>
+      </div>
+      <div className="max-w-2xl mx-auto py-12 px-4">
         {status === 'verifying' && (
           <Card className="bg-gradient-to-br from-purple-950 via-indigo-950/90 to-slate-950 border border-purple-500/40">
             <CardHeader className="text-center pb-8">
@@ -99,7 +303,7 @@ export default function PaymentSuccessPage() {
                     <p className="text-green-50 text-sm mb-1">Current balance</p>
                     <p className="text-yellow-200 font-bold text-2xl flex items-center justify-center gap-2">
                       <Coins className="h-6 w-6" />
-                      {verifyMutation.data.balance} Coins
+                      {verifyMutation.data.balance} coins
                     </p>
                   </div>
                 )}

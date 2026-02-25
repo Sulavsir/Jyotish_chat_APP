@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MessageSquare } from 'lucide-react';
+import { Eye, MessageSquare, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -15,6 +15,10 @@ import {
   SelectValue,
   Button,
   LoadingButton,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@jyotish/ui';
 import { useRouter } from 'next/navigation';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
@@ -24,10 +28,11 @@ import { useBroadcastPending } from '@/hooks/useBroadcastPending';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
-import { CoinPurchaseModal } from '@/components/modals';
-import { useQuery } from '@tanstack/react-query';
+import { CoinPurchaseModal, BroadcastRemainingPayModal } from '@/components/modals';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { QuestionnaireCategory } from '@jyotish/shared';
 import { questionnaireService } from '@/services/questionnaire.service';
+import broadcastMessageService from '@/services/broadcastMessage.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
@@ -67,15 +72,27 @@ export function AskQuestionsSection() {
   const [broadcastCategory, setBroadcastCategory] = useState<string>('');
   const [broadcastQuestion, setBroadcastQuestion] = useState<string>('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [selectedBroadcastQuestionIds, setSelectedBroadcastQuestionIds] = useState<string[]>([]);
   const [showBroadcastProfileModal, setShowBroadcastProfileModal] = useState(false);
+  const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
+  const [prepareResult, setPrepareResult] = useState<{
+    totalNr: number;
+    remainingNr: number;
+    questions: { id: string; text: string }[];
+  } | null>(null);
+  const [pendingBroadcastBirthDetails, setPendingBroadcastBirthDetails] = useState<
+    Record<string, string> | undefined
+  >(undefined);
+  const [showRemainingPayModal, setShowRemainingPayModal] = useState(false);
   const [directMessageError, setDirectMessageError] = useState<string>('');
   const [broadcastMessageError, setBroadcastMessageError] = useState<string>('');
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
-  // Broadcast-coin state (for broadcast tab errors)
+  // Broadcast balance state (for broadcast tab errors)
   const [broadcastRequiredCoins, setBroadcastRequiredCoins] = useState(1);
   const [isBroadcastCoinModalOpen, setIsBroadcastCoinModalOpen] = useState(false);
   const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
+  const queryClient = useQueryClient();
   // Direct-chat coin state comes from useChat
   const {
     startChat,
@@ -133,6 +150,48 @@ export function AskQuestionsSection() {
 
   const questionCategories: QuestionnaireCategory[] = questionnairesData?.categories ?? [];
 
+  const { data: pricingData } = useQuery({
+    queryKey: QUERY_KEYS.BROADCAST.QUESTION_PRICING,
+    queryFn: () => broadcastMessageService.getQuestionPricing(),
+    enabled: mode === 'broadcast',
+  });
+  const pricingTiers = pricingData?.tiers ?? [];
+  const getTotalNrForCount = (count: number): number => {
+    if (count <= 0) return 0;
+    const tier = pricingTiers.find((t) => t.questionCount === count);
+    if (tier) return tier.amountNr;
+    const lower = pricingTiers
+      .filter((t) => t.questionCount <= count)
+      .sort((a, b) => b.questionCount - a.questionCount)[0];
+    if (lower) return Math.round((lower.amountNr / lower.questionCount) * count);
+    const first = pricingTiers[0];
+    return first ? Math.round((first.amountNr / first.questionCount) * count) : 0;
+  };
+
+  const prepareMutation = useMutation({
+    mutationFn: (questionIds: string[]) => broadcastMessageService.prepareQuestions(questionIds),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to prepare questions'),
+  });
+  const sendQuestionsMutation = useMutation({
+    mutationFn: (payload: {
+      questionItems: { id: string; text: string }[];
+      totalNr: number;
+      birthDetails?: Record<string, string>;
+    }) => broadcastMessageService.sendQuestions(payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+      setSelectedBroadcastQuestionIds([]);
+      setBroadcastMessage('');
+      setBroadcastQuestion('');
+      setBroadcastCategory('');
+      toast.success(
+        `${variables.questionItems.length} question${variables.questionItems.length === 1 ? '' : 's'} published to all Jyotish.`
+      );
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to send questions'),
+  });
+
   // Client profiles (Me + family/friends) for profile selection in direct and broadcast
   const { data: profilesData } = useQuery({
     queryKey: QUERY_KEYS.USERS.PROFILES,
@@ -142,6 +201,12 @@ export function AskQuestionsSection() {
 
   const directCategoryData = questionCategories.find((c) => c.id === directCategory);
   const broadcastCategoryData = questionCategories.find((c) => c.id === broadcastCategory);
+  const selectedQuestionTexts = React.useMemo(() => {
+    if (!broadcastCategoryData || selectedBroadcastQuestionIds.length === 0) return [];
+    return broadcastCategoryData.questions
+      .filter((q) => selectedBroadcastQuestionIds.includes(q.id))
+      .map((q) => q.text);
+  }, [broadcastCategoryData, selectedBroadcastQuestionIds]);
 
   const handleAstrologerSelect = (
     astrologerId: string,
@@ -185,6 +250,14 @@ export function AskQuestionsSection() {
     setBroadcastCategory(categoryId);
     setBroadcastQuestion('');
     setBroadcastMessage('');
+    setSelectedBroadcastQuestionIds([]);
+  };
+
+  const handleBroadcastQuestionToggle = (questionId: string, checked: boolean) => {
+    setBroadcastMessageError('');
+    setSelectedBroadcastQuestionIds((prev) =>
+      checked ? [...prev, questionId] : prev.filter((id) => id !== questionId)
+    );
   };
 
   const handleBroadcastQuestionSelect = (question: string) => {
@@ -257,15 +330,21 @@ export function AskQuestionsSection() {
     );
   };
 
+  const hasBroadcastSelection =
+    selectedBroadcastQuestionIds.length > 0 ||
+    (broadcastMessage.trim() || broadcastQuestion.trim()).length > 0;
+
   const handleOpenBroadcastProfileModal = async () => {
-    if (!user || !socket || !isConnected) {
-      toast.error('Not connected. Please refresh the page.');
-      return;
-    }
-    const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
-    if (!messageToSend) {
-      setBroadcastMessageError(t('messageCannotBeEmpty'));
-      return;
+    if (!user) return;
+    if (selectedBroadcastQuestionIds.length === 0) {
+      if (!(broadcastMessage.trim() || broadcastQuestion.trim())) {
+        setBroadcastMessageError(t('messageCannotBeEmpty'));
+        return;
+      }
+      if (!socket || !isConnected) {
+        toast.error('Not connected. Please refresh the page.');
+        return;
+      }
     }
     setBroadcastMessageError('');
     try {
@@ -285,15 +364,60 @@ export function AskQuestionsSection() {
 
   const handleBroadcastProfileConfirm = async (profileId: string) => {
     setShowBroadcastProfileModal(false);
-    if (!user || !socket || !isConnected) return;
+    if (!user) return;
+
+    if (profileId === 'me') {
+      const profileCheck = checkClientProfileCompletion(user);
+      if (!profileCheck.isComplete) {
+        setMissingProfileFields(profileCheck.missingFields);
+        setShowProfileIncompleteDialog(true);
+        return;
+      }
+    }
+
+    const birthDetails = getBirthDetailsForProfile(user, familyProfiles, profileId);
+
+    if (selectedBroadcastQuestionIds.length > 0) {
+      try {
+        setIsSending(true);
+        const result = await prepareMutation.mutateAsync(selectedBroadcastQuestionIds);
+        const birthDetailsObj =
+          birthDetails && Object.keys(birthDetails).length > 0
+            ? (birthDetails as Record<string, string>)
+            : undefined;
+        setPendingBroadcastBirthDetails(birthDetailsObj);
+        setPrepareResult({
+          totalNr: result.totalNr,
+          remainingNr: result.remainingNr,
+          questions: result.questions,
+        });
+        if (result.remainingNr > 0) {
+          setShowRemainingPayModal(true);
+        } else {
+          await sendQuestionsMutation.mutateAsync({
+            questionItems: result.questions,
+            totalNr: result.totalNr,
+            birthDetails: birthDetailsObj,
+          });
+        }
+      } catch {
+        // prepareMutation already toasts onError
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
 
     const messageToSend = broadcastMessage.trim() || broadcastQuestion.trim();
     if (!messageToSend) {
       setBroadcastMessageError(t('messageCannotBeEmpty'));
       return;
     }
+    if (!socket || !isConnected) {
+      toast.error('Not connected. Please refresh the page.');
+      return;
+    }
     setBroadcastMessageError('');
-
     try {
       const activeChat = await chatService.getActiveChat();
       if (activeChat) {
@@ -306,17 +430,6 @@ export function AskQuestionsSection() {
     } catch {
       // Ignore; allow user to proceed
     }
-
-    if (profileId === 'me') {
-      const profileCheck = checkClientProfileCompletion(user);
-      if (!profileCheck.isComplete) {
-        setMissingProfileFields(profileCheck.missingFields);
-        setShowProfileIncompleteDialog(true);
-        return;
-      }
-    }
-
-    const birthDetails = getBirthDetailsForProfile(user, familyProfiles, profileId);
 
     try {
       setIsSending(true);
@@ -334,6 +447,25 @@ export function AskQuestionsSection() {
   };
 
   const finalBroadcastMessage = broadcastMessage.trim() || broadcastQuestion.trim();
+  const selectedCount = selectedBroadcastQuestionIds.length;
+  const totalNrPreview = getTotalNrForCount(selectedCount);
+  const displayTotalNr = totalNrPreview;
+
+  // For UI: show original (non-discounted) price vs discounted tier price when applicable.
+  // Use the smallest tier as the base per-question rate; if a higher-count tier is cheaper,
+  // we show the crossed-out original total (base * count) and the discounted tier total.
+  const baseTier = pricingTiers.length
+    ? pricingTiers.slice().sort((a, b) => a.questionCount - b.questionCount)[0]
+    : null;
+  const basePerQuestion = baseTier ? baseTier.amountNr / baseTier.questionCount : null;
+  const originalTotalNr =
+    basePerQuestion && selectedCount > 0
+      ? Math.round(basePerQuestion * selectedCount)
+      : null;
+  const hasDiscount =
+    originalTotalNr !== null &&
+    displayTotalNr > 0 &&
+    originalTotalNr > displayTotalNr;
 
   // If waiting for acceptance, show matching modal
   if (isWaitingForAcceptance && pendingMessage) {
@@ -594,35 +726,59 @@ export function AskQuestionsSection() {
                 </Select>
               </div>
 
-              {/* Question Selection (if category selected) */}
+              {/* Multi-select questions (if category selected) */}
               {broadcastCategoryData && (
-                <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
-                  <label className="text-sm text-gray-300 mb-2 block">{t('selectQuestion')}</label>
-                  <Select
-                    value={broadcastQuestion}
-                    onValueChange={(value) => {
-                      if (value === 'CLEAR_QUESTION') {
-                        setBroadcastQuestion('');
-                        setBroadcastMessage('');
-                      } else {
-                        handleBroadcastQuestionSelect(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t('selectQuestionPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[200px] [&_[data-radix-select-scroll-up-button]]:hidden [&_[data-radix-select-scroll-down-button]]:hidden">
-                      <SelectItem value="CLEAR_QUESTION">
-                        <span className="text-gray-400">{t('clearQuestion')}</span>
-                      </SelectItem>
-                      {broadcastCategoryData.questions.map((question) => (
-                        <SelectItem key={question.id} value={question.text}>
-                          {question.text}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300 space-y-2">
+                  <label className="text-sm text-gray-300 block">
+                    {t('selectQuestion')} (select one or more)
+                  </label>
+                  <div className="rounded-lg border border-gray-600 bg-white/5 max-h-[200px] overflow-y-auto p-2 space-y-1.5">
+                    {broadcastCategoryData.questions.map((question) => (
+                      <label
+                        key={question.id}
+                        className="flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/5 text-sm text-gray-200"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedBroadcastQuestionIds.includes(question.id)}
+                          onChange={(e) =>
+                            handleBroadcastQuestionToggle(question.id, e.target.checked)
+                          }
+                          className="mt-1 rounded border-gray-500 bg-slate-800 text-orange-500 focus:ring-orange-500"
+                        />
+                        <span className="flex-1">{question.text}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedCount > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-orange-200 flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-2">
+                          <span>
+                            {selectedCount} question{selectedCount === 1 ? '' : 's'}
+                          </span>
+                          {hasDiscount && originalTotalNr !== null && (
+                            <span className="text-[11px] text-orange-200/80 line-through">
+                              NRs {originalTotalNr.toLocaleString()}
+                            </span>
+                          )}
+                          <span className="text-xs font-semibold text-amber-200">
+                            NRs {displayTotalNr.toLocaleString()}
+                          </span>
+                        </span>
+                        {selectedQuestionTexts.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowSelectedQuestionsModal(true)}
+                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-200 hover:text-amber-50 hover:bg-amber-500/10 border border-amber-400/40 transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>View your questions</span>
+                          </button>
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -656,13 +812,31 @@ export function AskQuestionsSection() {
             <div className="flex gap-2 mt-auto">
               <LoadingButton
                 onClick={handleOpenBroadcastProfileModal}
-                disabled={!finalBroadcastMessage}
-                loading={isSending}
+                disabled={!hasBroadcastSelection}
+                loading={isSending || prepareMutation.isPending || sendQuestionsMutation.isPending}
                 loadingText={t('sending')}
                 className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
               >
                 <MessageSquare className="h-4 w-4" />
-                {t('sendMessageToAll')}
+                {selectedCount > 0 ? (
+                  hasDiscount && originalTotalNr !== null ? (
+                    <>
+                      {t('sendMessageToAll')}{' '}
+                      {`(${selectedCount} · `}
+                      <span className="line-through mr-1">
+                        NRs {originalTotalNr.toLocaleString()}
+                      </span>
+                      <span className="font-semibold">
+                        NRs {displayTotalNr.toLocaleString()}
+                      </span>
+                      {')'}
+                    </>
+                  ) : (
+                    `${t('sendMessageToAll')} (${selectedCount} · NRs ${displayTotalNr.toLocaleString()})`
+                  )
+                ) : (
+                  t('sendMessageToAll')
+                )}
               </LoadingButton>
             </div>
           </>
@@ -686,6 +860,40 @@ export function AskQuestionsSection() {
         }}
         mode="insufficient"
       />
+
+      {/* Selected broadcast questions modal */}
+      <Dialog
+        open={showSelectedQuestionsModal && selectedQuestionTexts.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setShowSelectedQuestionsModal(false);
+        }}
+      >
+        <DialogContent className="bg-slate-950 border border-amber-500/40 text-white max-w-md">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="flex items-center gap-2">
+              <Eye className="h-4 w-4 text-amber-300" />
+              <DialogTitle className="text-sm font-semibold text-white">
+                Selected questions ({selectedQuestionTexts.length})
+              </DialogTitle>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSelectedQuestionsModal(false)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </DialogHeader>
+          <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
+            <ul className="list-disc list-inside text-xs sm:text-sm text-slate-100 space-y-1">
+              {selectedQuestionTexts.map((text: string, index: number) => (
+                <li key={index}>{text}</li>
+              ))}
+            </ul>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Direct-chat coin purchase modal (for starting chat with specific Jyotish) */}
       <CoinPurchaseModalWrapper
@@ -711,8 +919,26 @@ export function AskQuestionsSection() {
         onConfirm={handleBroadcastProfileConfirm}
         title={t('selectProfile')}
         confirmLabel={t('publish')}
-        isLoading={isSending}
+        isLoading={isSending || prepareMutation.isPending || sendQuestionsMutation.isPending}
       />
+
+      {/* Pay remaining NRs for multi-question broadcast */}
+      {prepareResult && prepareResult.remainingNr > 0 && (
+        <BroadcastRemainingPayModal
+          isOpen={showRemainingPayModal}
+          onClose={() => {
+            setShowRemainingPayModal(false);
+            setPrepareResult(null);
+          }}
+          remainingNr={prepareResult.remainingNr}
+          questions={prepareResult.questions}
+          payload={{
+            questionItems: prepareResult.questions,
+            totalNr: prepareResult.totalNr,
+            birthDetails: pendingBroadcastBirthDetails,
+          }}
+        />
+      )}
     </>
   );
 }

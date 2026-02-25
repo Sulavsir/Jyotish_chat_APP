@@ -472,7 +472,7 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
           transform: 'translate(-50%, -50%)',
           transition: 'opacity 0.2s ease, visibility 0.2s ease',
           willChange: 'transform, opacity',
-          zIndex: 99999,
+          zIndex: 9990,
         }}
       >
         <div className="relative">
@@ -521,7 +521,7 @@ export const AnimatedCursorButton: React.FC<AnimatedCursorButtonProps> = ({
           borderColor: cursorColor,
           borderWidth: '3px',
           backgroundColor: `${cursorColor}30`,
-          zIndex: 99998,
+          zIndex: 9989,
         }}
       />
     </>

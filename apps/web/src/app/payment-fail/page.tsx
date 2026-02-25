@@ -1,28 +1,48 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
-import { XCircle } from 'lucide-react';
+import { XCircle, ArrowLeft } from 'lucide-react';
 import { ROUTES } from '@/constants';
 
 export default function PaymentFailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('orderId');
+  const orderId = searchParams.get('orderId') || searchParams.get('orderid');
   const message = searchParams.get('message') ?? '';
+
+  // After OTP validated, GetPay bundle.js redirects to this FAIL URL. If we're in an iframe, break out.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.top && window.top !== window.self) {
+      console.log('Payment fail: breaking out of iframe');
+      window.top.location = window.self.location.href;
+    }
+  }, []);
 
   const handleGoPricing = () => router.push(ROUTES.PRICING);
   const handleGoDashboard = () => router.push(ROUTES.DASHBOARD);
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto py-12">
+      <div className="w-full bg-white border-b border-gray-200">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          <Button
+            onClick={() => router.back()}
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 text-black text-sm md:text-base font-semibold hover:bg-gray-100 hover:text-black"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Back</span>
+          </Button>
+        </div>
+      </div>
+      <div className="max-w-2xl mx-auto py-12 px-4">
         <Card className="bg-gradient-to-br from-red-950 via-rose-950/90 to-red-900 border border-red-500/40">
           <CardHeader className="text-center pb-8">
-            <CardTitle className="text-3xl font-bold text-white">
-              Payment Failed
-            </CardTitle>
+            <CardTitle className="text-3xl font-bold text-white">Payment Failed</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="text-center py-12">

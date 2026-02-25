@@ -244,12 +244,14 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
     const experience = req.body.experience ? parseInt(req.body.experience, 10) : null;
     const commissionRate = req.body.commissionRate ? parseFloat(req.body.commissionRate) : 0;
     const appointmentFee = req.body.appointmentFee ? parseFloat(req.body.appointmentFee) : null;
+    const chatMessageFee = req.body.chatMessageFee ? parseFloat(req.body.chatMessageFee) : null;
 
     const astrologer = await astrologerService.create({
       ...req.body,
       experience,
       commissionRate,
       appointmentFee,
+      chatMessageFee,
       createdBy: adminId,
       proofOfAstrology,
       profilePhoto: profilePhoto ?? undefined,
@@ -485,11 +487,12 @@ export async function approveRegistration(
   try {
     const { id } = req.params;
     const adminId = req.user!.id;
-    const { category, appointmentFee, commissionRate } = req.body;
+    const { category, appointmentFee, chatMessageFee, commissionRate } = req.body;
 
     const astrologer = await astrologerService.approveRegistration(id, adminId, {
       category,
       appointmentFee: appointmentFee ? parseFloat(appointmentFee) : null,
+      chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : null,
       commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
     });
 
@@ -503,6 +506,7 @@ export async function approveRegistration(
         action: 'approve_registration',
         category,
         appointmentFee,
+        chatMessageFee,
         commissionRate,
       },
       ipAddress: getClientIp(req),

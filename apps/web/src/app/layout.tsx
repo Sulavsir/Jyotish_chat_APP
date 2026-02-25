@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import { QueryProvider } from '@/providers/query-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { AdminChatWidget } from '@/components/widgets/AdminChatWidget';
+import { PaymentRedirectHandler } from '@/components/payment/PaymentRedirectHandler';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -74,6 +76,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <QueryProvider>
           <AuthProvider>
+            <Suspense fallback={null}>
+              <PaymentRedirectHandler />
+            </Suspense>
             {children}
             <AdminChatWidget />
             <Toaster position="top-right" richColors />

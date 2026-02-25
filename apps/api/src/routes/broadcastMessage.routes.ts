@@ -6,14 +6,34 @@
 import express from 'express';
 import { authenticate } from '@/middleware/auth';
 import { asyncHandler } from '@/utils';
-import { validateParams } from '../middleware/validate';
+import { validateParams, validateBody } from '../middleware/validate';
 import { messageIdParamSchema } from '../validators/broadcastMessage.validators';
+import {
+  prepareBroadcastQuestionsBodySchema,
+  sendBroadcastQuestionsBodySchema,
+} from '../validators/broadcastQuestion.validators';
 import * as broadcastMessageController from '../controllers/broadcastMessageController';
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Multi-question broadcast (must be before /:messageId)
+router.get(
+  '/question-pricing',
+  asyncHandler(broadcastMessageController.getQuestionPricing)
+);
+router.post(
+  '/prepare-questions',
+  validateBody(prepareBroadcastQuestionsBodySchema),
+  asyncHandler(broadcastMessageController.prepareQuestions)
+);
+router.post(
+  '/send-questions',
+  validateBody(sendBroadcastQuestionsBodySchema),
+  asyncHandler(broadcastMessageController.sendQuestions)
+);
 
 // Create new broadcast message (client only)
 router.post('/', asyncHandler(broadcastMessageController.createBroadcastMessage));

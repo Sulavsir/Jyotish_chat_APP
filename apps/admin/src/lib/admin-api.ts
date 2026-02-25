@@ -26,6 +26,7 @@ import type {
   UpdatePlatformCoinRatesBody,
   AstrologerWithCoinEarning,
   ListAstrologersWithCoinEarningsResponse,
+  BroadcastQuestionPricingTier,
 } from '@/types';
 import type {
   ListAstrologersParams,
@@ -397,15 +398,20 @@ export const adminApi = {
       return response;
     },
 
-    getOccasions: async (): Promise<{ occasions: string[] }> => {
-      const response = await apiClient.get<{ occasions: string[] }>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS);
+    getOccasions: async (language?: 'en' | 'ne' | 'hi'): Promise<{ occasions: string[] }> => {
+      const response = await apiClient.get<{ occasions: string[] }>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS, {
+        params: language ? { language } : undefined,
+      });
       return response;
     },
 
-    createOccasion: async (name: string): Promise<{ occasion: { id: string; name: string; isActive: boolean } }> => {
+    createOccasion: async (
+      name: string,
+      language?: 'en' | 'ne' | 'hi'
+    ): Promise<{ occasion: { id: string; name: string; isActive: boolean; language: string } }> => {
       const response = await apiClient.post<{ occasion: { id: string; name: string; isActive: boolean } }>(
         API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION,
-        { name }
+        language ? { name, language } : { name }
       );
       return response;
     },
@@ -716,6 +722,27 @@ export const adminApi = {
         const response = await apiClient.delete<{ message: string }>(
           API_ENDPOINTS.WEBSITE.QUESTIONNAIRE_BY_ID(id)
         );
+        return response;
+      },
+    },
+
+    broadcastQuestionPricing: {
+      get: async (): Promise<{
+        tiers: { id: string; questionCount: number; amountNr: number; createdAt: string; updatedAt: string }[];
+      }> => {
+        const response = await apiClient.get<{ tiers: BroadcastQuestionPricingTier[] }>(
+          API_ENDPOINTS.WEBSITE.BROADCAST_QUESTION_PRICING
+        );
+        return response;
+      },
+      update: async (tiers: { questionCount: number; amountNr: number }[]): Promise<{
+        tiers: BroadcastQuestionPricingTier[];
+        message?: string;
+      }> => {
+        const response = await apiClient.put<{
+          tiers: BroadcastQuestionPricingTier[];
+          message?: string;
+        }>(API_ENDPOINTS.WEBSITE.BROADCAST_QUESTION_PRICING, { tiers });
         return response;
       },
     },

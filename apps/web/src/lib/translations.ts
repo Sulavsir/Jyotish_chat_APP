@@ -97,7 +97,7 @@ const EN: Record<string, string> = {
   bookKathaVachakTitle: 'Book Katha Vachak',
 
   // Coins / chat
-  youNeedCoins: 'You need at least {count} coins (deducted when Jyotish accepts). Your balance: {balance}. Please top up to book.',
+  youNeedCoins: 'You need at least {count} NRs (deducted when Jyotish accepts). Your balance: {balance} NRs. Please top up to book.',
   topUp: 'Top up',
   messageCannotBeEmpty: 'Message cannot be empty',
 };
@@ -187,7 +187,7 @@ const NE: Record<string, string> = {
   bookKathaVachakTitle: 'कथा वाचक',
 
   youNeedCoins:
-    'कम्तीमा {count} सिक्का चाहिन्छ (ज्योतिषीले स्वीकार गर्दा कटौती)। तपाईंको ब्यालेन्स: {balance}. कृपया टप अप गर्नुहोस्।',
+    'कम्तीमा {count} रुपैयाँ चाहिन्छ (ज्योतिषीले स्वीकार गर्दा कटौती)। तपाईंको ब्यालेन्स: {balance} रु.। कृपया टप अप गर्नुहोस्।',
   topUp: 'टप अप',
   messageCannotBeEmpty: 'सन्देश खाली हुन सक्दैन',
 };
@@ -275,7 +275,7 @@ const HI: Record<string, string> = {
   bookKathaVachakTitle: 'कथा वाचक',
 
   youNeedCoins:
-    'कम से कम {count} सिक्के चाहिए (ज्योतिषी स्वीकार करने पर काटे जाएंगे)। आपका बैलेंस: {balance}. कृपया टॉप अप करें।',
+    'कम से कम {count} रुपये चाहिए (ज्योतिषी स्वीकार करने पर काटे जाएंगे)। आपका बैलेंस: {balance} रु.। कृपया टॉप अप करें।',
   topUp: 'टॉप अप',
   messageCannotBeEmpty: 'संदेश खाली नहीं हो सकता',
 };

@@ -17,15 +17,27 @@ import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../u
 import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import { deductCoinsForChat, deductCoinsForBroadcastMessage, refundCoins } from './coin.service';
+import {
+  deductCoinsForChat,
+  deductCoinsForBroadcastMessage,
+  deductCoinsForBroadcastQuestions,
+  refundCoins,
+} from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
+import { getTotalNrForQuestionCount } from './broadcastQuestionPricing.service';
+import { randomUUID } from 'node:crypto';
 
 export interface CreateBroadcastMessageData {
   clientId: string;
   content: string;
   type?: MessageType;
   metadata?: Prisma.InputJsonValue;
+}
+
+export interface BroadcastQuestionItem {
+  id: string;
+  text: string;
 }
 
 export interface AcceptBroadcastMessageData {
@@ -237,6 +249,160 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   return message;
 }
 
+export interface CreateMultipleBroadcastMessagesInput {
+  clientId: string;
+  questionItems: BroadcastQuestionItem[];
+  totalNr: number;
+  birthDetails?: {
+    dateOfBirth?: string;
+    timeOfBirth?: string;
+    placeOfBirth?: string;
+    gender?: string;
+  };
+}
+
+/**
+ * Create multiple broadcast messages at once (multi-question flow).
+ * Deducts totalNr once, creates one BroadcastMessage per question, each with amountRefundNr for cancel refund.
+ */
+export async function createMultipleBroadcastMessages(
+  input: CreateMultipleBroadcastMessagesInput
+): Promise<{ messages: Awaited<ReturnType<typeof prisma.broadcastMessage.create>>[] }> {
+  const { clientId, questionItems, totalNr, birthDetails } = input;
+  const count = questionItems.length;
+
+  if (count === 0) {
+    throw new AppError(
+      'At least one question is required',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // Validate totalNr matches server-side pricing
+  const expectedTotal = await getTotalNrForQuestionCount(count);
+  if (totalNr !== expectedTotal) {
+    throw new AppError(
+      `Pricing mismatch. Expected ${expectedTotal} NRs for ${count} question(s).`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // Check active chat
+  const activeChat = await prisma.chat.findFirst({
+    where: {
+      status: 'ACTIVE',
+      isLocked: false,
+      participant1Id: clientId,
+    },
+  });
+  if (activeChat) {
+    throw new Error(
+      'You have an active chat. End your current chat before starting a new one.'
+    );
+  }
+
+  // Online astrologers
+  const onlineAstrologers = await prisma.astrologer.count({
+    where: {
+      isActive: true,
+      isOnline: true,
+      category: {
+        in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
+      },
+    },
+  });
+  if (onlineAstrologers === 0) {
+    throw new Error('No astrologers are available at the moment. Please try again later.');
+  }
+
+  const hasBirthDetails =
+    birthDetails &&
+    (birthDetails.dateOfBirth || birthDetails.timeOfBirth || birthDetails.placeOfBirth);
+  const clientProfile = await prisma.user.findUnique({
+    where: { id: clientId },
+    select: {
+      name: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+    },
+  });
+  if (!clientProfile) {
+    throw new Error('User not found');
+  }
+  if (!hasBirthDetails) {
+    const missingFields: string[] = [];
+    if (!clientProfile.name || clientProfile.name.trim() === '') missingFields.push('Name');
+    if (!clientProfile.dateOfBirth) missingFields.push('Date of Birth');
+    if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '')
+      missingFields.push('Time of Birth');
+    if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '')
+      missingFields.push('Place of Birth');
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Please complete your profile before sending. Missing: ${missingFields.join(', ')}`
+      );
+    }
+  }
+
+  await deductCoinsForBroadcastQuestions(clientId, totalNr);
+
+  const batchId = randomUUID();
+  const amountPerMessage = Math.round(totalNr / count);
+  const metadataBase =
+    hasBirthDetails && Object.keys(birthDetails!).length > 0
+      ? { birthDetails }
+      : undefined;
+
+  const messages: Awaited<ReturnType<typeof prisma.broadcastMessage.create>>[] = [];
+
+  for (let i = 0; i < questionItems.length; i++) {
+    const item = questionItems[i];
+    const metadata = {
+      ...metadataBase,
+      batchId,
+      batchIndex: i,
+      totalInBatch: count,
+      amountRefundNr: amountPerMessage,
+    };
+    const message = await prisma.broadcastMessage.create({
+      data: {
+        clientId,
+        content: item.text,
+        type: MessageType.TEXT,
+        status: BroadcastMessageStatus.PENDING,
+        metadata: metadata as Prisma.InputJsonValue,
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            profilePhoto: true,
+          },
+        },
+      },
+    });
+    messages.push(message);
+  }
+
+  for (const message of messages) {
+    await auditService.logAction({
+      action: AuditAction.BROADCAST_MESSAGE_CREATE,
+      resource: 'BroadcastMessage',
+      resourceId: message.id,
+      userId: clientId,
+      details: { messageId: message.id, batchId, totalInBatch: count },
+    });
+    notifyBroadcastMessageSent(message);
+  }
+
+  return { messages };
+}
+
 /**
  * Expire old broadcast messages
  * Automatically expires messages older than BROADCAST_MESSAGE_EXPIRY_MS
@@ -305,8 +471,12 @@ export async function cancelBroadcastMessage(messageId: string, clientId: string
     );
   }
 
-  // Refund the same amount that was charged (BROADCAST_SEND rate)
-  const refundAmount = await getRate('BROADCAST_SEND');
+  // Refund: for batch messages use stored amountRefundNr; otherwise BROADCAST_SEND rate
+  const meta = (message.metadata as Record<string, unknown> | null) || {};
+  const refundAmount =
+    typeof meta.amountRefundNr === 'number' && meta.amountRefundNr >= 0
+      ? meta.amountRefundNr
+      : await getRate('BROADCAST_SEND');
   await refundCoins(clientId, refundAmount);
 
   const updatedMessage = await prisma.broadcastMessage.update({

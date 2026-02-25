@@ -90,6 +90,12 @@ export const createAstrologerSchema = z.object({
     .min(0, 'Appointment fee cannot be negative')
     .optional()
     .nullable(),
+
+  chatMessageFee: z
+    .number()
+    .min(0, 'Chat message fee cannot be negative')
+    .optional()
+    .nullable(),
   
   languages: z
     .array(z.string())
@@ -120,6 +126,10 @@ export const updateAstrologerFormSchema = z.object({
   commissionRate: z.number().min(0).max(100).optional(),
   category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']).optional(),
   appointmentFee: z
+    .preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().min(0))
+    .optional()
+    .nullable(),
+  chatMessageFee: z
     .preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().min(0))
     .optional()
     .nullable(),

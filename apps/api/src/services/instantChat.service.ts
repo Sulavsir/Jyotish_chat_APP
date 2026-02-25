@@ -256,16 +256,9 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
       );
     }
 
-    // Deduct coins if required for this astrologer category
-    if (requiresCoinsForChat(astrologer.category)) {
-      const { toSharedAstrologerCategory } = await import('../constants/coin.constants');
-      await deductCoinsForChat({
-        userId: request.clientId,
-        astrologerCategory: toSharedAstrologerCategory(astrologer.category),
-      });
-    }
-
-    // Create new chat (client=participant1, astrologer=participant2)
+    // Create new chat (client=participant1, astrologer=participant2).
+    // Coin deduction for messages is handled per-message via deductCoinsForMessage
+    // in chatHandlers, using the astrologer's dynamic chatMessageFee.
     chat = await prisma.chat.create({
       data: {
         participant1Id: request.clientId,

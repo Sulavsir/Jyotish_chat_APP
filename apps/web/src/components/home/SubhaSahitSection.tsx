@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/constants';
 import { subhaSahitService } from '@/services/subha-sahit.service';
 import { DateInput, Label } from '@jyotish/ui';
+import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
+import type { QuestionnaireLanguage } from '@jyotish/shared';
 
 function getMonthRange(date: Date): { from: string; to: string } {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -41,9 +43,25 @@ function formatDay(dateStr: string): string {
 export function SubhaSahitSection() {
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 7);
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    return `${year}-${String(month).padStart(2, '0')}`;
   });
   const [occasionFilter, setOccasionFilter] = useState('');
+  const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
+  const setQuestionnaireLanguage = useQuestionnaireLanguageStore((s) => s.setLanguage);
+
+  const apiLanguage: 'en' | 'ne' | 'hi' = useMemo(() => {
+    switch (questionnaireLanguage) {
+      case 'NEPALI':
+        return 'ne';
+      case 'HINDI':
+        return 'hi';
+      case 'ENGLISH':
+      default:
+        return 'en';
+    }
+  }, [questionnaireLanguage]);
 
   const selectedMonthDate = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);
@@ -53,23 +71,26 @@ export function SubhaSahitSection() {
   const { from, to } = useMemo(() => getMonthRange(selectedMonthDate), [selectedMonthDate]);
 
   const { data: occasionsData } = useQuery({
-    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE(),
-    queryFn: () => subhaSahitService.getOccasions(),
+    queryKey: QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(apiLanguage),
+    queryFn: () => subhaSahitService.getOccasions(apiLanguage),
   });
 
   const occasions = occasionsData?.occasions ?? [];
 
   const { data, isLoading } = useQuery({
-    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({ 
-      dateFrom: from, 
+    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({
+      dateFrom: from,
       dateTo: to,
       occasion: occasionFilter || undefined,
+      language: apiLanguage,
     }),
-    queryFn: () => subhaSahitService.getAvailableDates({ 
-      dateFrom: from, 
-      dateTo: to,
-      occasion: occasionFilter || undefined,
-    }),
+    queryFn: () =>
+      subhaSahitService.getAvailableDates({
+        dateFrom: from,
+        dateTo: to,
+        occasion: occasionFilter || undefined,
+        language: apiLanguage,
+      }),
   });
 
   const dates = data?.dates ?? [];
@@ -99,11 +120,12 @@ export function SubhaSahitSection() {
               Auspicious days
             </h2>
             <p className="mt-2 max-w-2xl text-sm sm:text-base text-slate-300">
-              Plan your important puja and ceremonies on Subha Sahit (auspicious) dates curated by our Jyotish team.
+              Plan your important puja and ceremonies on Subha Sahit (auspicious) dates curated by
+              our Jyotish team.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md">
+          <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xl">
             <div className="flex-1 rounded-2xl border border-purple-500/30 bg-slate-950/70 p-3 shadow-[0_0_40px_rgba(129,140,248,0.25)] backdrop-blur">
               <Label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">
                 Select Month
@@ -115,6 +137,21 @@ export function SubhaSahitSection() {
                 className="w-full bg-slate-900/70 border border-purple-500/40 rounded-md px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none [color-scheme:dark]"
               />
             </div>
+            <div className="flex-1 rounded-2xl border border-purple-500/30 bg-slate-950/70 p-3 shadow-[0_0_40px_rgba(129,140,248,0.25)] backdrop-blur">
+              <Label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">
+                Language
+              </Label>
+              <select
+                value={questionnaireLanguage}
+                onChange={(e) => setQuestionnaireLanguage(e.target.value as QuestionnaireLanguage)}
+                className="w-full bg-slate-900/70 border border-purple-500/40 rounded-md px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none [color-scheme:dark]"
+              >
+                <option value="ENGLISH">English</option>
+                <option value="NEPALI">नेपाली (Nepali)</option>
+                <option value="HINDI">हिन्दी (Hindi)</option>
+              </select>
+            </div>
+
             {occasions.length > 0 && (
               <div className="flex-1 rounded-2xl border border-purple-500/30 bg-slate-950/70 p-3 shadow-[0_0_40px_rgba(129,140,248,0.25)] backdrop-blur">
                 <Label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">
@@ -144,10 +181,12 @@ export function SubhaSahitSection() {
             </div>
           ) : dates.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-              <p className="text-base font-medium text-slate-200">No Subha Sahit dates added for this month yet.</p>
+              <p className="text-base font-medium text-slate-200">
+                No Subha Sahit dates added for this month yet.
+              </p>
               <p className="max-w-md text-sm text-slate-400">
-                Our team is continuously updating auspicious timings. Please check again later or explore yearly
-                horoscopes for guidance.
+                Our team is continuously updating auspicious timings. Please check again later or
+                explore yearly horoscopes for guidance.
               </p>
             </div>
           ) : (
@@ -184,12 +223,11 @@ export function SubhaSahitSection() {
           )}
 
           <p className="mt-4 text-[11px] text-slate-500">
-            Booking Pandit Ji through Jyotish is only possible on these Subha Sahit dates, ensuring your rituals are
-            performed at the most auspicious times.
+            Booking Pandit Ji through Jyotish is only possible on these Subha Sahit dates, ensuring
+            your rituals are performed at the most auspicious times.
           </p>
         </div>
       </div>
     </section>
   );
 }
-

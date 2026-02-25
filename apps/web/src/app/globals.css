@@ -291,3 +291,362 @@
     overflow-x: hidden;
   }
 }
+
+/* GetPay Checkout – Clean white background, full width form, no top margin */
+.getpay-checkout-wrapper {
+  background: transparent !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 400px !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* GetPay Checkout Container – full width, ensure visibility, no top margin */
+#checkout {
+  background: transparent !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 400px !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Remove top margin/padding from main element */
+#checkout main {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+#checkout main > div:first-child {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+/* Override GetPay/Svelte fixed widths – force full width */
+#checkout main,
+#checkout main > div,
+#checkout .parent-div,
+#checkout [class*="parent-div"],
+#checkout .information-section,
+#checkout [class*="information-section"],
+#checkout .payment-section,
+#checkout [class*="payment-section"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Form container – full width */
+#checkout form {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* Input fields – full width of container, ensure visibility */
+#checkout input,
+#checkout select,
+#checkout textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure all form elements are visible */
+#checkout * {
+  visibility: visible !important;
+}
+
+/* Hide only iframes and hidden elements */
+#checkout iframe[style*="display: none"],
+#checkout [style*="display: none"]:not(input):not(select):not(textarea) {
+  display: none !important;
+}
+
+/* Prevent any text truncation in GetPay checkout */
+#checkout * {
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+/* Specifically target label-like elements that might be truncated */
+#checkout [class*="label"],
+#checkout [class*="Label"],
+#checkout [class*="text"],
+#checkout [class*="Text"] {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  max-width: 100% !important;
+}
+
+/* GetPay Card Input Fields - Custom styling, reduced spacing */
+#checkout input[type="text"],
+#checkout input[type="number"],
+#checkout input[type="tel"],
+#checkout input[type="email"],
+#checkout input[type="password"],
+#checkout select,
+#checkout textarea {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding: 0.625rem 0.875rem !important;
+  color: #111827 !important;
+  font-size: 0.9375rem !important;
+  transition: all 0.2s ease !important;
+  margin-bottom: 0.5rem !important;
+  margin-top: 0 !important;
+}
+
+/* Inputs in same row (MM/YY, CVV, etc.) - horizontal spacing */
+#checkout input + input,
+#checkout select + input,
+#checkout input + select {
+  margin-left: 0.5rem !important;
+}
+
+/* Reduce gap between card number input and MM/YY row - target the row container */
+#checkout form > div,
+#checkout [class*="section"] > div,
+#checkout [class*="Section"] > div {
+  margin-bottom: 0.5rem !important;
+  gap: 0.5rem !important;
+}
+
+/* Card number input field - reduce bottom margin to minimize gap to MM/YY */
+#checkout input[type="text"][name*="card"],
+#checkout input[type="text"][id*="card"],
+#checkout input[type="text"][placeholder*="card"],
+#checkout input[type="text"][placeholder*="Card"],
+#checkout input[type="text"][placeholder*="Enter card number"],
+#checkout input[type="text"][placeholder*="enter card number"] {
+  margin-bottom: 0.5rem !important;
+}
+
+/* MM/YY and CVV row - ensure tight spacing, no extra margin */
+#checkout input[type="text"][placeholder*="MM"],
+#checkout input[type="text"][placeholder*="YY"],
+#checkout input[type="text"][name*="expiry"],
+#checkout input[type="text"][name*="cvv"],
+#checkout input[type="text"][name*="CVV"],
+#checkout input[type="text"][placeholder*="MM /"],
+#checkout input[type="text"][placeholder*="CVV"] {
+  margin-bottom: 0.5rem !important;
+  margin-top: 0 !important;
+}
+
+/* Reduce gap between card number field and MM/YY row - target wrapper divs */
+#checkout form > div > div,
+#checkout [class*="section"] > div > div,
+#checkout [class*="information"] > div {
+  margin-bottom: 0.5rem !important;
+  gap: 0.5rem !important;
+}
+
+/* Specifically target the div containing MM/YY inputs to reduce top margin */
+#checkout input[placeholder*="MM"]:not(:first-child),
+#checkout input[placeholder*="YY"]:not(:first-child),
+#checkout input[placeholder*="CVV"]:not(:first-child) {
+  margin-top: 0 !important;
+}
+
+#checkout input:focus,
+#checkout select:focus,
+#checkout textarea:focus {
+  outline: none !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1) !important;
+}
+
+#checkout input::placeholder,
+#checkout textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* GetPay Card Number Input - Specific styling */
+#checkout input[name*="card"],
+#checkout input[name*="Card"],
+#checkout input[id*="card"],
+#checkout input[id*="Card"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  font-family: 'Courier New', monospace !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* GetPay Form Labels - Ensure full text is visible, reduced spacing */
+#checkout label {
+  color: #374151 !important;
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+  margin-bottom: 0.25rem !important;
+  margin-top: 0.5rem !important;
+  display: block !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  max-width: 100% !important;
+  width: auto !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* First label in each section - no top margin */
+#checkout [class*="section"] label:first-child,
+#checkout [class*="Section"] label:first-child,
+#checkout form > div > label:first-child {
+  margin-top: 0 !important;
+}
+
+/* Ensure label text/spans inside labels are not truncated */
+#checkout label *,
+#checkout label span,
+#checkout label div {
+  white-space: normal !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+/* GetPay Buttons – Pay button smaller, not full width */
+#checkout button,
+#checkout [role="button"] {
+  background-color: #f59e0b !important;
+  color: #ffffff !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  transition: all 0.2s ease !important;
+  border: none !important;
+  width: auto !important;
+  min-width: 120px !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+/* Payment method Card/QR buttons – natural width, icon and text aligned */
+#checkout [class*="payment"] button,
+#checkout [class*="Payment"] button,
+#checkout [class*="method"] button,
+#checkout [class*="Method"] button {
+  width: auto !important;
+  max-width: none !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  vertical-align: middle !important;
+}
+
+/* Card button icon and text alignment */
+#checkout [class*="payment"] button *,
+#checkout [class*="Payment"] button *,
+#checkout [class*="method"] button *,
+#checkout [class*="Method"] button * {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: middle !important;
+}
+
+/* Ensure button content (icon + text) stays on same line */
+#checkout [class*="payment"] button,
+#checkout [class*="Payment"] button,
+#checkout [class*="method"] button,
+#checkout [class*="Method"] button {
+  white-space: nowrap !important;
+  flex-wrap: nowrap !important;
+}
+
+#checkout button:hover,
+#checkout [role="button"]:hover {
+  background-color: #d97706 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+#checkout button:active,
+#checkout [role="button"]:active {
+  transform: translateY(0) !important;
+}
+
+/* GetPay Error Messages */
+#checkout .error,
+#checkout [class*="error"],
+#checkout [class*="Error"] {
+  color: #dc2626 !important;
+  font-size: 0.875rem !important;
+  margin-top: 0.25rem !important;
+}
+
+/* GetPay Success/Valid States */
+#checkout input:valid,
+#checkout input[aria-invalid="false"] {
+  border-color: #10b981 !important;
+}
+
+/* GetPay Form Sections – ensure visibility, reduced spacing */
+#checkout [class*="form"],
+#checkout [class*="Form"],
+#checkout [class*="section"],
+#checkout [class*="Section"],
+#checkout main,
+#checkout main > div,
+#checkout main > div > div {
+  background: transparent !important;
+  padding: 0.5rem 0 !important;
+  margin: 0 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* First section - no top padding */
+#checkout main > div:first-child,
+#checkout [class*="section"]:first-child,
+#checkout [class*="Section"]:first-child {
+  padding-top: 0 !important;
+}
+
+/* Card Information section specifically */
+#checkout [class*="card"],
+#checkout [class*="Card"],
+#checkout [class*="information"],
+#checkout [class*="Information"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+}
+
+/* GetPay Payment Method Selection - reduced spacing, flex layout for button alignment */
+#checkout [class*="payment"],
+#checkout [class*="Payment"],
+#checkout [class*="method"],
+#checkout [class*="Method"] {
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+  margin-top: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+}

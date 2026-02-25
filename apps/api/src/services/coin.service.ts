@@ -123,7 +123,28 @@ export const deductCoinsForMessage = async (
         ERROR_CODES.VALIDATION_ERROR
       );
     }
-    coinCost = await getRate('CHAT_PER_MESSAGE');
+
+    // Determine dynamic per-Jyotish chat fee
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      select: { participant2Id: true },
+    });
+    let perMessageFee = 0;
+    if (chat?.participant2Id) {
+      const astrologer = await prisma.astrologer.findUnique({
+        where: { id: chat.participant2Id },
+        select: { chatMessageFee: true },
+      });
+      if (astrologer?.chatMessageFee && astrologer.chatMessageFee > 0) {
+        perMessageFee = astrologer.chatMessageFee;
+      }
+    }
+    if (perMessageFee <= 0) {
+      // Fallback to platform default if astrologer-specific fee not set
+      perMessageFee = await getRate('CHAT_PER_MESSAGE');
+    }
+
+    coinCost = perMessageFee;
     transactionReason = COIN_REASON_MAPPING[category];
   }
 
@@ -427,9 +448,9 @@ export const addCoins = async (
  */
 export const deductCoinsForAppointment = async (
   userId: string,
-  astrologerId: string
+  astrologerId: string,
+  coinCost: number
 ): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
-  const coinCost = await getRate('APPOINTMENT');
   if (coinCost <= 0) {
     const balance = await getCoinBalance(userId);
     return { userId, balance, coinTransactionId: '', coinCost: 0 };
@@ -512,8 +533,12 @@ export const deductCoinsForBooking = async (
   astrologerId: string,
   bookingType: 'KUNDALI_REVIEW'
 ): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
-  const rateType = 'KUNDALI_REVIEW';
-  const coinCost = await getRate(rateType);
+  // Use astrologer-specific appointment fee for Full Kundali Review bookings.
+  const astrologer = await prisma.astrologer.findUnique({
+    where: { id: astrologerId },
+    select: { appointmentFee: true },
+  });
+  const coinCost = astrologer?.appointmentFee ?? 0;
   if (coinCost <= 0) {
     const balance = await getCoinBalance(userId);
     return { userId, balance, coinTransactionId: '', coinCost: 0 };
@@ -658,6 +683,69 @@ export const linkAppointmentToCoinEarning = async (
     where: { coinTransactionId },
     data: { appointmentId },
   });
+};
+
+/**
+ * Deduct coins for multiple broadcast questions (batch).
+ * Used when client sends N questions at once; totalNr is the admin-configured total for that count.
+ */
+export const deductCoinsForBroadcastQuestions = async (
+  userId: string,
+  totalNr: number
+): Promise<CoinBalance> => {
+  if (totalNr <= 0) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance };
+  }
+
+  const hasUnlimited = await hasActiveUnlimitedPlan(userId);
+  if (hasUnlimited) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { coins: true, id: true },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  if (user.coins < totalNr) {
+    throw new AppError(
+      `Insufficient balance. Required: ${totalNr} NRs, Available: ${user.coins} NRs.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.INSUFFICIENT_COINS
+    );
+  }
+
+  const balanceBefore = user.coins;
+  const balanceAfter = balanceBefore - totalNr;
+
+  const [updatedUser] = await Promise.all([
+    prisma.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: totalNr } },
+      select: { id: true, coins: true },
+    }),
+    prisma.coinTransaction.create({
+      data: {
+        userId,
+        amount: -totalNr,
+        type: CoinTransactionType.DEDUCT,
+        reason: CoinTransactionReason.CHAT_ORDINARY,
+        balanceBefore,
+        balanceAfter,
+      },
+    }),
+  ]);
+
+  return {
+    userId: updatedUser.id,
+    balance: updatedUser.coins,
+  };
 };
 
 /**

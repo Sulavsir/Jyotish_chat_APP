@@ -38,6 +38,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Package src must not contain compiled output (build emits to dist only)
+packages/shared/src/**/*.js
+packages/shared/src/**/*.d.ts
+packages/shared/src/**/*.js.map
+packages/shared/src/**/*.d.ts.map
+packages/database/src/**/*.js
+packages/database/src/**/*.d.ts
+packages/database/src/**/*.js.map
+packages/database/src/**/*.d.ts.map
+
 # Turborepo
 .turbo
 

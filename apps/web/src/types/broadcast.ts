@@ -86,3 +86,41 @@ export interface BroadcastMessageResponse {
   success: boolean;
   data: BroadcastMessage;
 }
+
+// Multi-question broadcast (pricing, prepare, send)
+export interface BroadcastQuestionPricingTier {
+  id: string;
+  questionCount: number;
+  amountNr: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BroadcastQuestionPricingResponse {
+  tiers: BroadcastQuestionPricingTier[];
+}
+
+export interface PrepareBroadcastQuestionsResponse {
+  totalNr: number;
+  balanceNr: number;
+  coveredByBalance: number;
+  remainingNr: number;
+  questionCount: number;
+  questions: { id: string; text: string }[];
+}
+
+export interface SendBroadcastQuestionsRequest {
+  questionItems: { id: string; text: string }[];
+  totalNr: number;
+  birthDetails?: {
+    dateOfBirth?: string;
+    timeOfBirth?: string;
+    placeOfBirth?: string;
+    gender?: string;
+  };
+}
+
+export interface SendBroadcastQuestionsResponse {
+  messageIds: string[];
+  count: number;
+}

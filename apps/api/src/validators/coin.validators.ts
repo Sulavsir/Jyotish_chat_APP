@@ -75,6 +75,7 @@ export const updatePlatformCoinRatesSchema = z
     APPOINTMENT: coinRateValue.optional(),
     KUNDALI_REVIEW: coinRateValue.optional(),
     KUNDALI_MATCH: coinRateValue.optional(),
+    COINS_PER_NPR: coinRateValue.optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: 'At least one rate must be provided',

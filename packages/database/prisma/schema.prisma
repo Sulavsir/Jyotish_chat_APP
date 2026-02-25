@@ -93,6 +93,7 @@ model Astrologer {
   totalConsultations           Int                   @default(0)
   category                     AstrologerCategory    @default(ORDINARY) // Astrologer tier
   appointmentFee               Float? // Fee for appointments (applicable for PROFESSIONAL and PREMIUM)
+  chatMessageFee               Float? // NRs per direct chat message (dynamic per Jyotish)
   isActive                     Boolean               @default(true)
   isOnline                     Boolean               @default(false)
   isVerified                   Boolean               @default(false)
@@ -574,17 +575,18 @@ model DailyTip {
 }
 
 model SubhaSahitDate {
-  id          String   @id @default(uuid())
-  date        DateTime @db.Date
-  occasion    String   
+  id          String             @id @default(uuid())
+  date        DateTime           @db.Date
+  language    SubhaSahitLanguage @default(EN)
+  occasion    String
   description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
-  @@index([date, isActive])
-  @@index([occasion])
-  @@index([date, occasion, isActive])
+  @@index([date, language, isActive])
+  @@index([occasion, language])
+  @@index([date, occasion, language, isActive])
 }
 
 model Notification {
@@ -650,6 +652,25 @@ model Payment {
   @@index([userId])
   @@index([status])
   @@index([transactionId])
+}
+
+// Fonepay – track both QR and Web redirect flows (separate gateways)
+model FonepayTransaction {
+  id             String   @id @default(uuid())
+  prn            String   @unique // Payment Reference Number (we generate)
+  amount         String   // Amount as string for Fonepay payload
+  type           String   // "QR" | "WEB" – do not mix
+  status         String   // CREATED | VERIFIED | SUCCESS | FAILED
+  fonepayTraceId String?  // Set when payment is verified/success (for tax-refund)
+  remarks1       String?
+  remarks2       String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([prn])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Settings {
@@ -957,6 +978,13 @@ enum JyotishBookingStatus {
   REJECTED
 }
 
+/// Supported languages for Subha Sahit content
+enum SubhaSahitLanguage {
+  EN  // English
+  NE  // Nepali
+  HI  // Hindi
+}
+
 model Rating {
   id           String     @id @default(uuid())
   chatId       String     @unique // One rating per chat session
@@ -1184,6 +1212,7 @@ enum PlatformCoinRateType {
   APPOINTMENT
   KUNDALI_REVIEW
   KUNDALI_MATCH
+  COINS_PER_NPR // Purchase rate: how many coins per NPR (e.g., 1 = 1 coin per NPR, 2 = 2 coins per NPR)
 }
 
 model PlatformCoinRate {
@@ -1195,6 +1224,17 @@ model PlatformCoinRate {
   updatedAt   DateTime             @updatedAt
 
   @@index([rateType])
+}
+
+// Admin-managed pricing for broadcast by number of questions (amount in NRs; stored as same unit as User.coins)
+model BroadcastQuestionPricing {
+  id           String   @id @default(uuid())
+  questionCount Int     @unique // 1, 2, 3, ... (number of questions in one broadcast batch)
+  amountNr      Int     // Price in NRs for this count (e.g. 1=100, 2=190)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([questionCount])
 }
 
 // Astrologer earnings in coins (per chat/broadcast/appointment). All earnings are in coins;

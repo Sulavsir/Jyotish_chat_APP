@@ -136,6 +136,7 @@ export class AstrologerService {
     experience?: number;
     category?: AstrologerCategory;
     appointmentFee?: number;
+    chatMessageFee?: number | null;
     commissionRate: number;
     languages: string[];
     gender?: Gender;
@@ -199,6 +200,7 @@ export class AstrologerService {
         experience: data.experience,
         category: data.category, // ORDINARY, PROFESSIONAL, PREMIUM
         appointmentFee: data.appointmentFee,
+        chatMessageFee: data.chatMessageFee ?? null,
         commissionRate: data.commissionRate,
         languages: data.languages,
         gender: data.gender ?? null,
@@ -813,6 +815,7 @@ cle   * Get all pending registration requests with pagination and search
     data: {
       category: string;
       appointmentFee?: number | null;
+      chatMessageFee?: number | null;
       commissionRate?: number;
     }
   ) {
@@ -849,6 +852,7 @@ cle   * Get all pending registration requests with pagination and search
         isActive: true,
         category: data.category as AstrologerCategory,
         appointmentFee: data.appointmentFee ?? null,
+        chatMessageFee: data.chatMessageFee ?? null,
         commissionRate: data.commissionRate ?? 0.0,
       },
       select: {
@@ -859,6 +863,7 @@ cle   * Get all pending registration requests with pagination and search
         accountStatus: true,
         category: true,
         appointmentFee: true,
+        chatMessageFee: true,
         commissionRate: true,
         approvedBy: true,
         approvedAt: true,

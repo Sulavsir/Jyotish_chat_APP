@@ -83,6 +83,9 @@ export const API_ENDPOINTS = {
     CANCEL: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/cancel`,
     DISMISS: (messageId: string) => `/api/v1/broadcast-messages/${messageId}/dismiss`,
     MESSAGE_BY_ID: (messageId: string) => `/api/v1/broadcast-messages/${messageId}`,
+    QUESTION_PRICING: '/api/v1/broadcast-messages/question-pricing',
+    PREPARE_QUESTIONS: '/api/v1/broadcast-messages/prepare-questions',
+    SEND_QUESTIONS: '/api/v1/broadcast-messages/send-questions',
   },
   CONSULTATIONS: {
     CREATE: '/api/v1/consultations',
@@ -170,6 +173,14 @@ export const API_ENDPOINTS = {
   PAYMENTS: {
     CREATE_ORDER: '/api/v1/payments/create-order',
     VERIFY: '/api/v1/payments/verify',
+    CREATE_FONEPAY_QR_ORDER: '/api/v1/payments/create-fonepay-qr-order',
+    VERIFY_FONEPAY_QR: '/api/v1/payments/verify-fonepay-qr',
+    CREATE_FONEPAY_CARD_ORDER: '/api/v1/payments/create-fonepay-card-order',
+  },
+  FONEPAY: {
+    GENERATE_QR: '/api/v1/fonepay/generate-qr',
+    CHECK_STATUS: '/api/v1/fonepay/check-status',
+    TAX_REFUND: '/api/v1/fonepay/tax-refund',
   },
   PRICING: '/api/v1/pricing',
   ADMIN_CHAT: {

@@ -101,8 +101,8 @@ export default function JyotishEarningsPage() {
         id: 'earned',
         header: 'You earned',
         headerClassName: 'border-r-0',
-        cellClassName: 'font-medium text-amber-400 border-r-0',
-        cell: (row) => `+${row.astrologerCoinsEarned} coins`,
+        cellClassName: 'font-medium text-emerald-400 border-r-0',
+        cell: (row) => `+ NRs ${row.astrologerCoinsEarned}`,
       },
     ],
     [page, limit]
@@ -132,8 +132,8 @@ export default function JyotishEarningsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white tracking-tight">
-                {isLoading ? '—' : (data?.summary?.totalCoins ?? 0)} coins
+              <div className="text-2xl font-bold text-amber-300 tracking-tight">
+                {isLoading ? '—' : `${data?.summary?.totalCoins ?? 0} coins`}
               </div>
             </CardContent>
           </Card>

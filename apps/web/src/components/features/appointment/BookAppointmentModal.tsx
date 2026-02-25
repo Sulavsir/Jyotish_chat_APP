@@ -217,7 +217,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
       coinBalance < appointmentCoinCost
     ) {
       toast.error(
-        `Insufficient coins. You need ${appointmentCoinCost} coin${appointmentCoinCost === 1 ? '' : 's'}. Your balance: ${coinBalance}. Please top up.`
+        `Insufficient balance. You need ${appointmentCoinCost} NRs. Your balance: ${coinBalance} NRs. Please top up.`
       );
       return;
     }
@@ -412,7 +412,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                 </p>
                                 {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
                                   <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                                    {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
+                                    {appointmentCoinCost} NRs
                                   </span>
                                 ) : appointmentCoinCost === undefined ? (
                                   <span className="text-sm text-purple-400">…</span>
@@ -499,8 +499,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                       </p>
                                       {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
                                         <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                                          {appointmentCoinCost} coin
-                                          {appointmentCoinCost === 1 ? '' : 's'}
+                                          {appointmentCoinCost} NRs
                                         </span>
                                       ) : appointmentCoinCost === undefined ? (
                                         <span className="text-sm text-purple-400">…</span>
@@ -575,16 +574,16 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                             : '💎 Professional'}
                         </span>
                       </div>
-                      <p className="text-sm text-purple-300">
+                      <p className="text-sm text-emerald-300">
                         {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
                           <>
-                            <span className="font-semibold text-amber-300">
-                              {appointmentCoinCost} coin{appointmentCoinCost === 1 ? '' : 's'}
+                            <span className="inline-flex items-center gap-1 font-semibold text-emerald-300">
+                              <span>NRs {appointmentCoinCost}</span>
                             </span>
                             {' per session. Deducted when you book.'}
                           </>
                         ) : appointmentCoinCost === undefined ? (
-                          '… coins per session'
+                          'NRs … per session'
                         ) : (
                           'Per session'
                         )}
@@ -680,8 +679,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   appointmentCoinCost > 0 &&
                   coinBalance < appointmentCoinCost && (
                     <div className="mt-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm">
-                      You need at least {appointmentCoinCost} coin
-                      {appointmentCoinCost === 1 ? '' : 's'}. Your balance: {coinBalance}. Please
+                      You need at least {appointmentCoinCost} NRs. Your balance: {coinBalance} NRs. Please
                       top up to book.
                     </div>
                   )}

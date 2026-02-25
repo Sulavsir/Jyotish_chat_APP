@@ -32,3 +32,40 @@ export interface VerifyPaymentResponse {
   balance?: number;
   orderId?: string;
 }
+
+export interface CreateFonepayQrOrderRequest {
+  amount: number;
+  coins: number;
+  planId?: string;
+}
+
+export interface CreateFonepayQrOrderResponse {
+  orderId: string;
+  prn: string;
+  amount: number;
+  coins: number;
+  qrMessage: string;
+  websocketUrl: string;
+}
+
+export interface VerifyFonepayQrRequest {
+  prn: string;
+}
+
+export interface VerifyFonepayQrResponse {
+  success: boolean;
+  message: string;
+  balance?: number;
+  orderId?: string;
+}
+
+export interface CreateFonepayCardOrderRequest {
+  amount: number;
+  coins: number;
+  planId?: string;
+}
+
+export interface CreateFonepayCardOrderResponse {
+  orderId: string;
+  redirectUrl: string;
+}

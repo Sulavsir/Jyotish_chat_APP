@@ -25,9 +25,10 @@ import { Coins, Loader2, Plus, Infinity as InfinityIcon } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { pricingService } from '@/services/pricing.service';
 import { coinService } from '@/services/coin.service';
-import { QUERY_KEYS, ROUTES, COIN_PRICE_NPR } from '@/constants';
+import { QUERY_KEYS, ROUTES } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
 import type { PricingPlan } from '@/types/pricing.types';
+import { useCoinRates } from '@/hooks/useCoinRates';
 import { toast } from 'sonner';
 
 type CoinPurchaseMode = 'insufficient' | 'purchase';
@@ -78,7 +79,16 @@ export function CoinPurchaseModal({
     enabled: isOpen && !!user,
   });
 
+  // Fetch coin purchase rate (coins per NPR)
+  const { rates: coinRates } = useCoinRates(isOpen);
+
   const currentBalance = balanceData?.balance ?? 0;
+  
+  // Calculate NPR per coin from coins per NPR rate
+  // If COINS_PER_NPR = 1, then 1 coin = 1 NPR (1/1 = 1)
+  // If COINS_PER_NPR = 2, then 2 coins = 1 NPR, so 1 coin = 0.5 NPR (1/2 = 0.5)
+  const coinsPerNpr = coinRates?.COINS_PER_NPR ?? 1;
+  const nprPerCoin = coinsPerNpr > 0 ? 1 / coinsPerNpr : 1;
 
   const plans = plansData?.plans || [];
 
@@ -91,7 +101,6 @@ export function CoinPurchaseModal({
   );
 
   const handlePurchase = (plan: PricingPlan) => {
-    // Store pending chat info if callback exists
     if (onPurchaseSuccess) {
       sessionStorage.setItem(
         'pendingChatAfterPurchase',
@@ -100,11 +109,13 @@ export function CoinPurchaseModal({
         })
       );
     }
-    // Navigate to payment page
-    router.push(
-      `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`
-    );
+    
+    // Close modal first
     onClose();
+    
+    // Use window.location for hard redirect to ensure navigation
+    const paymentUrl = `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`;
+    window.location.href = paymentUrl;
   };
 
   const handleGoToPricing = () => {
@@ -114,9 +125,9 @@ export function CoinPurchaseModal({
 
   const handleCustomPurchase = () => {
     const coins = customCoins > 0 ? customCoins : 1;
-    const amount = COIN_PRICE_NPR * coins;
+    // Calculate amount: coins * NPR per coin
+    const amount = Math.round(coins * nprPerCoin);
 
-    // Store pending chat info if callback exists
     if (onPurchaseSuccess) {
       sessionStorage.setItem(
         'pendingChatAfterPurchase',
@@ -126,8 +137,12 @@ export function CoinPurchaseModal({
       );
     }
 
-    router.push(`${ROUTES.PAYMENT}?planId=custom-${coins}&amount=${amount}&coins=${coins}`);
+    // Close modal first
     onClose();
+    
+    // Use window.location for hard redirect to ensure navigation
+    const paymentUrl = `${ROUTES.PAYMENT}?planId=custom-${coins}&amount=${amount}&coins=${coins}`;
+    window.location.href = paymentUrl;
   };
 
   const handlePurchaseWithCoins = async (plan: PricingPlan) => {
@@ -173,8 +188,14 @@ export function CoinPurchaseModal({
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] p-0 bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 border border-purple-500/30 shadow-2xl shadow-purple-900/50 overflow-hidden rounded-2xl flex flex-col">
         {/* Animated background effect (same style as BookAppointmentModal) */}
         <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden rounded-2xl">
@@ -262,7 +283,11 @@ export function CoinPurchaseModal({
                         Select coins to buy
                       </p>
                       <p className="text-xs text-purple-200/80">
-                        1 coin = NPR {COIN_PRICE_NPR.toLocaleString()}
+                        {coinsPerNpr === 1
+                          ? '1 coin = NPR 1'
+                          : coinsPerNpr > 1
+                            ? `${coinsPerNpr} coins = NPR 1`
+                            : `1 coin = NPR ${nprPerCoin.toFixed(2)}`}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -309,7 +334,7 @@ export function CoinPurchaseModal({
                   <div className="flex items-center justify-between border-t border-purple-500/30 pt-3">
                     <p className="text-xs text-purple-100/80">Estimated amount</p>
                     <p className="text-sm font-semibold text-yellow-200">
-                      NPR {(customCoins * COIN_PRICE_NPR).toLocaleString()}
+                      NPR {Math.round(customCoins * nprPerCoin).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex justify-end">
@@ -449,7 +474,7 @@ export function CoinPurchaseModal({
                 View All Plans
               </Button>
               <Button
-                onClick={onClose}
+                onClick={() => handleOpenChange(false)}
                 variant="outline"
                 className="flex-1 rounded-xl border-purple-400/40 bg-black/10 text-purple-100 hover:bg-purple-900/30 text-sm"
               >

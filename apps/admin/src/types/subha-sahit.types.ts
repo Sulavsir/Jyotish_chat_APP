@@ -5,6 +5,7 @@
 export interface SubhaSahitDate {
   id: string;
   date: string; // ISO date string
+  language: string;
   occasion: string;
   description: string | null;
   isActive: boolean;
@@ -20,6 +21,7 @@ export interface CreateSubhaSahitDateRequest {
 
 export interface CreateSubhaSahitDatesRequest {
   dates: CreateSubhaSahitDateRequest[];
+  language?: 'en' | 'ne' | 'hi';
 }
 
 export interface UpdateSubhaSahitDateRequest {
@@ -33,6 +35,7 @@ export interface ListSubhaSahitDatesParams {
   occasion?: string;
   dateFrom?: string;
   dateTo?: string;
+  language?: 'en' | 'ne' | 'hi';
   page?: number;
   limit?: number;
 }

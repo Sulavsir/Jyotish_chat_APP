@@ -7,6 +7,7 @@ import { prisma } from '@jyotish/database';
 export interface SubhaSahitDate {
   id: string;
   date: Date;
+  language: string;
   occasion: string;
   description: string | null;
   isActive: boolean;
@@ -18,6 +19,7 @@ function toSubhaSahitDate(entity: any): SubhaSahitDate {
   return {
     id: entity.id,
     date: entity.date,
+    language: entity.language,
     occasion: entity.occasion,
     description: entity.description,
     isActive: entity.isActive,
@@ -27,8 +29,19 @@ function toSubhaSahitDate(entity: any): SubhaSahitDate {
 }
 
 export class SubhaSahitService {
-  async createOccasion(name: string): Promise<{ id: string; name: string; isActive: boolean }> {
+  private normalizeLanguage(language?: string): 'EN' | 'NE' | 'HI' {
+    const code = (language ?? 'en').toLowerCase();
+    if (code === 'ne' || code === 'np' || code === 'nepali') return 'NE';
+    if (code === 'hi' || code === 'hin' || code === 'hindi') return 'HI';
+    return 'EN';
+  }
+
+  async createOccasion(
+    name: string,
+    language?: string
+  ): Promise<{ id: string; name: string; isActive: boolean; language: string }> {
     const trimmed = name.trim();
+    const lang = this.normalizeLanguage(language);
 
     // Try to find an existing occasion case-insensitively
     const existing = await prisma.subhaSahitDate.findFirst({
@@ -37,6 +50,7 @@ export class SubhaSahitService {
           equals: trimmed,
           mode: 'insensitive',
         },
+        language: lang,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -53,6 +67,7 @@ export class SubhaSahitService {
         date: placeholderDate,
         occasion: trimmed,
         isActive: true,
+        language: lang,
       },
     });
 
@@ -60,6 +75,7 @@ export class SubhaSahitService {
       id: created.id,
       name: created.occasion,
       isActive: created.isActive,
+      language: created.language,
     };
   }
 
@@ -71,8 +87,10 @@ export class SubhaSahitService {
       date: string;
       occasion: string;
       description?: string;
-    }>
+    }>,
+    language?: string
   ): Promise<SubhaSahitDate[]> {
+    const lang = this.normalizeLanguage(language);
     const created: SubhaSahitDate[] = [];
     for (const item of items) {
       const date = new Date(item.date);
@@ -85,6 +103,7 @@ export class SubhaSahitService {
           date,
           occasion: item.occasion,
           description: item.description || null,
+          language: lang,
         },
       });
       created.push(toSubhaSahitDate(row));
@@ -100,6 +119,7 @@ export class SubhaSahitService {
     dateFrom?: string;
     dateTo?: string;
     occasion?: string;
+    language?: string;
     page?: number;
     limit?: number;
   }): Promise<{
@@ -119,6 +139,10 @@ export class SubhaSahitService {
         not: placeholderDate,
       },
     };
+
+    if (params.language) {
+      where.language = this.normalizeLanguage(params.language);
+    }
 
     if (params.occasion) {
       where.occasion = { contains: params.occasion, mode: 'insensitive' };
@@ -166,6 +190,7 @@ export class SubhaSahitService {
     dateFrom?: string;
     dateTo?: string;
     occasion?: string;
+    language?: string;
   }): Promise<SubhaSahitDate[]> {
     // Exclude placeholder dates (2099-12-31) used for occasion-only entries
     const placeholderDate = new Date('2099-12-31');
@@ -183,6 +208,10 @@ export class SubhaSahitService {
         gte: params.dateFrom ? new Date(params.dateFrom) : today,
       },
     };
+
+    if (params.language) {
+      where.language = this.normalizeLanguage(params.language);
+    }
 
     if (params.occasion) {
       where.occasion = { contains: params.occasion, mode: 'insensitive' };
@@ -212,6 +241,7 @@ export class SubhaSahitService {
       occasion?: string;
       description?: string | null;
       isActive?: boolean;
+      language?: string;
     }
   ): Promise<SubhaSahitDate> {
     const updateData: any = {};
@@ -229,6 +259,9 @@ export class SubhaSahitService {
     }
     if (data.isActive !== undefined) {
       updateData.isActive = data.isActive;
+    }
+    if (data.language !== undefined) {
+      updateData.language = this.normalizeLanguage(data.language);
     }
 
     const row = await prisma.subhaSahitDate.update({
@@ -252,9 +285,14 @@ export class SubhaSahitService {
    * Get all unique occasions (for filtering)
    * Returns distinct occasions from all SubhaSahitDate entries (including occasion-only placeholders)
    */
-  async getOccasions(): Promise<string[]> {
+  async getOccasions(language?: string): Promise<string[]> {
+    const where: any = { isActive: true };
+    if (language) {
+      where.language = this.normalizeLanguage(language);
+    }
+
     const rows = await prisma.subhaSahitDate.findMany({
-      where: { isActive: true },
+      where,
       select: { occasion: true },
       distinct: ['occasion'],
       orderBy: { occasion: 'asc' },

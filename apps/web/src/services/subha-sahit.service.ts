@@ -19,6 +19,7 @@ export interface GetAvailableDatesParams {
   occasion?: string;
   dateFrom?: string;
   dateTo?: string;
+  language?: 'en' | 'ne' | 'hi';
 }
 
 export interface AvailableDatesResponse {
@@ -42,7 +43,9 @@ export const subhaSahitService = {
   /**
    * Get all unique occasions
    */
-  async getOccasions(): Promise<OccasionsResponse> {
-    return apiClient.get<OccasionsResponse>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS);
+  async getOccasions(language?: 'en' | 'ne' | 'hi'): Promise<OccasionsResponse> {
+    return apiClient.get<OccasionsResponse>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS, {
+      params: language ? { language } : undefined,
+    });
   },
 };

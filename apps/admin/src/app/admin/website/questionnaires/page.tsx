@@ -10,6 +10,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
   Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -38,7 +42,7 @@ import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import { toast } from 'sonner';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { generatePageNumbers } from '@/utils/helpers';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 import React from 'react';
 
 type QuestionnairesListResponse = {
@@ -52,6 +56,9 @@ type QuestionnairesListResponse = {
 };
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+
+type BroadcastPricingRow = { id: string; questionCount: number; amountNr: string };
+const FIRST_ROW_ID = 'row-1';
 
 const questionnaireFormSchema = z.object({
   name: z
@@ -130,6 +137,42 @@ export default function QuestionnairesManagementPage() {
         search: searchTerm || undefined,
         language: languageFilter || undefined,
       }),
+  });
+
+  const { data: pricingData } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.WEBSITE.BROADCAST_QUESTION_PRICING(),
+    queryFn: () => adminApi.website.broadcastQuestionPricing.get(),
+  });
+  const [pricingRows, setPricingRows] = React.useState<BroadcastPricingRow[]>([
+    { id: FIRST_ROW_ID, questionCount: 1, amountNr: '' },
+  ]);
+  React.useEffect(() => {
+    const tiers = pricingData?.tiers ?? [];
+    if (tiers.length === 0) return;
+    const one = tiers.find((t) => t.questionCount === 1);
+    const rest = tiers.filter((t) => t.questionCount !== 1).sort((a, b) => a.questionCount - b.questionCount);
+    setPricingRows([
+      { id: FIRST_ROW_ID, questionCount: 1, amountNr: one != null ? String(one.amountNr) : '' },
+      ...rest.map((t) => ({
+        id: `row-${t.questionCount}`,
+        questionCount: t.questionCount,
+        amountNr: String(t.amountNr),
+      })),
+    ]);
+  }, [pricingData]);
+
+  const pricingMutation = useMutation({
+    mutationFn: (tiers: { questionCount: number; amountNr: number }[]) =>
+      adminApi.website.broadcastQuestionPricing.update(tiers),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.WEBSITE.BROADCAST_QUESTION_PRICING(),
+      });
+      toast.success('Broadcast question pricing updated.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message ?? 'Failed to update pricing.');
+    },
   });
 
   const categories = listResponse?.categories ?? [];
@@ -453,6 +496,156 @@ export default function QuestionnairesManagementPage() {
             </div>
           </div>
         )}
+
+        {/* Broadcast question pricing (NRs): 1 question + custom rows */}
+        <Card className="cosmic-card border border-slate-700 overflow-hidden">
+          <CardHeader>
+            <CardTitle className="text-white">Broadcast question pricing (NRs)</CardTitle>
+            <p className="text-sm text-slate-400">
+              Set NRs per number of questions. First row is for 1 question; add custom rows for
+              more (e.g. 2 questions = 190 NRs, 5 = 400 NRs).
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              {pricingRows.map((row, index) => (
+                <div
+                  key={row.id}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-600 bg-slate-800/50 p-3"
+                >
+                  {row.id === FIRST_ROW_ID ? (
+                    <>
+                      <span className="text-slate-300 text-sm w-32">1 question</span>
+                      <Label className="sr-only">Price (NRs)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="NRs"
+                        value={row.amountNr}
+                        onChange={(e) =>
+                          setPricingRows((prev) =>
+                            prev.map((r) =>
+                              r.id === FIRST_ROW_ID
+                                ? { ...r, amountNr: e.target.value }
+                                : r
+                            )
+                          )
+                        }
+                        className="bg-slate-800 border-slate-600 text-white h-9 w-28"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <Label className="text-slate-300 text-sm">No. of questions</Label>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={50}
+                        step={1}
+                        value={row.questionCount}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (Number.isNaN(v) || v < 2) return;
+                          setPricingRows((prev) =>
+                            prev.map((r) =>
+                              r.id === row.id
+                                ? { ...r, questionCount: Math.min(50, Math.max(2, v)) }
+                                : r
+                            )
+                          );
+                        }}
+                        className="bg-slate-800 border-slate-600 text-white h-9 w-24"
+                      />
+                      <Label className="text-slate-300 text-sm">Price (NRs)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="NRs"
+                        value={row.amountNr}
+                        onChange={(e) =>
+                          setPricingRows((prev) =>
+                            prev.map((r) =>
+                              r.id === row.id ? { ...r, amountNr: e.target.value } : r
+                            )
+                          )
+                        }
+                        className="bg-slate-800 border-slate-600 text-white h-9 w-28"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-slate-400 hover:text-red-400"
+                        onClick={() =>
+                          setPricingRows((prev) => prev.filter((r) => r.id !== row.id))
+                        }
+                        aria-label="Remove row"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-slate-600 text-slate-300"
+                onClick={() => {
+                  const maxCount =
+                    pricingRows.length === 0
+                      ? 1
+                      : Math.max(...pricingRows.map((r) => r.questionCount), 1);
+                  const nextCount = maxCount + 1;
+                  setPricingRows((prev) => [
+                    ...prev,
+                    {
+                      id: `custom-${Date.now()}`,
+                      questionCount: nextCount,
+                      amountNr: '',
+                    },
+                  ]);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add custom
+              </Button>
+              <LoadingButton
+                loading={pricingMutation.isPending}
+                loadingText="Saving..."
+                onClick={() => {
+                  const tiers = pricingRows.map((r) => {
+                    const v = parseInt(r.amountNr, 10);
+                    return {
+                      questionCount: r.questionCount,
+                      amountNr: Number.isNaN(v) ? 0 : Math.max(0, v),
+                    };
+                  });
+                  const withAmount = tiers.filter((t) => t.amountNr > 0);
+                  if (withAmount.length === 0) {
+                    toast.error('Set at least one tier amount (NRs).');
+                    return;
+                  }
+                  const counts = tiers.map((t) => t.questionCount);
+                  const dup = counts.find((c, i) => counts.indexOf(c) !== i);
+                  if (dup != null) {
+                    toast.error(`Duplicate number of questions: ${dup}. Each row must be unique.`);
+                    return;
+                  }
+                  pricingMutation.mutate(tiers);
+                }}
+                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              >
+                Save pricing
+              </LoadingButton>
+            </div>
+          </CardContent>
+        </Card>
 
         <Dialog
           open={dialogOpen}

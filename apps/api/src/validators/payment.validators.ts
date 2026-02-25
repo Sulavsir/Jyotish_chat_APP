@@ -23,10 +23,35 @@ export const createOrderSchema = z.object({
   planId: z.string().uuid('Invalid plan ID').optional(),
 });
 
-export const verifyPaymentSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
-  orderId: z.string().uuid('Invalid order ID'),
+export const verifyPaymentSchema = z
+  .object({
+    token: z.string().optional(),
+    requestId: z.string().optional(),
+    orderId: z.string().uuid('Invalid order ID'),
+  })
+  .refine((data) => (data.token?.trim() ?? '').length > 0 || (data.requestId?.trim() ?? '').length > 0, {
+    message: 'Token or requestId (GetPay transaction id) is required',
+    path: ['token'],
+  });
+
+export const createFonepayQrOrderSchema = z.object({
+  amount: z.number().positive().max(1_000_000),
+  coins: z.number().int().nonnegative().max(100_000),
+  planId: z.string().uuid().optional(),
+});
+
+export const verifyFonepayQrSchema = z.object({
+  prn: z.string().min(1, 'prn is required'),
+});
+
+export const createFonepayCardOrderSchema = z.object({
+  amount: z.number().positive().max(1_000_000),
+  coins: z.number().int().nonnegative().max(100_000),
+  planId: z.string().uuid().optional(),
 });
 
 export type CreateOrderBody = z.infer<typeof createOrderSchema>;
 export type VerifyPaymentBody = z.infer<typeof verifyPaymentSchema>;
+export type CreateFonepayQrOrderBody = z.infer<typeof createFonepayQrOrderSchema>;
+export type VerifyFonepayQrBody = z.infer<typeof verifyFonepayQrSchema>;
+export type CreateFonepayCardOrderBody = z.infer<typeof createFonepayCardOrderSchema>;

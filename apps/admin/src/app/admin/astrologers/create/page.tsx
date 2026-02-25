@@ -58,6 +58,7 @@ export default function CreateAstrologerPage() {
       commissionRate: 15,
       category: 'ORDINARY',
       appointmentFee: null,
+      chatMessageFee: null,
       languages: [],
       bio: '',
       address: '',
@@ -82,6 +83,9 @@ export default function CreateAstrologerPage() {
       formData.append('category', data.category);
       if (data.appointmentFee) {
         formData.append('appointmentFee', String(Number(data.appointmentFee)));
+      }
+      if (data.chatMessageFee) {
+        formData.append('chatMessageFee', String(Number(data.chatMessageFee)));
       }
       if (data.bio) {
         formData.append('bio', data.bio.trim());
@@ -441,6 +445,32 @@ export default function CreateAstrologerPage() {
                           {form.watch('category') === 'ORDINARY'
                             ? 'Not applicable for ordinary astrologers'
                             : 'Fee charged per appointment session'}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="chatMessageFee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Instant Chat Message Fee (NRs)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="e.g. 10"
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) =>
+                              field.onChange(e.target.value ? Number(e.target.value) : null)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          NRs charged per direct chat message with this Jyotish.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

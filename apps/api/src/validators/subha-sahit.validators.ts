@@ -26,10 +26,12 @@ export const createSubhaSahitDatesBodySchema = z.object({
     .array(subhaSahitItemSchema)
     .min(1, 'At least one date is required')
     .max(100, 'At most 100 dates per request'),
+  language: z.enum(['en', 'ne', 'hi']).optional(),
 });
 
 export const listSubhaSahitDatesQuerySchema = z.object({
   occasion: z.string().optional(),
+  language: z.enum(['en', 'ne', 'hi']).optional(),
   dateFrom: z
     .string()
     .optional()
@@ -65,6 +67,7 @@ export const updateSubhaSahitDateBodySchema = z.object({
 
 export const getAvailableDatesQuerySchema = z.object({
   occasion: z.string().optional(),
+  language: z.enum(['en', 'ne', 'hi']).optional(),
   dateFrom: z
     .string()
     .optional()
@@ -91,4 +94,5 @@ export const getAvailableDatesQuerySchema = z.object({
 
 export const createSubhaSahitOccasionBodySchema = z.object({
   name: z.string().min(1, 'Occasion name is required').max(100, 'Occasion name is too long'),
+  language: z.enum(['en', 'ne', 'hi']).optional(),
 });
