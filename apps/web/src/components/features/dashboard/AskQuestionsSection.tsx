@@ -43,6 +43,7 @@ import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
 import { SelectProfileModal } from '@/components/modals';
+import { SelectProfileSection } from '@/components/profile';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
 import { AstrologerCategory } from '@/types/astrologer';
@@ -74,6 +75,7 @@ export function AskQuestionsSection() {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [selectedBroadcastQuestionIds, setSelectedBroadcastQuestionIds] = useState<string[]>([]);
   const [showBroadcastProfileModal, setShowBroadcastProfileModal] = useState(false);
+  const [broadcastProfileId, setBroadcastProfileId] = useState<string>('me');
   const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
   const [prepareResult, setPrepareResult] = useState<{
     totalNr: number;
@@ -299,6 +301,9 @@ export function AskQuestionsSection() {
     }
     setDirectMessageError('');
 
+    // Persist selection for future broadcasts
+    setBroadcastProfileId(profileId);
+
     if (profileId === 'me') {
       const profileCheck = checkClientProfileCompletion(user);
       if (!profileCheck.isComplete) {
@@ -359,11 +364,12 @@ export function AskQuestionsSection() {
     } catch {
       // Ignore; allow user to proceed
     }
-    setShowBroadcastProfileModal(true);
+    // We now use inline profile selection for broadcast.
+    // Use the currently selected broadcast profile to start the flow.
+    await handleBroadcastProfileConfirm(broadcastProfileId);
   };
 
   const handleBroadcastProfileConfirm = async (profileId: string) => {
-    setShowBroadcastProfileModal(false);
     if (!user) return;
 
     if (profileId === 'me') {
@@ -694,6 +700,17 @@ export function AskQuestionsSection() {
               </p>
             </div>
 
+            {/* Select profile whose birth details will be shared */}
+            <div className="mt-3 animate-in fade-in slide-in-from-bottom-2 delay-150">
+              <SelectProfileSection
+                user={user}
+                profiles={familyProfiles}
+                selectedProfileId={broadcastProfileId}
+                onSelectProfileId={setBroadcastProfileId}
+                compact
+              />
+            </div>
+
             {/* Category, Question & Message (broadcast tab) */}
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
               {/* Category Selection */}
@@ -910,16 +927,6 @@ export function AskQuestionsSection() {
         onConfirm={handleDirectProfileConfirm}
         title={t('selectProfile')}
         confirmLabel={t('startChat')}
-      />
-
-      {/* Select Profile modal - opens when user clicks Publish to All Jyotish (broadcast) */}
-      <SelectProfileModal
-        isOpen={showBroadcastProfileModal}
-        onClose={() => setShowBroadcastProfileModal(false)}
-        onConfirm={handleBroadcastProfileConfirm}
-        title={t('selectProfile')}
-        confirmLabel={t('publish')}
-        isLoading={isSending || prepareMutation.isPending || sendQuestionsMutation.isPending}
       />
 
       {/* Pay remaining NRs for multi-question broadcast */}
