@@ -47,7 +47,7 @@ export default function CreateSubhaSahitPage() {
   const occasions = occasionsData?.occasions ?? [];
 
   const batchMutation = useMutation({
-    mutationFn: (payload: { dates: { date: string; occasion: string; description?: string }[] }) =>
+    mutationFn: (payload: { dates: { date: string; occasion: string; description?: string }[]; language?: 'en' | 'ne' | 'hi' }) =>
       adminApi.subhaSahit.create(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.ALL });

@@ -56,7 +56,12 @@ export class SubhaSahitService {
     });
 
     if (existing) {
-      return { id: existing.id, name: existing.occasion, isActive: existing.isActive };
+      return {
+        id: existing.id,
+        name: existing.occasion,
+        isActive: existing.isActive,
+        language: existing.language,
+      };
     }
 
     const placeholderDate = new Date('2099-12-31');
