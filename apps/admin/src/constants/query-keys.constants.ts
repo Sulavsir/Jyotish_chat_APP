@@ -80,6 +80,7 @@ export const ADMIN_QUERY_KEYS = {
     ALL: ['admin', 'tips'] as const,
     LIST: (params?: { language?: string; audience?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
       params ? (['admin', 'tips', 'list', params] as const) : (['admin', 'tips', 'list'] as const),
+    DETAIL: (id: string) => ['admin', 'tips', 'detail', id] as const,
   },
 
   // Subha Sahit (Auspicious Dates)
@@ -91,6 +92,7 @@ export const ADMIN_QUERY_KEYS = {
       language
         ? (['admin', 'subha-sahit', 'occasions', language] as const)
         : (['admin', 'subha-sahit', 'occasions'] as const),
+    DETAIL: (id: string) => ['admin', 'subha-sahit', 'detail', id] as const,
   },
 
   // Dashboard Stats

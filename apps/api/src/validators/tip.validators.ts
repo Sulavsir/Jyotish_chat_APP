@@ -69,3 +69,5 @@ export const listTipsQuerySchema = z.object({
   limit: z.string().optional().transform((v) => (v ? parseInt(v, 10) : 20)),
 });
 
+export const updateTipBodySchema = tipItemSchema;
+

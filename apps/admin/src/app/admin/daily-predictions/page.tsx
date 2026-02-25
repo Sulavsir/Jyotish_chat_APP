@@ -12,7 +12,7 @@ import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import type { QuestionnaireLanguage, TipAudience } from '@jyotish/shared';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Pencil } from 'lucide-react';
 
 export default function DailyPredictionsPage() {
   const router = useRouter();
@@ -92,6 +92,14 @@ export default function DailyPredictionsPage() {
       header: 'Actions',
       accessor: (tip) => (
         <div className="flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_EDIT(tip.id))}
+            className="p-2 rounded-lg text-slate-400 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
+            title="Edit"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={() => {

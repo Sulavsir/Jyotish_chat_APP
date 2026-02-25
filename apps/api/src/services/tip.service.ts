@@ -146,6 +146,41 @@ export class TipService {
   }
 
   /**
+   * Admin: get a single tip by id
+   */
+  async getTipById(id: string): Promise<DailyTip> {
+    const row = await prisma.dailyTip.findUniqueOrThrow({
+      where: { id },
+    });
+    return toDailyTip(row);
+  }
+
+  /**
+   * Admin: update an existing tip
+   */
+  async updateTip(
+    id: string,
+    data: {
+      date: string;
+      text: string;
+      language: QuestionnaireLanguage;
+      audience: TipAudience;
+    }
+  ): Promise<DailyTip> {
+    const canonical = getCanonicalDateForCategory('DAILY', new Date(data.date));
+    const row = await prisma.dailyTip.update({
+      where: { id },
+      data: {
+        date: canonical,
+        text: data.text,
+        language: data.language,
+        audience: data.audience,
+      },
+    });
+    return toDailyTip(row);
+  }
+
+  /**
    * Admin: delete a tip
    */
   async deleteTip(id: string): Promise<void> {

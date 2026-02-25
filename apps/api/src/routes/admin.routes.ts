@@ -62,6 +62,7 @@ import {
 import {
   createTipsBodySchema,
   listTipsQuerySchema,
+  updateTipBodySchema,
 } from '../validators/tip.validators';
 import {
   createSubhaSahitDatesBodySchema,
@@ -442,7 +443,14 @@ router.post(
   validateBody(createTipsBodySchema),
   asyncHandler(tipController.createTips)
 );
-router.delete('/tips/:id', asyncHandler(tipController.deleteTip));
+router.get('/tips/:id', validateParams(uuidParamSchema), asyncHandler(tipController.getTipById));
+router.patch(
+  '/tips/:id',
+  validateParams(uuidParamSchema),
+  validateBody(updateTipBodySchema),
+  asyncHandler(tipController.updateTip)
+);
+router.delete('/tips/:id', validateParams(uuidParamSchema), asyncHandler(tipController.deleteTip));
 
 // ==================== Horoscope Management (admin) ====================
 router.get(
@@ -477,6 +485,11 @@ router.get(
   '/subha-sahit',
   validateQuery(listSubhaSahitDatesQuerySchema),
   asyncHandler(subhaSahitController.listDates)
+);
+router.get(
+  '/subha-sahit/:id',
+  validateParams(uuidParamSchema),
+  asyncHandler(subhaSahitController.getDate)
 );
 router.post(
   '/subha-sahit/occasions',

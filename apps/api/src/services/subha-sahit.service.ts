@@ -44,23 +44,26 @@ export class SubhaSahitService {
     const lang = this.normalizeLanguage(language);
 
     // Try to find an existing occasion case-insensitively
-    const existing = await prisma.subhaSahitDate.findFirst({
-      where: {
-        occasion: {
-          equals: trimmed,
-          mode: 'insensitive',
-        },
-        language: lang,
+    const existingWhere: any = {
+      occasion: {
+        equals: trimmed,
+        mode: 'insensitive',
       },
+      language: lang,
+    };
+
+    const existing = await prisma.subhaSahitDate.findFirst({
+      where: existingWhere,
       orderBy: { createdAt: 'desc' },
     });
 
     if (existing) {
+      const row: any = existing;
       return {
-        id: existing.id,
-        name: existing.occasion,
-        isActive: existing.isActive,
-        language: existing.language,
+        id: row.id,
+        name: row.occasion,
+        isActive: row.isActive,
+        language: row.language,
       };
     }
 
@@ -73,14 +76,15 @@ export class SubhaSahitService {
         occasion: trimmed,
         isActive: true,
         language: lang,
-      },
+      } as any,
     });
 
+    const row: any = created;
     return {
-      id: created.id,
-      name: created.occasion,
-      isActive: created.isActive,
-      language: created.language,
+      id: row.id,
+      name: row.occasion,
+      isActive: row.isActive,
+      language: row.language,
     };
   }
 
@@ -109,7 +113,7 @@ export class SubhaSahitService {
           occasion: item.occasion,
           description: item.description || null,
           language: lang,
-        },
+        } as any,
       });
       created.push(toSubhaSahitDate(row));
     }
@@ -274,6 +278,16 @@ export class SubhaSahitService {
       data: updateData,
     });
 
+    return toSubhaSahitDate(row);
+  }
+
+  /**
+   * Admin: get a single Subha Sahit date by id
+   */
+  async getDateById(id: string): Promise<SubhaSahitDate> {
+    const row = await prisma.subhaSahitDate.findUniqueOrThrow({
+      where: { id },
+    });
     return toSubhaSahitDate(row);
   }
 

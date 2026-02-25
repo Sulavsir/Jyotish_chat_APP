@@ -359,6 +359,24 @@ export const adminApi = {
       return response;
     },
 
+    get: async (id: string): Promise<{ tip: import('@/types').AdminDailyTip }> => {
+      const response = await apiClient.get<{ tip: import('@/types').AdminDailyTip }>(
+        API_ENDPOINTS.TIPS.GET(id)
+      );
+      return response;
+    },
+
+    update: async (
+      id: string,
+      data: { date: string; text: string; language: import('@jyotish/shared').QuestionnaireLanguage; audience: import('@jyotish/shared').TipAudience }
+    ): Promise<{ tip: import('@/types').AdminDailyTip }> => {
+      const response = await apiClient.patch<{ tip: import('@/types').AdminDailyTip }>(
+        API_ENDPOINTS.TIPS.UPDATE(id),
+        data
+      );
+      return response;
+    },
+
     delete: async (id: string): Promise<{ message: string }> => {
       const response = await apiClient.delete<{ message: string }>(API_ENDPOINTS.TIPS.DELETE(id));
       return response;
@@ -369,6 +387,13 @@ export const adminApi = {
    * Subha Sahit (Auspicious Dates)
    */
   subhaSahit: {
+    get: async (id: string): Promise<{ date: import('@/types').SubhaSahitDate }> => {
+      const response = await apiClient.get<{ date: import('@/types').SubhaSahitDate }>(
+        API_ENDPOINTS.SUBHA_SAHIT.GET(id)
+      );
+      return response;
+    },
+
     list: async (params?: import('@/types').ListSubhaSahitDatesParams): Promise<import('@/types').ListSubhaSahitDatesResponse> => {
       const response = await apiClient.get<import('@/types').ListSubhaSahitDatesResponse>(
         API_ENDPOINTS.SUBHA_SAHIT.LIST,

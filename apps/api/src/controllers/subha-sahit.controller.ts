@@ -91,6 +91,16 @@ export const listDates = async (req: Request, res: Response, next: NextFunction)
 };
 
 /**
+ * Admin: Get a single Subha Sahit date
+ * GET /api/v1/admin/subha-sahit/:id
+ */
+export const getDate = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const date = await subhaSahitService.getDateById(id);
+  return sendSuccess(res, { date });
+};
+
+/**
  * Admin: Update a Subha Sahit date
  * PUT /api/v1/admin/subha-sahit/:id
  */

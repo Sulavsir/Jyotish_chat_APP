@@ -84,3 +84,30 @@ export const deleteTip = async (req: Request, res: Response, next: NextFunction)
   return sendSuccess(res, { message: 'Tip deleted successfully' });
 };
 
+/**
+ * Admin: Get tip by id
+ * GET /api/v1/admin/tips/:id
+ */
+export const getTipById = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const tip = await tipService.getTipById(id);
+  return sendSuccess(res, { tip });
+};
+
+/**
+ * Admin: Update tip
+ * PATCH /api/v1/admin/tips/:id
+ */
+export const updateTip = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const { date, text, language, audience } = req.body as {
+    date: string;
+    text: string;
+    language: QuestionnaireLanguage;
+    audience: TipAudience;
+  };
+
+  const tip = await tipService.updateTip(id, { date, text, language, audience });
+  return sendSuccess(res, { tip });
+};
+

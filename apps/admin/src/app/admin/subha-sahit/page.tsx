@@ -10,7 +10,7 @@ import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, PAGINATION_DEFAULTS } from '@/constants
 import type { ListSubhaSahitDatesParams, SubhaSahitDate } from '@/types';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Pencil } from 'lucide-react';
 import { formatAdminDate } from '@/utils/helpers';
 import { generatePageNumbers } from '@/utils/helpers';
 import {
@@ -128,6 +128,13 @@ export default function SubhaSahitPage() {
       header: 'Actions',
       accessor: (date) => (
         <div className="flex items-center gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_EDIT(date.id))}
+            className="p-2 rounded-lg text-slate-400 hover:text-purple-300 hover:bg-purple-500/10 transition-colors"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={() => {

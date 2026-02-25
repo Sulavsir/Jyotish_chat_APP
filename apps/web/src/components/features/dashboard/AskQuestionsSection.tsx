@@ -74,7 +74,6 @@ export function AskQuestionsSection() {
   const [broadcastQuestion, setBroadcastQuestion] = useState<string>('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [selectedBroadcastQuestionIds, setSelectedBroadcastQuestionIds] = useState<string[]>([]);
-  const [showBroadcastProfileModal, setShowBroadcastProfileModal] = useState(false);
   const [broadcastProfileId, setBroadcastProfileId] = useState<string>('me');
   const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
   const [prepareResult, setPrepareResult] = useState<{

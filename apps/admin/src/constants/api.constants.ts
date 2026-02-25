@@ -141,12 +141,15 @@ export const API_ENDPOINTS = {
   TIPS: {
     LIST: '/api/v1/admin/tips',
     CREATE: '/api/v1/admin/tips',
+    GET: (id: string) => `/api/v1/admin/tips/${id}`,
+    UPDATE: (id: string) => `/api/v1/admin/tips/${id}`,
     DELETE: (id: string) => `/api/v1/admin/tips/${id}`,
   },
 
   SUBHA_SAHIT: {
     LIST: '/api/v1/admin/subha-sahit',
     CREATE: '/api/v1/admin/subha-sahit',
+    GET: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
     UPDATE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
     DELETE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
     OCCASIONS: '/api/v1/subha-sahit/occasions',
