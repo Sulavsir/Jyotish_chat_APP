@@ -321,7 +321,7 @@ export const adminApi = {
 
     approveRegistration: async (
       id: string,
-      data: { category: string; appointmentFee?: number; commissionRate?: number }
+      data: { category: string; appointmentFee?: number; chatMessageFee?: number; commissionRate?: number }
     ) => {
       const response = await apiClient.post(
         API_ENDPOINTS.ASTROLOGERS.APPROVE_REGISTRATION(id),
@@ -409,7 +409,7 @@ export const adminApi = {
       name: string,
       language?: 'en' | 'ne' | 'hi'
     ): Promise<{ occasion: { id: string; name: string; isActive: boolean; language: string } }> => {
-      const response = await apiClient.post<{ occasion: { id: string; name: string; isActive: boolean } }>(
+      const response = await apiClient.post<{ occasion: { id: string; name: string; isActive: boolean; language: string } }>(
         API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION,
         language ? { name, language } : { name }
       );
