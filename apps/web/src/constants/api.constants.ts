@@ -26,6 +26,8 @@ export const WS_BASE_URL =
 export const API_ENDPOINTS = {
   PUBLIC: {
     DASHBOARD_ROTATING_COPY: '/api/v1/public/dashboard-rotating-copy',
+    NEPALI_DATE: '/api/v1/public/nepali-date',
+    NEPALI_DATE_CONVERT: '/api/v1/public/nepali-date/convert',
   },
   JYOTISH_BOOKINGS: {
     CREATE: '/api/v1/jyotish-bookings',

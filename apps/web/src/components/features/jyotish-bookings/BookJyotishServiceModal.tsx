@@ -40,6 +40,8 @@ import type { PublicAstrologerProfile } from '@/types/astrologer';
 import astrologerService from '@/services/astrologer.service';
 import { getImageUrl } from '@/utils/image.utils';
 import { subhaSahitService } from '@/services/subha-sahit.service';
+import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
+import { useNepaliDateConvert } from '@/hooks/useNepaliDateConvert';
 
 type Props = {
   isOpen: boolean;
@@ -144,9 +146,15 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
       .filter((dateStr) => {
         return dateStr >= today;
       })
-      .sort(); 
+      .sort();
     return dates;
   }, [subhaSahitResp?.dates]);
+
+  const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
+  const { getDisplayDate: getDateDisplay } = useNepaliDateConvert(
+    availableDates,
+    questionnaireLanguage
+  );
 
   // Reset form when modal opens
   useEffect(() => {
@@ -349,17 +357,12 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                           </SelectTrigger>
                           <SelectContent>
                             {availableDates.map((d) => {
-                              // Find the date object to show occasion info
                               const dateObj = subhaSahitResp?.dates.find(
                                 (sd) => sd.date.split('T')[0] === d
                               );
                               return (
                                 <SelectItem key={d} value={d}>
-                                  {new Date(d).toLocaleDateString('en-US', {
-                                    day: 'numeric',
-                                    month: 'long',
-                                    year: 'numeric',
-                                  })}
+                                  {getDateDisplay(d)}
                                   {dateObj?.description && (
                                     <span className="text-xs text-gray-400 ml-2">
                                       ({dateObj.description})

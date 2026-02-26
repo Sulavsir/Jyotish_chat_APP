@@ -4,8 +4,9 @@ import { useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/constants';
 import { subhaSahitService } from '@/services/subha-sahit.service';
-import { DateInput, Label } from '@jyotish/ui';
+import { Label } from '@jyotish/ui';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
+import { useNepaliDateConvert } from '@/hooks/useNepaliDateConvert';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
 
 function getMonthRange(date: Date): { from: string; to: string } {
@@ -13,31 +14,6 @@ function getMonthRange(date: Date): { from: string; to: string } {
   const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
   const toIso = (d: Date) => d.toISOString().slice(0, 10);
   return { from: toIso(start), to: toIso(end) };
-}
-
-function formatDay(dateStr: string): string {
-  if (!dateStr || typeof dateStr !== 'string') return '';
-
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) {
-    // Fallback to raw string if parsing fails
-    return dateStr;
-  }
-
-  const day = d.getDate();
-  const monthName = d.toLocaleString('en-US', { month: 'long' });
-  const year = d.getFullYear();
-
-  const getSuffix = (n: number) => {
-    if (n >= 11 && n <= 13) return 'th';
-    const last = n % 10;
-    if (last === 1) return 'st';
-    if (last === 2) return 'nd';
-    if (last === 3) return 'rd';
-    return 'th';
-  };
-
-  return `${day}${getSuffix(day)} ${monthName} ${year}`;
 }
 
 export function SubhaSahitSection() {
@@ -94,6 +70,12 @@ export function SubhaSahitSection() {
   });
 
   const dates = data?.dates ?? [];
+
+  const dateKeys = useMemo(() => dates.map((d) => d.date), [dates]);
+  const { getDisplayDate: getDateDisplay, isLoading: isNepaliDateLoading } = useNepaliDateConvert(
+    dateKeys,
+    questionnaireLanguage
+  );
 
   const handleMonthChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -175,7 +157,7 @@ export function SubhaSahitSection() {
         </div>
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/70 p-4 sm:p-6 shadow-xl shadow-purple-900/30">
-          {isLoading ? (
+          {isLoading || isNepaliDateLoading ? (
             <div className="flex h-32 items-center justify-center text-slate-300 text-sm">
               Loading auspicious dates for this month...
             </div>
@@ -205,7 +187,7 @@ export function SubhaSahitSection() {
                         {item.occasion}
                       </span>
                       <span className="text-lg font-semibold text-white">
-                        {formatDay(item.date)}
+                        {getDateDisplay(item.date)}
                       </span>
                     </div>
                     <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300 border border-emerald-500/30">

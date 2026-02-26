@@ -589,6 +589,18 @@ model SubhaSahitDate {
   @@index([date, occasion, language, isActive])
 }
 
+// English ↔ Nepali date mapping (Bikram Sambat); no reference_id, id is auto-generated
+model NepaliDate {
+  id           Int      @id @default(autoincrement())
+  englishDate  DateTime @db.Date
+  nepaliDate   String   // e.g. "2080-04-06" (year-month-day)
+  days         String   // e.g. "Sat", "Sun"
+
+  @@map("NepaliDate")
+  @@index([englishDate])
+  @@index([nepaliDate])
+}
+
 model Notification {
   id            String           @id @default(uuid())
   userId        String? // Client user ID

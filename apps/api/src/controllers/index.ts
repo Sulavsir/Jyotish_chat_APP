@@ -19,3 +19,4 @@ export * as adminCoinRatesController from './adminCoinRates.controller';
 export * as tipController from './tip.controller';
 export * as adminHoroscopeController from './adminHoroscope.controller';
 export * as subhaSahitController from './subha-sahit.controller';
+export * as nepaliDateController from './nepali-date.controller';

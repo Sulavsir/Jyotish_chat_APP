@@ -199,4 +199,10 @@ export const QUERY_KEYS = {
     OCCASIONS: (language?: string) =>
       language ? (['subha-sahit', 'occasions', language] as const) : (['subha-sahit', 'occasions'] as const),
   },
+
+  // Nepali date (English ↔ Bikram Sambat)
+  NEPALI_DATE: {
+    BY_DATE: (date: string) => ['nepali-date', date] as const,
+    CONVERT: (dates: string[]) => ['nepali-date', 'convert', dates] as const,
+  },
 } as const;

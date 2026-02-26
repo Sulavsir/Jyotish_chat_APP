@@ -11,4 +11,5 @@ export * from './notificationService';
 export * from './dashboardRotatingCopy.service';
 export * from './jyotishBooking.service';
 export * from './subha-sahit.service';
+export * from './nepali-date.service';
 

@@ -1,10 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { seedNepaliDates } from './date_seed';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seeding...');
+
+  await seedNepaliDates(prisma);
 
   // Default password for new admins
   const defaultPassword = 'Nepal@123';
