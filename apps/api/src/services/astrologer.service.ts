@@ -37,6 +37,7 @@ export class AstrologerService {
         experience: true,
         category: true,
         appointmentFee: true,
+        chatMessageFee: true,
         proofOfAstrology: true,
         rating: true,
         totalConsultations: true,
@@ -108,6 +109,7 @@ export class AstrologerService {
         experience: true,
         category: true,
         appointmentFee: true,
+        chatMessageFee: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -224,6 +226,7 @@ export class AstrologerService {
         experience: true,
         category: true,
         appointmentFee: true,
+        chatMessageFee: true,
         rating: true,
         totalConsultations: true,
         isActive: true,
@@ -420,6 +423,7 @@ export class AstrologerService {
       category?: AstrologerCategory;
       appointmentFee?: number | null;
       proofOfAstrology?: string | null;
+      chatMessageFee?: number | null;
     }
   ) {
     const astrologer = await prisma.astrologer.update({
@@ -436,6 +440,7 @@ export class AstrologerService {
         experience: true,
         category: true,
         appointmentFee: true,
+        chatMessageFee: true,
         proofOfAstrology: true,
         rating: true,
         totalConsultations: true,
@@ -555,6 +560,7 @@ export class AstrologerService {
           experience: true,
           category: true,
           appointmentFee: true,
+          chatMessageFee: true,
           rating: true,
           totalConsultations: true,
           isActive: true,

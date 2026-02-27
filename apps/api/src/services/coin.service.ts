@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { AppointmentStatus } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -14,10 +15,7 @@ import {
   CoinBalance,
   CoinTransaction,
 } from '../types/coin.types';
-import {
-  requiresCoinsForChat,
-  COIN_REASON_MAPPING,
-} from '../constants/coin.constants';
+import { requiresCoinsForChat, COIN_REASON_MAPPING } from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
 
 /**
@@ -81,22 +79,53 @@ export const deductCoinsForMessage = async (
     return { userId, balance };
   }
 
-  // Free chat during appointment/kundali session (30 min from scheduledAt)
   if (!isBroadcastChat) {
     const chat = await prisma.chat.findUnique({
       where: { id: chatId },
-      select: { appointmentId: true },
+      select: {
+        appointmentId: true,
+        participant1Id: true,
+        participant2Id: true,
+      },
     });
-    if (chat?.appointmentId) {
-      const appointment = await prisma.appointment.findUnique({
-        where: { id: chat.appointmentId },
-        select: { scheduledAt: true, duration: true },
-      });
+
+    if (chat) {
+      const now = new Date();
+
+      let appointment: {
+        scheduledAt: Date;
+        duration: number;
+      } | null = null;
+
+      if (chat.appointmentId) {
+        appointment = await prisma.appointment.findUnique({
+          where: { id: chat.appointmentId },
+          select: { scheduledAt: true, duration: true },
+        });
+      } else {
+        appointment = await prisma.appointment.findFirst({
+          where: {
+            clientId: chat.participant1Id,
+            astrologerId: chat.participant2Id,
+            scheduledAt: { lte: now },
+            status: {
+              in: [
+                AppointmentStatus.CONFIRMED,
+                AppointmentStatus.IN_PROGRESS,
+                AppointmentStatus.COMPLETED,
+              ],
+            },
+          },
+          orderBy: { scheduledAt: 'desc' },
+          select: { scheduledAt: true, duration: true },
+        });
+      }
+
       if (appointment) {
-        const start = new Date(appointment.scheduledAt).getTime();
-        const end = start + appointment.duration * 60 * 1000;
-        const now = Date.now();
-        if (now >= start && now < end) {
+        const startMs = new Date(appointment.scheduledAt).getTime();
+        const endMs = startMs + appointment.duration * 60 * 1000;
+        const nowMs = now.getTime();
+        if (nowMs >= startMs && nowMs < endMs) {
           const balance = await getCoinBalance(userId);
           return { userId, balance };
         }
@@ -198,9 +227,7 @@ export const deductCoinsForMessage = async (
         select: { commissionRate: true },
       });
       if (astrologer && astrologer.commissionRate > 0) {
-        const astrologerCoins = Math.floor(
-          (coinCost * astrologer.commissionRate) / 100
-        );
+        const astrologerCoins = Math.floor((coinCost * astrologer.commissionRate) / 100);
         if (astrologerCoins > 0) {
           await (tx as any).astrologerCoinEarning.create({
             data: {
@@ -497,9 +524,7 @@ export const deductCoinsForAppointment = async (
       select: { commissionRate: true },
     });
     if (astrologer && astrologer.commissionRate > 0) {
-      const astrologerCoins = Math.floor(
-        (coinCost * astrologer.commissionRate) / 100
-      );
+      const astrologerCoins = Math.floor((coinCost * astrologer.commissionRate) / 100);
       if (astrologerCoins > 0) {
         await (tx as any).astrologerCoinEarning.create({
           data: {
@@ -586,9 +611,7 @@ export const deductCoinsForBooking = async (
       select: { commissionRate: true },
     });
     if (astrologer && astrologer.commissionRate > 0) {
-      const astrologerCoins = Math.floor(
-        (coinCost * astrologer.commissionRate) / 100
-      );
+      const astrologerCoins = Math.floor((coinCost * astrologer.commissionRate) / 100);
       if (astrologerCoins > 0) {
         await tx.astrologerCoinEarning.create({
           data: {

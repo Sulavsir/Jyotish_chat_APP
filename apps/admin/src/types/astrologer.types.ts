@@ -39,6 +39,7 @@ export interface CreateAstrologerRequest {
   commissionRate: number;
   category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
   appointmentFee?: number | null;
+  chatMessageFee?: number | null;
   languages: string[];
   bio?: string;
   address?: string | null;
@@ -60,4 +61,5 @@ export interface UpdateAstrologerRequest {
   category?: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
   appointmentFee?: number | null;
   proofOfAstrology?: string | null;
+  chatMessageFee?: number | null;
 }
