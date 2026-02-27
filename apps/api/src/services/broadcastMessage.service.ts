@@ -233,13 +233,18 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     }
   }
 
+  const baseMetadata: Record<string, unknown> =
+    data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata)
+      ? (data.metadata as Record<string, unknown>)
+      : {};
+
   const message = await prisma.broadcastMessage.create({
     data: {
       clientId: data.clientId,
       content: data.content,
       type: data.type || MessageType.TEXT,
       metadata: {
-        ...(data.metadata || {}),
+        ...baseMetadata,
         ...(isFirstFreeBroadcast ? { freeTrial: true } : {}),
       } as Prisma.InputJsonValue,
       status: BroadcastMessageStatus.PENDING,
