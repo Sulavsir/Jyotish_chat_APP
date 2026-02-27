@@ -30,6 +30,7 @@ export const updateAstrologerSchema = z
     category: z.nativeEnum(AstrologerCategory).optional(),
     appointmentFee: z.number().min(0).optional().nullable(),
     proofOfAstrology: z.string().min(1).optional().nullable(),
+    chatMessageFee: z.number().min(0).optional().nullable(),
   })
   .refine((obj) => Object.keys(obj).filter((k) => k !== 'editPassword').length > 0, {
     message: 'At least one field must be provided',
