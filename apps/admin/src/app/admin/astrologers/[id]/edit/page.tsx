@@ -87,6 +87,7 @@ export default function EditAstrologerPage() {
       commissionRate: 15,
       category: 'ORDINARY',
       appointmentFee: null,
+      chatMessageFee: null,
       languages: [],
       gender: null,
       address: null,
@@ -105,6 +106,7 @@ export default function EditAstrologerPage() {
       commissionRate: data.commissionRate ?? 15,
       category: data.category ?? AstrologerCategory.ORDINARY,
       appointmentFee: data.appointmentFee ?? null,
+      chatMessageFee: data.chatMessageFee ?? null,
       languages: data.languages ?? [],
       gender: data.gender ?? null,
       address: data.address ?? null,
@@ -498,6 +500,30 @@ export default function EditAstrologerPage() {
                 Professional Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="chatMessageFee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Instant Chat Message Fee (NRs)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          {...field}
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === '' ? null : Number(e.target.value))
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        NRs charged per direct chat message with this Jyotish.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="specialization"

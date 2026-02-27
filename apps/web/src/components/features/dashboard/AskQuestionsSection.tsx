@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, MessageSquare, X } from 'lucide-react';
+import { Eye, MessageSquare } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -47,6 +47,7 @@ import { SelectProfileSection } from '@/components/profile';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
 import { AstrologerCategory } from '@/types/astrologer';
+import { SelectedQuestionsModal, type SelectedQuestionDetailed } from './SelectedQuestionsModal';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
@@ -65,8 +66,8 @@ export function AskQuestionsSection() {
 
   // Direct-chat tab state
   const [directCategory, setDirectCategory] = useState<string>('');
-  const [directQuestion, setDirectQuestion] = useState<string>('');
   const [directMessage, setDirectMessage] = useState('');
+  const [selectedDirectQuestionIds, setSelectedDirectQuestionIds] = useState<string[]>([]);
   const [showDirectProfileModal, setShowDirectProfileModal] = useState(false);
 
   // Broadcast tab state
@@ -76,6 +77,7 @@ export function AskQuestionsSection() {
   const [selectedBroadcastQuestionIds, setSelectedBroadcastQuestionIds] = useState<string[]>([]);
   const [broadcastProfileId, setBroadcastProfileId] = useState<string>('me');
   const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
+  const [showSelectedDirectQuestionsModal, setShowSelectedDirectQuestionsModal] = useState(false);
   const [prepareResult, setPrepareResult] = useState<{
     totalNr: number;
     remainingNr: number;
@@ -111,11 +113,14 @@ export function AskQuestionsSection() {
     enabled: mode === 'direct' && !!selectedAstrologerId,
   });
   const coinBalance = balanceData?.balance ?? 0;
+  const [selectedAstrologerFee, setSelectedAstrologerFee] = useState<number | null>(null);
   const isAppointmentOnlyDirect =
     selectedAstrologerCategory === AstrologerCategory.PREMIUM ||
     selectedAstrologerCategory === AstrologerCategory.KATHA_VACHAK;
-  const requiredCoinsDirect =
-    isAppointmentOnlyDirect ? 0 : (coinRates?.CHAT_PER_MESSAGE ?? 0);
+  const basePerMessageNr = selectedAstrologerFee && selectedAstrologerFee > 0
+    ? selectedAstrologerFee
+    : coinRates?.CHAT_PER_MESSAGE ?? 0;
+  const requiredCoinsDirect = isAppointmentOnlyDirect ? 0 : basePerMessageNr;
   const showInsufficientCoinsBanner =
     !!selectedAstrologerId &&
     requiredCoinsDirect > 0 &&
@@ -149,7 +154,10 @@ export function AskQuestionsSection() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const questionCategories: QuestionnaireCategory[] = questionnairesData?.categories ?? [];
+  const questionCategories: QuestionnaireCategory[] = React.useMemo(
+    () => questionnairesData?.categories ?? [],
+    [questionnairesData]
+  );
 
   const { data: pricingData } = useQuery({
     queryKey: QUERY_KEYS.BROADCAST.QUESTION_PRICING,
@@ -159,6 +167,7 @@ export function AskQuestionsSection() {
   const pricingTiers = pricingData?.tiers ?? [];
   const getTotalNrForCount = (count: number): number => {
     if (count <= 0) return 0;
+    if (!pricingTiers.length) return 0;
     const tier = pricingTiers.find((t) => t.questionCount === count);
     if (tier) return tier.amountNr;
     const lower = pricingTiers
@@ -202,48 +211,87 @@ export function AskQuestionsSection() {
 
   const directCategoryData = questionCategories.find((c) => c.id === directCategory);
   const broadcastCategoryData = questionCategories.find((c) => c.id === broadcastCategory);
-  const selectedQuestionTexts = React.useMemo(() => {
-    if (!broadcastCategoryData || selectedBroadcastQuestionIds.length === 0) return [];
-    return broadcastCategoryData.questions
-      .filter((q) => selectedBroadcastQuestionIds.includes(q.id))
-      .map((q) => q.text);
-  }, [broadcastCategoryData, selectedBroadcastQuestionIds]);
+
+  function buildSelectedQuestionsDetailed(
+    ids: string[],
+    categories: QuestionnaireCategory[]
+  ): SelectedQuestionDetailed[] {
+    if (!ids.length) return [];
+    const result: SelectedQuestionDetailed[] = [];
+
+    for (const category of categories) {
+      for (const question of category.questions) {
+        if (ids.includes(question.id)) {
+          result.push({
+            id: question.id,
+            text: question.text,
+            categoryName: category.name,
+            emoji: category.emoji ?? undefined,
+          });
+        }
+      }
+    }
+
+    return result;
+  }
+
+  const selectedBroadcastQuestionsDetailed = React.useMemo(
+    () => buildSelectedQuestionsDetailed(selectedBroadcastQuestionIds, questionCategories),
+    [questionCategories, selectedBroadcastQuestionIds]
+  );
+  const selectedDirectQuestionsDetailed = React.useMemo(
+    () => buildSelectedQuestionsDetailed(selectedDirectQuestionIds, questionCategories),
+    [questionCategories, selectedDirectQuestionIds]
+  );
 
   const handleAstrologerSelect = (
     astrologerId: string,
-    astrologer?: { category: AstrologerCategory }
+    astrologer?: { category: AstrologerCategory; chatMessageFee?: number | null }
   ) => {
     setSelectedAstrologerId(astrologerId);
     setSelectedAstrologerCategory(astrologer?.category ?? null);
+    setSelectedAstrologerFee(
+      astrologer && astrologer.chatMessageFee && astrologer.chatMessageFee > 0
+        ? astrologer.chatMessageFee
+        : null
+    );
     setDirectCategory('');
-    setDirectQuestion('');
+    setSelectedDirectQuestionIds([]);
     setDirectMessage('');
   };
 
   const handleAstrologerClear = () => {
     setSelectedAstrologerId('');
     setSelectedAstrologerCategory(null);
+    setSelectedAstrologerFee(null);
     setDirectCategory('');
-    setDirectQuestion('');
+    setSelectedDirectQuestionIds([]);
     setDirectMessage('');
   };
 
   // Direct tab handlers
   const handleDirectCategorySelect = (categoryId: string) => {
     setDirectCategory(categoryId);
-    setDirectQuestion('');
     setDirectMessage('');
+    setSelectedDirectQuestionIds([]);
   };
 
-  const handleDirectQuestionSelect = (question: string) => {
+  const handleDirectQuestionToggle = (questionId: string, checked: boolean) => {
     setDirectMessageError('');
-    setDirectQuestion(question);
-    setDirectMessage(question);
+    setSelectedDirectQuestionIds((prev) => {
+      const next = checked ? [...prev, questionId] : prev.filter((id) => id !== questionId);
+      const detailed = buildSelectedQuestionsDetailed(next, questionCategories);
+      if (detailed.length > 0) {
+        setDirectMessage(detailed.map((q) => q.text).join('\n\n'));
+      } else {
+        setDirectMessage('');
+      }
+      return next;
+    });
   };
 
   const handleDirectMessageChange = (value: string) => {
     setDirectMessage(value);
-    setDirectQuestion('');
   };
 
   // Broadcast tab handlers
@@ -251,7 +299,6 @@ export function AskQuestionsSection() {
     setBroadcastCategory(categoryId);
     setBroadcastQuestion('');
     setBroadcastMessage('');
-    setSelectedBroadcastQuestionIds([]);
   };
 
   const handleBroadcastQuestionToggle = (questionId: string, checked: boolean) => {
@@ -280,7 +327,12 @@ export function AskQuestionsSection() {
 
   const handleStartChat = () => {
     if (!selectedAstrologerId || !user) return;
-    const messageToSend = directMessage.trim() || directQuestion.trim();
+    const trimmed = directMessage.trim();
+    const joinedSelected =
+      !trimmed && selectedDirectQuestionsDetailed.length > 0
+        ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
+        : '';
+    const messageToSend = trimmed || joinedSelected;
     if (!messageToSend) {
       setDirectMessageError(t('messageCannotBeEmpty'));
       return;
@@ -293,7 +345,12 @@ export function AskQuestionsSection() {
     setShowDirectProfileModal(false);
     if (!selectedAstrologerId || !user) return;
 
-    const messageToSend = directMessage.trim() || directQuestion.trim();
+    const trimmed = directMessage.trim();
+    const joinedSelected =
+      !trimmed && selectedDirectQuestionsDetailed.length > 0
+        ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
+        : '';
+    const messageToSend = trimmed || joinedSelected;
     if (!messageToSend) {
       setDirectMessageError(t('messageCannotBeEmpty'));
       return;
@@ -590,42 +647,55 @@ export function AskQuestionsSection() {
                     </Select>
                   </div>
 
-                  {/* Question Selection (if category selected) */}
+                  {/* Question Selection (multi-select, like broadcast) */}
                   {directCategoryData && (
-                    <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300">
-                      <label className="text-sm text-gray-300 mb-2 block">{t('selectQuestion')}</label>
-                      <Select
-                        value={directQuestion}
-                        onValueChange={(value) => {
-                          if (value === 'CLEAR_QUESTION') {
-                            setDirectQuestion('');
-                            setDirectMessage('');
-                          } else {
-                            handleDirectQuestionSelect(value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t('selectQuestionPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px] [&_[data-radix-select-scroll-up-button]]:hidden [&_[data-radix-select-scroll-down-button]]:hidden">
-                          <SelectItem value="CLEAR_QUESTION">
-                            <span className="text-gray-400">{t('clearQuestion')}</span>
-                          </SelectItem>
-                          {directCategoryData.questions.map((question) => (
-                            <SelectItem key={question.id} value={question.text}>
-                              {question.text}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-300 space-y-2">
+                      <label className="text-sm text-gray-300 block">
+                        {t('selectQuestion')} (select one or more)
+                      </label>
+                      <div className="rounded-lg border border-gray-600 bg-white/5 max-h-[200px] overflow-y-auto p-2 space-y-1.5">
+                        {directCategoryData.questions.map((question) => (
+                          <label
+                            key={question.id}
+                            className="flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/5 text-sm text-gray-200"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDirectQuestionIds.includes(question.id)}
+                              onChange={(e) =>
+                                handleDirectQuestionToggle(question.id, e.target.checked)
+                              }
+                              className="mt-1 rounded border-gray-500 bg-slate-800 text-purple-500 focus:ring-purple-500"
+                            />
+                            <span className="flex-1">{question.text}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {selectedDirectQuestionsDetailed.length > 0 && (
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-purple-200 flex items-center gap-2 flex-wrap">
+                            <span>
+                              {selectedDirectQuestionsDetailed.length} question
+                              {selectedDirectQuestionsDetailed.length === 1 ? '' : 's'} selected
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowSelectedDirectQuestionsModal(true)}
+                              className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-purple-200 hover:text-purple-50 hover:bg-purple-500/10 border border-purple-400/40 transition-colors"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              <span>View your questions</span>
+                            </button>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Custom Message Input */}
                   <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
                     <label className="text-sm text-gray-300 mb-2 block">
-                      {directQuestion
+                      {selectedDirectQuestionsDetailed.length > 0
                         ? t('editQuestionBeforeSending')
                         : t('typeQuestionForJyotish')}
                     </label>
@@ -636,7 +706,9 @@ export function AskQuestionsSection() {
                         handleDirectMessageChange(e.target.value);
                       }}
                       placeholder={
-                        directQuestion ? directQuestion : t('typeQuestionHere')
+                        selectedDirectQuestionsDetailed.length === 1
+                          ? selectedDirectQuestionsDetailed[0].text
+                          : t('typeQuestionHere')
                       }
                       className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
                     />
@@ -782,7 +854,7 @@ export function AskQuestionsSection() {
                             NRs {displayTotalNr.toLocaleString()}
                           </span>
                         </span>
-                        {selectedQuestionTexts.length > 0 && (
+                        {selectedBroadcastQuestionsDetailed.length > 0 && (
                           <button
                             type="button"
                             onClick={() => setShowSelectedQuestionsModal(true)}
@@ -878,38 +950,18 @@ export function AskQuestionsSection() {
       />
 
       {/* Selected broadcast questions modal */}
-      <Dialog
-        open={showSelectedQuestionsModal && selectedQuestionTexts.length > 0}
-        onOpenChange={(open) => {
-          if (!open) setShowSelectedQuestionsModal(false);
-        }}
-      >
-        <DialogContent className="bg-slate-950 border border-amber-500/40 text-white max-w-md">
-          <DialogHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-amber-300" />
-              <DialogTitle className="text-sm font-semibold text-white">
-                Selected questions ({selectedQuestionTexts.length})
-              </DialogTitle>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowSelectedQuestionsModal(false)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-white/10 text-slate-300 hover:text-white transition-colors"
-              aria-label="Close"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </DialogHeader>
-          <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
-            <ul className="list-disc list-inside text-xs sm:text-sm text-slate-100 space-y-1">
-              {selectedQuestionTexts.map((text: string, index: number) => (
-                <li key={index}>{text}</li>
-              ))}
-            </ul>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <SelectedQuestionsModal
+        isOpen={showSelectedQuestionsModal && selectedBroadcastQuestionsDetailed.length > 0}
+        onClose={() => setShowSelectedQuestionsModal(false)}
+        questions={selectedBroadcastQuestionsDetailed}
+      />
+
+      {/* Selected direct-chat questions modal */}
+      <SelectedQuestionsModal
+        isOpen={showSelectedDirectQuestionsModal && selectedDirectQuestionsDetailed.length > 0}
+        onClose={() => setShowSelectedDirectQuestionsModal(false)}
+        questions={selectedDirectQuestionsDetailed}
+      />
 
       {/* Direct-chat coin purchase modal (for starting chat with specific Jyotish) */}
       <CoinPurchaseModalWrapper

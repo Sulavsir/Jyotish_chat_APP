@@ -20,6 +20,7 @@ import {
 import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
 import { getSocketInstance } from '../utils/socket-instance';
+import { hasUserUsedBroadcast } from '../services/broadcastMessage.service';
 
 function isClientProfileCompleteForFlag(user: {
   name?: string | null;
@@ -132,12 +133,16 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
       throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
     }
 
+    // Compute first-broadcast flag: client has free broadcast if they have never used broadcast before.
+    const hasUsedBroadcast = await hasUserUsedBroadcast(userId);
+
     // Format response
     const { phone, password, ...userWithoutSensitiveData } = user;
     const formattedUser = {
       ...userWithoutSensitiveData,
       phoneNumber: phone,
       hasPassword: !!password,
+      hasFreeBroadcastAvailable: !hasUsedBroadcast,
     };
 
     return sendSuccess(res, formattedUser);

@@ -23,6 +23,8 @@ export interface User {
   profileCompleted?: boolean;
   hasPassword?: boolean;
 
+  hasFreeBroadcastAvailable?: boolean;
+
   // Astrologer-specific data (when role is ASTROLOGER)
   astrologer?: {
     id: string;

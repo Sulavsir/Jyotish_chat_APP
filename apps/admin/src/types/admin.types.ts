@@ -20,6 +20,7 @@ export interface Astrologer {
   experience: number | null;
   category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
   appointmentFee?: number | null;
+  chatMessageFee?: number | null;
   rating: number;
   isActive: boolean;
   isOnline: boolean;

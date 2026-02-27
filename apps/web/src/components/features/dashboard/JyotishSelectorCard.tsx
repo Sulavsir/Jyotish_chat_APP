@@ -26,7 +26,12 @@ export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishS
   const isAppointmentOnly =
     astrologer.category === AstrologerCategory.PREMIUM ||
     astrologer.category === AstrologerCategory.KATHA_VACHAK;
-  const chatCoinCost = isAppointmentOnly ? 0 : rates?.CHAT_PER_MESSAGE;
+  const perMessageFeeNr = astrologer.chatMessageFee ?? null;
+  const chatCoinCost = isAppointmentOnly
+    ? 0
+    : perMessageFeeNr != null && rates?.COINS_PER_NPR
+      ? perMessageFeeNr * rates.COINS_PER_NPR
+      : rates?.CHAT_PER_MESSAGE ?? null;
 
   const handleViewProfilePointerDown = (e: React.PointerEvent) => {
     // Completely bypass Radix Select's item selection by cancelling the pointer event
@@ -136,20 +141,19 @@ export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishS
               {astrologer.experience && (
                 <span className="text-xs text-white">{astrologer.experience} years experience</span>
               )}
-              {isFree ? (
-                isAppointmentOnly ? (
-                  <span className="text-xs text-amber-300">Appointment only</span>
-                ) : (
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1.5 py-0.5 w-fit">
-                    FREE
-                  </Badge>
-                )
+              {isAppointmentOnly ? (
+                <span className="text-xs text-amber-300">Appointment only</span>
+              ) : perMessageFeeNr != null && perMessageFeeNr > 0 && chatCoinCost != null ? (
+                <span className="text-xs text-amber-300">
+                  {perMessageFeeNr} NRs/message · {chatCoinCost} coin
+                  {chatCoinCost === 1 ? '' : 's'}/message
+                </span>
               ) : chatCoinCost != null ? (
                 <span className="text-xs text-amber-300">
                   {chatCoinCost} coin{chatCoinCost === 1 ? '' : 's'}/message
                 </span>
               ) : (
-                <span className="text-xs text-gray-400">…</span>
+                <span className="text-xs text-red-300">Instant chat fee not set</span>
               )}
             </div>
           </div>

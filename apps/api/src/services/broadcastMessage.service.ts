@@ -46,6 +46,23 @@ export interface AcceptBroadcastMessageData {
 }
 
 /**
+ * Check if a client has ever used broadcast before.
+ * We treat \"used\" as having at least one BroadcastMessage row.
+ */
+export async function hasUserUsedBroadcast(clientId: string): Promise<boolean> {
+  if (!('broadcastMessage' in prisma)) {
+    return false;
+  }
+
+  const existing = await prisma.broadcastMessage.findFirst({
+    where: { clientId },
+    select: { id: true },
+  });
+
+  return !!existing;
+}
+
+/**
  * Create a new broadcast message from client to all astrologers
  */
 export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
@@ -197,17 +214,23 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     }
   }
 
-  // Check coin balance and deduct 1 coin upfront for broadcast message
-  try {
-    await deductCoinsForBroadcastMessage(data.clientId);
-  } catch (error: unknown) {
-    const err = error as { code?: string };
-    if (err.code === ERROR_CODES.INSUFFICIENT_COINS) {
-      throw new Error(
-        `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${clientProfile.coins} coins. Please top up your coins.`
-      );
+  // First broadcast is free: if client has never used broadcast before, skip deduction once.
+  const alreadyUsedBroadcast = await hasUserUsedBroadcast(data.clientId);
+  const isFirstFreeBroadcast = !alreadyUsedBroadcast;
+
+  if (!isFirstFreeBroadcast) {
+    // Check coin balance and deduct 1 coin upfront for broadcast message
+    try {
+      await deductCoinsForBroadcastMessage(data.clientId);
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      if (err.code === ERROR_CODES.INSUFFICIENT_COINS) {
+        throw new Error(
+          `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${clientProfile.coins} coins. Please top up your coins.`
+        );
+      }
+      throw error;
     }
-    throw error;
   }
 
   const message = await prisma.broadcastMessage.create({
@@ -215,7 +238,10 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       clientId: data.clientId,
       content: data.content,
       type: data.type || MessageType.TEXT,
-      metadata: data.metadata,
+      metadata: {
+        ...(data.metadata || {}),
+        ...(isFirstFreeBroadcast ? { freeTrial: true } : {}),
+      } as Prisma.InputJsonValue,
       status: BroadcastMessageStatus.PENDING,
     },
     include: {
