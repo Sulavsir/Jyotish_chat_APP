@@ -52,11 +52,7 @@ export function setRefreshTokenCookie(res: Response, refreshToken: string): void
  * Set both access and refresh tokens as httpOnly cookies.
  * Category/permissions are not set as cookies; frontend gets them from GET /me (works cross-domain).
  */
-export function setAuthCookies(
-  res: Response,
-  accessToken: string,
-  refreshToken: string
-): void {
+export function setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
   setAccessTokenCookie(res, accessToken);
   setRefreshTokenCookie(res, refreshToken);
 }
@@ -68,11 +64,9 @@ export function setAuthCookies(
 export function clearAuthCookies(res: Response): void {
   const isProduction = process.env.NODE_ENV === 'production';
 
-  // Options must match the ones used when setting cookies
   const cookieOptions: any = {
     httpOnly: true,
     secure: isProduction,
-    // Must match the sameSite value used when setting cookies
     sameSite: 'lax',
     path: '/',
   };

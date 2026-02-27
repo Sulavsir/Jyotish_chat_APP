@@ -34,14 +34,10 @@ export const authService = {
    */
   async logout(): Promise<void> {
     try {
-      // Call logout endpoint to revoke session and clear httpOnly cookies
-      // Refresh token is automatically sent via httpOnly cookie
       await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {});
     } catch (error) {
-      // Continue with logout even if server call fails
       console.error('Logout error:', error);
     } finally {
-      // Clear local storage (user data, etc.)
       TokenManager.clearTokens();
       localStorage.clear();
     }

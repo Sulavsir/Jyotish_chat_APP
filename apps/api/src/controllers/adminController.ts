@@ -95,10 +95,6 @@ export async function adminRefreshToken(req: AuthRequest, res: Response, next: N
 export async function adminLogout(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     clearAuthCookies(res);
-
-    // Don't log admin logout to avoid cluttering audit logs
-    // Admin activity monitoring is handled separately
-
     return sendSuccess(res, null);
   } catch (error) {
     next(error);
