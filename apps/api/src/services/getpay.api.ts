@@ -75,12 +75,15 @@ export async function getPayMerchantStatus(
   const url = `${baseUrl.replace(/\/$/, '')}${GETPAY_MERCHANT_STATUS_PATH}`;
 
   // Request body as per GetPay documentation:
-  //   { "id": "id", "papInfo": "...", "oprSecret": "..." }
-  // "oprSecret" is optional and only sent when present in the token payload.
-  const body: { id: string; papInfo: string; oprSecret?: string } = {
+  const body: { id: string; papInfo: string; oprSecret?: string; operatorSecret?: string } = {
     id,
     papInfo: papInfo.trim(),
-    ...(oprSecret ? { oprSecret } : {}),
+    ...(oprSecret
+      ? {
+          oprSecret,
+          operatorSecret: oprSecret,
+        }
+      : {}),
   };
 
   const headers: Record<string, string> = {

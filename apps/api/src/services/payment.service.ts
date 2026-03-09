@@ -211,15 +211,30 @@ export async function verifyPayment(
   const statusStr = String(rawStatus ?? '')
     .trim()
     .toUpperCase();
+
+  const numericStatus =
+    typeof rawStatus === 'number'
+      ? rawStatus
+      : Number.isNaN(Number(rawStatus))
+        ? undefined
+        : Number(rawStatus);
+
   const isSuccess =
-    rawStatus === 0 ||
+    numericStatus === 0 ||
+    numericStatus === 1 ||
     statusStr === GETPAY_RESPONSE_STATUS_SUCCESS ||
     statusStr === GETPAY_RESPONSE_STATUS_COMPLETED ||
     statusStr === GETPAY_RESPONSE_STATUS_CAPTURED ||
     statusStr === GETPAY_RESPONSE_STATUS_AUTHORIZED ||
-    rawMessage === GETPAY_RESPONSE_MESSAGE_SUCCESS;
+    rawMessage === GETPAY_RESPONSE_MESSAGE_SUCCESS ||
+    rawMessage.includes(GETPAY_RESPONSE_MESSAGE_SUCCESS);
 
   if (!isSuccess) {
+    console.error('[GetPay] Verification not successful', {
+      status: rawStatus,
+      message: rawMessage,
+      orderId,
+    });
     await prisma.payment.update({
       where: { id: orderId },
       data: { status: PaymentStatus.FAILED, transactionId: transactionIdToStore },
