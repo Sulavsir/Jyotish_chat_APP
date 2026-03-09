@@ -61,8 +61,6 @@ export const getPayConfig = () => {
   const scriptUrl = process.env.GETPAY_SCRIPT_URL!;
 
   // Base URL: The API base URL for backend verification calls
-  // Should be: https://uat-bank-getpay.nchl.com.np/ecom-web-checkout/v1/secure-merchant
-  // (without /transactions/merchant-status - that's appended in getpay.api.ts)
   const baseUrl = process.env.GETPAY_BASE_URL!;
 
   const papInfo = process.env.GETPAY_PAP_INFO!;
