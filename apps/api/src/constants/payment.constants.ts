@@ -53,7 +53,7 @@ export const GETPAY_RESPONSE_STATUS_AUTHORIZED = 'AUTHORIZED';
 export const GETPAY_RESPONSE_MESSAGE_SUCCESS = 'SUCCESS';
 
 /** GetPay merchant-status API path (appended to baseUrl) */
-export const GETPAY_MERCHANT_STATUS_PATH = '/transactions/merchant-status';
+export const GETPAY_MERCHANT_STATUS_PATH = '/merchant-status';
 
 export const getPayConfig = () => {
   // Script URL: The bundle.js file to load on frontend

@@ -72,7 +72,7 @@ export async function getPayMerchantStatus(
   }
 
   // Final URL: {baseURL}/v1/secure-merchant/transactions/merchant-status
-  const url = `${baseUrl.replace(/\/$/, '')}`;
+  const url = `${baseUrl.replace(/\/$/, '')}${GETPAY_MERCHANT_STATUS_PATH}`;
 
   const body: { id: string; papInfo: string; oprSecret?: string; operatorSecret?: string } = {
     id,
