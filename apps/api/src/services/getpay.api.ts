@@ -95,15 +95,6 @@ export async function getPayMerchantStatus(
   }
 
   try {
-    // Debug log for outgoing request (no secrets)
-    // eslint-disable-next-line no-console
-    console.log('[GetPay] merchant-status request', {
-      url,
-      body: { id, hasOprSecret: !!oprSecret },
-      hasPapInfo: !!papInfo,
-      hasAuth: !!headers.Authorization,
-    });
-
     const response = await fetch(url, {
       method: 'POST',
       headers,
@@ -123,17 +114,6 @@ export async function getPayMerchantStatus(
     }
 
     const data = (await response.json()) as GetPayMerchantStatusResponse;
-
-    // Debug log for response (safe keys only)
-    // eslint-disable-next-line no-console
-    console.log('[GetPay] merchant-status response', {
-      status: data?.status,
-      message: data?.message,
-      id: (data as any)?.id,
-      transactionId: (data as any)?.transactionId,
-      code: (data as any)?.code,
-    });
-
     return data;
   } catch (error) {
     // Re-throw with more context if it's not already an Error
