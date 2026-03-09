@@ -62,7 +62,7 @@ export async function getPayMerchantStatus(
     throw new Error('GetPay is not configured (GETPAY_BASE_URL, GETPAY_PAP_INFO, GETPAY_OPR_KEY)');
   }
 
-  const { id, oprSecret } = extractTransactionFields(transactionId);
+  const { id } = extractTransactionFields(transactionId);
   if (!id) {
     throw new Error('Transaction ID is required for merchant-status verification');
   }
@@ -74,17 +74,7 @@ export async function getPayMerchantStatus(
   // Final URL: {baseURL}/v1/secure-merchant/transactions/merchant-status
   const url = `${baseUrl.replace(/\/$/, '')}${GETPAY_MERCHANT_STATUS_PATH}`;
 
-  // Request body as per GetPay documentation:
-  const body: { id: string; papInfo: string; oprSecret?: string; operatorSecret?: string } = {
-    id,
-    papInfo: papInfo.trim(),
-    ...(oprSecret
-      ? {
-          oprSecret,
-          operatorSecret: oprSecret,
-        }
-      : {}),
-  };
+  const body: { id: string; papInfo: string } = { id, papInfo: papInfo.trim() };
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
