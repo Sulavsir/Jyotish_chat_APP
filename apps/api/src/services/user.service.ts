@@ -238,7 +238,8 @@ export class UserService {
     }
 
     // If the client doesn't send it, keep it null (so we can detect missing payloads).
-    const resolvedZodiacSign = data.zodiacSign ?? null;
+    const rawZodiac = data.zodiacSign as string | null | undefined;
+    const resolvedZodiacSign = rawZodiac && rawZodiac.trim() !== '' ? rawZodiac : null;
 
     // Update user profile
     const user = await prisma.user.update({
@@ -253,7 +254,7 @@ export class UserService {
         currentAddress: data.currentAddress,
         permanentAddress: data.permanentAddress,
         // Don't force a default gender; keep null unless explicitly provided
-        gender: data.gender ?? null,
+        gender: (data.gender as string | null | undefined) && (data.gender as string).trim() !== '' ? data.gender : null,
         profileCompleted: isProfileComplete,
         ...(data.profilePhoto && { profilePhoto: data.profilePhoto }),
       },

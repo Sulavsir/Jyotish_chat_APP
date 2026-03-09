@@ -28,7 +28,7 @@ export const profileEditSchema = z.object({
   currentAddress: z.string().optional(),
   permanentAddress: z.string().optional(),
   gender: z.enum([...GENDER_OPTIONS] as [string, ...string[]]).optional().nullable(),
-  zodiacSign: z.enum([...ZODIAC_SIGNS] as [string, ...string[]]).optional(),
+  zodiacSign: z.preprocess((v) => (v === '' ? undefined : v), z.enum([...ZODIAC_SIGNS] as [string, ...string[]]).optional()),
 });
 
 export type ProfileEditFormData = z.infer<typeof profileEditSchema>;
@@ -36,7 +36,7 @@ export type ProfileEditFormData = z.infer<typeof profileEditSchema>;
 // Profile setup schema (for initial profile completion)
 export const profileSetupSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
-  email: z.string().email('Invalid email address'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),
   timeOfBirth: z
     .string()

@@ -101,7 +101,7 @@ export const profileSetupSchema = z.preprocess(
   },
   z.object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Invalid email address'),
+    email: z.preprocess((v) => (v === '' ? undefined : v), z.string().email('Invalid email address').optional()),
     dateOfBirth: z.string().or(z.date()),
     timeOfBirth: z
       .string()
@@ -109,13 +109,13 @@ export const profileSetupSchema = z.preprocess(
     placeOfBirth: z.string().min(2, 'Place of birth is required'),
     currentAddress: z.string().optional(),
     permanentAddress: z.string().optional(),
-    gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
-    zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
+    gender: z.preprocess((v) => (v === '' ? null : v), z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable()),
+    zodiacSign: z.preprocess((v) => (v === '' ? null : v), z.nativeEnum(ZodiacSign).optional().nullable()),
+    profilePhoto: z.string().optional(),
   })
 );
 
 export const birthDetailsSchema = z.object({
-  // Required for marking a profile as completed.
   dateOfBirth: z.string().or(z.date()),
   timeOfBirth: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
   placeOfBirth: z.string().min(2, 'Place of birth is required'),
@@ -123,8 +123,8 @@ export const birthDetailsSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   currentAddress: z.string().optional(),
   permanentAddress: z.string().optional(),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
-  zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
+  gender: z.preprocess((v) => (v === '' ? null : v), z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable()),
+  zodiacSign: z.preprocess((v) => (v === '' ? null : v), z.nativeEnum(ZodiacSign).optional().nullable()),
 });
 
 // Client profile (family/friend) validators
