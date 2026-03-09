@@ -16,7 +16,7 @@ import {
   Clock,
   User,
   LogOut,
-  Coins,
+  Banknote,
 } from 'lucide-react';
 import { AppSidebar } from '@jyotish/ui';
 import { useAuth, useRequireAuth } from '@/hooks';
@@ -67,7 +67,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
     ...(hasAppointmentAccess
       ? [{ name: 'My slots', href: ROUTES.JYOTISH_SLOTS, icon: <Clock className="h-4 w-4" /> }]
       : []),
-    { name: 'My Earnings', href: ROUTES.JYOTISH_EARNINGS, icon: <Coins className="h-4 w-4" /> },
+    { name: 'My Earnings', href: ROUTES.JYOTISH_EARNINGS, icon: <Banknote className="h-4 w-4" /> },
     { name: 'Profile', href: ROUTES.JYOTISH_PROFILE, icon: <User className="h-4 w-4" /> },
   ];
 

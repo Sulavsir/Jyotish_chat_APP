@@ -250,9 +250,9 @@ export default function AboutPage() {
                     3
                   </div>
                   <div>
-                    <h3 className="text-white font-semibold mb-2">Purchase Coins or Plan</h3>
+                    <h3 className="text-white font-semibold mb-2">Top up Balance or Plan</h3>
                     <p className="text-gray-300">
-                      Buy chat coins (1 coin = 1 chat) or subscribe to an unlimited plan. NPR 100 = 1 coin.
+                      Add balance for chat or subscribe to an unlimited plan.
                     </p>
                   </div>
                 </div>

@@ -12,7 +12,7 @@ export interface ProfileCompletionResult {
 
 /**
  * Check if client profile is complete
- * Required fields: name, dateOfBirth, timeOfBirth, placeOfBirth, gender
+ * Required fields: name, dateOfBirth, timeOfBirth, placeOfBirth
  */
 export function checkClientProfileCompletion(user: User | null): ProfileCompletionResult {
   const missingFields: string[] = [];
@@ -39,10 +39,6 @@ export function checkClientProfileCompletion(user: User | null): ProfileCompleti
 
   if (!user.placeOfBirth || user.placeOfBirth.trim() === '') {
     missingFields.push('Place of Birth');
-  }
-
-  if (!user.gender) {
-    missingFields.push('Gender');
   }
 
   return {

@@ -44,7 +44,7 @@ import {
 } from '@jyotish/ui';
 import { AstrologerCategory, JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
-import { Coins, Eye } from 'lucide-react';
+import { Banknote, Eye } from 'lucide-react';
 
 type MyBookingsResponse = Awaited<ReturnType<typeof jyotishBookingService.listMine>>;
 type MyBooking = MyBookingsResponse['bookings'][number];
@@ -444,7 +444,7 @@ export default function MyBookingsPage() {
                             Girl (DOB, TOB, POB)
                           </TableHead>
                           <TableHead className="text-slate-200 border-r border-slate-700/60">
-                            Coins
+                            Amount
                           </TableHead>
                           <TableHead className="text-slate-200 border-r border-slate-700/60">
                             Status
@@ -495,8 +495,8 @@ export default function MyBookingsPage() {
                             </TableCell>
                             <TableCell className="whitespace-nowrap border-r border-slate-700/40">
                               <span className="inline-flex items-center gap-1 text-amber-400">
-                                <Coins className="h-4 w-4" />
-                                {r.coinsDeducted}
+                                <Banknote className="h-4 w-4" />
+                                {r.coinsDeducted} NRs
                               </span>
                             </TableCell>
                             <TableCell className="whitespace-nowrap border-r border-slate-700/40">
@@ -822,8 +822,8 @@ export default function MyBookingsPage() {
                               </TableCell>
                               <TableCell className="whitespace-nowrap border-r border-slate-700/40">
                                 <span className="inline-flex items-center gap-1.5 text-amber-400 font-medium">
-                                  <Coins className="h-4 w-4" />
-                                  {a.amount} coins
+                                  <Banknote className="h-4 w-4" />
+                                  {a.amount} NRs
                                 </span>
                               </TableCell>
                               <TableCell className="whitespace-nowrap border-r border-slate-700/40">

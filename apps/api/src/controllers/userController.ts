@@ -27,7 +27,6 @@ function isClientProfileCompleteForFlag(user: {
   dateOfBirth?: Date | string | null;
   timeOfBirth?: string | null;
   placeOfBirth?: string | null;
-  gender?: unknown | null;
 }): boolean {
   return (
     !!user.name &&
@@ -36,8 +35,7 @@ function isClientProfileCompleteForFlag(user: {
     !!user.timeOfBirth &&
     user.timeOfBirth.trim().length > 0 &&
     !!user.placeOfBirth &&
-    user.placeOfBirth.trim().length > 0 &&
-    !!user.gender
+    user.placeOfBirth.trim().length > 0
   );
 }
 
@@ -367,14 +365,11 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
       ? validatedData.zodiacSign
       : (existing.zodiacSign ?? getZodiacSign(dob));
 
-  const genderForCompletion =
-    validatedData.gender !== undefined ? validatedData.gender : existing.gender;
   const computedProfileCompleted = isClientProfileCompleteForFlag({
     name: existing.name,
     dateOfBirth: dob,
     timeOfBirth: validatedData.timeOfBirth,
     placeOfBirth: validatedData.placeOfBirth,
-    gender: genderForCompletion,
   });
 
   if (debug) {

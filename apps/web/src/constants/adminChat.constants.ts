@@ -12,18 +12,18 @@ export interface FAQItem {
 // FAQs for Clients
 export const CLIENT_FAQS: FAQItem[] = [
   {
-    question: 'How do I purchase coins?',
-    answer: 'You can purchase coins by going to the Pricing page. We offer various coin packs and unlimited chat plans. Simply select a plan and complete the payment.',
+    question: 'How do I top up my balance?',
+    answer: 'You can top up your balance by going to the Pricing page. We offer various balance packs and unlimited chat plans. Simply select a plan and complete the payment.',
     category: 'Billing',
   },
   {
     question: 'How do I chat with an astrologer?',
-    answer: 'You can chat with astrologers by browsing the Astrologers page, selecting an astrologer, and clicking "Chat Now" or "Request Instant Chat". Make sure you have sufficient coins.',
+    answer: 'You can chat with astrologers by browsing the Astrologers page, selecting an astrologer, and clicking "Chat Now" or "Request Instant Chat". Make sure you have sufficient balance.',
     category: 'Chat',
   },
   {
     question: 'What are the different astrologer categories?',
-    answer: 'We have three categories: ORDINARY (direct chat, 1 coin per message), PROFESSIONAL (direct chat and appointments, 2 coins per message), and PREMIUM (appointments only, no direct chat).',
+    answer: 'We have three categories: ORDINARY (direct chat, fee per message in NRs), PROFESSIONAL (direct chat and appointments, fee per message in NRs), and PREMIUM (appointments only, no direct chat).',
     category: 'General',
   },
   {
@@ -32,8 +32,8 @@ export const CLIENT_FAQS: FAQItem[] = [
     category: 'Appointments',
   },
   {
-    question: 'What happens if I run out of coins?',
-    answer: 'If you run out of coins, you can purchase more from the Pricing page. The system will notify you when your balance is low and prompt you to purchase more coins.',
+    question: 'What happens if I run out of balance?',
+    answer: 'If you run out of balance, you can top up from the Pricing page. The system will notify you when your balance is low and prompt you to add more.',
     category: 'Billing',
   },
   {
@@ -48,7 +48,7 @@ export const CLIENT_FAQS: FAQItem[] = [
   },
   {
     question: 'What is an unlimited chat plan?',
-    answer: 'Unlimited chat plans allow you to chat with any astrologer without coin deduction for a specified period (1 day, 3 days, 7 days, etc.). You can purchase these with money or coins.',
+    answer: 'Unlimited chat plans allow you to chat with any astrologer without balance deduction for a specified period (1 day, 3 days, 7 days, etc.). You can purchase these with money or use your balance.',
     category: 'Billing',
   },
   {
@@ -58,7 +58,7 @@ export const CLIENT_FAQS: FAQItem[] = [
   },
   {
     question: 'Can I chat with multiple astrologers at once?',
-    answer: 'Yes! You can have multiple active chats with different astrologers simultaneously. Each chat is independent and uses coins separately based on the astrologer\'s category.',
+    answer: 'Yes! You can have multiple active chats with different astrologers simultaneously. Each chat is independent and uses balance separately based on the astrologer\'s category.',
     category: 'Chat',
   },
 ];
@@ -82,12 +82,12 @@ export const ADMIN_FAQS: FAQItem[] = [
   },
   {
     question: 'How do I manage pricing plans?',
-    answer: 'Go to the Pricing section to create, edit, or toggle pricing plans. You can set coin packs, unlimited chat plans, prices, discounts, and validity periods.',
+    answer: 'Go to the Pricing section to create, edit, or toggle pricing plans. You can set balance packs, unlimited chat plans, prices, discounts, and validity periods.',
     category: 'Management',
   },
   {
-    question: 'How do I add coins to a user?',
-    answer: 'Go to the Users section, select a user, and click "Add Coins". Enter the amount and reason. This is useful for refunds or promotional credits.',
+    question: 'How do I add balance to a user?',
+    answer: 'Go to the Users section, select a user, and click "Add Balance". Enter the amount and reason. This is useful for refunds or promotional credits.',
     category: 'Management',
   },
   {

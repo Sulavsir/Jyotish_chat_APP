@@ -29,7 +29,7 @@ import {
   XCircle,
   AlertCircle,
   RefreshCw,
-  Coins,
+  Banknote,
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -169,14 +169,14 @@ export default function JyotishAppointmentsPage() {
       },
       {
         id: 'coins',
-        header: 'Coins',
+        header: 'Amount',
         cell: (row) => {
           const rate = row.astrologer?.commissionRate ?? 0;
-          const coins = Math.ceil((row.amount * rate) / 100);
+          const amount = Math.ceil((row.amount * rate) / 100);
           return (
             <span className="inline-flex items-center gap-1.5 font-medium text-amber-400">
-              <Coins className="h-4 w-4 shrink-0" />
-              {coins}
+              <Banknote className="h-4 w-4 shrink-0" />
+              {amount} NRs
             </span>
           );
         },

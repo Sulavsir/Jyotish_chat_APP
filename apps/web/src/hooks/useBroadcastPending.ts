@@ -67,7 +67,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       if (data != null) {
-        toast.success('Request cancelled. Your coin has been refunded.');
+        toast.success('Request cancelled. Your balance has been refunded.');
       }
     },
     onError: (error: Error) => {
@@ -149,7 +149,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
         options.onInsufficientCoins?.(extractRequiredCoins(errorMessage));
         toast.error(errorMessage, {
           duration: 5000,
-          description: 'Please top up your coins to send a broadcast message.',
+          description: 'Please top up your balance to send a broadcast message.',
         });
       } else if (
         errorMessage.toLowerCase().includes('active chat') ||

@@ -9,12 +9,12 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ROUTES } from '@/constants';
-import { LayoutDashboard, Coins } from 'lucide-react';
+import { LayoutDashboard, Banknote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const sidebarNav = [
   { name: 'Dashboard', href: ROUTES.ADMIN_DASHBOARD, icon: LayoutDashboard },
-  { name: 'Coin Settings', href: ROUTES.ADMIN_SET_COINS, icon: Coins },
+  { name: 'Rate Settings', href: ROUTES.ADMIN_SET_COINS, icon: Banknote },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

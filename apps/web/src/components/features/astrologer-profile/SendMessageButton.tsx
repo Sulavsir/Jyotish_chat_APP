@@ -89,7 +89,7 @@ export function SendMessageButton({
         missingFields={missingProfileFields}
       />
 
-      {/* Coin Purchase Modal */}
+      {/* Balance / Top-up Modal */}
       <CoinPurchaseModalWrapper
         isOpen={showCoinPurchaseModal}
         onClose={() => setShowCoinPurchaseModal(false)}

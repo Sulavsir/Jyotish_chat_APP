@@ -76,8 +76,8 @@ export const RequestInstantChatButton: React.FC = () => {
     ) {
       setRequiredCoins(broadcastSendCoins);
       setShowCoinPurchaseModal(true);
-      toast.error('Insufficient coins available', {
-        description: `Request Instant Chat requires ${broadcastSendCoins} coin${broadcastSendCoins === 1 ? '' : 's'}. Please top up your coins.`,
+      toast.error('Insufficient balance', {
+        description: `Request Instant Chat requires ${broadcastSendCoins} NRs. Please top up your balance.`,
         duration: 5000,
       });
       return;

@@ -43,8 +43,8 @@ export const profileSetupSchema = z.object({
     .min(1, 'Time of birth is required')
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:MM format'),
   placeOfBirth: z.string().min(1, 'Place of birth is required'),
-  currentAddress: z.string().min(1, 'Current address is required'),
-  permanentAddress: z.string().min(1, 'Permanent address is required'),
+  currentAddress: z.string().optional(),
+  permanentAddress: z.string().optional(),
   gender: z.enum([...GENDER_OPTIONS] as [string, ...string[]]).optional().nullable(),
 });
 

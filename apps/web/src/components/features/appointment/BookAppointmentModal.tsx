@@ -674,7 +674,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   <p className="text-xs text-purple-300/70 mt-1">{notes.length}/500 characters</p>
                 </div>
 
-                {/* Insufficient coins message */}
+                {/* Insufficient balance message */}
                 {appointmentCoinCost != null &&
                   appointmentCoinCost > 0 &&
                   coinBalance < appointmentCoinCost && (

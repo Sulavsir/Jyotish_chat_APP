@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
-import { Loader2, CheckCircle2, XCircle, Coins, ArrowLeft } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Banknote, ArrowLeft } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentService } from '@/services/payment.service';
 import broadcastMessageService from '@/services/broadcastMessage.service';
@@ -296,14 +296,14 @@ export default function PaymentSuccessPage() {
                 </div>
                 <h3 className="text-2xl font-semibold text-white mb-2">Thank you!</h3>
                 <p className="text-green-50/90 mb-6">
-                  Your payment has been verified. Coins have been added to your account.
+                  Your payment has been verified. Balance has been added to your account.
                 </p>
                 {verifyMutation.data?.balance !== undefined && (
                   <div className="mb-6 p-4 bg-green-800/40 border border-green-400/50 rounded-xl">
                     <p className="text-green-50 text-sm mb-1">Current balance</p>
                     <p className="text-yellow-200 font-bold text-2xl flex items-center justify-center gap-2">
-                      <Coins className="h-6 w-6" />
-                      {verifyMutation.data.balance} coins
+                      <Banknote className="h-6 w-6" />
+                      {verifyMutation.data.balance} NRs
                     </p>
                   </div>
                 )}

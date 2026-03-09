@@ -11,10 +11,11 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button } from '@jyotish/ui';
-import { Loader2, Coins, ArrowLeft } from 'lucide-react';
+import { Loader2, Banknote, ArrowLeft } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { paymentService } from '@/services/payment.service';
 import type { CreateOrderResponse, CreateFonepayQrOrderResponse } from '@/types/payment.types';
+import { BackToPaymentMethodsButton } from '@/components/payment/BackToPaymentMethodsButton';
 import { GetPayCheckout } from '@/components/payment/GetPayCheckout';
 import { FonepayQRCheckout } from '@/components/payment/FonepayQRCheckout';
 import { toast } from 'sonner';
@@ -177,11 +178,11 @@ export default function PaymentPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
                   <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Coins className="h-8 w-8 text-purple-600" />
+                    <Banknote className="h-8 w-8 text-purple-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900">Coins Package</p>
-                    <p className="text-sm text-gray-600">{coins} coins</p>
+                    <p className="font-semibold text-gray-900">Balance top-up</p>
+                    <p className="text-sm text-gray-600">{coins} NRs</p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">
@@ -270,16 +271,7 @@ export default function PaymentPage() {
                 </>
               ) : paymentMethod === PAYMENT_METHOD.GETPAY && checkoutData ? (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToMethods}
-                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to payment methods
-                  </Button>
+                  <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <GetPayCheckout
                     checkoutData={checkoutData}
                     onError={(msg) => {
@@ -290,16 +282,7 @@ export default function PaymentPage() {
               ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD &&
                 createFonepayCardMutation.isPending ? (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToMethods}
-                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to payment methods
-                  </Button>
+                  <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="rounded-xl border-2 border-amber-200 bg-amber-50/50 p-6 text-center">
                     <Loader2 className="h-10 w-10 animate-spin text-amber-600 mx-auto mb-4" />
                     <p className="text-gray-700 font-medium">Redirecting to Fonepay…</p>
@@ -311,16 +294,7 @@ export default function PaymentPage() {
               ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD &&
                 createFonepayCardMutation.isError ? (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToMethods}
-                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to payment methods
-                  </Button>
+                  <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="rounded-xl border-2 border-red-200 bg-red-50/50 p-6 text-center">
                     <p className="text-red-700 text-sm">
                       Could not start Fonepay payment. Please try again.
@@ -336,16 +310,7 @@ export default function PaymentPage() {
                 </div>
               ) : paymentMethod === PAYMENT_METHOD.FONEPAY_QR && fonepayQrData ? (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToMethods}
-                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to payment methods
-                  </Button>
+                  <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <FonepayQRCheckout
                     orderId={fonepayQrData.orderId}
                     prn={fonepayQrData.prn}
@@ -357,16 +322,7 @@ export default function PaymentPage() {
                 </div>
               ) : createOrderMutation.isPending || createFonepayQrMutation.isPending ? (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToMethods}
-                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to payment methods
-                  </Button>
+                  <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="py-12 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
                     <p className="text-gray-600 text-sm">Preparing payment…</p>
@@ -374,16 +330,7 @@ export default function PaymentPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleBackToMethods}
-                    className="text-black hover:text-black hover:bg-gray-100 rounded-lg flex items-center gap-2 -ml-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to payment methods
-                  </Button>
+                  <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="py-12 text-center">
                     <p className="text-gray-600 mb-4">Choose a payment method above.</p>
                   </div>

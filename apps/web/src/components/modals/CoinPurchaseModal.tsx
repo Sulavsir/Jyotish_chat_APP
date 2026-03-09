@@ -1,6 +1,6 @@
 /**
- * Coin Purchase Modal
- * Opens when user has insufficient coins for chat
+ * Balance / Top-up Modal
+ * Opens when user has insufficient balance for chat
  */
 
 'use client';
@@ -21,7 +21,7 @@ import {
   AlertDescription,
   Input,
 } from '@jyotish/ui';
-import { Coins, Loader2, Plus, Infinity as InfinityIcon } from 'lucide-react';
+import { Banknote, Loader2, Plus, Infinity as InfinityIcon } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { pricingService } from '@/services/pricing.service';
 import { coinService } from '@/services/coin.service';
@@ -61,8 +61,22 @@ export function CoinPurchaseModal({
     setCustomCoins((prev) => (prev > 1 ? prev - 1 : 1));
   };
 
+  const MAX_AMOUNT = 999999;
+
   const handleIncreaseCoins = () => {
-    setCustomCoins((prev) => prev + 1);
+    setCustomCoins((prev) => (prev < MAX_AMOUNT ? prev + 1 : MAX_AMOUNT));
+  };
+
+  const handleAmountInputChange = (raw: string) => {
+    const digitsOnly = raw.replace(/\D/g, '');
+    if (digitsOnly === '') {
+      setCustomCoins(1);
+      return;
+    }
+    const n = parseInt(digitsOnly, 10);
+    if (!Number.isNaN(n)) {
+      setCustomCoins(Math.min(MAX_AMOUNT, Math.max(1, n)));
+    }
   };
 
   // Fetch pricing plans
@@ -83,7 +97,7 @@ export function CoinPurchaseModal({
   const { rates: coinRates } = useCoinRates(isOpen);
 
   const currentBalance = balanceData?.balance ?? 0;
-  
+
   // Calculate NPR per coin from coins per NPR rate
   // If COINS_PER_NPR = 1, then 1 coin = 1 NPR (1/1 = 1)
   // If COINS_PER_NPR = 2, then 2 coins = 1 NPR, so 1 coin = 0.5 NPR (1/2 = 0.5)
@@ -109,10 +123,10 @@ export function CoinPurchaseModal({
         })
       );
     }
-    
+
     // Close modal first
     onClose();
-    
+
     // Use window.location for hard redirect to ensure navigation
     const paymentUrl = `${ROUTES.PAYMENT}?planId=${plan.id}&amount=${plan.priceInNrs}&coins=${plan.coins}`;
     window.location.href = paymentUrl;
@@ -139,7 +153,7 @@ export function CoinPurchaseModal({
 
     // Close modal first
     onClose();
-    
+
     // Use window.location for hard redirect to ensure navigation
     const paymentUrl = `${ROUTES.PAYMENT}?planId=custom-${coins}&amount=${amount}&coins=${coins}`;
     window.location.href = paymentUrl;
@@ -147,14 +161,12 @@ export function CoinPurchaseModal({
 
   const handlePurchaseWithCoins = async (plan: PricingPlan) => {
     if (!plan.coinPrice || plan.coinPrice <= 0) {
-      toast.error('This plan cannot be purchased with coins');
+      toast.error('This plan cannot be purchased with balance');
       return;
     }
 
     if (currentBalance < plan.coinPrice) {
-      toast.error(
-        `Insufficient coins. You need ${plan.coinPrice} coins but have ${currentBalance}`
-      );
+      toast.error(`Insufficient balance. You need ${plan.coinPrice} but have ${currentBalance}`);
       return;
     }
 
@@ -183,7 +195,7 @@ export function CoinPurchaseModal({
 
       onClose();
     } catch (error) {
-      console.error('Error purchasing plan with coins:', error);
+      console.error('Error purchasing plan with balance:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to purchase plan');
     }
   };
@@ -217,16 +229,16 @@ export function CoinPurchaseModal({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="flex items-center gap-2 sm:gap-3">
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 via-amber-300 to-orange-400 shadow-[0_0_25px_rgba(251,191,36,0.8)]">
-                  <Coins className="h-5 w-5 text-slate-900" />
+                  <Banknote className="h-5 w-5 text-slate-900" />
                 </span>
                 <div className="flex flex-col">
                   <DialogTitle className="text-lg sm:text-2xl font-bold text-white flex items-center flex-wrap gap-1 sm:gap-2">
-                    <span>{isInsufficientMode ? 'Insufficient Coins' : 'Purchase Coins'}</span>
+                    <span>{isInsufficientMode ? 'Insufficient Balance' : 'Top up Balance'}</span>
                   </DialogTitle>
                   <DialogDescription className="text-xs sm:text-sm text-purple-200/90">
                     {isInsufficientMode
                       ? 'Top up your balance or unlock an unlimited chat pack to continue.'
-                      : 'Add more coins to your wallet or unlock an unlimited chat pack.'}
+                      : 'Add more balance or unlock an unlimited chat pack.'}
                   </DialogDescription>
                 </div>
               </div>
@@ -239,24 +251,19 @@ export function CoinPurchaseModal({
                   <AlertTitle className="flex items-center justify-between text-[11px] sm:text-xs">
                     <span>Current Balance</span>
                     <span className="inline-flex items-center gap-1">
-                      <Coins className="h-3 w-3 text-yellow-300" />
-                      <span className="font-semibold">
-                        {currentBalance.toLocaleString()} coin{currentBalance === 1 ? '' : 's'}
-                      </span>
+                      <Banknote className="h-3 w-3 text-yellow-300" />
+                      <span className="font-semibold">{currentBalance.toLocaleString()}</span>
                     </span>
                   </AlertTitle>
                   <AlertDescription className="mt-1 text-[11px] sm:text-xs">
                     {isInsufficientMode && requiredCoins > currentBalance ? (
                       <>
                         You need{' '}
-                        <span className="font-semibold">
-                          {requiredCoins - currentBalance} more coin
-                          {requiredCoins - currentBalance === 1 ? '' : 's'}
-                        </span>{' '}
+                        <span className="font-semibold">{requiredCoins - currentBalance} more</span>{' '}
                         to start this chat.
                       </>
                     ) : (
-                      <>You can purchase more coins or choose an unlimited chat pack below.</>
+                      <>You can top up your balance or choose an unlimited chat pack below.</>
                     )}
                   </AlertDescription>
                 </Alert>
@@ -279,16 +286,10 @@ export function CoinPurchaseModal({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-white flex items-center gap-2 tracking-wide">
-                        <Coins className="h-4 w-4 text-yellow-300" />
-                        Select coins to buy
+                        <Banknote className="h-4 w-4 text-yellow-300" />
+                        Select amount to add
                       </p>
-                      <p className="text-xs text-purple-200/80">
-                        {coinsPerNpr === 1
-                          ? '1 coin = NPR 1'
-                          : coinsPerNpr > 1
-                            ? `${coinsPerNpr} coins = NPR 1`
-                            : `1 coin = NPR ${nprPerCoin.toFixed(2)}`}
-                      </p>
+                      <p className="text-xs text-purple-200/80">Balance units</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <Button
@@ -301,25 +302,16 @@ export function CoinPurchaseModal({
                       </Button>
                       <div className="flex flex-col items-center gap-1">
                         <Input
-                          type="number"
-                          min={1}
-                          max={9999}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          maxLength={9}
                           value={customCoins}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === '') {
-                              setCustomCoins(1);
-                              return;
-                            }
-                            const n = parseInt(v, 10);
-                            if (!Number.isNaN(n) && n >= 1) {
-                              setCustomCoins(Math.min(9999, n));
-                            }
-                          }}
+                          onChange={(e) => handleAmountInputChange(e.target.value)}
                           className="h-12 min-w-[5.5rem] w-20 px-3 text-center text-lg font-bold text-yellow-300 caret-yellow-300 border-purple-400/70 bg-purple-950/80 shadow-[0_0_12px_rgba(168,85,247,0.25)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                         <p className="text-[10px] uppercase tracking-[0.18em] text-purple-200/80">
-                          Coins
+                          Amount
                         </p>
                       </div>
                       <Button
@@ -334,7 +326,7 @@ export function CoinPurchaseModal({
                   <div className="flex items-center justify-between border-t border-purple-500/30 pt-3">
                     <p className="text-xs text-purple-100/80">Estimated amount</p>
                     <p className="text-sm font-semibold text-yellow-200">
-                      NPR {Math.round(customCoins * nprPerCoin).toLocaleString()}
+                      {Math.round(customCoins * nprPerCoin).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex justify-end">
@@ -343,10 +335,8 @@ export function CoinPurchaseModal({
                       onClick={handleCustomPurchase}
                       className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_0_24px_rgba(129,140,248,0.75)] hover:from-indigo-400 hover:via-purple-400 hover:to-pink-400"
                     >
-                      <Coins className="h-4 w-4" />
-                      <span>
-                        Buy {customCoins} Coin{customCoins > 1 ? 's' : ''}
-                      </span>
+                      <Banknote className="h-4 w-4" />
+                      <span>Add {customCoins} to balance</span>
                     </Button>
                   </div>
                 </div>
@@ -378,7 +368,7 @@ export function CoinPurchaseModal({
                             Perfect when you expect many follow-up questions in a single day.
                           </p>
                           <p className="mt-2 text-sm font-semibold text-amber-200">
-                            NPR {unlimitedPlan.priceInNrs.toLocaleString()}
+                            {unlimitedPlan.priceInNrs.toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -397,7 +387,7 @@ export function CoinPurchaseModal({
                             className="shrink-0 rounded-xl bg-gradient-to-r from-yellow-500/20 to-amber-500/20 px-4 py-2 text-sm font-semibold text-yellow-200 ring-2 ring-yellow-400/50 hover:from-yellow-500/30 hover:to-amber-500/30"
                             disabled={currentBalance < unlimitedPlan.coinPrice}
                           >
-                            Buy with {unlimitedPlan.coinPrice} Coins
+                            Buy with {unlimitedPlan.coinPrice} balance
                           </Button>
                         )}
                       </div>
@@ -414,8 +404,8 @@ export function CoinPurchaseModal({
             ) : eligiblePlans.length === 0 ? (
               <div className="text-center py-8">
                 <p className="mb-4 text-sm text-purple-100/80">
-                  No coin packs available that meet this requirement. Explore all packs on the
-                  pricing page.
+                  No packs available that meet this requirement. Explore all plans on the pricing
+                  page.
                 </p>
                 <Button
                   onClick={handleGoToPricing}
@@ -439,11 +429,11 @@ export function CoinPurchaseModal({
                         <h4 className="text-sm font-semibold text-white mb-1">{plan.name}</h4>
                         <div className="flex flex-wrap items-center gap-4 text-xs">
                           <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-[11px] font-semibold text-yellow-300">
-                            <Coins className="h-3 w-3" />
-                            {plan.coins} coins
+                            <Banknote className="h-3 w-3" />
+                            {plan.coins}
                           </span>
                           <span className="text-purple-100">
-                            NPR {plan.priceInNrs.toLocaleString()}
+                            {plan.priceInNrs.toLocaleString()}
                           </span>
                           {plan.validityInDays && (
                             <span className="rounded-full border border-purple-400/50 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-purple-100/80">

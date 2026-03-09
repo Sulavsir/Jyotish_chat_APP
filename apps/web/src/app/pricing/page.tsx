@@ -281,7 +281,7 @@ function PricingContent() {
                           <span className="text-white text-sm">
                             {plan.isUnlimited
                               ? 'Unlimited chat sessions'
-                              : `${plan.coins} individual chat sessions`}
+                              : `Balance of ${plan.coins} NRs for chat sessions`}
                           </span>
                         </div>
                         <div className="flex items-start gap-3">

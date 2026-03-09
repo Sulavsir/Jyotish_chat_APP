@@ -107,14 +107,15 @@ export const profileSetupSchema = z.preprocess(
       .string()
       .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
     placeOfBirth: z.string().min(2, 'Place of birth is required'),
-    currentAddress: z.string().min(5, 'Current address is required'),
-    permanentAddress: z.string().min(5, 'Permanent address is required'),
+    currentAddress: z.string().optional(),
+    permanentAddress: z.string().optional(),
     gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
     zodiacSign: z.nativeEnum(ZodiacSign).optional().nullable(),
   })
 );
 
 export const birthDetailsSchema = z.object({
+  // Required for marking a profile as completed.
   dateOfBirth: z.string().or(z.date()),
   timeOfBirth: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
   placeOfBirth: z.string().min(2, 'Place of birth is required'),

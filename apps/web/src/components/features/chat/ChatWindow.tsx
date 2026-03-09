@@ -423,7 +423,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       const errorCode = axiosError?.response?.data?.error?.code;
 
       if (errorCode === ERROR_CODES.INSUFFICIENT_COINS) {
-        const errorMessage = axiosError?.response?.data?.error?.message || 'Insufficient coins';
+        const errorMessage = axiosError?.response?.data?.error?.message || 'Insufficient balance';
         const match = errorMessage.match(/Required:\s*(\d+)/i);
         const requiredCoins = match ? parseInt(match[1], 10) : 1;
 

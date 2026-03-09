@@ -1,6 +1,6 @@
 /**
- * Coin Transactions Page
- * Shows user's coin transaction history
+ * Balance Transactions Page
+ * Shows user's balance transaction history
  */
 
 'use client';
@@ -9,7 +9,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@jyotish/ui';
-import { Coins, ArrowUpCircle, ArrowDownCircle, Calendar, Loader2 } from 'lucide-react';
+import { Banknote, ArrowUpCircle, ArrowDownCircle, Calendar, Loader2 } from 'lucide-react';
 import { coinService } from '@/services/coin.service';
 import { QUERY_KEYS, ROUTES } from '@/constants';
 import { useRouter } from 'next/navigation';
@@ -84,15 +84,15 @@ export default function CoinTransactionsPage() {
       <div className="max-w-4xl mx-auto py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Coin Transactions</h1>
-            <p className="text-purple-200/80">View your coin transaction history</p>
+            <h1 className="text-3xl font-bold text-white mb-2">Balance Transactions</h1>
+            <p className="text-purple-200/80">View your balance transaction history</p>
           </div>
           <Button
             onClick={() => router.push(ROUTES.PRICING)}
             className="bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white"
           >
-            <Coins className="h-4 w-4 mr-2" />
-            Buy Coins
+            <Banknote className="h-4 w-4 mr-2" />
+            Top up Balance
           </Button>
         </div>
 
@@ -107,16 +107,16 @@ export default function CoinTransactionsPage() {
               </div>
             ) : transactions.length === 0 ? (
               <div className="text-center py-12">
-                <Coins className="h-16 w-16 text-purple-400/50 mx-auto mb-4" />
+                <Banknote className="h-16 w-16 text-purple-400/50 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-white mb-2">No Transactions Yet</h3>
                 <p className="text-purple-200/80 mb-6">
-                  Your coin transactions will appear here once you start using coins.
+                  Your balance transactions will appear here once you start using balance.
                 </p>
                 <Button
                   onClick={() => router.push(ROUTES.PRICING)}
                   className="bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white"
                 >
-                  Buy Coins
+                  Top up Balance
                 </Button>
               </div>
             ) : (
@@ -151,7 +151,7 @@ export default function CoinTransactionsPage() {
                                 }`}
                               >
                                 {isAdd ? '+' : '-'}
-                                {Math.abs(transaction.amount)} coins
+                                {Math.abs(transaction.amount)} NRs
                               </span>
                               <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded">
                                 {getReasonLabel(transaction.reason)}

@@ -188,7 +188,7 @@ export function GetPayCheckout({ checkoutData, onError }: GetPayCheckoutProps) {
         const options: GetPayOptions = {
           papInfo: checkoutData.papInfo,
           oprKey, // Required
-          insKey: insKey && insKey.trim().length > 0 ? insKey : '', // Optional but must be present - set to empty string if not provided
+          insKey: insKey && insKey.trim().length > 0 ? insKey : '', 
           websiteDomain: checkoutData.websiteDomain,
           price: checkoutData.amount,
           amount: checkoutData.amount,

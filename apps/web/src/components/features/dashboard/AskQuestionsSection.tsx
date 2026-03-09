@@ -718,7 +718,7 @@ export function AskQuestionsSection() {
                   </div>
                 </div>
 
-                {/* Insufficient coins banner + Top up */}
+                {/* Insufficient balance banner + Top up */}
                 {showInsufficientCoinsBanner && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2">
                     <p className="text-sm text-amber-100">
@@ -938,7 +938,7 @@ export function AskQuestionsSection() {
         missingFields={missingProfileFields}
       />
 
-      {/* Broadcast Coin Purchase Modal (for broadcast tab insufficient coins) */}
+      {/* Balance / Top-up Modal (for broadcast tab insufficient balance) */}
       <CoinPurchaseModal
         isOpen={isBroadcastCoinModalOpen}
         onClose={() => setIsBroadcastCoinModalOpen(false)}

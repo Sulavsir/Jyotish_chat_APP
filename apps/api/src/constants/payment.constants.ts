@@ -58,16 +58,16 @@ export const GETPAY_MERCHANT_STATUS_PATH = '/transactions/merchant-status';
 export const getPayConfig = () => {
   // Script URL: The bundle.js file to load on frontend
   // Should be: https://minio.finpos.global/getpay-cdn/webcheckout/v5/bundle.js
-  const scriptUrl = process.env.GETPAY_SCRIPT_URL ?? '';
+  const scriptUrl = process.env.GETPAY_SCRIPT_URL!;
 
   // Base URL: The API base URL for backend verification calls
   // Should be: https://uat-bank-getpay.nchl.com.np/ecom-web-checkout/v1/secure-merchant
   // (without /transactions/merchant-status - that's appended in getpay.api.ts)
-  const baseUrl = process.env.GETPAY_BASE_URL ?? '';
+  const baseUrl = process.env.GETPAY_BASE_URL!;
 
-  const papInfo = process.env.GETPAY_PAP_INFO ?? '';
-  const oprKey = process.env.GETPAY_OPR_KEY ?? '';
-  const insKey = process.env.GETPAY_INS_KEY ?? '';
+  const papInfo = process.env.GETPAY_PAP_INFO!;
+  const oprKey = process.env.GETPAY_OPR_KEY!;
+  const insKey = process.env.GETPAY_INS_KEY!;
 
   return {
     baseUrl,

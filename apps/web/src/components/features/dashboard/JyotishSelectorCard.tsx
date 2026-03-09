@@ -145,12 +145,11 @@ export function JyotishSelectorCard({ astrologer, isSelected = false }: JyotishS
                 <span className="text-xs text-amber-300">Appointment only</span>
               ) : perMessageFeeNr != null && perMessageFeeNr > 0 && chatCoinCost != null ? (
                 <span className="text-xs text-amber-300">
-                  {perMessageFeeNr} NRs/message · {chatCoinCost} coin
-                  {chatCoinCost === 1 ? '' : 's'}/message
+                  {perMessageFeeNr} NRs/message
                 </span>
               ) : chatCoinCost != null ? (
                 <span className="text-xs text-amber-300">
-                  {chatCoinCost} coin{chatCoinCost === 1 ? '' : 's'}/message
+                  {Math.round(chatCoinCost / (rates?.COINS_PER_NPR ?? 1))} NRs/message
                 </span>
               ) : (
                 <span className="text-xs text-red-300">Instant chat fee not set</span>

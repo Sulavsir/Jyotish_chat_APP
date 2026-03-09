@@ -31,14 +31,14 @@ import { LoadingButton } from '@/components/ui';
 import { getCoinRates, updateCoinRates } from '@/services/adminCoinRates.service';
 import { QUERY_KEYS } from '@/constants';
 import type { PlatformCoinRateRow, PlatformCoinRateType } from '@/types/platformCoinRate.types';
-import { Coins } from 'lucide-react';
+import { Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 
 const RATE_LABELS: Partial<Record<PlatformCoinRateType, string>> = {
   BROADCAST_PER_MESSAGE: 'Broadcast chat (per message)',
   BROADCAST_SEND: 'Broadcast send (per message)',
   KUNDALI_MATCH: 'Kundali Match',
-  COINS_PER_NPR: 'Coins per NPR (Purchase Rate)',
+  COINS_PER_NPR: 'Units per NPR (Purchase Rate)',
 };
 
 export default function AdminSetCoinsPage() {
@@ -121,11 +121,11 @@ export default function AdminSetCoinsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white tracking-tight flex items-center gap-2">
-          <Coins className="h-7 w-7 text-amber-400" />
-          Coin Settings
+          <Banknote className="h-7 w-7 text-amber-400" />
+          Rate Settings
         </h1>
         <p className="text-white/60 text-sm mt-1">
-          Set coins deducted for broadcast and kundali-related actions. Per-Jyotish chat and appointment
+          Set NRs deducted for broadcast and kundali-related actions. Per-Jyotish chat and appointment
           pricing is configured on each astrologer profile.
         </p>
       </div>
@@ -133,7 +133,7 @@ export default function AdminSetCoinsPage() {
       <Card className="bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden">
         <CardHeader>
           <CardTitle className="text-white">Rates</CardTitle>
-          <p className="text-sm text-white/60">Coins per action (integers, 0–10000)</p>
+          <p className="text-sm text-white/60">NRs per action (integers, 0–10000)</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading && <p className="text-white/60">Loading...</p>}
@@ -150,7 +150,7 @@ export default function AdminSetCoinsPage() {
                     <TableRow className="border-white/10 hover:bg-transparent">
                       <TableHead className="text-white/80 font-medium">Rate type</TableHead>
                       <TableHead className="text-white/80 font-medium">Description</TableHead>
-                      <TableHead className="text-white/80 font-medium w-40">Coins</TableHead>
+                      <TableHead className="text-white/80 font-medium w-40">NRs</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

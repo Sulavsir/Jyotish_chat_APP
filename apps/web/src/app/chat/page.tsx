@@ -464,7 +464,7 @@ export default function ChatPage() {
         data.message?.toLowerCase().includes('insufficient coins')
       ) {
         const coins = data.requiredCoins || extractRequiredCoins(data.message);
-        toast.error(data.message || 'Insufficient coins to send message');
+        toast.error(data.message || 'Insufficient balance to send message');
         setRequiredCoins(coins);
         setShowCoinPurchaseModal(true);
       } else {
@@ -1017,14 +1017,14 @@ export default function ChatPage() {
         missingFields={missingProfileFields}
       />
 
-      {/* Coin Purchase Modal */}
+      {/* Balance / Top-up Modal */}
       <CoinPurchaseModal
         isOpen={showCoinPurchaseModal}
         onClose={() => setShowCoinPurchaseModal(false)}
         requiredCoins={requiredCoins}
         onPurchaseSuccess={() => {
           setShowCoinPurchaseModal(false);
-          // After purchase, coins will be updated and user can retry sending message
+          // After purchase, balance will be updated and user can retry sending message
         }}
         mode="insufficient"
       />

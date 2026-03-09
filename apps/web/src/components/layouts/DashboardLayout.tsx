@@ -1,6 +1,6 @@
 /**
  * Dashboard Layout - Client app layout with sidebar (same pattern as Jyotish).
- * Navbar: logo, language, coins, notification, profile.
+ * Navbar: logo, language, balance, notification, profile.
  * Sidebar: Dashboard, Astrologers, Chat, My Bookings, Horoscope, Pricing, Profile.
  */
 

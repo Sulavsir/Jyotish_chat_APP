@@ -19,7 +19,7 @@ import {
 } from '@/components/jyotish/JyotishTable';
 import { getAstrologerEarnings } from '@/services/astrologerEarnings.service';
 import type { AstrologerCoinEarningSource, AstrologerCoinEarningRow } from '@/types/earnings.types';
-import { Coins, MessageSquare, Radio, Calendar } from 'lucide-react';
+import { Banknote, MessageSquare, Radio, Calendar } from 'lucide-react';
 
 const SOURCE_LABELS: Record<AstrologerCoinEarningSource, string> = {
   CHAT_MESSAGE: 'Direct chat',
@@ -82,7 +82,7 @@ export default function JyotishEarningsPage() {
         id: 'source',
         header: 'Source',
         cell: (row) => {
-          const SourceIcon = SOURCE_ICONS[row.source] ?? Coins;
+          const SourceIcon = SOURCE_ICONS[row.source] ?? Banknote;
           const label = SOURCE_LABELS[row.source] ?? row.source;
           return (
             <span className="inline-flex items-center gap-1.5">
@@ -118,7 +118,7 @@ export default function JyotishEarningsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white tracking-tight">My Earnings</h1>
           <p className="text-white/60 text-sm mt-1">
-            Coins earned from client deductions (based on your commission %)
+            Earnings from client balance deductions (based on your commission %)
           </p>
         </div>
 
@@ -128,12 +128,12 @@ export default function JyotishEarningsPage() {
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium text-white/80">Total earned</CardTitle>
               <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
-                <Coins className="h-4 w-4" />
+                <Banknote className="h-4 w-4" />
               </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-amber-300 tracking-tight">
-                {isLoading ? '—' : `${data?.summary?.totalCoins ?? 0} coins`}
+                {isLoading ? '—' : `${data?.summary?.totalCoins ?? 0} NRs`}
               </div>
             </CardContent>
           </Card>
@@ -155,7 +155,7 @@ export default function JyotishEarningsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-xl font-bold text-white tracking-tight">
-                    {isLoading ? '—' : value} coins
+                    {isLoading ? '—' : value} NRs
                   </div>
                 </CardContent>
               </Card>
@@ -180,7 +180,7 @@ export default function JyotishEarningsPage() {
               !isError &&
               (!data?.items?.length ? (
                 <div className="py-8 text-center text-white/60">
-                  No earnings yet. Earnings appear when clients spend coins in your chats or
+                  No earnings yet. Earnings appear when clients use balance in your chats or
                   appointments.
                 </div>
               ) : (

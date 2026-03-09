@@ -22,7 +22,7 @@ import {
   SelectValue,
   Textarea,
 } from '@jyotish/ui';
-import { X, Coins, AlertCircle, ArrowLeft } from 'lucide-react';
+import { X, Banknote, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
@@ -184,12 +184,12 @@ export function RequestInstantChatModal({
         <div className="mb-2 p-2 rounded-lg border border-purple-500/30 bg-purple-500/10 flex items-start gap-2">
           <AlertCircle className="h-4 w-4 text-purple-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-purple-200 mb-0.5">Coin cost</p>
+            <p className="text-xs font-medium text-purple-200 mb-0.5">Cost</p>
             <p className="text-xs text-purple-200/90">
               Sending costs{' '}
               <span className="font-semibold inline-flex items-center gap-1 text-yellow-400">
-                <Coins className="h-3 w-3 " />
-                {coinCost != null ? `${coinCost} coin${coinCost === 1 ? '' : 's'}` : '…'}
+                <Banknote className="h-3 w-3 " />
+                {coinCost != null ? `${coinCost} NRs` : '…'}
               </span>
               . Deducted when you send.
             </p>

@@ -17,7 +17,7 @@ import {
   Alert,
   AlertDescription,
 } from '@jyotish/ui';
-import { Coins } from 'lucide-react';
+import { Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
@@ -81,7 +81,7 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
     }
     if (coinCost > 0 && coinBalance < coinCost) {
       toast.error(
-        `Insufficient coins. Required: ${coinCost}, Available: ${coinBalance}. Please top up.`
+        `Insufficient balance. Required: ${coinCost} NRs, Available: ${coinBalance} NRs. Please top up.`
       );
       return;
     }
@@ -99,7 +99,7 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
           <DialogTitle className="text-white">Kundali Match</DialogTitle>
           <DialogDescription className="text-white/70">
             Submit birth details of the boy and girl. Admin will review and send you a detailed
-            kundali match report. This request costs {coinCost} coins.
+            kundali match report. This request costs {coinCost} NRs.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-5 pt-4 pb-0 flex-1 overflow-y-auto">
@@ -108,7 +108,7 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
             className="border-amber-500/50 bg-amber-500/10 text-amber-200 [&>.shrink-0]:hidden"
           >
             <AlertDescription className="flex items-center gap-2 text-amber-200">
-              <Coins className="h-4 w-4 shrink-0 text-amber-400" />
+              <Banknote className="h-4 w-4 shrink-0 text-amber-400" />
               Cost: {coinCost} NRs · Your balance: {coinBalance} NRs
             </AlertDescription>
           </Alert>

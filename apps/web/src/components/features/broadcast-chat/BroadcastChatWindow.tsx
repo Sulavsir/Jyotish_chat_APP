@@ -14,7 +14,7 @@ import { BroadcastMessageStatus } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import chatService from '@/services/chat.service';
 import coinService from '@/services/coin.service';
-import { Send, Users, Check, Lock, XCircle, AlertCircle, Coins } from 'lucide-react';
+import { Send, Users, Check, Lock, XCircle, AlertCircle, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { getImageUrl } from '@/utils/image.utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
@@ -202,7 +202,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         setShowCoinPurchaseModal(true);
         toast.error(errorMessage, {
           duration: 5000,
-          description: 'Please top up your coins to send a broadcast message.',
+          description: 'Please top up your balance to send a broadcast message.',
         });
       } else if (errorMessage.includes('complete your profile')) {
         toast.error(errorMessage, {
@@ -251,7 +251,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
-      toast.success('Request cancelled. Your coin has been refunded.');
+      toast.success('Request cancelled. Your balance has been refunded.');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to cancel request.');
@@ -447,7 +447,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                 </p>
               </div>
               <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                Your coin has been refunded.
+                Your balance has been refunded.
               </p>
             </div>
           </div>
@@ -537,13 +537,13 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">Coin Cost</p>
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">Cost</p>
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 Sending a broadcast message will cost{' '}
                 <span className="font-semibold inline-flex items-center gap-1">
-                  <Coins className="h-3 w-3" />
+                  <Banknote className="h-3 w-3" />
                   {broadcastSendCoins != null
-                    ? `${broadcastSendCoins} coin${broadcastSendCoins === 1 ? '' : 's'}`
+                    ? `${broadcastSendCoins} NRs`
                     : '…'}
                 </span>
                 . This will be deducted when you send the message.
@@ -596,14 +596,14 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         missingFields={missingProfileFields}
       />
 
-      {/* Coin Purchase Modal */}
+      {/* Balance / Top-up Modal */}
       <CoinPurchaseModal
         isOpen={showCoinPurchaseModal}
         onClose={() => setShowCoinPurchaseModal(false)}
         requiredCoins={requiredCoins}
         onPurchaseSuccess={() => {
           setShowCoinPurchaseModal(false);
-          // After purchase, coins will be updated and user can retry sending message
+          // After purchase, balance will be updated and user can retry sending message
         }}
         mode="insufficient"
       />

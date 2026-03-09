@@ -369,7 +369,7 @@ export default function ProfilePage() {
                   </Badge>
                 </div>
 
-                {/* Coin Balance */}
+                {/* Balance */}
                 <div className="mt-4">
                   <CoinDisplay themeColor="yellow" />
                 </div>

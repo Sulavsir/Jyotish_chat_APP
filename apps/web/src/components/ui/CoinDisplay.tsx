@@ -1,12 +1,12 @@
 /**
- * Coin Display Component
- * Shows user's coin balance
+ * Balance Display Component
+ * Shows user's balance with Money icon
  */
 
 'use client';
 
 import React, { useState } from 'react';
-import { Coins } from 'lucide-react';
+import { Banknote } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { coinService } from '@/services/coin.service';
 import { QUERY_KEYS } from '@/constants';
@@ -23,8 +23,6 @@ export function CoinDisplay({
   themeColor: _themeColor = 'yellow',
   className = '',
 }: CoinDisplayProps) {
-  // Force yellow theme for coins
-  const themeColor = 'yellow';
   const user = useAuthStore((state) => state.user);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
@@ -41,39 +39,16 @@ export function CoinDisplay({
     return null;
   }
 
-  const colorClasses = {
-    purple: {
-      bg: 'bg-purple-500/10',
-      border: 'border-purple-500/20',
-      text: 'text-purple-400',
-      icon: 'text-purple-400',
-    },
-    orange: {
-      bg: 'bg-orange-500/10',
-      border: 'border-orange-500/20',
-      text: 'text-orange-400',
-      icon: 'text-orange-400',
-    },
-    yellow: {
-      bg: 'bg-amber-500/10',
-      border: 'border-amber-500/30',
-      text: 'text-amber-300',
-      icon: 'text-amber-300',
-    },
-  };
-
-  const colors = colorClasses[themeColor];
-
   return (
     <>
       <button
         type="button"
         onClick={() => setIsPurchaseModalOpen(true)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${colors.bg} ${colors.border} ${className} hover:bg-amber-500/20 transition-colors`}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-green-500/10 border-green-500/20 ${className} hover:bg-green-500/20 transition-colors`}
       >
-        <Coins className={`h-4 w-4 ${colors.icon}`} />
-        <span className={`text-sm font-semibold ${colors.text}`}>
-          {isLoading ? '...' : `${balance} coins`}
+        <Banknote className="h-4 w-4 text-green-400" />
+        <span className="text-sm font-semibold text-green-400">
+          {isLoading ? '...' : `Balance: ${balance}`}
         </span>
       </button>
 
