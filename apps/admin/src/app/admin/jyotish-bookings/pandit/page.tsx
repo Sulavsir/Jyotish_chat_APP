@@ -32,7 +32,6 @@ import { formatAdminDate } from '@/utils/helpers';
 import { generatePageNumbers } from '@/utils/helpers';
 import { RefreshCw } from 'lucide-react';
 
-
 interface JyotishBookingsResponse {
   bookings: Array<
     import('@jyotish/shared').JyotishBookingRequest & {
@@ -70,12 +69,16 @@ type ActionState =
 
 function statusBadge(status: JyotishBookingStatus) {
   if (status === JyotishBookingStatus.APPROVED) {
-    return <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Approved</Badge>;
+    return (
+      <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Approved</Badge>
+    );
   }
   if (status === JyotishBookingStatus.REJECTED) {
     return <Badge className="bg-red-500/15 text-red-300 border border-red-500/30">Rejected</Badge>;
   }
-  return <Badge className="bg-yellow-500/15 text-yellow-200 border border-yellow-500/30">Pending</Badge>;
+  return (
+    <Badge className="bg-yellow-500/15 text-yellow-200 border border-yellow-500/30">Pending</Badge>
+  );
 }
 
 export default function PanditBookingsPage() {
@@ -142,9 +145,7 @@ export default function PanditBookingsPage() {
   const columns: AdminTableColumn<(typeof bookings)[number]>[] = [
     {
       header: 'Date',
-      accessor: (b) => (
-        <span className="text-slate-200">{formatAdminDate(b.bookingDate)}</span>
-      ),
+      accessor: (b) => <span className="text-slate-200">{formatAdminDate(b.bookingDate)}</span>,
       width: '140px',
     },
     {
@@ -196,7 +197,7 @@ export default function PanditBookingsPage() {
             {b.details}
           </span>
         ) : (
-         <span className="text-slate-500">—</span>
+          <span className="text-slate-500">—</span>
         ),
       width: '320px',
     },
@@ -213,7 +214,7 @@ export default function PanditBookingsPage() {
             variant="outline"
             className="border-slate-700"
             disabled={b.status !== JyotishBookingStatus.PENDING}
-            onClick={() => { 
+            onClick={() => {
               setAdminNotes('');
               setAction({ open: true, id: b.id, status: JyotishBookingStatus.APPROVED });
             }}
@@ -243,7 +244,7 @@ export default function PanditBookingsPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Book Pandit Ji Requests</h1>
+            <h1 className="text-2xl font-bold text-white">Book Pujari Ji Requests</h1>
             <p className="text-slate-400">Approve or reject Pandit Ji booking requests</p>
           </div>
           <Button
@@ -274,7 +275,12 @@ export default function PanditBookingsPage() {
             showSerialNumber
             emptyState={{
               icon: (
-                <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-12 h-12 text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -283,7 +289,9 @@ export default function PanditBookingsPage() {
                   />
                 </svg>
               ),
-              title: searchTerm ? 'No Pandit Ji booking requests found' : 'No Pandit Ji booking requests',
+              title: searchTerm
+                ? 'No Pandit Ji booking requests found'
+                : 'No Pandit Ji booking requests',
               description: searchTerm
                 ? 'Try adjusting your search terms'
                 : 'Requests submitted by clients will appear here.',
@@ -296,13 +304,15 @@ export default function PanditBookingsPage() {
           <div className="rounded-xl p-4">
             <div className="flex flex-col gap-2 items-center justify-between">
               <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
+                Showing{' '}
+                <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
+                </span>{' '}
+                to{' '}
                 <span className="text-purple-400">
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
               <Pagination>
@@ -335,7 +345,9 @@ export default function PanditBookingsPage() {
 
                   <PaginationItem>
                     <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                      }
                       disabled={currentPage === pagination.totalPages}
                     />
                   </PaginationItem>
@@ -354,7 +366,9 @@ export default function PanditBookingsPage() {
           <DialogContent className="bg-slate-900 border-slate-700 text-white">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {action.open && action.status === JyotishBookingStatus.APPROVED ? 'Approve request' : 'Reject request'}
+                {action.open && action.status === JyotishBookingStatus.APPROVED
+                  ? 'Approve request'
+                  : 'Reject request'}
               </DialogTitle>
             </DialogHeader>
 
@@ -369,7 +383,11 @@ export default function PanditBookingsPage() {
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" className="border-slate-700" onClick={() => setAction({ open: false })}>
+              <Button
+                variant="outline"
+                className="border-slate-700"
+                onClick={() => setAction({ open: false })}
+              >
                 Cancel
               </Button>
               <LoadingButton
@@ -395,4 +413,3 @@ export default function PanditBookingsPage() {
     </AdminLayout>
   );
 }
-

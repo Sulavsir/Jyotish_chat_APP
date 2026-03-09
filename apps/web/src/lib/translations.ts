@@ -31,8 +31,7 @@ const EN: Record<string, string> = {
 
   // Ask questions section
   askYourQuestion: 'Ask your question.',
-  chooseHowToContact:
-    'Choose how you want to reach Jyotish: one-on-one or broadcast to everyone.',
+  chooseHowToContact: 'Choose how you want to reach Jyotish: one-on-one or publish to everyone.',
   chatWithSpecificJyotish: 'Chat with specific Jyotish',
   publishToAllJyotish: 'Publish to all Jyotish',
   selectJyotishToStart: 'Select a Jyotish from the dropdown above to start a private chat.',
@@ -67,7 +66,7 @@ const EN: Record<string, string> = {
   chatWithJyotish: 'Chat with Jyotish',
   dailyHoroscope: 'Daily Horoscope',
   kundaliMatch: 'Kundali Match',
-  bookPanditJi: 'Book Pandit Ji',
+  bookPanditJi: 'Book Pujari Ji',
   bookVaastuSastri: 'Book Vaastu Sastri',
   kathaVachak: 'Katha Vachak',
   travelPredictions: 'Travel Predictions',
@@ -92,12 +91,13 @@ const EN: Record<string, string> = {
   verifyingAccess: 'Verifying access...',
 
   // Modals
-  bookPanditJiTitle: 'Book Pandit Ji',
+  bookPanditJiTitle: 'Book Pujari Ji',
   bookVaastuSastriTitle: 'Book Vaastu Sastri',
   bookKathaVachakTitle: 'Book Katha Vachak',
 
   // Coins / chat
-  youNeedCoins: 'You need at least {count} NRs (deducted when Jyotish accepts). Your balance: {balance} NRs. Please top up to book.',
+  youNeedCoins:
+    'You need at least {count} NRs (deducted when Jyotish accepts). Your balance: {balance} NRs. Please top up to book.',
   topUp: 'Top up',
   messageCannotBeEmpty: 'Message cannot be empty',
 };
@@ -143,8 +143,7 @@ const NE: Record<string, string> = {
   clearQuestion: 'प्रश्न खाली गर्नुहोस्',
   startChat: 'च्याट सुरु गर्नुहोस्',
   searchingForJyotish: 'उपलब्ध ज्योतिषी खोजिँदै छ',
-  messageBroadcastedWaiting:
-    'तपाईंको सन्देश प्रसारण भइसक्यो। ज्योतिषीले स्वीकार गर्न पर्खिँदै...',
+  messageBroadcastedWaiting: 'तपाईंको सन्देश प्रसारण भइसक्यो। ज्योतिषीले स्वीकार गर्न पर्खिँदै...',
   categoryChoose: 'कोटि छनोट गर्नुहोस्',
   orTypeQuestionToAll: 'सबै ज्योतिषीलाई पठाउन आफ्नो प्रश्न टाइप गर्नुहोस्',
   yourQuestionPublishedToAll: 'तपाईंको प्रश्न सबै उपलब्ध ज्योतिषीलाई पठाइनेछ।',

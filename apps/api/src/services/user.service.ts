@@ -119,7 +119,9 @@ export class UserService {
     });
 
     if (existingAstrologer) {
-      throw new Error('This phone number is registered as an astrologer account. Please use the astrologer login page.');
+      throw new Error(
+        'This phone number is registered as an astrologer account. Please use the astrologer login page.'
+      );
     }
 
     // Create user without password
@@ -224,8 +226,7 @@ export class UserService {
       !!data.timeOfBirth &&
       data.timeOfBirth.trim().length > 0 &&
       !!data.placeOfBirth &&
-      data.placeOfBirth.trim().length > 0 &&
-      !!data.gender;
+      data.placeOfBirth.trim().length > 0;
 
     // Accept common Flutter date formats like "YYYY/MM/DD" by normalizing to ISO-ish.
     const dobRaw = data.dateOfBirth instanceof Date ? data.dateOfBirth : String(data.dateOfBirth);
@@ -236,7 +237,6 @@ export class UserService {
       throw new Error('Invalid dateOfBirth. Expected YYYY-MM-DD.');
     }
 
-    // IMPORTANT: For profile-setup, do NOT auto-calculate zodiacSign.
     // If the client doesn't send it, keep it null (so we can detect missing payloads).
     const resolvedZodiacSign = data.zodiacSign ?? null;
 
@@ -245,7 +245,7 @@ export class UserService {
       where: { id: userId },
       data: {
         name: data.name,
-        email: data.email || null, // Convert empty string to null for unique constraint
+        email: data.email || null,
         dateOfBirth: dob,
         zodiacSign: resolvedZodiacSign as any,
         timeOfBirth: data.timeOfBirth,
