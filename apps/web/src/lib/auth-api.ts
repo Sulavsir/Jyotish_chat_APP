@@ -30,18 +30,6 @@ import type {
 } from '@/types/auth';
 import { UserRole } from '@/types';
 
-const AUTH_ROUTE_PATTERNS = [
-  '/forgot-password',
-  '/reset-password',
-  '/verify-otp',
-  '/set-password',
-  '/login',
-  '/profile-setup',
-];
-function isAuthRoute(pathname: string): boolean {
-  return AUTH_ROUTE_PATTERNS.some((p) => pathname.includes(p));
-}
-
 export const authApi = {
   checkPhone: async (data: CheckPhoneRequest): Promise<CheckPhoneResponse> => {
     return apiClient.post<CheckPhoneResponse>(API_ENDPOINTS.AUTH.CHECK_PHONE, data, false);
@@ -136,10 +124,6 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<User> => {
-    if (typeof window !== 'undefined' && isAuthRoute(window.location.pathname)) {
-      throw new Error('Skipping profile fetch on auth route');
-    }
-
     // ALWAYS check store first to determine role
     const user = useAuthStore.getState().user;
 
@@ -330,10 +314,6 @@ export const authApi = {
   },
 
   getAstrologerProfile: async (): Promise<User> => {
-    if (typeof window !== 'undefined' && isAuthRoute(window.location.pathname)) {
-      throw new Error('Skipping profile fetch on auth route');
-    }
-
     const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
     const astrologer = response.astrologer;
     return { ...astrologer, role: UserRole.ASTROLOGER };
