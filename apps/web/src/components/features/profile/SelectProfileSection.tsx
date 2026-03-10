@@ -55,7 +55,7 @@ export function SelectProfileSection({
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS.PROFILES });
       setDeletingProfile(null);
       if (selectedProfileId === deletedId) onSelectProfileId('me');
-      toast.success('Profile removed');
+      toast.success('Profile removed successfully!');
     },
     onError: (err) => {
       setDeletingProfile(null);
@@ -82,7 +82,6 @@ export function SelectProfileSection({
   );
 
   const gapClass = compact ? 'gap-1.5' : 'gap-2';
-  const listMaxH = compact ? 'max-h-32' : 'max-h-40';
 
   return (
     <div className={className}>
@@ -90,13 +89,13 @@ export function SelectProfileSection({
         Select profile (whose birth details to share with Jyotish)
       </Label>
       <div
-        className={`flex flex-col ${gapClass} ${listMaxH} overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-2`}
+        className={`flex flex-col ${gapClass} max-h-[132px] overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-2`}
       >
         {/* "Me" row */}
         <button
           type="button"
           onClick={() => onSelectProfileId('me')}
-          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-left text-sm border transition-colors ${
+          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-left text-sm border transition-colors flex-shrink-0 ${
             selectedProfileId === 'me'
               ? 'bg-purple-500/20 border-purple-400/50 text-white'
               : 'bg-white/5 border-transparent text-gray-300 hover:bg-white/10 hover:text-white'
@@ -114,7 +113,7 @@ export function SelectProfileSection({
         {profiles.map((profile) => (
           <div
             key={profile.id}
-            className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
+            className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors flex-shrink-0 ${
               selectedProfileId === profile.id
                 ? 'bg-purple-500/20 border-purple-400/50 text-white'
                 : 'bg-white/5 border-transparent text-gray-300 hover:bg-white/10 hover:text-white'
@@ -157,12 +156,12 @@ export function SelectProfileSection({
           </div>
         ))}
 
-        {/* Add button */}
+        {/* Add button — scrolls with the list */}
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="w-full border-dashed border-white/20 text-gray-300 hover:bg-white/10 hover:text-white"
+          className="w-full border-dashed border-white/20 text-gray-300 hover:bg-white/10 hover:text-white flex-shrink-0"
           onClick={handleAddClick}
         >
           <UserPlus className="h-4 w-4 mr-2" />
