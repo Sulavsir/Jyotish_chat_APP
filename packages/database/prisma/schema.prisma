@@ -111,6 +111,7 @@ model Astrologer {
   availabilitySchedule         Json? // Store weekly schedule
   languages                    String[]              @default(["English", "Nepali"])
   gender                       Gender?
+  country                      String?
   createdBy                    String // Admin ID who created this astrologer (or "SELF_REGISTERED" for self-registrations)
   createdAt                    DateTime              @default(now())
   updatedAt                    DateTime              @updatedAt

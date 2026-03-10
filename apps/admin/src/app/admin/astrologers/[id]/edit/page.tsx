@@ -27,7 +27,7 @@ import {
 } from '@/constants/validators.constants';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { AstrologerEditPasswordModal } from '@/components/ui/AstrologerEditPasswordModal';
-import { PhoneInputWithCountry } from '@jyotish/ui';
+import { PhoneInputWithCountry, CountrySelect } from '@jyotish/ui';
 import { getImageUrl } from '@/utils/helpers';
 import { toast } from 'sonner';
 import type { Astrologer } from '@/types';
@@ -91,6 +91,7 @@ export default function EditAstrologerPage() {
       languages: [],
       gender: null,
       address: null,
+      country: null,
     },
   });
 
@@ -110,6 +111,7 @@ export default function EditAstrologerPage() {
       languages: data.languages ?? [],
       gender: data.gender ?? null,
       address: data.address ?? null,
+      country: data.country ?? null,
     });
   }, [data, form]);
 
@@ -437,6 +439,25 @@ export default function EditAstrologerPage() {
                           <option value="FEMALE">Female</option>
                           <option value="OTHER">Other</option>
                         </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <CountrySelect
+                          value={field.value ?? undefined}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          placeholder="Select country"
+                          variant="admin"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

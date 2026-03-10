@@ -26,7 +26,7 @@ export default function SetPasswordPage() {
   const setPasswordMutation = useMutation({
     mutationFn: authApi.setPassword,
     onSuccess: async (data) => {
-      displaySuccess(TOAST_MESSAGES.SUCCESS.PASSWORD_SET);
+      if (data?.message) displaySuccess(data.message);
 
       // Fetch user details from /me endpoint
       try {
@@ -40,15 +40,12 @@ export default function SetPasswordPage() {
         router.push(ROUTES.DASHBOARD);
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
-        displayError(
-          { message: 'Failed to load user profile', statusCode: 500 } as ApiError,
-          TOAST_MESSAGES.ERROR.GENERIC
-        );
+        displayError(error);
       }
     },
     onError: (error: ApiError) => {
       const { message, fieldErrors } = parseApiError(error);
-      displayError(error, TOAST_MESSAGES.ERROR.GENERIC);
+      displayError(error);
 
       // Set field-specific errors if available
       if (Object.keys(fieldErrors).length > 0) {
@@ -57,7 +54,6 @@ export default function SetPasswordPage() {
           confirmPassword: fieldErrors.confirmPassword || '',
         });
       } else {
-        // Generic error - show on password field
         setErrors({
           password: message,
           confirmPassword: '',

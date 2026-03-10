@@ -15,6 +15,7 @@ export * from './FormError';
 export * from './Form';
 export * from './FormPasswordInput';
 export * from './OTPInput';
+export * from './OtpExpiryCountdown';
 export * from './ProfileDropdown';
 export * from './NotificationBell';
 export * from './CoinDisplay';

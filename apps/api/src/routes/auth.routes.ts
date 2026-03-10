@@ -13,6 +13,9 @@ import {
   userLoginSchema,
   loginWithOTPRequestSchema,
   verifyLoginOTPSchema,
+  forgotPasswordSchema,
+  resetPasswordWithTokenSchema,
+  resetPasswordWithOtpSchema,
 } from '../validators';
 
 const router = Router();
@@ -263,6 +266,106 @@ router.post(
  *         description: Endpoint deprecated
  */
 router.post('/register', asyncHandler(authController.register));
+
+/**
+ * @swagger
+ * /api/v1/auth/forgot-password:
+ *   post:
+ *     summary: Request password reset via email or phone OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - identifier
+ *             properties:
+ *               identifier:
+ *                 type: string
+ *                 description: Email or phone number
+ *     responses:
+ *       200:
+ *         description: Reset instructions sent (if account exists)
+ */
+router.post(
+  '/forgot-password',
+  validateBody(forgotPasswordSchema),
+  asyncHandler(authController.requestPasswordReset)
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/reset-password-token:
+ *   post:
+ *     summary: Reset password using email token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *               - confirmPassword
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ */
+router.post(
+  '/reset-password-token',
+  validateBody(resetPasswordWithTokenSchema),
+  asyncHandler(authController.resetPasswordWithToken)
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/reset-password-otp:
+ *   post:
+ *     summary: Reset password using phone OTP
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phoneNumber
+ *               - otp
+ *               - sessionId
+ *               - password
+ *               - confirmPassword
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               sessionId:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ */
+router.post(
+  '/reset-password-otp',
+  validateBody(resetPasswordWithOtpSchema),
+  asyncHandler(authController.resetPasswordWithOTP)
+);
 
 /**
  * @swagger

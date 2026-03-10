@@ -112,6 +112,41 @@ export interface ProfileSetupResponse {
   message: string;
 }
 
+// Forgot / Reset Password
+export interface ForgotPasswordRequest {
+  identifier: string;
+}
+
+export interface ForgotPasswordResponse {
+  method: 'email' | 'otp' | 'none';
+  message: string;
+  sessionId?: string;
+  expiresIn?: number;
+  otp?: string;
+}
+
+export interface ResetPasswordWithTokenRequest {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordWithTokenResponse {
+  message: string;
+}
+
+export interface ResetPasswordWithOtpRequest {
+  phoneNumber: string;
+  otp: string;
+  sessionId: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface ResetPasswordWithOtpResponse {
+  message: string;
+}
+
 // Get Current User
 export interface GetProfileResponse {
   user: User;

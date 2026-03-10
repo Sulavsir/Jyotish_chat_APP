@@ -108,6 +108,7 @@ export const createAstrologerSchema = z.object({
     .max(1000, 'Bio must not exceed 1000 characters')
     .optional(),
   address: z.string().max(500, 'Address must not exceed 500 characters').optional().nullable(),
+  country: z.string().max(100, 'Country is too long').optional().nullable(),
 });
 
 export type CreateAstrologerFormData = z.infer<typeof createAstrologerSchema>;
@@ -136,6 +137,7 @@ export const updateAstrologerFormSchema = z.object({
   languages: z.array(z.string()).optional(),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
+  country: z.string().max(100).optional().nullable(),
 });
 
 export type UpdateAstrologerFormData = z.infer<typeof updateAstrologerFormSchema>;

@@ -12,6 +12,11 @@ import {
   listSlotsQuerySchema,
   updateSlotSchema,
 } from '../validators/slot.validators';
+import {
+  forgotPasswordSchema,
+  resetPasswordWithTokenSchema,
+  resetPasswordWithOtpSchema,
+} from '../validators/auth.validators';
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
 import * as slotController from '../controllers/slotController';
@@ -22,6 +27,22 @@ const router = Router();
 // ==================== Astrologer Authentication ====================
 // Public routes (no authentication required)
 router.post('/auth/login', asyncHandler(astrologerController.astrologerLogin));
+
+router.post(
+  '/auth/forgot-password',
+  validateBody(forgotPasswordSchema),
+  asyncHandler(astrologerController.requestAstrologerPasswordReset)
+);
+router.post(
+  '/auth/reset-password-token',
+  validateBody(resetPasswordWithTokenSchema),
+  asyncHandler(astrologerController.resetAstrologerPasswordWithToken)
+);
+router.post(
+  '/auth/reset-password-otp',
+  validateBody(resetPasswordWithOtpSchema),
+  asyncHandler(astrologerController.resetAstrologerPasswordWithOTP)
+);
 // Registration route - validation handled in controller after FormData parsing
 router.post(
   '/register',

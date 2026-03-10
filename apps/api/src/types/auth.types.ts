@@ -33,3 +33,13 @@ export interface TempTokenPayload {
   phoneNumber: string;
   type: typeof TOKEN_TYPES.TEMP;
 }
+
+export interface PasswordResetTokenPayload {
+  userId: string;
+  type: typeof TOKEN_TYPES.RESET;
+}
+
+export interface AstrologerResetTokenPayload {
+  astrologerId: string;
+  type: typeof TOKEN_TYPES.RESET_ASTROLOGER;
+}

@@ -17,6 +17,11 @@ type AstrologerSelectResult = {
   profilePhoto: string | null;
   isOnline: boolean;
   category: string;
+  country: string | null;
+  gender: string | null;
+  appointmentFee: number | null;
+  chatMessageFee: number | null;
+  rating: number | null;
   createdAt: Date;
 };
 
@@ -46,8 +51,13 @@ export const getAstrologers = async (
       email: true,
       phone: true,
       profilePhoto: true,
-      isOnline: true, // ✅ Clients CAN see astrologer online status
+      isOnline: true,
       category: true,
+      country: true,
+      gender: true,
+      appointmentFee: true,
+      chatMessageFee: true,
+      rating: true,
       createdAt: true,
     },
     take: limit,

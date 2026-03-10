@@ -14,6 +14,11 @@ type ValidationTarget = 'body' | 'params' | 'query';
  * Validates data and passes errors to global error handler
  */
 export function validate(schema: ZodSchema, target: ValidationTarget = 'body') {
+  if (!schema || typeof schema.parseAsync !== 'function') {
+    throw new Error(
+      `Validation middleware: schema is missing or invalid. Ensure the validator is exported from validators (e.g. forgotPasswordSchema, resetPasswordWithTokenSchema).`
+    );
+  }
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const dataToValidate = req[target];

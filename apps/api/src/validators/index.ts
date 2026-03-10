@@ -31,7 +31,12 @@ export {
   updateClientProfileSchema,
 } from '@jyotish/shared';
 
-// Export backend-specific validators
+// Export backend-specific validators (auth password-reset schemas live here so API works without shared build)
+export {
+  forgotPasswordSchema,
+  resetPasswordWithTokenSchema,
+  resetPasswordWithOtpSchema,
+} from './auth.validators';
 export * from './query.validators';
 export * from './coin.validators';
 export * from './horoscope.validators';

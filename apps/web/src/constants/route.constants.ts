@@ -18,6 +18,7 @@ export const ROUTES = {
 
   // Jyotish (Astrologer) Auth Routes
   JYOTISH_LOGIN: '/jyotish/login',
+  JYOTISH_FORGOT_PASSWORD: '/jyotish/forgot-password',
   JYOTISH_VERIFY_OTP: '/jyotish/verify-otp',
   JYOTISH_SET_PASSWORD: '/jyotish/set-password',
   JYOTISH_PROFILE_SETUP: '/jyotish/profile-setup',

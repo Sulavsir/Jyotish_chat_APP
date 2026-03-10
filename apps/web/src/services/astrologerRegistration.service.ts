@@ -18,6 +18,7 @@ export interface AstrologerRegistrationData {
   experience?: number;
   languages: string[];
   gender?: Gender | null;
+  country?: string | null;
   proofOfAstrology: File | File[];
 }
 
@@ -66,6 +67,9 @@ export const astrologerRegistrationService = {
     });
     if (data.gender) {
       formData.append('gender', data.gender);
+    }
+    if (data.country) {
+      formData.append('country', data.country);
     }
     // Handle multiple files
     const files = Array.isArray(data.proofOfAstrology) ? data.proofOfAstrology : [data.proofOfAstrology];

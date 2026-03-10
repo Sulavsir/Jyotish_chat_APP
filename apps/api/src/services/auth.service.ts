@@ -13,6 +13,8 @@ import type {
   UserPayload,
   LoginResult,
   TempTokenPayload,
+  PasswordResetTokenPayload,
+  AstrologerResetTokenPayload,
   UserEntity,
   UserResponse,
 } from '../types';
@@ -106,13 +108,149 @@ export class AuthService {
         algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
       }) as TempTokenPayload;
 
-      if (decoded.type !== 'temp') {
+      if (decoded.type !== TOKEN_TYPES.TEMP) {
         throw new Error('Invalid token type');
       }
 
       return decoded;
     } catch (error) {
       throw new Error('Invalid or expired token');
+    }
+  }
+
+  /**
+   * Generate password reset token (30 minutes)
+   */
+  generatePasswordResetToken(userId: string): string {
+    const secret = AUTH_CONFIG.JWT_SECRET;
+    if (!secret) {
+      throw new AppError(
+        'JWT_SECRET is not configured',
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODES.SERVER_ERROR
+      );
+    }
+
+    const payload: PasswordResetTokenPayload = {
+      userId,
+      type: TOKEN_TYPES.RESET,
+    };
+
+    return jwt.sign(payload, secret, {
+      expiresIn: '30m',
+      algorithm: AUTH_CONFIG.JWT_ALGORITHM,
+    });
+  }
+
+  /**
+   * Verify password reset token and return payload
+   */
+  verifyPasswordResetToken(token: string): PasswordResetTokenPayload {
+    try {
+      const secret = AUTH_CONFIG.JWT_SECRET;
+      if (!secret) {
+        throw new AppError(
+          'JWT_SECRET is not configured',
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          ERROR_CODES.SERVER_ERROR
+        );
+      }
+
+      const decoded = jwt.verify(token, secret, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as PasswordResetTokenPayload;
+
+      if (decoded.type !== TOKEN_TYPES.RESET) {
+        throw new AppError(
+          'Invalid token type',
+          HTTP_STATUS.UNAUTHORIZED,
+          ERROR_CODES.UNAUTHORIZED
+        );
+      }
+
+      return decoded;
+    } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new AppError(
+          'Password reset link has expired. Please request a new one.',
+          HTTP_STATUS.UNAUTHORIZED,
+          ERROR_CODES.UNAUTHORIZED
+        );
+      }
+
+      throw new AppError(
+        'Invalid password reset token',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+  }
+
+  /**
+   * Generate astrologer password reset token (30 minutes) – for Astrologer table only.
+   */
+  generateAstrologerResetToken(astrologerId: string): string {
+    const secret = AUTH_CONFIG.JWT_SECRET;
+    if (!secret) {
+      throw new AppError(
+        'JWT_SECRET is not configured',
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODES.SERVER_ERROR
+      );
+    }
+
+    const payload: AstrologerResetTokenPayload = {
+      astrologerId,
+      type: TOKEN_TYPES.RESET_ASTROLOGER,
+    };
+
+    return jwt.sign(payload, secret, {
+      expiresIn: '30m',
+      algorithm: AUTH_CONFIG.JWT_ALGORITHM,
+    });
+  }
+
+  /**
+   * Verify astrologer password reset token and return payload.
+   */
+  verifyAstrologerResetToken(token: string): AstrologerResetTokenPayload {
+    try {
+      const secret = AUTH_CONFIG.JWT_SECRET;
+      if (!secret) {
+        throw new AppError(
+          'JWT_SECRET is not configured',
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          ERROR_CODES.SERVER_ERROR
+        );
+      }
+
+      const decoded = jwt.verify(token, secret, {
+        algorithms: [AUTH_CONFIG.JWT_ALGORITHM],
+      }) as AstrologerResetTokenPayload;
+
+      if (decoded.type !== TOKEN_TYPES.RESET_ASTROLOGER) {
+        throw new AppError(
+          'Invalid token type',
+          HTTP_STATUS.UNAUTHORIZED,
+          ERROR_CODES.UNAUTHORIZED
+        );
+      }
+
+      return decoded;
+    } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        throw new AppError(
+          'Password reset link has expired. Please request a new one.',
+          HTTP_STATUS.UNAUTHORIZED,
+          ERROR_CODES.UNAUTHORIZED
+        );
+      }
+
+      throw new AppError(
+        'Invalid password reset token',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
     }
   }
 

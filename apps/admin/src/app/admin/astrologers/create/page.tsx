@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Input, Textarea, LoadingButton, ProfileImageInput, PhoneInputWithCountry } from '@jyotish/ui';
+import { Button, Input, Textarea, LoadingButton, ProfileImageInput, PhoneInputWithCountry, CountrySelect } from '@jyotish/ui';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import {
   Form,
@@ -62,6 +62,7 @@ export default function CreateAstrologerPage() {
       languages: [],
       bio: '',
       address: '',
+      country: null,
     },
   });
 
@@ -92,6 +93,9 @@ export default function CreateAstrologerPage() {
       }
       if (data.address) {
         formData.append('address', data.address.trim());
+      }
+      if (data.country) {
+        formData.append('country', data.country);
       }
 
       // Add arrays
@@ -309,6 +313,25 @@ export default function CreateAstrologerPage() {
                             <option value="FEMALE">Female</option>
                             <option value="OTHER">Other</option>
                           </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <CountrySelect
+                            value={field.value ?? undefined}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            placeholder="Select country"
+                            variant="admin"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

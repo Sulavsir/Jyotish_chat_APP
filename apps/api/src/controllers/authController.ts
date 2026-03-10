@@ -20,8 +20,15 @@ import {
   isProduction,
   isDevelopment,
 } from '../utils';
-import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG } from '../constants';
-import { otpService, authService, userService, sessionService } from '../services';
+import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG, PASSWORD_RESET_ACTOR } from '../constants';
+import {
+  otpService,
+  authService,
+  userService,
+  sessionService,
+  emailService,
+  passwordResetService,
+} from '../services';
 import { AppError } from '../middleware/error-handler';
 import { getClientIp } from '../utils/request-utils';
 
@@ -265,7 +272,7 @@ export async function requestLoginOTP(req: AuthRequest, res: Response, next: Nex
     );
   }
 
-  // Check rate limiting 
+  // Check rate limiting
   if (isProduction()) {
     const isRateLimited = await otpService.checkRateLimit(phoneNumber);
     if (isRateLimited) {
@@ -330,7 +337,10 @@ export async function profileSetup(req: AuthRequest, res: Response, next: NextFu
 
   if (debug) {
     console.log('[users/profile-setup] incoming body:', req.body);
-    console.log('[users/profile-setup] file:', req.file ? { path: req.file.path, mimetype: req.file.mimetype } : null);
+    console.log(
+      '[users/profile-setup] file:',
+      req.file ? { path: req.file.path, mimetype: req.file.mimetype } : null
+    );
   }
 
   // Setup profile via service
@@ -482,6 +492,58 @@ export async function setPasswordForExistingUser(
   return sendSuccess(res, {
     message: 'Password set successfully',
     user: formattedUser,
+  });
+}
+
+/**
+ * Request password reset (client only – User table).
+ * POST /api/v1/auth/forgot-password
+ */
+export async function requestPasswordReset(req: AuthRequest, res: Response, next: NextFunction) {
+  const { identifier } = req.body as { identifier: string };
+  const result = await passwordResetService.handleRequestPasswordReset(
+    identifier.trim(),
+    PASSWORD_RESET_ACTOR.USER
+  );
+  return sendSuccess(res, result);
+}
+
+/**
+ * Reset password using email token (client only – User table).
+ * POST /api/v1/auth/reset-password-token
+ */
+export async function resetPasswordWithToken(req: AuthRequest, res: Response, next: NextFunction) {
+  const { token, password } = req.body as { token: string; password: string };
+  await passwordResetService.handleResetPasswordWithToken(
+    token,
+    password,
+    PASSWORD_RESET_ACTOR.USER
+  );
+  return sendSuccess(res, {
+    message: 'Password has been reset successfully. You can now log in with your new password.',
+  });
+}
+
+/**
+ * Reset password using phone OTP (client only – User table).
+ * POST /api/v1/auth/reset-password-otp
+ */
+export async function resetPasswordWithOTP(req: AuthRequest, res: Response, next: NextFunction) {
+  const { phoneNumber, otp, sessionId, password } = req.body as {
+    phoneNumber: string;
+    otp: string;
+    sessionId: string;
+    password: string;
+  };
+  await passwordResetService.handleResetPasswordWithOtp(
+    phoneNumber,
+    otp,
+    sessionId,
+    password,
+    PASSWORD_RESET_ACTOR.USER
+  );
+  return sendSuccess(res, {
+    message: 'Password has been reset successfully. You can now log in with your new password.',
   });
 }
 

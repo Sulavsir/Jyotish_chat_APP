@@ -47,6 +47,7 @@ export class AstrologerService {
         commissionRate: true,
         languages: true,
         gender: true,
+        country: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -84,6 +85,7 @@ export class AstrologerService {
         commissionRate: true,
         languages: true,
         gender: true,
+        country: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -118,11 +120,24 @@ export class AstrologerService {
         commissionRate: true,
         languages: true,
         gender: true,
+        country: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+  }
+
+  /**
+   * Find astrologer by identifier (email or phone) – Astrologer table only, for forgot-password.
+   */
+  async findAstrologerByIdentifier(identifier: string) {
+    const isEmail = identifier.includes('@');
+    if (isEmail) {
+      return await this.findByEmail(identifier.trim());
+    }
+    const cleaned = identifier.replace(/\D/g, '');
+    return await this.findByPhone(cleaned);
   }
 
   /**
@@ -142,6 +157,7 @@ export class AstrologerService {
     commissionRate: number;
     languages: string[];
     gender?: Gender;
+    country?: string | null;
     createdBy: string; // Admin ID
     proofOfAstrology?: string; // File URL for proof document
     profilePhoto?: string | null;
@@ -206,6 +222,7 @@ export class AstrologerService {
         commissionRate: data.commissionRate,
         languages: data.languages,
         gender: data.gender ?? null,
+        country: data.country ?? null,
         createdBy: data.createdBy,
         proofOfAstrology: data.proofOfAstrology || null,
         profilePhoto: data.profilePhoto ?? null,
@@ -235,6 +252,7 @@ export class AstrologerService {
         commissionRate: true,
         languages: true,
         gender: true,
+        country: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -275,6 +293,7 @@ export class AstrologerService {
         commissionRate: true,
         languages: true,
         gender: true,
+        country: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -450,6 +469,7 @@ export class AstrologerService {
         commissionRate: true,
         languages: true,
         gender: true,
+        country: true,
         createdBy: true,
         createdAt: true,
         updatedAt: true,
@@ -569,6 +589,7 @@ export class AstrologerService {
           commissionRate: true,
           languages: true,
           gender: true,
+          country: true,
           proofOfAstrology: true,
           createdAt: true,
           updatedAt: true,
@@ -686,6 +707,7 @@ export class AstrologerService {
     experience?: number;
     languages: string[];
     gender?: Gender;
+    country?: string | null;
     proofOfAstrology: string; // File URL
   }) {
     // Check if phone already exists (only non-deleted)
@@ -733,6 +755,7 @@ export class AstrologerService {
         experience: data.experience || null,
         languages: data.languages,
         gender: (data.gender as Gender) || null,
+        country: data.country ?? null,
         proofOfAstrology: data.proofOfAstrology,
         accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING,
         registrationRequestedAt: new Date(),
@@ -790,6 +813,7 @@ cle   * Get all pending registration requests with pagination and search
           experience: true,
           languages: true,
           gender: true,
+          country: true,
           proofOfAstrology: true,
           registrationRequestedAt: true,
           createdAt: true,

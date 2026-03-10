@@ -23,7 +23,7 @@ import {
   ProfileImageInput,
 } from '@jyotish/ui';
 import { FormInput, FormPasswordInput } from '@/components/form';
-import { PhoneInputWithCountry } from '@jyotish/ui';
+import { PhoneInputWithCountry, CountrySelect } from '@jyotish/ui';
 import {
   astrologerRegistrationSchema,
   type AstrologerRegistrationFormData,
@@ -73,6 +73,7 @@ export function AstrologerRegistrationForm({
       experience: undefined,
       languages: ['English', 'Nepali'],
       gender: null,
+      country: null,
     },
   });
 
@@ -104,6 +105,7 @@ export function AstrologerRegistrationForm({
         profilePhoto: profilePhotoFile ?? undefined,
         proofOfAstrology: proofFiles,
         gender: (data.gender as Gender | null) || undefined,
+        country: data.country ?? undefined,
       });
     },
     onSuccess: (response) => {
@@ -297,6 +299,20 @@ export function AstrologerRegistrationForm({
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="country" className="text-white">
+                  Country (Optional)
+                </Label>
+                <CountrySelect
+                  id="country"
+                  value={form.watch('country') ?? undefined}
+                  onChange={(value) => form.setValue('country', value ?? null)}
+                  onBlur={() => form.trigger('country')}
+                  placeholder="Select country"
+                  disabled={registrationMutation.isPending}
+                  variant="jyotish"
+                />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label className="text-white">Profile Image (Optional)</Label>

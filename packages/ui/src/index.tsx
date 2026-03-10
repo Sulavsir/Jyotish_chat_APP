@@ -29,3 +29,4 @@ export * from './app-sidebar';
 export * from './icons';
 export * from './profile-image-input';
 export * from './phone-input-with-country';
+export * from './country-select';

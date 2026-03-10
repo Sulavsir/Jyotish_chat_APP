@@ -21,6 +21,12 @@ import type {
   ProfileSetupRequest,
   ProfileSetupResponse,
   User,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  ResetPasswordWithTokenRequest,
+  ResetPasswordWithTokenResponse,
+  ResetPasswordWithOtpRequest,
+  ResetPasswordWithOtpResponse,
 } from '@/types/auth';
 import { UserRole } from '@/types';
 
@@ -195,6 +201,65 @@ export const authApi = {
 
   setPasswordForExistingUser: async (password: string): Promise<{ message: string }> => {
     return apiClient.post(API_ENDPOINTS.AUTH.SET_PASSWORD_EXISTING, { password });
+  },
+
+  requestPasswordReset: async (
+    data: ForgotPasswordRequest
+  ): Promise<ForgotPasswordResponse> => {
+    return apiClient.post<ForgotPasswordResponse>(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, data, false);
+  },
+
+  /** Astrologer only – uses Astrologer table. */
+  requestAstrologerPasswordReset: async (
+    data: ForgotPasswordRequest
+  ): Promise<ForgotPasswordResponse> => {
+    return apiClient.post<ForgotPasswordResponse>(
+      API_ENDPOINTS.ASTROLOGER.FORGOT_PASSWORD,
+      data,
+      false
+    );
+  },
+
+  resetPasswordWithToken: async (
+    data: ResetPasswordWithTokenRequest
+  ): Promise<ResetPasswordWithTokenResponse> => {
+    return apiClient.post<ResetPasswordWithTokenResponse>(
+      API_ENDPOINTS.AUTH.RESET_PASSWORD_TOKEN,
+      data,
+      false
+    );
+  },
+
+  resetPasswordWithOtp: async (
+    data: ResetPasswordWithOtpRequest
+  ): Promise<ResetPasswordWithOtpResponse> => {
+    return apiClient.post<ResetPasswordWithOtpResponse>(
+      API_ENDPOINTS.AUTH.RESET_PASSWORD_OTP,
+      data,
+      false
+    );
+  },
+
+  /** Astrologer only – resets password in Astrologer table. */
+  resetAstrologerPasswordWithToken: async (
+    data: ResetPasswordWithTokenRequest
+  ): Promise<ResetPasswordWithTokenResponse> => {
+    return apiClient.post<ResetPasswordWithTokenResponse>(
+      API_ENDPOINTS.ASTROLOGER.RESET_PASSWORD_TOKEN,
+      data,
+      false
+    );
+  },
+
+  /** Astrologer only – resets password in Astrologer table. */
+  resetAstrologerPasswordWithOtp: async (
+    data: ResetPasswordWithOtpRequest
+  ): Promise<ResetPasswordWithOtpResponse> => {
+    return apiClient.post<ResetPasswordWithOtpResponse>(
+      API_ENDPOINTS.ASTROLOGER.RESET_PASSWORD_OTP,
+      data,
+      false
+    );
   },
 
   // Astrologer-specific endpoints

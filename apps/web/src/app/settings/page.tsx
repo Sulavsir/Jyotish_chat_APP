@@ -45,8 +45,8 @@ export default function SettingsPage() {
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: authApi.changePassword,
-    onSuccess: (response: { message: string; user?: import('@jyotish/shared').User }) => {
-      displaySuccess('Password changed successfully!');
+    onSuccess: (response: { message?: string; user?: import('@jyotish/shared').User }) => {
+      if (response?.message) displaySuccess(response.message);
       changePasswordForm.reset();
 
       // Update user in store with hasPassword: true
@@ -55,15 +55,15 @@ export default function SettingsPage() {
       }
     },
     onError: (error: ApiError) => {
-      displayError(error, 'Failed to change password');
+      displayError(error);
     },
   });
 
   // Set password mutation
   const setPasswordMutation = useMutation({
     mutationFn: authApi.setPasswordForExistingUser,
-    onSuccess: (response: { message: string; user?: import('@jyotish/shared').User }) => {
-      displaySuccess('Password set successfully!');
+    onSuccess: (response: { message?: string; user?: import('@jyotish/shared').User }) => {
+      if (response?.message) displaySuccess(response.message);
       setPasswordForm.reset();
 
       // Update user in store with hasPassword: true
@@ -72,7 +72,7 @@ export default function SettingsPage() {
       }
     },
     onError: (error: ApiError) => {
-      displayError(error, 'Failed to set password');
+      displayError(error);
     },
   });
 

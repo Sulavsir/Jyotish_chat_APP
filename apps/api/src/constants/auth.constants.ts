@@ -11,9 +11,22 @@ export const TOKEN_TYPES = {
   ACCESS: 'access',
   REFRESH: 'refresh',
   TEMP: 'temp',
+  RESET: 'reset',
+  RESET_ASTROLOGER: 'reset_astrologer',
 } as const;
 
 export type TokenType = (typeof TOKEN_TYPES)[keyof typeof TOKEN_TYPES];
+
+/**
+ * Password reset actor – which table to use (User vs Astrologer).
+ */
+export const PASSWORD_RESET_ACTOR = {
+  USER: 'user',
+  ASTROLOGER: 'astrologer',
+} as const;
+
+export type PasswordResetActorType =
+  (typeof PASSWORD_RESET_ACTOR)[keyof typeof PASSWORD_RESET_ACTOR];
 
 export const AUTH_CONFIG = {
   SALT_ROUNDS: 10,

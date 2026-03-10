@@ -186,7 +186,7 @@ class EmailService {
             <p style="font-size: 16px;">You can now log in to your account and start providing consultations to clients.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/jyotish/login" 
+              <a href="${process.env.FRONTEND_URL!}/jyotish/login" 
                  style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                 Login to Your Account
               </a>
@@ -323,6 +323,67 @@ class EmailService {
     `;
 
     return this.sendEmail({ to: recipientEmail, subject, html });
+  }
+
+  /**
+   * Send password reset email to user
+   */
+  async sendPasswordResetEmail(
+    name: string | null,
+    email: string,
+    resetUrl: string
+  ): Promise<boolean> {
+    const subject = 'Reset your Chat Jyotishi password';
+
+    const displayName = name && name.trim().length > 0 ? name : 'there';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Reset Your Password</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #111827; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0b1120;">
+          <div style="background: linear-gradient(135deg, #fbbf24 0%, #eab308 40%, #a855f7 100%); padding: 24px; text-align: center; border-radius: 12px 12px 0 0;">
+            <h1 style="color: #0b1120; margin: 0; font-size: 24px;">Password Reset Request</h1>
+          </div>
+          <div style="background: #020617; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #1e293b; color: #e5e7eb;">
+            <p style="font-size: 15px;">Namaste <strong>${displayName}</strong>,</p>
+            <p style="font-size: 15px; margin-top: 12px;">
+              We received a request to reset the password for your Chat Jyotishi account. If you made this request, please click the button below to create a new password.
+            </p>
+
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="${resetUrl}"
+                 style="display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #eab308 40%, #a855f7 100%); color: #020617; padding: 12px 32px; text-decoration: none; border-radius: 999px; font-weight: 600; font-size: 15px;">
+                Reset Password
+              </a>
+            </div>
+
+            <p style="font-size: 14px; margin-top: 8px;">
+              For your security, this link will expire in <strong>30 minutes</strong>. If the button above does not work, you can also copy and paste the following URL into your browser:
+            </p>
+
+            <p style="font-size: 13px; color: #9ca3af; word-break: break-all; margin-top: 8px;">
+              <a href="${resetUrl}" style="color: #eab308; text-decoration: underline;">${resetUrl}</a>
+            </p>
+
+            <p style="font-size: 14px; margin-top: 16px;">
+              If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+            </p>
+
+            <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">
+              Best regards,<br />
+              <strong>Chat Jyotishi Team</strong>
+            </p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({ to: email, subject, html });
   }
 }
 

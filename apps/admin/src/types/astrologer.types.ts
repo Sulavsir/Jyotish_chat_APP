@@ -43,6 +43,7 @@ export interface CreateAstrologerRequest {
   languages: string[];
   bio?: string;
   address?: string | null;
+  country?: string | null;
 }
 
 export interface UpdateAstrologerRequest {
@@ -62,4 +63,5 @@ export interface UpdateAstrologerRequest {
   appointmentFee?: number | null;
   proofOfAstrology?: string | null;
   chatMessageFee?: number | null;
+  country?: string | null;
 }

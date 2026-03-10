@@ -48,6 +48,7 @@ export const astrologerRegistrationSchema = z
 
     languages: z.array(z.string()).min(1, 'Please enter at least one language'),
     gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
+    country: z.string().max(100, 'Country is too long').optional().nullable(),
     proofOfAstrology: z
       .any()
       .refine((files) => {

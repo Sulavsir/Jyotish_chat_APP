@@ -9,13 +9,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '@/constants';
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@jyotish/ui';
 import spaceImage from '@/assets/images/space.jpg';
-import { LoadingButton, OTPInput, LoadingScreenWithBackground, Navbar } from '@/components/ui';
+import {
+  LoadingButton,
+  OTPInput,
+  OtpExpiryCountdown,
+  LoadingScreenWithBackground,
+  Navbar,
+} from '@/components/ui';
 import { FormInput, FormPasswordInput } from '@/components/form';
 import { authApi } from '@/lib/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import { useRedirectIfAuthenticated } from '@/hooks';
 import type { ApiError } from '@/types/auth';
-import { displayError, displaySuccess } from '@/utils/error-handler';
+import { displayError, displaySuccess, parseApiError } from '@/utils/error-handler';
+import { OTP_EXPIRY_SECONDS } from '@/utils/otp.utils';
 import { UserRole } from '@/types';
 import {
   passwordLoginSchema,
@@ -23,7 +30,7 @@ import {
   type PasswordLoginFormData,
   type OTPRequestFormData,
 } from '@/lib/validations';
-import { Clock, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 type LoginMethod = 'password' | 'otp';
 type OTPStep = 'request' | 'verify';
@@ -63,8 +70,8 @@ export default function LoginPage() {
   // Password login mutation
   const loginMutation = useMutation({
     mutationFn: authApi.login,
-    onSuccess: async () => {
-      displaySuccess('Welcome back!');
+    onSuccess: async (data) => {
+      if (data?.message) displaySuccess(data.message);
 
       // Fetch user details from /me endpoint
       try {
@@ -76,11 +83,11 @@ export default function LoginPage() {
         window.location.href = dashboardRoute;
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
-        displayError({ message: 'Failed to load user profile', statusCode: 500 }, 'Login failed');
+        displayError(error);
       }
     },
     onError: (error: ApiError) => {
-      displayError(error, 'Login failed');
+      displayError(error);
     },
   });
 
@@ -88,16 +95,16 @@ export default function LoginPage() {
   const sendOTPMutation = useMutation({
     mutationFn: authApi.sendOTP,
     onSuccess: (response, variables) => {
-      displaySuccess('OTP sent to your phone!');
+      if (response?.message) displaySuccess(response.message);
       setOtpSessionId(response.sessionId);
       setOtpPhoneNumber(variables.phoneNumber);
-      setOtpExpirySeconds(response.expiresIn); // Start countdown from expiresIn (300 seconds = 5 mins)
+      setOtpExpirySeconds(response.expiresIn ?? OTP_EXPIRY_SECONDS);
       setOtpStep('verify');
       setOtp(['', '', '', '', '', '']);
       setOtpError('');
     },
     onError: (error: ApiError) => {
-      displayError(error, 'Failed to send OTP');
+      displayError(error);
     },
   });
 
@@ -123,7 +130,7 @@ export default function LoginPage() {
   const verifyOTPMutation = useMutation({
     mutationFn: authApi.verifyOTP,
     onSuccess: async (data) => {
-      displaySuccess(data.isNewUser ? 'Welcome to Chat Jyotishi!' : 'Welcome back!');
+      if (data?.message) displaySuccess(data.message);
 
       // Fetch user details from /me endpoint
       try {
@@ -135,12 +142,12 @@ export default function LoginPage() {
         window.location.href = dashboardRoute;
       } catch (error) {
         console.error('Failed to fetch user profile:', error);
-        displayError({ message: 'Failed to load user profile', statusCode: 500 }, 'Login failed');
+        displayError(error);
       }
     },
     onError: (error: ApiError) => {
-      setOtpError('Invalid OTP. Please try again.');
-      displayError(error, 'Invalid OTP');
+      setOtpError(parseApiError(error).message);
+      displayError(error);
     },
   });
 
@@ -180,13 +187,6 @@ export default function LoginPage() {
   const handleOtpComplete = (otpString: string) => {
     setOtpError('');
     handleVerifyOTP(otpString);
-  };
-
-  // Format countdown timer (MM:SS)
-  const formatCountdown = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   // Format phone number
@@ -291,6 +291,15 @@ export default function LoginPage() {
                   required
                 />
 
+                <div className="flex justify-end">
+                  <Link
+                    href={ROUTES.FORGOT_PASSWORD}
+                    className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
+
                 <LoadingButton
                   type="submit"
                   isLoading={loginMutation.isPending}
@@ -340,22 +349,7 @@ export default function LoginPage() {
                         <span className="font-semibold text-white">{otpPhoneNumber}</span>
                       </p>
 
-                      {/* OTP Countdown Timer */}
-                      {otpExpirySeconds > 0 && (
-                        <div className="flex items-center justify-center gap-2 py-2">
-                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-amber-400/90">
-                            Your OTP will expire in
-                            <Clock className="w-4 h-4" />
-                            <span
-                              className={`text-sm font-mono font-semibold ${
-                                otpExpirySeconds < 60 ? 'text-red-300' : 'text-amber-300'
-                              }`}
-                            >
-                              {formatCountdown(otpExpirySeconds)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                      <OtpExpiryCountdown secondsRemaining={otpExpirySeconds} />
 
                       <OTPInput
                         length={6}

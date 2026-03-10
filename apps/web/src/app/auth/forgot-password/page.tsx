@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { ROUTES } from '@/constants';
 import {
   Button,
@@ -14,39 +17,145 @@ import {
   CardHeader,
   CardTitle,
 } from '@jyotish/ui';
-import { toast } from 'sonner';
+import { LoadingButton, Navbar, AppLogo, OTPInput, OtpExpiryCountdown } from '@/components/ui';
 import spaceImage from '@/assets/images/space.jpg';
-import { Navbar, AppLogo } from '@/components/ui';
+import { authApi } from '@/lib/auth-api';
+import {
+  forgotPasswordSchema,
+  resetPasswordWithOtpFormSchema,
+  type ForgotPasswordFormData,
+  type ResetPasswordWithOtpFormData,
+} from '@/lib/validations';
+import { displayError, displaySuccess, parseApiError } from '@/utils/error-handler';
+import { OTP_EXPIRY_SECONDS } from '@/utils/otp.utils';
+import type { ApiError } from '@/types/auth';
+
+type ForgotPasswordStep = 'request' | 'otp' | 'done';
 
 export default function ForgotPasswordPage() {
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [step, setStep] = useState<ForgotPasswordStep>('request');
+  const [doneMessage, setDoneMessage] = useState('');
+  const [otpSessionId, setOtpSessionId] = useState('');
+  const [otpPhoneNumber, setOtpPhoneNumber] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState('');
+  const [otpExpirySeconds, setOtpExpirySeconds] = useState<number>(0);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const requestForm = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      identifier: '',
+    },
+  });
 
-    const cleanPhone = phoneNumber.replace(/\D/g, '');
+  const resetForm = useForm<ResetPasswordWithOtpFormData>({
+    resolver: zodResolver(resetPasswordWithOtpFormSchema),
+    defaultValues: {
+      otp: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
-    // Validate 10-digit Nepali phone number
-    if (cleanPhone.length !== 10) {
-      toast.error('Phone number must be exactly 10 digits');
-      return;
+  const requestResetMutation = useMutation({
+    mutationFn: authApi.requestPasswordReset,
+    onSuccess: (data, variables) => {
+      const message = data.message ?? '';
+      if (data.method === 'email') {
+        if (message) displaySuccess(message);
+        setDoneMessage(message);
+        setStep('done');
+        return;
+      }
+
+      if (data.method === 'otp' && data.sessionId) {
+        const cleanedIdentifier = variables.identifier.includes('@')
+          ? variables.identifier.trim()
+          : variables.identifier.replace(/\D/g, '');
+
+        setOtpSessionId(data.sessionId);
+        setOtpPhoneNumber(cleanedIdentifier);
+        setOtpExpirySeconds(data.expiresIn ?? OTP_EXPIRY_SECONDS);
+        setOtp(['', '', '', '', '', '']);
+        setOtpError('');
+        setStep('otp');
+
+        if (message) displaySuccess(message);
+        return;
+      }
+
+      setDoneMessage(message);
+      setStep('done');
+    },
+    onError: (error: ApiError) => {
+      displayError(error);
+    },
+  });
+
+  const resetWithOtpMutation = useMutation({
+    mutationFn: authApi.resetPasswordWithOtp,
+    onSuccess: (data) => {
+      const message = data?.message ?? '';
+      if (message) displaySuccess(message);
+      setDoneMessage(message);
+      setStep('done');
+    },
+    onError: (error: ApiError) => {
+      setOtpError(parseApiError(error).message);
+      displayError(error);
+    },
+  });
+
+  useEffect(() => {
+    if (otpExpirySeconds > 0 && step === 'otp') {
+      const timer = setInterval(() => {
+        setOtpExpirySeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setOtpError('OTP has expired. Please request a new one.');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
     }
+  }, [otpExpirySeconds, step]);
 
-    if (!cleanPhone.match(/^(98|97)\d{8}$/)) {
-      toast.error('Please enter a valid Nepali number starting with 98 or 97');
-      return;
-    }
-
-    // TODO: Implement forgot password API
-    toast.info('Password reset feature coming soon!');
-    setIsSubmitted(true);
+  const handleRequestSubmit = (data: ForgotPasswordFormData) => {
+    requestResetMutation.mutate({
+      identifier: data.identifier.trim(),
+    });
   };
 
-  const formatPhoneNumber = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    // Limit to 10 digits
-    return cleaned.slice(0, 10);
+  const handleResetWithOtpSubmit = (formData: ResetPasswordWithOtpFormData) => {
+    const otpCode = formData.otp || otp.join('');
+    if (otpCode.length !== 6) {
+      setOtpError('Please enter all 6 digits');
+      return;
+    }
+
+    if (!otpSessionId || !otpPhoneNumber) {
+      displayError(
+        { message: 'OTP session is missing. Please request a new code.', statusCode: 400 },
+        'Invalid session'
+      );
+      return;
+    }
+
+    resetWithOtpMutation.mutate({
+      phoneNumber: otpPhoneNumber,
+      otp: otpCode,
+      sessionId: otpSessionId,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    });
+  };
+
+  const handleOtpComplete = (otpString: string) => {
+    setOtpError('');
+    resetForm.setValue('otp', otpString);
   };
 
   return (
@@ -83,40 +192,48 @@ export default function ForgotPasswordPage() {
                 Forgot Password
               </CardTitle>
               <CardDescription className="text-center text-gray-200 text-sm">
-                {isSubmitted
-                  ? 'Check your phone for reset instructions'
-                  : 'Enter your phone number to reset your password'}
+                {step === 'done'
+                  ? 'Next steps are below.'
+                  : 'Enter your email or phone to reset your password'}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-6 pb-6">
-              {!isSubmitted ? (
-                <form onSubmit={handleSubmit} className="space-y-4">
+              {step === 'request' && (
+                <form
+                  onSubmit={requestForm.handleSubmit(handleRequestSubmit)}
+                  className="space-y-4"
+                >
                   <div className="space-y-2">
                     <Label
-                      htmlFor="phone"
+                      htmlFor="identifier"
                       className="text-white font-semibold text-sm tracking-wide"
                     >
-                      Phone Number
+                      Email or Phone
                     </Label>
                     <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="98XXXXXXXX (10 digits)"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(formatPhoneNumber(e.target.value))}
-                      maxLength={10}
+                      id="identifier"
+                      type="text"
+                      placeholder="you@example.com or 98XXXXXXXX"
+                      {...requestForm.register('identifier')}
                       className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
                       autoFocus
                     />
+                    {requestForm.formState.errors.identifier && (
+                      <p className="text-xs text-red-400 mt-1">
+                        {requestForm.formState.errors.identifier.message}
+                      </p>
+                    )}
                   </div>
 
-                  <Button
+                  <LoadingButton
                     type="submit"
                     color="secondary"
                     className="w-full h-12 font-bold text-base rounded-lg transform hover:scale-[1.02]"
+                    isLoading={requestResetMutation.isPending}
+                    loadingText="Sending..."
                   >
-                    Send Reset Link
-                  </Button>
+                    Send Reset Instructions
+                  </LoadingButton>
 
                   <div className="text-center text-sm">
                     <Link
@@ -127,7 +244,115 @@ export default function ForgotPasswordPage() {
                     </Link>
                   </div>
                 </form>
-              ) : (
+              )}
+
+              {step === 'otp' && (
+                <form
+                  onSubmit={resetForm.handleSubmit(handleResetWithOtpSubmit)}
+                  className="space-y-5"
+                >
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-200 text-center">
+                      Enter the 6-digit code sent to{' '}
+                      <span className="font-semibold text-white">{otpPhoneNumber}</span>
+                    </p>
+
+                    <OtpExpiryCountdown secondsRemaining={otpExpirySeconds} />
+
+                    <OTPInput
+                      length={6}
+                      value={otp}
+                      onChange={setOtp}
+                      onComplete={handleOtpComplete}
+                      error={otpError}
+                      disabled={resetWithOtpMutation.isPending || otpExpirySeconds === 0}
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="password"
+                        className="text-white font-semibold text-sm tracking-wide"
+                      >
+                        New Password
+                      </Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="Enter new password"
+                        {...resetForm.register('password')}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
+                      />
+                      {resetForm.formState.errors.password && (
+                        <p className="text-xs text-red-400 mt-1">
+                          {resetForm.formState.errors.password.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="confirmPassword"
+                        className="text-white font-semibold text-sm tracking-wide"
+                      >
+                        Confirm New Password
+                      </Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="Confirm new password"
+                        {...resetForm.register('confirmPassword')}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
+                      />
+                      {resetForm.formState.errors.confirmPassword && (
+                        <p className="text-xs text-red-400 mt-1">
+                          {resetForm.formState.errors.confirmPassword.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <LoadingButton
+                    type="submit"
+                    color="secondary"
+                    className="w-full h-12 font-bold text-base rounded-lg transform hover:scale-[1.02]"
+                    isLoading={resetWithOtpMutation.isPending}
+                    loadingText="Resetting..."
+                    disabled={otp.join('').length !== 6 || otpExpirySeconds === 0}
+                  >
+                    Verify OTP &amp; Reset Password
+                  </LoadingButton>
+
+                  <div className="flex justify-between text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setStep('request')}
+                      className="text-gray-300 hover:text-gray-100 transition-colors"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        requestResetMutation.mutate({
+                          identifier: otpPhoneNumber,
+                        })
+                      }
+                      disabled={
+                        requestResetMutation.isPending ||
+                        resetWithOtpMutation.isPending ||
+                        otpExpirySeconds > 240
+                      }
+                      className="text-purple-300 hover:text-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Resend OTP
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {step === 'done' && (
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
                     <svg
@@ -144,10 +369,7 @@ export default function ForgotPasswordPage() {
                       />
                     </svg>
                   </div>
-                  <p className="text-gray-300">
-                    If an account exists with this phone number, you&apos;ll receive password reset
-                    instructions shortly.
-                  </p>
+                  <p className="text-gray-300">{doneMessage || 'Done.'}</p>
                   <Button
                     color="secondary"
                     className="w-full h-12 font-bold text-base rounded-lg"

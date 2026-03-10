@@ -33,12 +33,12 @@ export default function JyotishSettingsPage() {
   // Change password mutation - Using astrologer-specific API
   const changePasswordMutation = useMutation({
     mutationFn: astrologerApi.changePassword,
-    onSuccess: (response: { message: string; astrologer?: Record<string, unknown> }) => {
-      displaySuccess('Password changed successfully!');
+    onSuccess: (response: { message?: string; astrologer?: Record<string, unknown> }) => {
+      if (response?.message) displaySuccess(response.message);
       changePasswordForm.reset();
     },
     onError: (error: ApiError) => {
-      displayError(error, 'Failed to change password');
+      displayError(error);
     },
   });
 

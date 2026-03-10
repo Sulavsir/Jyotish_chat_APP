@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMutation } from '@tanstack/react-query';
-import { ROUTES, TOAST_MESSAGES } from '@/constants';
+import { ROUTES } from '@/constants';
 import {
   Label,
   Card,
@@ -57,7 +57,7 @@ export default function VerifyOTPPage() {
   const verifyOTPMutation = useMutation({
     mutationFn: authApi.verifyOTP,
     onSuccess: (data) => {
-      toast.success(TOAST_MESSAGES.SUCCESS.OTP_VERIFIED);
+      if (data?.message) toast.success(data.message);
       // Store temp token in Zustand
       setTempToken(data.tempToken);
 
@@ -65,15 +65,14 @@ export default function VerifyOTPPage() {
         // New user - go to set password
         router.push(ROUTES.SET_PASSWORD);
       } else {
-        // Existing user without password? Shouldn't happen, but redirect to login
-        toast.error('Account already exists. Please use login.');
+        // Existing user - backend already logged them in; redirect to login
         router.push(ROUTES.LOGIN);
       }
     },
     onError: (error: ApiError) => {
       const { message } = parseApiError(error);
       setError(message);
-      displayError(error, TOAST_MESSAGES.ERROR.OTP_INVALID);
+      displayError(error);
       // Clear OTP inputs on error
       setOtp(['', '', '', '', '', '']);
     },
@@ -82,14 +81,14 @@ export default function VerifyOTPPage() {
   const sendOTPMutation = useMutation({
     mutationFn: authApi.sendOTP,
     onSuccess: (data) => {
-      toast.success('OTP resent successfully!');
+      if (data?.message) toast.success(data.message);
       useAuthStore.getState().setOtpSession(data.sessionId, phoneNumber!);
       setResendTimer(60);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
     },
     onError: (error: ApiError) => {
-      displayError(error, 'Failed to resend OTP');
+      displayError(error);
     },
   });
 

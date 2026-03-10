@@ -4,10 +4,15 @@
 
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
-import { astrologerService, auditService, sessionService } from '../services';
+import {
+  astrologerService,
+  auditService,
+  sessionService,
+  passwordResetService,
+} from '../services';
 import * as astrologerEarningsService from '../services/astrologerEarnings.service';
 import { sendSuccess } from '../utils';
-import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { HTTP_STATUS, ERROR_CODES, PASSWORD_RESET_ACTOR } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { prisma } from '@jyotish/database';
@@ -61,7 +66,10 @@ export async function astrologerLogin(req: AuthRequest, res: Response, next: Nex
       userAgent: req.get('user-agent'),
     });
 
-    return sendSuccess(res, { astrologer: result.astrologer });
+    return sendSuccess(res, {
+      message: 'Login successful.',
+      astrologer: result.astrologer,
+    });
   } catch (error) {
     next(error);
   }
@@ -102,6 +110,70 @@ export async function astrologerLogout(req: AuthRequest, res: Response, next: Ne
   } catch (error) {
     next(error);
   }
+}
+
+/**
+ * Request astrologer password reset (Astrologer table only).
+ * POST /api/v1/astrologer/auth/forgot-password
+ */
+export async function requestAstrologerPasswordReset(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const { identifier } = req.body as { identifier: string };
+  const result = await passwordResetService.handleRequestPasswordReset(
+    identifier.trim(),
+    'astrologer'
+  );
+  return sendSuccess(res, result);
+}
+
+/**
+ * Reset astrologer password using email token (Astrologer table only).
+ * POST /api/v1/astrologer/auth/reset-password-token
+ */
+export async function resetAstrologerPasswordWithToken(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const { token, password } = req.body as { token: string; password: string };
+  await passwordResetService.handleResetPasswordWithToken(
+    token,
+    password,
+    PASSWORD_RESET_ACTOR.ASTROLOGER
+  );
+  return sendSuccess(res, {
+    message: 'Password has been reset successfully. You can now log in with your new password.',
+  });
+}
+
+/**
+ * Reset astrologer password using phone OTP (Astrologer table only).
+ * POST /api/v1/astrologer/auth/reset-password-otp
+ */
+export async function resetAstrologerPasswordWithOTP(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const { phoneNumber, otp, sessionId, password } = req.body as {
+    phoneNumber: string;
+    otp: string;
+    sessionId: string;
+    password: string;
+  };
+  await passwordResetService.handleResetPasswordWithOtp(
+    phoneNumber,
+    otp,
+    sessionId,
+    password,
+    PASSWORD_RESET_ACTOR.ASTROLOGER
+  );
+  return sendSuccess(res, {
+    message: 'Password has been reset successfully. You can now log in with your new password.',
+  });
 }
 
 /**
@@ -373,7 +445,7 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
       languages = [req.body.languages];
     }
 
-    const { name, phone, email, password, bio, address, experience, gender } = req.body;
+    const { name, phone, email, password, bio, address, experience, gender, country } = req.body;
 
     // Get uploaded files - req.files is { [fieldname]: File[] } when using multer.fields()
     const files = req.files as { proofOfAstrology?: Express.Multer.File[]; profilePhoto?: Express.Multer.File[] } | undefined;
@@ -410,6 +482,7 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
       experience: experience ? parseInt(experience, 10) : undefined,
       languages,
       gender: gender || null,
+      country: country || null,
     };
 
     // Validate using the schema (this will throw if invalid)
@@ -428,6 +501,7 @@ export async function registerAstrologer(req: AuthRequest, res: Response, next: 
       experience: validatedData.experience,
       languages: validatedData.languages,
       gender: validatedData.gender || undefined,
+      country: validatedData.country ?? null,
       proofOfAstrology: proofUrl,
     });
 

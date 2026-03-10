@@ -41,7 +41,7 @@ export default function JyotishLoginPage() {
         return;
       }
 
-      displaySuccess('Welcome back, Jyotish!');
+      if (response?.message) displaySuccess(response.message);
 
       try {
         const fullAstrologer = await authApi.getAstrologerProfile();
@@ -60,7 +60,7 @@ export default function JyotishLoginPage() {
       window.location.href = ROUTES.JYOTISH_DASHBOARD;
     },
     onError: (error: unknown) => {
-      displayError(error as ApiError, 'Login failed. Please check your credentials.');
+      displayError(error as ApiError);
     },
   });
 
@@ -135,6 +135,15 @@ export default function JyotishLoginPage() {
                     className="bg-slate-800/80 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-amber-500/20"
                     required
                   />
+
+                  <div className="flex justify-end">
+                    <Link
+                      href={ROUTES.JYOTISH_FORGOT_PASSWORD}
+                      className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
 
                   <LoadingButton
                     type="submit"

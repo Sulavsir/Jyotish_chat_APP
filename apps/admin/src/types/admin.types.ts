@@ -31,6 +31,7 @@ export interface Astrologer {
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   profilePhoto?: string | null;
   proofOfAstrology?: string | null;
+  country?: string | null;
   createdAt: string;
   updatedAt: string;
 }
