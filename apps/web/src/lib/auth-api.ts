@@ -266,7 +266,7 @@ export const authApi = {
   loginAstrologer: async (data: {
     identifier: string;
     password: string;
-  }): Promise<{ astrologer: User }> => {
+  }): Promise<{ astrologer: User; message?: string }> => {
     // TEMPORARY: Device tracking disabled - will implement properly later
     // const deviceInfo = getDeviceInfo();
     // const requestData = {
@@ -275,7 +275,7 @@ export const authApi = {
     // };
 
     // Call astrologer login endpoint (tokens are set as httpOnly cookies by server)
-    const response = await apiClient.post<{ astrologer: User }>(
+    const response = await apiClient.post<{ astrologer: User; message?: string }>(
       API_ENDPOINTS.ASTROLOGER.LOGIN,
       data, // Device info temporarily disabled
       false
@@ -283,6 +283,7 @@ export const authApi = {
 
     // Ensure returned astrologer includes the correct role
     return {
+      message: response.message,
       astrologer: {
         ...response.astrologer,
         role: UserRole.ASTROLOGER,

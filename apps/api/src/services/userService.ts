@@ -43,7 +43,7 @@ export const getAstrologers = async (
   const astrologers = await prisma.astrologer.findMany({
     where: {
       isActive: true,
-      ...(onlineOnly ? { isOnline: true } : {}), // Filter by online status
+      ...(onlineOnly ? { isOnline: true } : {}),
     },
     select: {
       id: true,
@@ -61,10 +61,7 @@ export const getAstrologers = async (
       createdAt: true,
     },
     take: limit,
-    orderBy: [
-      { isOnline: 'desc' }, // Online astrologers first
-      { createdAt: 'desc' },
-    ],
+    orderBy: [{ isOnline: 'desc' }, { createdAt: 'desc' }],
   });
 
   return astrologers.map(
