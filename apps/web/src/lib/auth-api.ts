@@ -30,6 +30,18 @@ import type {
 } from '@/types/auth';
 import { UserRole } from '@/types';
 
+const AUTH_ROUTE_PATTERNS = [
+  '/forgot-password',
+  '/reset-password',
+  '/verify-otp',
+  '/set-password',
+  '/login',
+  '/profile-setup',
+];
+function isAuthRoute(pathname: string): boolean {
+  return AUTH_ROUTE_PATTERNS.some((p) => pathname.includes(p));
+}
+
 export const authApi = {
   checkPhone: async (data: CheckPhoneRequest): Promise<CheckPhoneResponse> => {
     return apiClient.post<CheckPhoneResponse>(API_ENDPOINTS.AUTH.CHECK_PHONE, data, false);
@@ -124,6 +136,10 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<User> => {
+    if (typeof window !== 'undefined' && isAuthRoute(window.location.pathname)) {
+      throw new Error('Skipping profile fetch on auth route');
+    }
+
     // ALWAYS check store first to determine role
     const user = useAuthStore.getState().user;
 
@@ -203,9 +219,7 @@ export const authApi = {
     return apiClient.post(API_ENDPOINTS.AUTH.SET_PASSWORD_EXISTING, { password });
   },
 
-  requestPasswordReset: async (
-    data: ForgotPasswordRequest
-  ): Promise<ForgotPasswordResponse> => {
+  requestPasswordReset: async (data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> => {
     return apiClient.post<ForgotPasswordResponse>(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, data, false);
   },
 
@@ -240,6 +254,18 @@ export const authApi = {
     );
   },
 
+  verifyPasswordResetOtp: async (data: {
+    phoneNumber: string;
+    otp: string;
+    sessionId: string;
+  }): Promise<{ valid: boolean; message: string }> => {
+    return apiClient.post<{ valid: boolean; message: string }>(
+      API_ENDPOINTS.AUTH.VERIFY_PASSWORD_RESET_OTP,
+      data,
+      false
+    );
+  },
+
   /** Astrologer only – resets password in Astrologer table. */
   resetAstrologerPasswordWithToken: async (
     data: ResetPasswordWithTokenRequest
@@ -257,6 +283,18 @@ export const authApi = {
   ): Promise<ResetPasswordWithOtpResponse> => {
     return apiClient.post<ResetPasswordWithOtpResponse>(
       API_ENDPOINTS.ASTROLOGER.RESET_PASSWORD_OTP,
+      data,
+      false
+    );
+  },
+
+  verifyAstrologerPasswordResetOtp: async (data: {
+    phoneNumber: string;
+    otp: string;
+    sessionId: string;
+  }): Promise<{ valid: boolean; message: string }> => {
+    return apiClient.post<{ valid: boolean; message: string }>(
+      API_ENDPOINTS.ASTROLOGER.VERIFY_PASSWORD_RESET_OTP,
       data,
       false
     );
@@ -292,6 +330,10 @@ export const authApi = {
   },
 
   getAstrologerProfile: async (): Promise<User> => {
+    if (typeof window !== 'undefined' && isAuthRoute(window.location.pathname)) {
+      throw new Error('Skipping profile fetch on auth route');
+    }
+
     const response = await apiClient.get<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME);
     const astrologer = response.astrologer;
     return { ...astrologer, role: UserRole.ASTROLOGER };

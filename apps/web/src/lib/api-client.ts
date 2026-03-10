@@ -75,12 +75,13 @@ axiosInstance.interceptors.response.use(
         requestUrl.includes('/auth/refresh') ||
         requestUrl.includes('/astrologer/auth/login');
 
-      // Don't refresh if we're on a login page
+      // Don't refresh if we're on a login/auth page
       const isLoginPage =
         typeof window !== 'undefined' &&
         (window.location.pathname === ROUTES.LOGIN ||
           window.location.pathname === ROUTES.JYOTISH_LOGIN ||
-          window.location.pathname.includes('/auth/'));
+          window.location.pathname.includes('/auth/') ||
+          window.location.pathname.includes('/forgot-password'));
 
       // Skip token refresh for auth endpoints or login pages
       if (isAuthEndpoint || isLoginPage) {
@@ -95,7 +96,9 @@ axiosInstance.interceptors.response.use(
         if (
           typeof window !== 'undefined' &&
           window.location.pathname !== ROUTES.LOGIN &&
-          window.location.pathname !== ROUTES.JYOTISH_LOGIN
+          window.location.pathname !== ROUTES.JYOTISH_LOGIN &&
+          !window.location.pathname.includes('/auth/') &&
+          !window.location.pathname.includes('/forgot-password')
         ) {
           const isAstrologerRoute = window.location.pathname.startsWith('/jyotish');
           const loginRoute = isAstrologerRoute ? ROUTES.JYOTISH_LOGIN : ROUTES.LOGIN;
@@ -171,7 +174,8 @@ axiosInstance.interceptors.response.use(
           typeof window !== 'undefined' &&
           window.location.pathname !== ROUTES.LOGIN &&
           window.location.pathname !== ROUTES.JYOTISH_LOGIN &&
-          !window.location.pathname.includes('/auth/')
+          !window.location.pathname.includes('/auth/') &&
+          !window.location.pathname.includes('/forgot-password')
         ) {
           console.log('🔄 Forcing redirect to login:', loginRoute);
 

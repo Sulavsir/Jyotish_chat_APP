@@ -18,18 +18,23 @@ const PUBLIC_ROUTES = [
   ROUTES.SET_PASSWORD,
   ROUTES.FORGOT_PASSWORD,
   ROUTES.PRICING,
-  ROUTES.ASTROLOGERS, // listing is public
-  ROUTES.HOROSCOPES, // public horoscope page - view all rashis
-  ROUTES.SUBHA_SAHIT, // public Subha Sahit dates page
+  ROUTES.ASTROLOGERS, 
+  ROUTES.HOROSCOPES,
+  ROUTES.SUBHA_SAHIT,
   ROUTES.JYOTISH_LOGIN,
   ROUTES.JYOTISH_VERIFY_OTP,
   ROUTES.JYOTISH_SET_PASSWORD,
   ROUTES.JYOTISH_PROFILE_SETUP,
+  ROUTES.JYOTISH_FORGOT_PASSWORD,
 ];
+
+// Fallback patterns so new auth pages are caught even if not added to PUBLIC_ROUTES
+const AUTH_PATH_PATTERNS = ['/auth/', '/forgot-password', '/reset-password', '/verify-otp', '/set-password', '/login', '/profile-setup'];
 
 const isPublicRoutePath = (pathname: string | null) => {
   if (!pathname) return false;
-  return PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  if (PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) return true;
+  return AUTH_PATH_PATTERNS.some((pattern) => pathname.includes(pattern));
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -43,7 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { setAuth, logout, user: currentUser } = useAuthStore.getState();
 
       // Skip auth check for public routes to avoid unnecessary 401 errors
-      const isPublicRoute = isPublicRoutePath(pathname);
+      // Check both React hook pathname and window.location for robustness during navigation
+      const windowPath = typeof window !== 'undefined' ? window.location.pathname : null;
+      const isPublicRoute = isPublicRoutePath(pathname) || isPublicRoutePath(windowPath);
 
       if (isPublicRoute) {
         // For public routes, just mark as initialized without checking auth

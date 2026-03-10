@@ -16,6 +16,7 @@ import {
   forgotPasswordSchema,
   resetPasswordWithTokenSchema,
   resetPasswordWithOtpSchema,
+  verifyPasswordResetOtpSchema,
 } from '../validators/auth.validators';
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
@@ -42,6 +43,11 @@ router.post(
   '/auth/reset-password-otp',
   validateBody(resetPasswordWithOtpSchema),
   asyncHandler(astrologerController.resetAstrologerPasswordWithOTP)
+);
+router.post(
+  '/auth/verify-password-reset-otp',
+  validateBody(verifyPasswordResetOtpSchema),
+  asyncHandler(astrologerController.verifyAstrologerPasswordResetOtp)
 );
 // Registration route - validation handled in controller after FormData parsing
 router.post(

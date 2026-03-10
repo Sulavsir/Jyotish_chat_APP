@@ -18,19 +18,20 @@ import {
   CardTitle,
 } from '@jyotish/ui';
 import { LoadingButton, Navbar, AppLogo, OTPInput, OtpExpiryCountdown } from '@/components/ui';
+import { FormPasswordInput } from '@/components/form';
 import spaceImage from '@/assets/images/space.jpg';
 import { authApi } from '@/lib/auth-api';
 import {
   forgotPasswordSchema,
-  resetPasswordWithOtpFormSchema,
+  newPasswordFormSchema,
   type ForgotPasswordFormData,
-  type ResetPasswordWithOtpFormData,
+  type NewPasswordFormData,
 } from '@/lib/validations';
 import { displayError, displaySuccess, parseApiError } from '@/utils/error-handler';
 import { OTP_EXPIRY_SECONDS } from '@/utils/otp.utils';
 import type { ApiError } from '@/types/auth';
 
-type ForgotPasswordStep = 'request' | 'otp' | 'done';
+type ForgotPasswordStep = 'request' | 'otp' | 'reset' | 'done';
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<ForgotPasswordStep>('request');
@@ -40,6 +41,7 @@ export default function ForgotPasswordPage() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
   const [otpExpirySeconds, setOtpExpirySeconds] = useState<number>(0);
+  const [verifiedOtpCode, setVerifiedOtpCode] = useState('');
 
   const requestForm = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -48,10 +50,9 @@ export default function ForgotPasswordPage() {
     },
   });
 
-  const resetForm = useForm<ResetPasswordWithOtpFormData>({
-    resolver: zodResolver(resetPasswordWithOtpFormSchema),
+  const passwordForm = useForm<NewPasswordFormData>({
+    resolver: zodResolver(newPasswordFormSchema),
     defaultValues: {
-      otp: '',
       password: '',
       confirmPassword: '',
     },
@@ -78,6 +79,7 @@ export default function ForgotPasswordPage() {
         setOtpExpirySeconds(data.expiresIn ?? OTP_EXPIRY_SECONDS);
         setOtp(['', '', '', '', '', '']);
         setOtpError('');
+        setVerifiedOtpCode('');
         setStep('otp');
 
         if (message) displaySuccess(message);
@@ -92,13 +94,13 @@ export default function ForgotPasswordPage() {
     },
   });
 
-  const resetWithOtpMutation = useMutation({
-    mutationFn: authApi.resetPasswordWithOtp,
-    onSuccess: (data) => {
-      const message = data?.message ?? '';
-      if (message) displaySuccess(message);
-      setDoneMessage(message);
-      setStep('done');
+  const verifyOtpMutation = useMutation({
+    mutationFn: authApi.verifyPasswordResetOtp,
+    onSuccess: (_data) => {
+      const otpCode = otp.join('');
+      setVerifiedOtpCode(otpCode);
+      displaySuccess('OTP verified! Set your new password.');
+      setStep('reset');
     },
     onError: (error: ApiError) => {
       setOtpError(parseApiError(error).message);
@@ -106,13 +108,28 @@ export default function ForgotPasswordPage() {
     },
   });
 
+  const resetWithOtpMutation = useMutation({
+    mutationFn: authApi.resetPasswordWithOtp,
+    onSuccess: (data) => {
+      const message = data?.message ?? 'Password has been reset successfully.';
+      if (message) displaySuccess(message);
+      setDoneMessage(message);
+      setStep('done');
+    },
+    onError: (error: ApiError) => {
+      displayError(error);
+    },
+  });
+
   useEffect(() => {
-    if (otpExpirySeconds > 0 && step === 'otp') {
+    if (otpExpirySeconds > 0 && (step === 'otp' || step === 'reset')) {
       const timer = setInterval(() => {
         setOtpExpirySeconds((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            setOtpError('OTP has expired. Please request a new one.');
+            if (step === 'otp') {
+              setOtpError('OTP has expired. Please request a new one.');
+            }
             return 0;
           }
           return prev - 1;
@@ -129,8 +146,8 @@ export default function ForgotPasswordPage() {
     });
   };
 
-  const handleResetWithOtpSubmit = (formData: ResetPasswordWithOtpFormData) => {
-    const otpCode = formData.otp || otp.join('');
+  const handleVerifyOtp = () => {
+    const otpCode = otp.join('');
     if (otpCode.length !== 6) {
       setOtpError('Please enter all 6 digits');
       return;
@@ -144,9 +161,26 @@ export default function ForgotPasswordPage() {
       return;
     }
 
-    resetWithOtpMutation.mutate({
+    verifyOtpMutation.mutate({
       phoneNumber: otpPhoneNumber,
       otp: otpCode,
+      sessionId: otpSessionId,
+    });
+  };
+
+  const handleResetPassword = (formData: NewPasswordFormData) => {
+    if (!otpSessionId || !otpPhoneNumber || !verifiedOtpCode) {
+      displayError(
+        { message: 'OTP session is missing. Please start over.', statusCode: 400 },
+        'Invalid session'
+      );
+      setStep('request');
+      return;
+    }
+
+    resetWithOtpMutation.mutate({
+      phoneNumber: otpPhoneNumber,
+      otp: verifiedOtpCode,
       sessionId: otpSessionId,
       password: formData.password,
       confirmPassword: formData.confirmPassword,
@@ -155,15 +189,12 @@ export default function ForgotPasswordPage() {
 
   const handleOtpComplete = (otpString: string) => {
     setOtpError('');
-    resetForm.setValue('otp', otpString);
   };
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
-      {/* Navbar */}
       <Navbar />
 
-      {/* Full Background Image */}
       <div className="absolute inset-0">
         <Image
           src={spaceImage}
@@ -176,28 +207,27 @@ export default function ForgotPasswordPage() {
         <div className="absolute inset-0 bg-black/50"></div>
       </div>
 
-      {/* Center Form */}
       <div className="w-full flex items-center justify-center px-4 py-12 relative z-10">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="text-center mb-8">
             <AppLogo href={ROUTES.HOME} height={56} className="inline-block mb-2" />
             <p className="text-gray-300 text-sm">Reset your password</p>
           </div>
 
-          {/* Forgot Password Card */}
           <Card className="bg-black/30 backdrop-blur-[10px] border border-white/10 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.8)] overflow-hidden">
             <CardHeader className="space-y-2 pb-4 pt-6">
               <CardTitle className="text-3xl text-center font-bold text-white drop-shadow-lg">
                 Forgot Password
               </CardTitle>
               <CardDescription className="text-center text-gray-200 text-sm">
-                {step === 'done'
-                  ? 'Next steps are below.'
-                  : 'Enter your email or phone to reset your password'}
+                {step === 'request' && 'Enter your email or phone to reset your password'}
+                {step === 'otp' && 'Verify the OTP sent to your phone'}
+                {step === 'reset' && 'Set your new password'}
+                {step === 'done' && 'Next steps are below.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-6 pb-6">
+              {/* Step 1: Request Reset */}
               {step === 'request' && (
                 <form
                   onSubmit={requestForm.handleSubmit(handleRequestSubmit)}
@@ -246,11 +276,9 @@ export default function ForgotPasswordPage() {
                 </form>
               )}
 
+              {/* Step 2: Verify OTP */}
               {step === 'otp' && (
-                <form
-                  onSubmit={resetForm.handleSubmit(handleResetWithOtpSubmit)}
-                  className="space-y-5"
-                >
+                <div className="space-y-5">
                   <div className="space-y-3">
                     <p className="text-sm text-gray-200 text-center">
                       Enter the 6-digit code sent to{' '}
@@ -265,63 +293,20 @@ export default function ForgotPasswordPage() {
                       onChange={setOtp}
                       onComplete={handleOtpComplete}
                       error={otpError}
-                      disabled={resetWithOtpMutation.isPending || otpExpirySeconds === 0}
+                      disabled={verifyOtpMutation.isPending || otpExpirySeconds === 0}
                     />
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="password"
-                        className="text-white font-semibold text-sm tracking-wide"
-                      >
-                        New Password
-                      </Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="Enter new password"
-                        {...resetForm.register('password')}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
-                      />
-                      {resetForm.formState.errors.password && (
-                        <p className="text-xs text-red-400 mt-1">
-                          {resetForm.formState.errors.password.message}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="confirmPassword"
-                        className="text-white font-semibold text-sm tracking-wide"
-                      >
-                        Confirm New Password
-                      </Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        placeholder="Confirm new password"
-                        {...resetForm.register('confirmPassword')}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
-                      />
-                      {resetForm.formState.errors.confirmPassword && (
-                        <p className="text-xs text-red-400 mt-1">
-                          {resetForm.formState.errors.confirmPassword.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
                   <LoadingButton
-                    type="submit"
+                    type="button"
                     color="secondary"
                     className="w-full h-12 font-bold text-base rounded-lg transform hover:scale-[1.02]"
-                    isLoading={resetWithOtpMutation.isPending}
-                    loadingText="Resetting..."
+                    isLoading={verifyOtpMutation.isPending}
+                    loadingText="Verifying..."
                     disabled={otp.join('').length !== 6 || otpExpirySeconds === 0}
+                    onClick={handleVerifyOtp}
                   >
-                    Verify OTP &amp; Reset Password
+                    Verify OTP
                   </LoadingButton>
 
                   <div className="flex justify-between text-sm">
@@ -341,7 +326,7 @@ export default function ForgotPasswordPage() {
                       }
                       disabled={
                         requestResetMutation.isPending ||
-                        resetWithOtpMutation.isPending ||
+                        verifyOtpMutation.isPending ||
                         otpExpirySeconds > 240
                       }
                       className="text-purple-300 hover:text-purple-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -349,9 +334,77 @@ export default function ForgotPasswordPage() {
                       Resend OTP
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Step 3: Set New Password */}
+              {step === 'reset' && (
+                <form
+                  onSubmit={passwordForm.handleSubmit(handleResetPassword)}
+                  className="space-y-5"
+                >
+                  <div className="flex items-center justify-center gap-2 py-2">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 text-sm">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      OTP verified
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <FormPasswordInput
+                      id="password"
+                      name="password"
+                      label="New Password"
+                      placeholder="Enter new password"
+                      value={passwordForm.watch('password')}
+                      onChange={(e) => passwordForm.setValue('password', e.target.value, { shouldValidate: true })}
+                      onBlur={() => passwordForm.trigger('password')}
+                      error={passwordForm.formState.errors.password?.message}
+                      disabled={resetWithOtpMutation.isPending}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
+                      autoComplete="new-password"
+                    />
+
+                    <FormPasswordInput
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      label="Confirm New Password"
+                      placeholder="Confirm new password"
+                      value={passwordForm.watch('confirmPassword')}
+                      onChange={(e) => passwordForm.setValue('confirmPassword', e.target.value, { shouldValidate: true })}
+                      onBlur={() => passwordForm.trigger('confirmPassword')}
+                      error={passwordForm.formState.errors.confirmPassword?.message}
+                      disabled={resetWithOtpMutation.isPending}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 h-12 rounded-lg"
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <LoadingButton
+                    type="submit"
+                    color="secondary"
+                    className="w-full h-12 font-bold text-base rounded-lg transform hover:scale-[1.02]"
+                    isLoading={resetWithOtpMutation.isPending}
+                    loadingText="Resetting..."
+                  >
+                    Reset Password
+                  </LoadingButton>
+
+                  <div className="text-center text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setStep('request')}
+                      className="text-gray-300 hover:text-gray-100 transition-colors"
+                    >
+                      ← Start Over
+                    </button>
+                  </div>
                 </form>
               )}
 
+              {/* Step 4: Done */}
               {step === 'done' && (
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
@@ -382,7 +435,6 @@ export default function ForgotPasswordPage() {
             </CardContent>
           </Card>
 
-          {/* Back to home */}
           <div className="text-center mt-6">
             <Link
               href={ROUTES.HOME}

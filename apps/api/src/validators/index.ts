@@ -36,6 +36,7 @@ export {
   forgotPasswordSchema,
   resetPasswordWithTokenSchema,
   resetPasswordWithOtpSchema,
+  verifyPasswordResetOtpSchema,
 } from './auth.validators';
 export * from './query.validators';
 export * from './coin.validators';

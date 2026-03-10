@@ -548,6 +548,23 @@ export async function resetPasswordWithOTP(req: AuthRequest, res: Response, next
 }
 
 /**
+ * Verify OTP for password reset without consuming the session.
+ * POST /api/v1/auth/verify-password-reset-otp
+ */
+export async function verifyPasswordResetOtp(req: AuthRequest, res: Response, next: NextFunction) {
+  const { phoneNumber, otp, sessionId } = req.body as {
+    phoneNumber: string;
+    otp: string;
+    sessionId: string;
+  };
+  await otpService.validateOTP(sessionId, phoneNumber, otp);
+  return sendSuccess(res, {
+    valid: true,
+    message: 'OTP verified successfully.',
+  });
+}
+
+/**
  * Logout user
  * POST /api/v1/auth/logout
  *

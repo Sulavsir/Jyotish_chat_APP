@@ -52,6 +52,15 @@ export const resetPasswordWithTokenSchema = z
     path: ['confirmPassword'],
   });
 
+export const verifyPasswordResetOtpSchema = z.object({
+  phoneNumber: phoneValidation,
+  otp: z
+    .string()
+    .length(6, 'OTP must be 6 digits')
+    .regex(/^[0-9]{6}$/, 'OTP must contain only numbers'),
+  sessionId: z.string().uuid('Invalid session ID'),
+});
+
 export const resetPasswordWithOtpSchema = z
   .object({
     phoneNumber: phoneValidation,

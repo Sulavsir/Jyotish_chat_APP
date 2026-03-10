@@ -16,6 +16,7 @@ import {
   forgotPasswordSchema,
   resetPasswordWithTokenSchema,
   resetPasswordWithOtpSchema,
+  verifyPasswordResetOtpSchema,
 } from '../validators';
 
 const router = Router();
@@ -365,6 +366,12 @@ router.post(
   '/reset-password-otp',
   validateBody(resetPasswordWithOtpSchema),
   asyncHandler(authController.resetPasswordWithOTP)
+);
+
+router.post(
+  '/verify-password-reset-otp',
+  validateBody(verifyPasswordResetOtpSchema),
+  asyncHandler(authController.verifyPasswordResetOtp)
 );
 
 /**

@@ -168,6 +168,49 @@ export class OTPService {
   }
 
   /**
+   * Validate OTP without consuming the session.
+   * Used for multi-step flows where OTP is verified first,
+   * then the session is consumed in a later step.
+   */
+  async validateOTP(sessionId: string, phoneNumber: string, otp: string): Promise<VerifyOTPResult> {
+    const otpSession = await this.getOTPSession(sessionId);
+
+    if (!otpSession) {
+      throw new Error('Invalid or expired OTP session');
+    }
+
+    if (otpSession.verified) {
+      throw new Error('OTP already used');
+    }
+
+    if (new Date() > otpSession.expiresAt) {
+      throw new Error('OTP has expired');
+    }
+
+    if (otpSession.phoneNumber !== phoneNumber) {
+      throw new Error('Phone number mismatch');
+    }
+
+    if (otpSession.attempts >= OTP_CONFIG.MAX_ATTEMPTS) {
+      throw new Error('Too many failed attempts');
+    }
+
+    const decryptedOTP = decrypt(otpSession.otp);
+    if (decryptedOTP !== otp) {
+      await prisma.oTPSession.update({
+        where: { id: sessionId },
+        data: { attempts: otpSession.attempts + 1 },
+      });
+      throw new Error('Invalid OTP');
+    }
+
+    return {
+      success: true,
+      phoneNumber: otpSession.phoneNumber,
+    };
+  }
+
+  /**
    * Clean up expired OTP sessions (can be called by a cron job)
    */
   async cleanupExpiredSessions(): Promise<number> {

@@ -72,7 +72,7 @@ class SMSService {
    * Send OTP SMS
    */
   async sendOTP(phoneNumber: string, otp: string): Promise<boolean> {
-    const message = `Your Chat Jyotishi verification code is: ${otp}. Valid for 10 minutes. Do not share this code with anyone.`;
+    const message = `Your Chat Jyotishi verification code is: ${otp}. Valid for 5 minutes. Do not share this code with anyone.`;
     return this.sendSMS(phoneNumber, message);
   }
 

@@ -9,6 +9,7 @@ import {
   auditService,
   sessionService,
   passwordResetService,
+  otpService,
 } from '../services';
 import * as astrologerEarningsService from '../services/astrologerEarnings.service';
 import { sendSuccess } from '../utils';
@@ -173,6 +174,27 @@ export async function resetAstrologerPasswordWithOTP(
   );
   return sendSuccess(res, {
     message: 'Password has been reset successfully. You can now log in with your new password.',
+  });
+}
+
+/**
+ * Verify OTP for astrologer password reset without consuming the session.
+ * POST /api/v1/astrologer/auth/verify-password-reset-otp
+ */
+export async function verifyAstrologerPasswordResetOtp(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const { phoneNumber, otp, sessionId } = req.body as {
+    phoneNumber: string;
+    otp: string;
+    sessionId: string;
+  };
+  await otpService.validateOTP(sessionId, phoneNumber, otp);
+  return sendSuccess(res, {
+    valid: true,
+    message: 'OTP verified successfully.',
   });
 }
 

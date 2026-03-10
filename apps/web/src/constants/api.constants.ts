@@ -53,6 +53,7 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: '/api/v1/auth/forgot-password',
     RESET_PASSWORD_TOKEN: '/api/v1/auth/reset-password-token',
     RESET_PASSWORD_OTP: '/api/v1/auth/reset-password-otp',
+    VERIFY_PASSWORD_RESET_OTP: '/api/v1/auth/verify-password-reset-otp',
   },
   USER: {
     ME: '/api/v1/users/me',
@@ -131,6 +132,7 @@ export const API_ENDPOINTS = {
     FORGOT_PASSWORD: '/api/v1/astrologer/auth/forgot-password',
     RESET_PASSWORD_TOKEN: '/api/v1/astrologer/auth/reset-password-token',
     RESET_PASSWORD_OTP: '/api/v1/astrologer/auth/reset-password-otp',
+    VERIFY_PASSWORD_RESET_OTP: '/api/v1/astrologer/auth/verify-password-reset-otp',
     LIST: '/api/v1/public/astrologers',
     TOGGLE_ONLINE: '/api/v1/astrologer/toggle-online',
     AUTH_ME: '/api/v1/astrologer/auth/me',
