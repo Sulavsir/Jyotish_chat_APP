@@ -2,6 +2,20 @@
  * Fonepay Third-Party Dynamic QR – API request/response and WebSocket message types
  */
 
+/** Fonepay Web (card) callback query params from redirect URL */
+export interface FonepayWebCallbackQuery {
+  PRN: string;
+  PID: string;
+  PS: string;
+  RC: string;
+  DV: string;
+  UID: string;
+  BC: string;
+  INI: string;
+  P_AMT: string;
+  R_AMT: string;
+}
+
 /** Request body for generating a dynamic QR */
 export interface FonepayGenerateRequest {
   amount: string | number;

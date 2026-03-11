@@ -253,14 +253,32 @@ export async function verifyPayment(
     (getPayResponse.transactionId && String(getPayResponse.transactionId).trim()) ||
     transactionIdToStore;
 
-  await prisma.payment.update({
-    where: { id: orderId },
+  const updateResult = await prisma.payment.updateMany({
+    where: {
+      id: orderId,
+      userId,
+      status: PaymentStatus.PENDING,
+    },
     data: {
       status: PaymentStatus.SUCCESS,
       transactionId: finalTransactionId,
     },
   });
 
+  if (updateResult.count === 0) {
+    // Another request already processed this order — return idempotent success
+    const balance = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { coins: true },
+    });
+    return {
+      success: true,
+      message: 'Payment already confirmed.',
+      balance: balance?.coins ?? 0,
+    };
+  }
+
+  // We won the race — credit coins or activate plan
   if (planId) {
     await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
   } else if (coinsToAdd > 0) {
@@ -396,13 +414,30 @@ export async function verifyFonepayQrPayment(
   const coinsToAdd = metadata.coins ?? 0;
   const planId = metadata.planId;
 
-  await prisma.payment.update({
-    where: { id: payment.id },
+  const updateResult = await prisma.payment.updateMany({
+    where: {
+      id: payment.id,
+      userId,
+      status: PaymentStatus.PENDING,
+    },
     data: {
       status: PaymentStatus.SUCCESS,
       transactionId: statusResult.fonepayTraceId ?? prn,
     },
   });
+
+  if (updateResult.count === 0) {
+    const balance = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { coins: true },
+    });
+    return {
+      success: true,
+      message: 'Payment already confirmed.',
+      balance: balance?.coins ?? 0,
+      orderId: payment.id,
+    };
+  }
 
   if (planId) {
     await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
@@ -462,7 +497,7 @@ export async function payWithFonepay(
 }
 
 /** Fonepay Web callback query (re-export for controller). */
-export type FonepayCardCallbackQuery = import('../payments/fonepay/web').FonepayWebCallbackQuery;
+export type FonepayCardCallbackQuery = import('../types/fonepay.types').FonepayWebCallbackQuery;
 
 /**
  * Handle Fonepay Web callback: verify DV, update Payment, redirect to frontend success/fail.

@@ -15,19 +15,7 @@ import { addCoins } from '../../../services/coin.service';
 import { pricingService } from '../../../services/pricing.service';
 import { PurchaseMethod } from '../../../types/pricing.types';
 import { CoinTransactionReason } from '../../../types/coin.types';
-
-export interface FonepayWebCallbackQuery {
-  PRN: string;
-  PID: string;
-  PS: string;
-  RC: string;
-  DV: string;
-  UID: string;
-  BC: string;
-  INI: string;
-  P_AMT: string;
-  R_AMT: string;
-}
+import type { FonepayWebCallbackQuery } from '../../../types/fonepay.types';
 
 /**
  * Handle Fonepay Web callback: verify DV, update Payment, return redirect URL to frontend success/fail.
@@ -64,7 +52,7 @@ export async function verifyPayment(
 
   const isSuccess =
     (PS === FONEPAY_VERIFY_PS_SUCCESS || PS === 'True') &&
-    (RC?.toLowerCase() === FONEPAY_VERIFY_RC_SUCCESSFUL);
+    RC?.toLowerCase() === FONEPAY_VERIFY_RC_SUCCESSFUL;
 
   const payment = await prisma.payment.findFirst({
     where: {
@@ -83,23 +71,28 @@ export async function verifyPayment(
   const planId = metadata.planId;
 
   if (isSuccess) {
-    await prisma.payment.update({
-      where: { id: payment.id },
+    const updateResult = await prisma.payment.updateMany({
+      where: {
+        id: payment.id,
+        status: PaymentStatus.PENDING,
+      },
       data: {
         status: PaymentStatus.SUCCESS,
         transactionId: UID ?? PRN,
       },
     });
-    if (planId) {
-      await pricingService.activatePlanForUser(payment.userId, planId, PurchaseMethod.MONEY);
-    } else if (coinsToAdd > 0) {
-      await addCoins(
-        payment.userId,
-        coinsToAdd,
-        CoinTransactionReason.PAYMENT_SUCCESS,
-        undefined,
-        payment.id
-      );
+    if (updateResult.count === 1) {
+      if (planId) {
+        await pricingService.activatePlanForUser(payment.userId, planId, PurchaseMethod.MONEY);
+      } else if (coinsToAdd > 0) {
+        await addCoins(
+          payment.userId,
+          coinsToAdd,
+          CoinTransactionReason.PAYMENT_SUCCESS,
+          undefined,
+          payment.id
+        );
+      }
     }
     return {
       redirectTo: `${successUrl}?orderId=${encodeURIComponent(payment.id)}&source=fonepay-card`,
