@@ -3,4 +3,5 @@
  */
 
 export { initiatePayment } from './initiatePayment';
-export { verifyPayment, type FonepayWebCallbackQuery } from './verifyPayment';
+export { verifyPayment } from './verifyPayment';
+export type { FonepayWebCallbackQuery } from '../../../types/fonepay.types';
