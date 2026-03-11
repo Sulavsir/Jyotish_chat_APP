@@ -3,15 +3,13 @@
 import { useState, useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Navbar } from '@/components/ui';
-import { getRashiDisplayName, HoroscopeCategory, getDateRangeForCategory } from '@jyotish/shared';
+import { getRashiDisplayName, HoroscopeCategory, getDateRangeForCategory, QUESTIONNAIRE_LANGUAGES, LANGUAGE_DISPLAY_LABELS, type QuestionnaireLanguage } from '@jyotish/shared';
 import { horoscopeService } from '@/services/horoscopeService';
 import { QUERY_KEYS } from '@/constants';
 import { ZODIAC_SIGNS, HOROSCOPE_CATEGORIES } from '@/constants/horoscope.constants';
 import { DateInput, Spinner } from '@jyotish/ui';
-import { Sparkles, Calendar, Sun } from 'lucide-react';
+import { Sparkles, Calendar, Sun, Globe } from 'lucide-react';
 import { Footer } from '@/components/home';
-
-const PUBLIC_HOROSCOPE_LANGUAGE = 'ENGLISH';
 
 function formatPeriodLabel(category: HoroscopeCategory, date: Date): string {
   const d = new Date(date);
@@ -44,19 +42,20 @@ function toDateParam(category: HoroscopeCategory, date: Date): string {
 export default function PublicHoroscopesPage() {
   const [category, setCategory] = useState<HoroscopeCategory>(HoroscopeCategory.DAILY);
   const [periodDate, setPeriodDate] = useState<Date>(() => new Date());
+  const [language, setLanguage] = useState<QuestionnaireLanguage>('ENGLISH');
 
   const dateParam = useMemo(() => toDateParam(category, periodDate), [category, periodDate]);
   const periodLabel = formatPeriodLabel(category, periodDate);
 
   const queries = useQueries({
     queries: ZODIAC_SIGNS.map((sign) => ({
-      queryKey: QUERY_KEYS.HOROSCOPE.GET(sign.value, category, dateParam, PUBLIC_HOROSCOPE_LANGUAGE),
+      queryKey: QUERY_KEYS.HOROSCOPE.GET(sign.value, category, dateParam, language),
       queryFn: () =>
         horoscopeService.getHoroscope({
           zodiacSign: sign.value,
           category,
           date: dateParam,
-          language: PUBLIC_HOROSCOPE_LANGUAGE,
+          language,
         }),
       staleTime: 5 * 60 * 1000,
     })),
@@ -117,23 +116,46 @@ export default function PublicHoroscopesPage() {
                     })}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-purple-400" />
-                  <DateInput
-                    value={
-                      category === 'YEARLY'
-                        ? `${periodDate.getFullYear()}-01-01`
-                        : periodDate.toISOString().slice(0, 10)
-                    }
-                    onChange={(e) => {
-                      const d = new Date(e.target.value);
-                      if (!isNaN(d.getTime())) {
-                        setPeriodDate(category === 'YEARLY' ? new Date(d.getFullYear(), 0, 1) : d);
+                <div className="flex items-center gap-4 flex-wrap">
+                  {/* Language Selector */}
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-5 w-5 text-purple-400" />
+                    <div className="flex rounded-lg border border-purple-500/30 overflow-hidden">
+                      {QUESTIONNAIRE_LANGUAGES.map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => setLanguage(lang)}
+                          className={`px-3 py-2 text-sm font-medium transition-all ${
+                            language === lang
+                              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                              : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                          }`}
+                        >
+                          {LANGUAGE_DISPLAY_LABELS[lang]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Date Picker */}
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-purple-400" />
+                    <DateInput
+                      value={
+                        category === 'YEARLY'
+                          ? `${periodDate.getFullYear()}-01-01`
+                          : periodDate.toISOString().slice(0, 10)
                       }
-                    }}
-                    className="bg-white/5 border-purple-500/30 text-white [color-scheme:dark] min-w-[180px]"
-                    iconClassName="text-purple-400"
-                  />
+                      onChange={(e) => {
+                        const d = new Date(e.target.value);
+                        if (!isNaN(d.getTime())) {
+                          setPeriodDate(category === 'YEARLY' ? new Date(d.getFullYear(), 0, 1) : d);
+                        }
+                      }}
+                      className="bg-white/5 border-purple-500/30 text-white [color-scheme:dark] min-w-[180px]"
+                      iconClassName="text-purple-400"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-purple-500/20">
@@ -161,7 +183,7 @@ export default function PublicHoroscopesPage() {
               {ZODIAC_SIGNS.map((sign, i) => {
                 const { data, isFetching } = queries[i] ?? {};
                 const prediction = data?.horoscope?.prediction ?? '';
-                const label = getRashiDisplayName(sign.value, PUBLIC_HOROSCOPE_LANGUAGE);
+                const label = getRashiDisplayName(sign.value, language);
 
                 return (
                   <div

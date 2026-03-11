@@ -61,6 +61,12 @@ export const TIME = {
 // Questionnaire languages (for question categories). Type QuestionnaireLanguage is in types/index.ts
 export const QUESTIONNAIRE_LANGUAGES = ['NEPALI', 'HINDI', 'ENGLISH'] as const;
 
+export const LANGUAGE_DISPLAY_LABELS: Record<(typeof QUESTIONNAIRE_LANGUAGES)[number], string> = {
+  ENGLISH: 'English',
+  NEPALI: 'नेपाली',
+  HINDI: 'हिन्दी',
+};
+
 // Rashi (zodiac) display names by language for UI (dropdowns, cards)
 export const RASHI_DISPLAY_NAMES: Record<
   (typeof QUESTIONNAIRE_LANGUAGES)[number],
