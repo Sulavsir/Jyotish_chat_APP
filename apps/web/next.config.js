@@ -45,6 +45,12 @@ const nextConfig = {
         hostname: 'jotish.autonomoustechnology.net',
         pathname: '/uploads/**',
       },
+      // Google profile photos (used by Google login)
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
     ],
   },
 
