@@ -4,6 +4,7 @@
 
 import { AppointmentStatus, BookingType, SlotType, SlotStatus } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
+import type { UserSummary, AstrologerSummary } from './common.types';
 
 // Re-export for convenience
 export { AppointmentStatus, BookingType, SlotType, SlotStatus };
@@ -59,19 +60,8 @@ export interface AppointmentEntity {
 }
 
 export interface AppointmentWithRelations extends AppointmentEntity {
-  client: {
-    id: string;
-    name: string | null;
-    phone: string;
-    email: string | null;
-    profilePhoto: string | null;
-  };
-  astrologer: {
-    id: string;
-    name: string;
-    phone: string;
-    email: string | null;
-    profilePhoto: string | null;
+  client: UserSummary;
+  astrologer: AstrologerSummary & {
     category: AstrologerCategory;
     appointmentFee: number | null;
   };

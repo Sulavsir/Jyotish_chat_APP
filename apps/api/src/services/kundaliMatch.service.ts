@@ -36,7 +36,7 @@ export interface KundaliMatchRequestRow {
   reviewedByAdminId: string | null;
   createdAt: Date;
   updatedAt: Date;
-  user?: { id: string; name: string | null; phone: string; email: string | null };
+  user?: Pick<import('../types/common.types').UserSummary, 'id' | 'name' | 'phone' | 'email'>;
   reviewedByAdmin?: { id: string; name: string } | null;
 }
 

@@ -8,28 +8,12 @@ import type {
   NotificationEntity,
   HoroscopeSubscriptionEntity,
 } from './database.types';
+import type { UserSummary, AstrologerSummary, PaymentSummary } from './common.types';
 
 export interface ConsultationWithRelations extends ConsultationEntity {
-  client: {
-    id: string;
-    name: string | null;
-    phone: string;
-    email: string | null;
-    profilePhoto: string | null;
-  };
-  astrologer: {
-    id: string;
-    name: string | null;
-    phone: string;
-    email: string | null;
-    profilePhoto: string | null;
-  };
-  payment?: {
-    id: string;
-    amount: number;
-    status: string;
-    transactionId: string | null;
-  } | null;
+  client: UserSummary;
+  astrologer: AstrologerSummary;
+  payment?: PaymentSummary | null;
 }
 
 export interface NotificationWithMeta {

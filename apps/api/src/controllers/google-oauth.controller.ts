@@ -1,0 +1,102 @@
+import { Response, NextFunction } from 'express';
+import { AuthRequest } from '../types';
+import { setAuthCookies } from '../utils';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { googleOAuthService } from '../services/google-oauth.service';
+import { AppError } from '../middleware/error-handler';
+import { logUserLogin, logUserRegister } from '../utils';
+import { getClientIp } from '../utils/request-utils';
+
+const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:3000';
+
+const OAUTH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  maxAge: 10 * 60 * 1000, // 10 minutes
+  path: '/',
+};
+
+/**
+ * Initiate Google OAuth flow
+ * GET /api/v1/auth/google/login
+ *
+ * Generates state + PKCE code_verifier, stores them in httpOnly cookies,
+ * and redirects the user to Google's authorization URL.
+ */
+export async function googleLogin(req: AuthRequest, res: Response, _next: NextFunction) {
+  const { url, state, codeVerifier } = googleOAuthService.createAuthorizationParams();
+
+  res.cookie('google_oauth_state', state, OAUTH_COOKIE_OPTIONS);
+  res.cookie('google_oauth_code_verifier', codeVerifier, OAUTH_COOKIE_OPTIONS);
+
+  return res.redirect(url.toString());
+}
+
+/**
+ * Handle Google OAuth callback
+ * GET /api/v1/auth/google/callback
+ *
+ * Validates state, exchanges the authorization code with PKCE verifier,
+ * fetches user info from Google, finds or creates the user,
+ * sets auth cookies, and redirects to the frontend.
+ */
+export async function googleCallback(req: AuthRequest, res: Response, _next: NextFunction) {
+  const { code, state } = req.query as { code?: string; state?: string };
+  const storedState = req.cookies?.google_oauth_state as string | undefined;
+  const storedCodeVerifier = req.cookies?.google_oauth_code_verifier as string | undefined;
+
+  // Clear OAuth cookies immediately
+  res.clearCookie('google_oauth_state', { path: '/' });
+  res.clearCookie('google_oauth_code_verifier', { path: '/' });
+
+  if (!code || !state || !storedState || !storedCodeVerifier) {
+    return res.redirect(
+      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent('Missing OAuth parameters. Please try again.')}`
+    );
+  }
+
+  if (state !== storedState) {
+    return res.redirect(
+      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`
+    );
+  }
+
+  try {
+    const googleUser = await googleOAuthService.validateCallback(code, storedCodeVerifier);
+
+    const metadata = {
+      userAgent: req.headers['user-agent'],
+      ipAddress: getClientIp(req) ?? req.socket?.remoteAddress,
+    };
+
+    const result = await googleOAuthService.findOrCreateUser(googleUser, metadata);
+
+    setAuthCookies(res, result.accessToken, result.refreshToken);
+
+    if (result.isNewUser) {
+      await logUserRegister(result.user.id, req, {
+        method: 'google',
+        email: googleUser.email,
+      });
+    } else {
+      await logUserLogin(result.user.id, req, {
+        loginMethod: 'google',
+        email: googleUser.email,
+      });
+    }
+
+    return res.redirect(`${FRONTEND_URL()}/auth/google/callback?success=true`);
+  } catch (error) {
+    const message =
+      error instanceof AppError
+        ? error.message
+        : 'Google authentication failed. Please try again.';
+
+    console.error('Google OAuth callback error:', error);
+
+    return res.redirect(
+      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent(message)}`
+    );
+  }
+}

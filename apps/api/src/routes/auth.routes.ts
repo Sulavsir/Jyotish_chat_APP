@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authController } from '../controllers';
+import * as googleOAuthController from '../controllers/google-oauth.controller';
 import { validateBody } from '../middleware/validate';
 import { asyncHandler } from '../utils';
 import { authenticate } from '../middleware/auth';
@@ -20,6 +21,43 @@ import {
 } from '../validators';
 
 const router = Router();
+
+// ─── Google OAuth ───────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /api/v1/auth/google/login:
+ *   get:
+ *     summary: Initiate Google OAuth login (redirects to Google)
+ *     tags: [Auth]
+ *     responses:
+ *       302:
+ *         description: Redirects to Google authorization URL
+ */
+router.get('/google/login', asyncHandler(googleOAuthController.googleLogin));
+
+/**
+ * @swagger
+ * /api/v1/auth/google/callback:
+ *   get:
+ *     summary: Google OAuth callback (handles redirect from Google)
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: state
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Redirects to frontend with auth cookies set
+ */
+router.get('/google/callback', asyncHandler(googleOAuthController.googleCallback));
+
+// ─── Phone / Password Auth ──────────────────────────────────────────
 
 /**
  * @swagger

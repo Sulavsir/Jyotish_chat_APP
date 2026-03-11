@@ -3,6 +3,7 @@
  */
 
 import { AdminChatStatus, AdminChatSenderType, MessageType } from '@prisma/client';
+import type { UserSummary, AstrologerSummary, AdminSummary } from './common.types';
 
 export interface CreateAdminChatRequest {
   initialMessage: string;
@@ -27,25 +28,9 @@ export interface AdminChatResponse {
   adminRead: boolean;
   createdAt: Date;
   updatedAt: Date;
-  user?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    phone: string;
-    profilePhoto: string | null;
-  };
-  astrologer?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-    phone: string;
-    profilePhoto: string | null;
-  };
-  admin?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-  };
+  user?: UserSummary;
+  astrologer?: AstrologerSummary;
+  admin?: AdminSummary;
   participantRole?: 'CLIENT' | 'ASTROLOGER';
   unreadCount?: number;
 }

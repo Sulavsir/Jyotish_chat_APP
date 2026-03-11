@@ -672,14 +672,7 @@ export async function refreshToken(req: AuthRequest, res: Response, next: NextFu
   // Verify JWT signature and get user data
   const decoded = authService.verifyRefreshToken(refreshToken);
 
-  // Ensure decoded token has required phone field
-  if (!decoded.phone) {
-    clearAuthCookies(res);
-    throw new AppError('Invalid token data', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
-  }
-
   if (decoded.role === UserRole.ASTROLOGER) {
-    // Check if astrologer exists
     const astrologer = await prisma?.astrologer.findUnique({
       where: { id: decoded.id },
       select: { id: true },
@@ -693,9 +686,19 @@ export async function refreshToken(req: AuthRequest, res: Response, next: NextFu
       );
     }
   } else {
-    // Check if user exists
-    const exists = await userService.userExists(decoded.phone);
-    if (!exists) {
+    // Support both phone-based and email-only (Google OAuth) users
+    let userFound = false;
+    if (decoded.phone) {
+      userFound = await userService.userExists(decoded.phone);
+    }
+    if (!userFound) {
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true },
+      });
+      userFound = !!user;
+    }
+    if (!userFound) {
       clearAuthCookies(res);
       throw new AppError('User not found', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }

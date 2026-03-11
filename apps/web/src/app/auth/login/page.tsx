@@ -30,7 +30,9 @@ import {
   type PasswordLoginFormData,
   type OTPRequestFormData,
 } from '@/lib/validations';
+import { useSearchParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 
 type LoginMethod = 'password' | 'otp';
 type OTPStep = 'request' | 'verify';
@@ -38,6 +40,17 @@ type OTPStep = 'request' | 'verify';
 export default function LoginPage() {
   const { setAuth } = useAuthStore();
   const { isCheckingAuth } = useRedirectIfAuthenticated();
+  const searchParams = useSearchParams();
+
+  // Show Google OAuth error if redirected back with an error
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error) {
+      displayError(new Error(error));
+      // Clean up the URL
+      window.history.replaceState({}, '', ROUTES.LOGIN);
+    }
+  }, [searchParams]);
 
   // Login method tabs
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
@@ -236,6 +249,19 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-6 pt-2 pb-6 sm:pb-8 px-5 sm:px-6">
+            {/* Google Sign-In */}
+            <GoogleSignInButton />
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-700" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-slate-900 px-3 text-slate-500">or continue with</span>
+              </div>
+            </div>
+
             {/* Login Method Tabs */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-slate-800/80 rounded-lg border border-slate-600/50">
               <button

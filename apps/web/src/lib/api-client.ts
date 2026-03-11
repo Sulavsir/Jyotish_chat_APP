@@ -75,7 +75,6 @@ axiosInstance.interceptors.response.use(
         requestUrl.includes('/auth/refresh') ||
         requestUrl.includes('/astrologer/auth/login');
 
-      // Don't refresh if we're on a login/auth page
       const isLoginPage =
         typeof window !== 'undefined' &&
         (window.location.pathname === ROUTES.LOGIN ||

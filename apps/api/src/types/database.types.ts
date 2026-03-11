@@ -9,7 +9,7 @@ export type UserEntity = User;
 
 export interface UserResponse {
   id: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   email?: string | null;
   name?: string | null;
   role: string;

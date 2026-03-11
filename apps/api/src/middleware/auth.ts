@@ -6,8 +6,8 @@ import { authService } from '../services';
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    phone?: string;
-    email?: string;
+    phone?: string | null;
+    email?: string | null;
     role: UserRole;
   };
 }

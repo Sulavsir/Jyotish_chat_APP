@@ -54,6 +54,7 @@ export const API_ENDPOINTS = {
     RESET_PASSWORD_TOKEN: '/api/v1/auth/reset-password-token',
     RESET_PASSWORD_OTP: '/api/v1/auth/reset-password-otp',
     VERIFY_PASSWORD_RESET_OTP: '/api/v1/auth/verify-password-reset-otp',
+    GOOGLE_LOGIN: '/api/v1/auth/google/login',
   },
   USER: {
     ME: '/api/v1/users/me',

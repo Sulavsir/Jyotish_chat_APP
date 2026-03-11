@@ -43,3 +43,44 @@ export interface ServiceResponse<T = unknown> {
   error?: string;
 }
 
+/**
+ * Lightweight user summary used in relation includes (e.g. consultation.client)
+ */
+export interface UserSummary {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  profilePhoto: string | null;
+}
+
+/**
+ * Lightweight astrologer summary used in relation includes
+ */
+export interface AstrologerSummary {
+  id: string;
+  name: string | null;
+  phone: string;
+  email: string | null;
+  profilePhoto: string | null;
+}
+
+/**
+ * Lightweight admin summary used in relation includes
+ */
+export interface AdminSummary {
+  id: string;
+  name: string | null;
+  email: string | null;
+}
+
+/**
+ * Payment summary used in relation includes
+ */
+export interface PaymentSummary {
+  id: string;
+  amount: number;
+  status: string;
+  transactionId: string | null;
+}
+

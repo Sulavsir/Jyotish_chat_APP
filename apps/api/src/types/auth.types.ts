@@ -8,10 +8,10 @@ import { UserRole } from '@jyotish/shared';
 
 export interface UserPayload {
   id: string;
-  phone?: string;
-  email?: string;
+  phone?: string | null;
+  email?: string | null;
   role: UserRole;
-  category?: string; // For astrologers: ORDINARY, PROFESSIONAL, PREMIUM
+  category?: string;
   type?: typeof TOKEN_TYPES.ACCESS | typeof TOKEN_TYPES.REFRESH;
 }
 
@@ -24,7 +24,7 @@ export interface LoginResult {
 
 export interface RefreshTokenPayload {
   id: string;
-  phone: string;
+  phone?: string | null;
   role: string;
   type: typeof TOKEN_TYPES.REFRESH;
 }

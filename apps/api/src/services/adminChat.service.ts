@@ -8,6 +8,7 @@ import { AdminChatStatus, AdminChatSenderType, MessageType } from '@prisma/clien
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { UserRole } from '@jyotish/shared';
+import type { UserSummary, AstrologerSummary, AdminSummary } from '../types/common.types';
 import type {
   CreateAdminChatRequest,
   SendAdminChatMessageRequest,
@@ -602,25 +603,9 @@ class AdminChatService {
     adminRead: boolean;
     createdAt: Date;
     updatedAt: Date;
-    user?: {
-      id: string;
-      name: string | null;
-      email: string | null;
-      phone: string;
-      profilePhoto: string | null;
-    } | null;
-    astrologer?: {
-      id: string;
-      name: string | null;
-      email: string | null;
-      phone: string;
-      profilePhoto: string | null;
-    } | null;
-    admin?: {
-      id: string;
-      name: string | null;
-      email: string | null;
-    } | null;
+    user?: UserSummary | null;
+    astrologer?: AstrologerSummary | null;
+    admin?: AdminSummary | null;
   }): AdminChatResponse {
     const participantRole: 'CLIENT' | 'ASTROLOGER' =
       (chat as any).astrologerId ? 'ASTROLOGER' : 'CLIENT';

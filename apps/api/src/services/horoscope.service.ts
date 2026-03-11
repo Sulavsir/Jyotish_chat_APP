@@ -250,7 +250,7 @@ export class HoroscopeService {
   /**
    * Get all active subscriptions (for cron jobs to send notifications)
    */
-  async getActiveSubscriptions(frequency: SubscriptionFrequency = 'DAILY'): Promise<Array<HoroscopeSubscriptionEntity & { user: { id: string; name: string | null; phone: string; email: string | null; zodiacSign: string | null } }>> {
+  async getActiveSubscriptions(frequency: SubscriptionFrequency = 'DAILY'): Promise<Array<HoroscopeSubscriptionEntity & { user: Pick<import('../types/common.types').UserSummary, 'id' | 'name' | 'phone' | 'email'> & { zodiacSign: string | null } }>> {
     return await prisma.horoscopeSubscription.findMany({
       where: {
         isActive: true,

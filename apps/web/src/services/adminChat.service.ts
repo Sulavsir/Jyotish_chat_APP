@@ -22,14 +22,14 @@ export interface AdminChat {
     id: string;
     name: string | null;
     email: string | null;
-    phone: string;
+    phone: string | null;
     profilePhoto: string | null;
   };
   astrologer?: {
     id: string;
     name: string | null;
     email: string | null;
-    phone: string;
+    phone: string | null;
     profilePhoto: string | null;
   };
   admin?: {

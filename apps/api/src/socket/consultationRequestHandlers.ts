@@ -8,6 +8,7 @@ import { consultationRequestService } from '../services/consultationRequest.serv
 import { notificationService } from '../services/notification.service';
 import { prisma, ConsultationRequest } from '@jyotish/database';
 import { NotificationType, UserRole } from '@jyotish/shared';
+import type { UserSummary } from '../types/common.types';
 
 // Store online astrologers separately for efficient broadcasting
 const onlineAstrologers = new Map<string, string>(); // astrologerId -> socketId
@@ -39,13 +40,7 @@ export function consultationRequestHandlers(io: Server, socket: Socket) {
  * ConsultationRequest with client details included
  */
 type ConsultationRequestWithClient = ConsultationRequest & {
-  client: {
-    id: string;
-    name: string | null;
-    phone: string;
-    profilePhoto: string | null;
-    email: string | null;
-  };
+  client: UserSummary;
 };
 
 /**
