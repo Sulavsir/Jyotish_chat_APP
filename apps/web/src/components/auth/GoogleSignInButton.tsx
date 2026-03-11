@@ -29,15 +29,30 @@ function GoogleIcon({ className }: { className?: string }) {
 
 interface GoogleSignInButtonProps {
   className?: string;
+  variant?: 'full' | 'icon';
 }
 
-export function GoogleSignInButton({ className }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({ className, variant = 'full' }: GoogleSignInButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
     window.location.href = `${API_BASE_URL}${API_ENDPOINTS.AUTH.GOOGLE_LOGIN}`;
   };
+
+  if (variant === 'icon') {
+    return (
+      <button
+        type="button"
+        onClick={handleGoogleLogin}
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-600 bg-slate-800/70 hover:bg-slate-700/90 text-slate-100 transition-colors disabled:opacity-60 ${className ?? ''}`}
+        aria-label="Sign in with Google"
+        disabled={isLoading}
+      >
+        <GoogleIcon className="w-4 h-4" />
+      </button>
+    );
+  }
 
   return (
     <LoadingButton

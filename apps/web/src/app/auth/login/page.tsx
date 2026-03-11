@@ -248,20 +248,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6 pt-2 pb-6 sm:pb-8 px-5 sm:px-6">
-            {/* Google Sign-In */}
-            <GoogleSignInButton />
-
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-slate-700" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-slate-900 px-3 text-slate-500">or continue with</span>
-              </div>
-            </div>
-
+          <CardContent className="space-y-4 pt-2 pb-6 sm:pb-8 px-5 sm:px-6">
             {/* Login Method Tabs */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-slate-800/80 rounded-lg border border-slate-600/50">
               <button
@@ -333,6 +320,11 @@ export default function LoginPage() {
                 >
                   Sign In
                 </LoadingButton>
+
+                <div className="flex items-center justify-center gap-2 pt-1 pb-0">
+                  <span className="text-xs text-slate-500">Or Sign in with:</span>
+                  <GoogleSignInButton variant="icon" />
+                </div>
               </form>
             )}
 
