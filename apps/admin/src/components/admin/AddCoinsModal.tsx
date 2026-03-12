@@ -1,6 +1,6 @@
 /**
- * Add Coins Modal
- * Allows admin to add coins to a user
+ * Add Balance Modal
+ * Allows admin to add monetary balance to a user
  */
 
 'use client';
@@ -23,7 +23,7 @@ import {
   FormMessage,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { Coins, Plus } from 'lucide-react';
+import { IndianRupee, Plus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
 import { ADMIN_QUERY_KEYS } from '@/constants';
@@ -42,16 +42,9 @@ interface AddCoinsModalProps {
 }
 
 const addCoinsSchema = z.object({
-  amount: z
-    .string()
-    .min(1, 'Amount is required')
-    .refine(
-      (value) => {
-        const num = Number(value);
-        return Number.isFinite(num) && num > 0;
-      },
-      { message: 'Please enter a valid positive number of coins' }
-    ),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: 'Please enter a valid positive amount' }),
   reason: z.string().trim().optional(),
 });
 
@@ -69,7 +62,7 @@ export function AddCoinsModal({
   const form = useForm<AddCoinsFormValues>({
     resolver: zodResolver(addCoinsSchema),
     defaultValues: {
-      amount: '',
+      amount: 0,
       reason: '',
     },
   });
@@ -78,14 +71,14 @@ export function AddCoinsModal({
     mutationFn: (data: { amount: number; reason?: string }) =>
       adminApi.users.addCoins(userId, data),
     onSuccess: () => {
-      toast.success('Coins added successfully');
+      toast.success('Balance added successfully');
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.USERS.ALL });
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.USERS.DETAIL(userId) });
       handleClose();
     },
     onError: (error: unknown) => {
       const axiosError = error as AxiosError<{ error?: { message?: string } }>;
-      const message = axiosError?.response?.data?.error?.message || 'Failed to add coins';
+      const message = axiosError?.response?.data?.error?.message || 'Failed to add balance';
       toast.error(message);
     },
   });
@@ -96,9 +89,8 @@ export function AddCoinsModal({
   };
 
   const handleSubmit = (values: AddCoinsFormValues) => {
-    const coinsAmount = Number(values.amount);
     addCoinsMutation.mutate({
-      amount: coinsAmount,
+      amount: values.amount,
       reason: values.reason?.trim() || undefined,
     });
   };
@@ -108,13 +100,11 @@ export function AddCoinsModal({
       <DialogContent className="max-w-md bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 border border-purple-500/30">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-            <Coins className="h-5 w-5 text-yellow-400" />
-            Add Coins
+            Add Balance (NRs)
           </DialogTitle>
           <DialogDescription className="text-purple-200/80">
-            Add coins to {userName}
-            {currentBalance !== undefined &&
-              `'s account (Current Balance: ${currentBalance} coins)`}
+            Add balance to {userName}
+            {currentBalance !== undefined && `'s account.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -126,7 +116,9 @@ export function AddCoinsModal({
               {currentBalance !== undefined && (
                 <p className="text-sm text-purple-300 mt-1">
                   Current Balance:{' '}
-                  <span className="text-yellow-400 font-semibold">{currentBalance}</span> coins
+                  <span className="text-emerald-400 font-semibold">
+                    NRs {currentBalance.toLocaleString()}
+                  </span>
                 </p>
               )}
             </div>
@@ -136,12 +128,12 @@ export function AddCoinsModal({
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-purple-200 mb-2 block">Amount (Coins) *</FormLabel>
+                  <FormLabel className="text-purple-200 mb-2 block">Amount (Balance) *</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       min="1"
-                      placeholder="Enter number of coins"
+                      placeholder="Enter amount"
                       className="bg-slate-800/50 text-white border-purple-500/30"
                       {...field}
                     />
@@ -182,13 +174,13 @@ export function AddCoinsModal({
               </Button>
               <LoadingButton
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 text-white"
+                className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
                 disabled={!form.watch('amount')}
                 isLoading={addCoinsMutation.isPending}
-                loadingText="Adding Coins..."
+                loadingText="Adding Balance..."
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Coins
+                Add Balance
               </LoadingButton>
             </div>
           </form>

@@ -35,7 +35,6 @@ import {
   XCircle,
   AlertCircle,
   Ban,
-  Coins,
 } from 'lucide-react';
 import type {
   Appointment,
@@ -201,14 +200,13 @@ export default function AppointmentsPage() {
       ),
     },
     {
-      header: 'Coins',
+      header: 'Commission (NRs)',
       accessor: (appointment) => {
         const rate = appointment.astrologer?.commissionRate ?? 0;
-        const commissionedCoins = Math.ceil((appointment.amount * rate) / 100);
+        const commissionedAmount = Math.ceil((appointment.amount * rate) / 100);
         return (
           <div className="flex items-center gap-1.5 text-sm font-medium text-amber-400">
-            <Coins className="h-4 w-4 shrink-0" />
-            {commissionedCoins}
+            <span>NRs {commissionedAmount.toLocaleString()}</span>
           </div>
         );
       },

@@ -33,7 +33,7 @@ import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { KundaliMatchRequest, KundaliMatchStatus } from '@/types/kundaliMatch.types';
 import { generatePageNumbers } from '@/utils/helpers';
 import { toast } from 'sonner';
-import { Coins, User, Eye } from 'lucide-react';
+import { Banknote, User, Eye } from 'lucide-react';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
@@ -144,11 +144,11 @@ export default function KundaliMatchPage() {
       ),
     },
     {
-      header: 'Coins',
+      header: 'Amount (NRs)',
       accessor: (r) => (
-        <div className="flex items-center gap-1 text-amber-400">
-          <Coins className="w-4 h-4" />
-          {r.coinsDeducted}
+        <div className="flex items-center gap-1 text-emerald-400">
+          <Banknote className="w-4 h-4" />
+          <span>NRs {r.coinsDeducted.toLocaleString()}</span>
         </div>
       ),
     },
@@ -354,9 +354,9 @@ export default function KundaliMatchPage() {
                 </div>
               </div>
               <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-1.5 text-amber-400">
-                  <Coins className="w-4 h-4" />
-                  <span>{viewModalRequest.coinsDeducted} coins</span>
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  <Banknote className="w-4 h-4" />
+                  <span>NRs {viewModalRequest.coinsDeducted.toLocaleString()}</span>
                 </div>
                 <div>
                   {viewModalRequest.status === 'REVIEWED' ? (

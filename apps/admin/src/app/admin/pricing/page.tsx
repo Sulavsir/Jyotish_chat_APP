@@ -123,14 +123,14 @@ export default function PricingManagementPage() {
       ),
     },
     {
-      header: 'Coins/Unlimited',
+      header: 'Balance/Unlimited',
       accessor: (plan) =>
         plan.isUnlimited ? (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-400 border border-purple-500/30">
             ∞ Unlimited
           </span>
         ) : (
-          <span className="text-white">{plan.coins} coins</span>
+          <span className="text-emerald-400 font-semibold">{plan.coins}</span>
         ),
     },
     {

@@ -17,7 +17,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
-import { RefreshCw, Coins, Plus } from 'lucide-react';
+import { RefreshCw, Banknote, Plus } from 'lucide-react';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { User } from '@/types';
@@ -40,7 +40,7 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; coins?: number } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; balance?: number } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
 
   // Fetch users with TanStack Query (server-side pagination)
@@ -145,11 +145,13 @@ export default function UsersPage() {
       ),
     },
     {
-      header: 'Coins',
+      header: 'Balance (NRs)',
       accessor: (user) => (
         <div className="flex items-center gap-2">
-          <Coins className="h-4 w-4 text-yellow-400" />
-          <span className="text-yellow-400 font-semibold">{user.coins ?? 0}</span>
+          <Banknote className="h-4 w-4 text-emerald-400" />
+          <span className="text-emerald-400 font-semibold">
+            NRs {Number(user.coins ?? 0).toLocaleString()}
+          </span>
         </div>
       ),
     },
@@ -161,13 +163,13 @@ export default function UsersPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              setSelectedUser({ id: user.id, name: user.name || 'User', coins: user.coins });
+              setSelectedUser({ id: user.id, name: user.name || 'User', balance: user.coins });
               setShowAddCoinsModal(true);
             }}
-            className="border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+            className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
           >
             <Plus className="h-3 w-3 mr-1" />
-            Add Coins
+            Add Balance
           </Button>
           <Button variant="outline" size="sm" onClick={() => toggleStatus(user.id)}>
             Toggle Status
@@ -279,7 +281,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Add Coins Modal */}
+      {/* Add Balance Modal */}
       {selectedUser && (
         <AddCoinsModal
           isOpen={showAddCoinsModal}
@@ -289,7 +291,7 @@ export default function UsersPage() {
           }}
           userId={selectedUser.id}
           userName={selectedUser.name}
-          currentBalance={selectedUser.coins}
+          currentBalance={selectedUser.balance}
         />
       )}
     </AdminLayout>

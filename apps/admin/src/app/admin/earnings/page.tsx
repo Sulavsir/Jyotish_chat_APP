@@ -110,9 +110,11 @@ export default function EarningsPage() {
       ),
     },
     {
-      header: 'Earning (coins)',
+      header: 'Earning (NRs)',
       accessor: (row) => (
-        <span className="font-semibold text-yellow-400">{row.totalCoinEarnings} coins</span>
+        <span className="font-semibold text-emerald-400">
+          NRs {row.totalCoinEarnings.toLocaleString()}
+        </span>
       ),
     },
   ];
@@ -124,7 +126,7 @@ export default function EarningsPage() {
           <div>
             <h2 className="text-3xl font-bold text-white">Earnings</h2>
             <p className="text-slate-400 mt-1">
-              Astrologer list with coin earnings (from chat, broadcast, appointment)
+              Astrologer list with balance earnings (from chat, broadcast, appointment)
             </p>
           </div>
           <Button
@@ -160,7 +162,7 @@ export default function EarningsPage() {
               title: searchTerm ? 'No astrologers found' : 'No astrologers',
               description: searchTerm
                 ? 'Try adjusting your search'
-                : 'Astrologer coin earnings will appear here',
+                : 'Astrologer earnings will appear here',
             }}
           />
         </div>

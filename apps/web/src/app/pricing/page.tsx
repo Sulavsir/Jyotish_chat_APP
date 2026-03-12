@@ -133,11 +133,10 @@ function PricingContent() {
               </span>
             </h1>
 
-            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Connect with experienced Jyotish astrologers. 1 NRs = 1 chat with any astrologer.
-              <br />
-              <span className="text-purple-400 font-semibold">NPR 100 = 100 NRs = 1 Chat</span>
-            </p>
+              <p className="text-xl text-gray-400 max-w-3xl mx-auto">
+                Connect with experienced Jyotish astrologers. Balance is stored in NRs and used for
+                chat sessions.
+              </p>
           </div>
 
           {/* Tab Filter */}
@@ -257,7 +256,7 @@ function PricingContent() {
                           ) : (
                             <>
                               <Zap className="w-4 h-4" />
-                              <span className="text-sm">{plan.coins} NRs</span>
+                              <span className="text-sm">Balance: {plan.coins} NRs</span>
                             </>
                           )}
                         </div>

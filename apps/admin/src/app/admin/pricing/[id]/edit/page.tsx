@@ -18,7 +18,7 @@ const pricingPlanSchema = z.object({
   name: z.string().min(3, 'Name must be at least 3 characters').max(100),
   description: z.string().optional(),
   priceInNrs: z.number().min(1, 'Price must be at least 1 NPR'),
-  coins: z.number().min(1, 'Coins must be at least 1'),
+  coins: z.number().min(1, 'Balance must be at least 1'),
   validityInDays: z.number().optional(),
   isUnlimited: z.boolean(),
   discountPercent: z.number().min(0).max(100).optional(),
@@ -189,7 +189,7 @@ export default function EditPricingPlanPage() {
               </div>
 
               <div>
-                <Label htmlFor="coins">Coins *</Label>
+                <Label htmlFor="coins">Included Balance *</Label>
                 <Input
                   id="coins"
                   type="number"
@@ -200,7 +200,7 @@ export default function EditPricingPlanPage() {
                 {errors.coins && (
                   <p className="text-red-400 text-sm mt-1">{errors.coins.message}</p>
                 )}
-                <p className="text-xs text-slate-400 mt-1">100 NPR = 1 Coin = 1 Chat</p>
+                <p className="text-xs text-slate-400 mt-1">Amount of balance included in this plan.</p>
               </div>
 
               <div>

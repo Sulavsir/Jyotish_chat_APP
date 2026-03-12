@@ -51,10 +51,6 @@ export const ROUTES = {
   JYOTISH_SETTINGS: '/jyotish/settings',
   JYOTISH_CLIENTS: '/jyotish/clients',
 
-  // Admin Routes
-  ADMIN_DASHBOARD: '/admin/dashboard',
-  ADMIN_SET_COINS: '/admin/set-coins',
-
   // Other
   TERMS: '/terms',
   PRIVACY: '/privacy',

@@ -303,7 +303,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
     {
       kind: 'link',
-      name: 'Coin Settings',
+      name: 'Balance Settings',
       href: ADMIN_ROUTES.SET_COINS,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

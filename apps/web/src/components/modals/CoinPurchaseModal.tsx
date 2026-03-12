@@ -86,7 +86,7 @@ export function CoinPurchaseModal({
     enabled: isOpen,
   });
 
-  // Fetch current coin balance
+  // Fetch current balance (NRs)
   const { data: balanceData } = useQuery({
     queryKey: QUERY_KEYS.COINS.BALANCE,
     queryFn: () => coinService.getBalance(),
@@ -98,9 +98,7 @@ export function CoinPurchaseModal({
 
   const currentBalance = balanceData?.balance ?? 0;
 
-  // Calculate NPR per coin from coins per NPR rate
-  // If COINS_PER_NPR = 1, then 1 coin = 1 NPR (1/1 = 1)
-  // If COINS_PER_NPR = 2, then 2 coins = 1 NPR, so 1 coin = 0.5 NPR (1/2 = 0.5)
+  // Calculate NPR per balance unit from COINS_PER_NPR
   const coinsPerNpr = coinRates?.COINS_PER_NPR ?? 1;
   const nprPerCoin = coinsPerNpr > 0 ? 1 / coinsPerNpr : 1;
 

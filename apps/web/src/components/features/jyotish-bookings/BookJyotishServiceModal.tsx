@@ -385,6 +385,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                       value={bookingDate}
                       onChange={(e) => setBookingDate(e.target.value)}
                       required
+                      useBsCalendar={true}
                     />
                   )}
 
