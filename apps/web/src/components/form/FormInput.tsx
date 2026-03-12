@@ -15,8 +15,33 @@ interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
 export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
   ({ label, error, helperText, className, type, ...props }, ref) => {
     const isDate = type === 'date';
-    const InputComponent = isDate ? DateInput : Input;
-    const inputProps = isDate ? { ...props } : { type, ...props };
+
+    const renderInput = () => {
+      if (isDate) {
+        const { value, ...rest } = props;
+        const stringValue =
+          value === undefined || value === null ? undefined : String(value);
+
+        return (
+          <DateInput
+            ref={ref}
+            className={className}
+            value={stringValue}
+            {...(rest as any)}
+          />
+        );
+      }
+
+      return (
+        <Input
+          ref={ref}
+          className={className}
+          type={type}
+          {...props}
+        />
+      );
+    };
+
     return (
       <div className="space-y-2">
         {label && (
@@ -25,7 +50,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
             {props.required && <span className="text-red-400 ml-1">*</span>}
           </Label>
         )}
-        <InputComponent ref={ref} className={className} {...inputProps} />
+        {renderInput()}
         {error && <p className="text-sm text-red-400">{error}</p>}
         {!error && helperText && <p className="text-xs text-gray-400 italic">{helperText}</p>}
       </div>

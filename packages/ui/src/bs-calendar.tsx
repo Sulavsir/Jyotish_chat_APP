@@ -27,7 +27,10 @@ export interface BsAdCalendarProps {
   /**
    * Notify parent with extra meta (BS mapping & system) when a date is selected.
    */
-  onDateMetaChange?: (value: string, meta: { system: CalendarSystem; mapping?: NepaliDateMapping }) => void;
+  onDateMetaChange?: (
+    value: string,
+    meta: { system: CalendarSystem; mapping?: NepaliDateMapping }
+  ) => void;
 }
 
 interface NepaliDateMapping {
@@ -111,7 +114,7 @@ function getBsMonthLabel(mapping?: NepaliDateMapping | null): string {
     'Falgun',
     'Chaitra',
   ] as const;
-  const monthName = Number.isFinite(monthNum) ? monthNames[monthNum] ?? monthStr : monthStr;
+  const monthName = Number.isFinite(monthNum) ? (monthNames[monthNum] ?? monthStr) : monthStr;
   return monthName ? `${monthName} ${year}` : mapping.nepaliDate;
 }
 
@@ -133,6 +136,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
   const [nepaliMap, setNepaliMap] = React.useState<NepaliMap>({});
   const [isLoadingBs, setIsLoadingBs] = React.useState(false);
   const monthCache = React.useRef<Record<string, NepaliMap>>({});
+  const inFlight = React.useRef<Record<string, Promise<NepaliMap> | undefined>>({});
 
   const { days, start } = React.useMemo(() => getMonthRange(visibleMonth), [visibleMonth]);
   const monthKey = React.useMemo(() => toDateKey(start), [start]);
@@ -159,22 +163,34 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
         ignore = true;
       };
     }
-    const run = async () => {
-      const dateKeys = days.map(toDateKey);
-      const map = loadNepaliMap ? await loadNepaliMap(dateKeys) : await fetchNepaliMappings(days);
-      if (!ignore) {
+    const dateKeys = days.map(toDateKey);
+
+    let promise = inFlight.current[monthKey];
+    if (!promise) {
+      const loader = async () => {
+        const map = loadNepaliMap ? await loadNepaliMap(dateKeys) : await fetchNepaliMappings(days);
         monthCache.current[monthKey] = map;
-        setNepaliMap(map);
-      }
-    };
-    run()
+        return map;
+      };
+      promise = loader().finally(() => {
+        inFlight.current[monthKey] = undefined;
+      });
+      inFlight.current[monthKey] = promise;
+    }
+
+    promise
+      .then((map) => {
+        if (!ignore) {
+          setNepaliMap(map);
+        }
+      })
       .finally(() => {
         if (!ignore) setIsLoadingBs(false);
       });
     return () => {
       ignore = true;
     };
-  }, [days, system]);
+  }, [days, system, monthKey, loadNepaliMap]);
 
   const handleSelect = (date: Date) => {
     if (minDate && date < minDate) return;
@@ -285,17 +301,11 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
           const mapping = nepaliMap[key];
 
           const adLabel = date.getDate();
-          const rawBsDay =
-            mapping?.nepaliDate?.split('-')?.[2] ??
-            undefined;
-          const bsLabel = rawBsDay
-            ? Number.parseInt(rawBsDay, 10) || rawBsDay
-            : null;
+          const rawBsDay = mapping?.nepaliDate?.split('-')?.[2] ?? undefined;
+          const bsLabel = rawBsDay ? Number.parseInt(rawBsDay, 10) || rawBsDay : null;
 
-          const showTopLabel =
-            system === 'BS' ? (bsLabel ?? adLabel) : adLabel;
-          const showBottomLabel =
-            system === 'BS' ? adLabel : bsLabel;
+          const showTopLabel = system === 'BS' ? (bsLabel ?? adLabel) : adLabel;
+          const showBottomLabel = system === 'BS' ? adLabel : bsLabel;
 
           return (
             <button
@@ -316,9 +326,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
                   'border-emerald-500/70 bg-emerald-500/5 dark:border-emerald-500/70'
               )}
             >
-              <span className="leading-none text-[11px]">
-                {showTopLabel}
-              </span>
+              <span className="leading-none text-[11px]">{showTopLabel}</span>
               {showBottomLabel != null && (
                 <span className="leading-none text-[9px] text-slate-500 dark:text-slate-400">
                   {showBottomLabel}
@@ -337,4 +345,3 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
     </div>
   );
 };
-
