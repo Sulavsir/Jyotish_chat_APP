@@ -11,7 +11,7 @@
 
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
@@ -31,6 +31,10 @@ export default function PaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  
+  // Refs to prevent duplicate API calls (React Strict Mode, re-renders, etc.)
+  const qrOrderInitiatedRef = useRef(false);
+  const getPayOrderInitiatedRef = useRef(false);
 
   const planId = searchParams.get('planId');
   const amountParam = searchParams.get('amount');
@@ -61,7 +65,11 @@ export default function PaymentPage() {
     orderData: fonepayQrData,
     isCreating: isCreatingFonepayQr,
   } = useFonepayQrOrder({
-    onError: (err) => showErrorToast(err),
+    onError: (err) => {
+      // Reset the ref so user can retry
+      qrOrderInitiatedRef.current = false;
+      showErrorToast(err);
+    },
   });
 
   const {
@@ -80,45 +88,50 @@ export default function PaymentPage() {
     }
   }, [isValid, router]);
 
-  const handleSelectGetPay = () => {
+  const handleSelectGetPay = useCallback(() => {
     setPaymentMethod(PAYMENT_METHOD.GETPAY);
-    if (!checkoutData && !isCreatingGetPayOrder) {
+    // Only create order if not already created or in progress
+    if (!checkoutData && !isCreatingGetPayOrder && !getPayOrderInitiatedRef.current) {
+      getPayOrderInitiatedRef.current = true;
       createGetPayOrder({ amount, coins, planId: normalizedPlanId });
     }
-  };
+  }, [checkoutData, isCreatingGetPayOrder, createGetPayOrder, amount, coins, normalizedPlanId]);
 
-  const handleSelectFonepayCard = () => {
+  const handleSelectFonepayCard = useCallback(() => {
     setPaymentMethod(PAYMENT_METHOD.FONEPAY_CARD);
     if (!isCreatingFonepayCard) {
       createFonepayCardOrder({ amount, coins, planId: normalizedPlanId });
     }
-  };
+  }, [isCreatingFonepayCard, createFonepayCardOrder, amount, coins, normalizedPlanId]);
 
-  const handleSelectFonepayQr = () => {
+  const handleSelectFonepayQr = useCallback(() => {
     setPaymentMethod(PAYMENT_METHOD.FONEPAY_QR);
-    if (!fonepayQrData && !isCreatingFonepayQr) {
+    // CRITICAL: Only create QR order ONCE - prevent duplicate calls that expire previous QR
+    if (!fonepayQrData && !isCreatingFonepayQr && !qrOrderInitiatedRef.current) {
+      qrOrderInitiatedRef.current = true;
       createFonepayQrOrder({ amount, coins, planId: normalizedPlanId });
     }
-  };
+  }, [fonepayQrData, isCreatingFonepayQr, createFonepayQrOrder, amount, coins, normalizedPlanId]);
 
-  const handleFonepayQrSuccess = () => {
+  const handleFonepayQrSuccess = useCallback(() => {
     window.dispatchEvent(new CustomEvent('coinsPurchased'));
     router.push(
       `${ROUTES.PAYMENT_SUCCESS}?orderId=${fonepayQrData?.orderId ?? ''}&source=fonepay-qr`
     );
-  };
+  }, [router, fonepayQrData?.orderId]);
 
-  const handleBackToMethods = () => {
+  const handleBackToMethods = useCallback(() => {
     setPaymentMethod(null);
-  };
+    // Note: Don't reset qrOrderInitiatedRef here - we want to keep using the same QR
+  }, []);
 
-  const handleTopBack = () => {
+  const handleTopBack = useCallback(() => {
     if (paymentMethod !== null) {
       handleBackToMethods();
     } else {
       router.back();
     }
-  };
+  }, [paymentMethod, handleBackToMethods, router]);
 
   if (!isValid) {
     return (

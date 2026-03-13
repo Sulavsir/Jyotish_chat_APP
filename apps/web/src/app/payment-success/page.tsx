@@ -17,6 +17,13 @@ import {
 } from '@/components/modals/BroadcastRemainingPayModal';
 
 /**
+ * Payment sources that are already verified on backend (no frontend verification needed)
+ * - fonepay-card: Fonepay Web redirects to backend callback, which verifies and adds coins
+ * - fonepay-qr: Verification happens via WebSocket + backend verify endpoint
+ */
+const PRE_VERIFIED_SOURCES = ['fonepay-card', 'fonepay-qr'] as const;
+
+/**
  * GetPay Step 04: "To fetch token from success/fail URL"
  * Doc: const url = window.frames[0]?.location.hash || window.location.hash
  *      const urlParams = new URLSearchParams(url.split("?")[1]);
@@ -110,6 +117,11 @@ export default function PaymentSuccessPage() {
   const verifiedRef = useRef(false);
   const verifyInFlightRef = useRef(false);
   const iframeHandledRef = useRef(false);
+  
+  // Check if this is a pre-verified source (Fonepay Card/QR - verified on backend)
+  const source = searchParams.get('source') ?? '';
+  const isPreVerified = PRE_VERIFIED_SOURCES.includes(source as typeof PRE_VERIFIED_SOURCES[number]);
+  
   // Parse orderId and token from URL; normalize ?orderId=xxx?token=yyy (GetPay quirk) to & so both are parsed
   const [urlParams, setUrlParams] = useState<{ orderId: string; token: string }>(() =>
     typeof window !== 'undefined' ? getParamsFromUrl() : { orderId: '', token: '' }
@@ -121,6 +133,56 @@ export default function PaymentSuccessPage() {
       ''
   );
   const token = urlParams.token;
+
+  // Handle pre-verified sources (Fonepay Card/QR) - coins already added on backend
+  useEffect(() => {
+    if (!isPreVerified || verifiedRef.current) return;
+    
+    verifiedRef.current = true;
+    setStatus('success');
+    
+    // Invalidate caches to refresh balance
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+    
+    toast.success('Payment successful! Balance has been added to your account.');
+    
+    // Handle pending broadcast questions
+    (async () => {
+      try {
+        const pending = getPendingBroadcastQuestions();
+        if (pending?.questionItems?.length && pending.totalNr >= 0) {
+          clearPendingBroadcastQuestions();
+          await broadcastMessageService.sendQuestions({
+            questionItems: pending.questionItems,
+            totalNr: pending.totalNr,
+            birthDetails: pending.birthDetails,
+          });
+          toast.success(
+            `${pending.questionItems.length} question${pending.questionItems.length === 1 ? '' : 's'} published to all Jyotish.`
+          );
+        }
+      } catch (sendErr) {
+        toast.error(
+          sendErr instanceof Error ? sendErr.message : 'Failed to publish questions. You can try again from the dashboard.'
+        );
+      }
+    })();
+    
+    // Clean up session storage
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('getpay_pending_order_id');
+        if (sessionStorage.getItem('pendingChatAfterPurchase')) {
+          sessionStorage.removeItem('pendingChatAfterPurchase');
+          window.dispatchEvent(new CustomEvent('coinsPurchased'));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [isPreVerified, queryClient]);
 
   // When in iframe (3DS return), open success URL in new tab / redirect top. Next.js or embedded contexts
   // may not expose window.self the same way — use window.location or document.location for the current URL.
@@ -225,15 +287,19 @@ export default function PaymentSuccessPage() {
   }, []);
 
   // Verify when we have both orderId and token — only once (avoid duplicate API call and double toast).
+  // Skip for pre-verified sources (Fonepay) which don't need frontend verification.
   useEffect(() => {
+    if (isPreVerified) return; // Fonepay already verified on backend
     if (!orderId || !token || verifiedRef.current || verifyInFlightRef.current) return;
     verifyInFlightRef.current = true;
     verifyMutation.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when orderId/token become available
-  }, [orderId, token]);
+  }, [orderId, token, isPreVerified]);
 
   // Only treat as failed if we're sure we have no token (allow a short delay for hash/redirect)
+  // Skip for pre-verified sources (Fonepay)
   useEffect(() => {
+    if (isPreVerified) return; // Fonepay handled separately
     if (status !== 'verifying' || verifiedRef.current) return;
     const t = setTimeout(() => {
       if (verifiedRef.current) return;
@@ -243,7 +309,7 @@ export default function PaymentSuccessPage() {
       }
     }, 2500);
     return () => clearTimeout(t);
-  }, [orderId, token, status]);
+  }, [orderId, token, status, isPreVerified]);
 
   const handleGoDashboard = () => router.push(ROUTES.DASHBOARD);
   const handleGoPricing = () => router.push(ROUTES.PRICING);

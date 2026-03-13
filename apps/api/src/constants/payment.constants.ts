@@ -32,8 +32,10 @@ export const FONEPAY_PRN_WEB_RANDOM_LENGTH = 17;
 /** Payment remarks (Fonepay QR/frontend display) – app identifier */
 export const PAYMENT_REMARKS_APP_NAME = 'Jyotish';
 
-/** Payment remarks – coins label prefix for remarks2 */
-export const PAYMENT_REMARKS_COINS_PREFIX = 'coins-';
+/** Payment remarks – balance label prefix for remarks2 */
+export const PAYMENT_REMARKS_BALANCE_PREFIX = 'balance-';
+
+export const PAYMENT_REMARKS_COINS_PREFIX = PAYMENT_REMARKS_BALANCE_PREFIX;
 
 /** Fonepay Web request fixed values (do not hardcode in services) */
 export const FONEPAY_WEB_MD_PAYMENT = 'P';
