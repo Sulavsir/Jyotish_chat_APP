@@ -30,7 +30,7 @@ export interface FonepayCheckStatusRequest {
   prn: string;
 }
 
-export type FonepayPaymentStatus = 'success' | 'failed' | 'pending';
+export type FonepayPaymentStatus = 'success' | 'failed' | 'pending' | 'verified';
 
 export interface FonepayStatusResponse {
   success: true;

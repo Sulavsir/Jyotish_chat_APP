@@ -1,11 +1,15 @@
 /**
  * Fonepay Dynamic QR – post tax refund (next day). Uses FONEPAY_QR_* env only.
+ *
+ * Based on Fonepay documentation for online QR integration:
+ * - Uses body-based auth (username/password in JSON body)
+ * - Signature field is called "dataValidation"
  */
 
 import { getFonepayQrEnv } from '../../../config/fonepay-qr.env';
 import { FONEPAY_QR_PATH_TAX_REFUND } from './constants';
 import { computeHmacSha512, buildTaxRefundMessage } from '../../../utils/fonepay.crypto';
-import { fonepayPost, buildBasicAuthHeader } from '../../../services/fonepay.client';
+import { fonepayPostWithBodyAuth } from '../../../services/fonepay.client';
 import { AppError } from '../../../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../../../constants';
 import type { FonepayTaxRefundRequest } from '../../../types/fonepay.types';
@@ -36,11 +40,8 @@ export async function postTaxRefund(
     transactionAmount: body.transactionAmount,
     merchantCode: env.FONEPAY_QR_MERCHANT_CODE,
   });
-  const signature = computeHmacSha512(message, env.FONEPAY_QR_SECRET);
+  const dataValidation = computeHmacSha512(message, env.FONEPAY_QR_SECRET);
 
-  const baseUrl = env.FONEPAY_QR_BASE_URL.replace(/\/$/, '');
-  const url = `${baseUrl}${FONEPAY_QR_PATH_TAX_REFUND}`;
-  const authHeader = buildBasicAuthHeader(env.FONEPAY_QR_USERNAME, env.FONEPAY_QR_PASSWORD);
   const payload = {
     fonepayTraceId: body.fonepayTraceId,
     merchantPRN: body.merchantPRN,
@@ -48,22 +49,40 @@ export async function postTaxRefund(
     invoiceDate: body.invoiceDate,
     transactionAmount: body.transactionAmount,
     merchantCode: env.FONEPAY_QR_MERCHANT_CODE,
-    signature,
+    dataValidation,
+    username: env.FONEPAY_QR_USERNAME,
+    password: env.FONEPAY_QR_PASSWORD,
   };
 
-  const response = await fonepayPost<{ message?: string }>(url, payload, authHeader);
+  const baseUrl = env.FONEPAY_QR_BASE_URL.replace(/\/$/, '');
+  const url = `${baseUrl}${FONEPAY_QR_PATH_TAX_REFUND}`;
+
+  console.log('[Fonepay QR] postTaxRefund request', {
+    url,
+    merchantPRN: body.merchantPRN,
+    fonepayTraceId: body.fonepayTraceId,
+  });
+
+  const response = await fonepayPostWithBodyAuth<{ message?: string; success?: boolean }>(
+    url,
+    payload
+  );
 
   if (!response.ok) {
-    const errMsg =
-      (response.data && typeof response.data === 'object' && 'message' in response.data
-        ? String((response.data as { message?: string }).message)
-        : null) || `Fonepay QR tax-refund error: ${response.status}`;
+    const errMsg = response.data?.message || `Fonepay QR tax-refund error: ${response.status}`;
     console.error('[Fonepay QR] postTaxRefund API error', {
       status: response.status,
       merchantPRN: body.merchantPRN,
+      error: errMsg,
+      response: response.data,
     });
     return { success: false, error: errMsg, code: response.status };
   }
+
+  console.log('[Fonepay QR] postTaxRefund success', {
+    merchantPRN: body.merchantPRN,
+    fonepayTraceId: body.fonepayTraceId,
+  });
 
   return { success: true };
 }

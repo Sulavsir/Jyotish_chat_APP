@@ -2,19 +2,24 @@
  * Payment/Checkout Page
  * Choose payment method: GetPay (card) | Fonepay (card) | Fonepay (QR)
  * Then show the selected checkout UI.
+ *
+ * Uses TanStack Query mutations via custom hooks:
+ * - useGetPayPayment for GetPay payments
+ * - useFonepayQrOrder for Fonepay QR payments
+ * - useFonepayCardOrder for Fonepay Card payments
  */
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button } from '@jyotish/ui';
 import { Loader2, Banknote, ArrowLeft } from 'lucide-react';
-import { useMutation } from '@tanstack/react-query';
-import { paymentService } from '@/services/payment.service';
-import type { CreateOrderResponse, CreateFonepayQrOrderResponse } from '@/types/payment.types';
+import { useGetPayPayment } from '@/hooks/useGetPayPayment';
+import { useFonepayQrOrder } from '@/hooks/useFonepayQrOrder';
+import { useFonepayCardOrder } from '@/hooks/useFonepayCardOrder';
 import { BackToPaymentMethodsButton } from '@/components/payment/BackToPaymentMethodsButton';
 import { GetPayCheckout } from '@/components/payment/GetPayCheckout';
 import { FonepayQRCheckout } from '@/components/payment/FonepayQRCheckout';
@@ -26,8 +31,6 @@ export default function PaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
-  const [checkoutData, setCheckoutData] = useState<CreateOrderResponse | null>(null);
-  const [fonepayQrData, setFonepayQrData] = useState<CreateFonepayQrOrderResponse | null>(null);
 
   const planId = searchParams.get('planId');
   const amountParam = searchParams.get('amount');
@@ -37,58 +40,37 @@ export default function PaymentPage() {
   const coins = coinsParam ? Number(coinsParam) : NaN;
   const isValid = !Number.isNaN(amount) && amount > 0 && !Number.isNaN(coins) && coins > 0;
 
-  const createOrderMutation = useMutation({
-    mutationFn: () =>
-      paymentService.createOrder({
-        amount,
-        coins,
-        planId:
-          planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
-            ? planId
-            : undefined,
-      }),
-    onSuccess: (result) => {
-      setCheckoutData(result);
-    },
-    onError: (err) => {
-      showErrorToast(err);
-    },
+  const normalizedPlanId = useMemo(
+    () =>
+      planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
+        ? planId
+        : undefined,
+    [planId]
+  );
+
+  const {
+    createOrder: createGetPayOrder,
+    checkoutData,
+    isCreating: isCreatingGetPayOrder,
+  } = useGetPayPayment({
+    onError: (err) => showErrorToast(err),
   });
 
-  const createFonepayQrMutation = useMutation({
-    mutationFn: () =>
-      paymentService.createFonepayQrOrder({
-        amount,
-        coins,
-        planId:
-          planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
-            ? planId
-            : undefined,
-      }),
-    onSuccess: (result) => {
-      setFonepayQrData(result);
-    },
-    onError: (err) => {
-      showErrorToast(err);
-    },
+  const {
+    createOrder: createFonepayQrOrder,
+    orderData: fonepayQrData,
+    isCreating: isCreatingFonepayQr,
+  } = useFonepayQrOrder({
+    onError: (err) => showErrorToast(err),
   });
 
-  const createFonepayCardMutation = useMutation({
-    mutationFn: () =>
-      paymentService.createFonepayCardOrder({
-        amount,
-        coins,
-        planId:
-          planId && !planId.startsWith('custom') && /^[0-9a-f-]{36}$/i.test(planId)
-            ? planId
-            : undefined,
-      }),
-    onSuccess: (result) => {
-      window.location.href = result.redirectUrl;
-    },
-    onError: (err) => {
-      showErrorToast(err);
-    },
+  const {
+    createOrder: createFonepayCardOrder,
+    isCreating: isCreatingFonepayCard,
+    error: fonepayCardError,
+    reset: resetFonepayCard,
+  } = useFonepayCardOrder({
+    onError: (err) => showErrorToast(err),
   });
 
   useEffect(() => {
@@ -100,22 +82,22 @@ export default function PaymentPage() {
 
   const handleSelectGetPay = () => {
     setPaymentMethod(PAYMENT_METHOD.GETPAY);
-    if (!checkoutData && !createOrderMutation.isPending) {
-      createOrderMutation.mutate();
+    if (!checkoutData && !isCreatingGetPayOrder) {
+      createGetPayOrder({ amount, coins, planId: normalizedPlanId });
     }
   };
 
   const handleSelectFonepayCard = () => {
     setPaymentMethod(PAYMENT_METHOD.FONEPAY_CARD);
-    if (!createFonepayCardMutation.isPending) {
-      createFonepayCardMutation.mutate();
+    if (!isCreatingFonepayCard) {
+      createFonepayCardOrder({ amount, coins, planId: normalizedPlanId });
     }
   };
 
   const handleSelectFonepayQr = () => {
     setPaymentMethod(PAYMENT_METHOD.FONEPAY_QR);
-    if (!fonepayQrData && !createFonepayQrMutation.isPending) {
-      createFonepayQrMutation.mutate();
+    if (!fonepayQrData && !isCreatingFonepayQr) {
+      createFonepayQrOrder({ amount, coins, planId: normalizedPlanId });
     }
   };
 
@@ -210,7 +192,7 @@ export default function PaymentPage() {
                     <button
                       type="button"
                       onClick={handleSelectGetPay}
-                      disabled={createOrderMutation.isPending}
+                      disabled={isCreatingGetPayOrder}
                       className="w-full flex items-center gap-4 p-6 rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50/50 transition-colors disabled:opacity-60 text-left"
                     >
                       <div className="flex-shrink-0 w-32 min-h-[56px] flex items-center justify-start">
@@ -223,7 +205,7 @@ export default function PaymentPage() {
                           unoptimized
                         />
                       </div>
-                      {createOrderMutation.isPending && (
+                      {isCreatingGetPayOrder && (
                         <Loader2 className="h-5 w-5 animate-spin text-purple-600 flex-shrink-0 ml-auto" />
                       )}
                     </button>
@@ -249,7 +231,7 @@ export default function PaymentPage() {
                     <button
                       type="button"
                       onClick={handleSelectFonepayQr}
-                      disabled={createFonepayQrMutation.isPending}
+                      disabled={isCreatingFonepayQr}
                       className="w-full flex items-center gap-3 p-6 rounded-xl border border-gray-200 hover:border-red-500 hover:bg-red-50/30 transition-colors disabled:opacity-60 text-left"
                     >
                       <div className="flex-shrink-0 flex items-center gap-3">
@@ -263,7 +245,7 @@ export default function PaymentPage() {
                         />
                         <span className="font-semibold text-gray-700">QR</span>
                       </div>
-                      {createFonepayQrMutation.isPending && (
+                      {isCreatingFonepayQr && (
                         <Loader2 className="h-5 w-5 animate-spin text-red-600 flex-shrink-0 ml-auto" />
                       )}
                     </button>
@@ -280,7 +262,7 @@ export default function PaymentPage() {
                   />
                 </div>
               ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD &&
-                createFonepayCardMutation.isPending ? (
+                isCreatingFonepayCard ? (
                 <div className="space-y-4">
                   <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="rounded-xl border-2 border-amber-200 bg-amber-50/50 p-6 text-center">
@@ -291,8 +273,7 @@ export default function PaymentPage() {
                     </p>
                   </div>
                 </div>
-              ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD &&
-                createFonepayCardMutation.isError ? (
+              ) : paymentMethod === PAYMENT_METHOD.FONEPAY_CARD && fonepayCardError ? (
                 <div className="space-y-4">
                   <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="rounded-xl border-2 border-red-200 bg-red-50/50 p-6 text-center">
@@ -301,7 +282,10 @@ export default function PaymentPage() {
                     </p>
                     <Button
                       variant="outline"
-                      onClick={() => createFonepayCardMutation.mutate()}
+                      onClick={() => {
+                        resetFonepayCard();
+                        createFonepayCardOrder({ amount, coins, planId: normalizedPlanId });
+                      }}
                       className="mt-4"
                     >
                       Retry
@@ -320,7 +304,7 @@ export default function PaymentPage() {
                     onError={(msg) => toast.error(msg)}
                   />
                 </div>
-              ) : createOrderMutation.isPending || createFonepayQrMutation.isPending ? (
+              ) : isCreatingGetPayOrder || isCreatingFonepayQr ? (
                 <div className="space-y-4">
                   <BackToPaymentMethodsButton onClick={handleBackToMethods} />
                   <div className="py-12 text-center">

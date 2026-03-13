@@ -1,6 +1,7 @@
 /**
- * Fonepay Dynamic QR env – do not mix with Web redirect.
- * FONEPAY_QR_SECRET must never be logged or exposed to frontend.
+ * Fonepay Dynamic QR env 
+ * - Base API: https://merchantapi.fonepay.com/api
+ * - WebSocket: wss://ws.fonepay.com/convergent-webSocket-web/merchantEndPoint
  */
 
 import { z } from 'zod';
@@ -14,11 +15,11 @@ const fonepayQrEnvSchema = z.object({
     .string()
     .url()
     .optional()
-    .default('https://dev-merchantapi.fonepay.com/convergent-merchant-web/api'),
+    .default('https://merchantapi.fonepay.com/api'),
   FONEPAY_QR_WS_BASE: z
     .string()
     .optional()
-    .default('wss://dev-ws.fonepay.com/convergent-webSocket-web'),
+    .default('wss://ws.fonepay.com/convergent-webSocket-web/merchantEndPoint'),
 });
 
 export type FonepayQrEnv = z.infer<typeof fonepayQrEnvSchema>;

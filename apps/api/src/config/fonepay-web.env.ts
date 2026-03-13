@@ -1,6 +1,5 @@
 /**
  * Fonepay Web Redirect (card) env – do not mix with Dynamic QR.
- * FONEPAY_WEB_SECRET must never be logged or exposed to frontend.
  */
 
 import { z } from 'zod';
@@ -12,7 +11,7 @@ const fonepayWebEnvSchema = z.object({
     .string()
     .url()
     .optional()
-    .default('https://dev-clientapi.fonepay.com'),
+    .default('https://clientapi.fonepay.com'),
 });
 
 export type FonepayWebEnv = z.infer<typeof fonepayWebEnvSchema>;

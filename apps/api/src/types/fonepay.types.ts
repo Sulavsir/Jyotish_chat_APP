@@ -1,5 +1,7 @@
 /**
  * Fonepay Third-Party Dynamic QR – API request/response and WebSocket message types
+ *
+ * Based on Fonepay documentation for online QR integration.
  */
 
 /** Fonepay Web (card) callback query params from redirect URL */
@@ -26,11 +28,30 @@ export interface FonepayGenerateRequest {
   taxRefund?: string;
 }
 
-/** Success response from generate QR API */
+/**
+ * Raw response from Fonepay QR generate API.
+ * Note: Fonepay returns thirdpartyQrWebSocketUrl for WebSocket connection.
+ */
+export interface FonepayQrApiResponse {
+  qrMessage?: string;
+  clientCode?: string;
+  status?: string;
+  statusCode?: number;
+  success?: boolean;
+  deviceId?: string;
+  requested_date?: string;
+  merchantCode?: string;
+  merchantWebSocketUrl?: string;
+  thirdpartyQrWebSocketUrl?: string;
+  message?: string;
+}
+
+/** Success response from generate QR API (normalized for client) */
 export interface FonepayGenerateResponse {
   success: true;
   qrMessage: string;
   websocketUrl: string;
+  deviceId?: string;
   status: 'CREATED';
 }
 
@@ -47,7 +68,28 @@ export interface FonepayCheckStatusRequest {
 }
 
 /** Payment status from check-status API */
-export type FonepayPaymentStatus = 'success' | 'failed' | 'pending';
+export type FonepayPaymentStatus = 'success' | 'failed' | 'pending' | 'verified';
+
+/**
+ * Raw response from Fonepay check status API.
+ */
+export interface FonepayCheckStatusApiResponse {
+  success?: boolean;
+  status?: string;
+  paymentStatus?: string;
+  fonepayTraceId?: string;
+  traceId?: number;
+  amount?: string;
+  remarks1?: string;
+  remarks2?: string;
+  productNumber?: string;
+  transactionDate?: string;
+  message?: string;
+  commissionType?: string;
+  commissionAmount?: number;
+  totalCalculatedAmount?: number;
+  paymentSuccess?: boolean;
+}
 
 export interface FonepayStatusResponse {
   success: true;
@@ -65,20 +107,53 @@ export interface FonepayTaxRefundRequest {
   transactionAmount: string;
 }
 
-/** WebSocket message – verification (qr verified) */
+/**
+ * WebSocket message from Fonepay.
+ * The transactionStatus field is a JSON string that needs to be parsed.
+ */
+export interface FonepayWebSocketMessage {
+  merchantId?: number;
+  deviceId?: string;
+  transactionStatus?: string; // JSON string
+}
+
+/** Parsed transactionStatus for QR verification */
+export interface FonepayVerificationStatus {
+  success: boolean;
+  message: string;
+  qrVerified: boolean;
+}
+
+/** Parsed transactionStatus for payment result */
+export interface FonepayPaymentResult {
+  success: boolean;
+  paymentSuccess: boolean;
+  message: string;
+  remarks1?: string;
+  remarks2?: string;
+  transactionDate?: string;
+  productNumber?: string;
+  amount?: string;
+  traceId?: number;
+  commissionType?: string;
+  commissionAmount?: number;
+  totalCalculatedAmount?: number;
+}
+
+/** WebSocket message – verification (qr verified) - legacy alias */
 export interface WebSocketVerificationMsg {
   transactionStatus?: string;
   qrVerified?: boolean;
   [key: string]: unknown;
 }
 
-/** WebSocket message – payment result (parse transactionStatus JSON for paymentSuccess) */
+/** WebSocket message – payment result (parse transactionStatus JSON for paymentSuccess) - legacy alias */
 export interface WebSocketPaymentMsg {
-  transactionStatus?: string; // JSON string with paymentSuccess, etc.
+  transactionStatus?: string;
   [key: string]: unknown;
 }
 
-/** Parsed transactionStatus from WebSocket */
+/** Parsed transactionStatus from WebSocket - legacy alias */
 export interface FonepayTransactionStatusPayload {
   paymentSuccess?: boolean;
   fonepayTraceId?: string;

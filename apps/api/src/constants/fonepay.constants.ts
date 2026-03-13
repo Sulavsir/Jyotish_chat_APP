@@ -1,6 +1,10 @@
 /**
  * Fonepay QR config helper (legacy). Prefer payments/fonepay/qr and getFonepayQrEnv().
  * Do not use for Web redirect – use FONEPAY_WEB_* and payments/fonepay/web.
+ *
+ * Live URLs (from Fonepay docs):
+ * - Base API: https://merchantapi.fonepay.com/api
+ * - WebSocket: wss://ws.fonepay.com/convergent-webSocket-web/merchantEndPoint
  */
 
 import { getFonepayQrEnv } from '../config/fonepay-qr.env';
@@ -18,6 +22,7 @@ export interface FonepayConfig {
   username: string;
   password: string;
   merchantCode: string;
+  secret: string;
   isConfigured: boolean;
 }
 
@@ -30,6 +35,7 @@ export function getFonepayConfig(): FonepayConfig {
       username: '',
       password: '',
       merchantCode: '',
+      secret: '',
       isConfigured: false,
     };
   }
@@ -39,6 +45,7 @@ export function getFonepayConfig(): FonepayConfig {
     username: env.FONEPAY_QR_USERNAME,
     password: env.FONEPAY_QR_PASSWORD,
     merchantCode: env.FONEPAY_QR_MERCHANT_CODE,
+    secret: env.FONEPAY_QR_SECRET,
     isConfigured: true,
   };
 }

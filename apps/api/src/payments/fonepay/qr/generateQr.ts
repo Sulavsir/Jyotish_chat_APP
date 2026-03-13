@@ -1,5 +1,10 @@
 /**
  * Fonepay Dynamic QR – generate QR. Uses FONEPAY_QR_* env only.
+ *
+ * Based on Fonepay documentation for online QR integration:
+ * - Uses body-based auth (username/password in JSON body)
+ * - Signature field is called "dataValidation"
+ * - Response contains "thirdpartyQrWebSocketUrl" for WebSocket connection
  */
 
 import { prisma } from '@jyotish/database';
@@ -10,13 +15,14 @@ import {
   FONEPAY_TRANSACTION_TYPE_QR,
 } from './constants';
 import { computeHmacSha512, buildGenerateQrMessage } from '../../../utils/fonepay.crypto';
-import { fonepayPost, buildBasicAuthHeader } from '../../../services/fonepay.client';
+import { fonepayPostWithBodyAuth } from '../../../services/fonepay.client';
 import { AppError } from '../../../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../../../constants';
 import type {
   FonepayGenerateRequest,
   FonepayGenerateResponse,
   FonepayErrorResponse,
+  FonepayQrApiResponse,
 } from '../../../types/fonepay.types';
 
 function normalizeAmount(amount: string | number): string {
@@ -54,16 +60,19 @@ export async function generateQr(
     taxAmount: body.taxAmount,
     taxRefund: body.taxRefund,
   });
-  const signature = computeHmacSha512(message, env.FONEPAY_QR_SECRET);
+  const dataValidation = computeHmacSha512(message, env.FONEPAY_QR_SECRET);
 
   const payload: Record<string, string> = {
     amount: amountStr,
-    prn,
-    merchantCode: env.FONEPAY_QR_MERCHANT_CODE,
     remarks1,
     remarks2,
-    signature,
+    prn,
+    merchantCode: env.FONEPAY_QR_MERCHANT_CODE,
+    dataValidation,
+    username: env.FONEPAY_QR_USERNAME,
+    password: env.FONEPAY_QR_PASSWORD,
   };
+
   if (body.taxAmount != null && body.taxRefund != null) {
     payload.taxAmount = body.taxAmount;
     payload.taxRefund = body.taxRefund;
@@ -71,34 +80,36 @@ export async function generateQr(
 
   const baseUrl = env.FONEPAY_QR_BASE_URL.replace(/\/$/, '');
   const url = `${baseUrl}${FONEPAY_QR_PATH_GENERATE}`;
-  const authHeader = buildBasicAuthHeader(env.FONEPAY_QR_USERNAME, env.FONEPAY_QR_PASSWORD);
 
-  const response = await fonepayPost<{
-    qrMessage?: string;
-    websocketUrl?: string;
-    status?: string;
-    message?: string;
-  }>(url, payload, authHeader);
+  console.log('[Fonepay QR] generateQr request', { url, prn, amount: amountStr });
+
+  const response = await fonepayPostWithBodyAuth<FonepayQrApiResponse>(url, payload);
 
   if (!response.ok) {
-    const errMsg =
-      (response.data && typeof response.data === 'object' && 'message' in response.data
-        ? String((response.data as { message?: string }).message)
-        : null) || `Fonepay QR API error: ${response.status}`;
-    console.error('[Fonepay QR] generateQr API error', { status: response.status, prn });
+    const errMsg = response.data?.message || `Fonepay QR API error: ${response.status}`;
+    console.error('[Fonepay QR] generateQr API error', {
+      status: response.status,
+      prn,
+      error: errMsg,
+      response: response.data,
+    });
     return { success: false, error: errMsg, code: response.status };
   }
 
-  const qrMessage =
-    response.data && typeof response.data === 'object' && 'qrMessage' in response.data
-      ? String((response.data as { qrMessage?: string }).qrMessage)
-      : '';
-  const websocketUrl =
-    response.data && typeof response.data === 'object' && 'websocketUrl' in response.data
-      ? String((response.data as { websocketUrl?: string }).websocketUrl)
-      : '';
+  const data = response.data;
+
+  if (!data.success) {
+    const errMsg = data.message || 'Fonepay QR request failed';
+    console.error('[Fonepay QR] generateQr failed', { prn, response: data });
+    return { success: false, error: errMsg };
+  }
+
+  const qrMessage = data.qrMessage || '';
+  const websocketUrl = data.thirdpartyQrWebSocketUrl || data.merchantWebSocketUrl || '';
+  const deviceId = data.deviceId;
 
   if (!qrMessage) {
+    console.error('[Fonepay QR] No qrMessage in response', { prn, response: data });
     return { success: false, error: 'Fonepay did not return qrMessage' };
   }
 
@@ -121,11 +132,17 @@ export async function generateQr(
     },
   });
 
-  // Use WebSocket URL from Fonepay response; do not hardcode (fallback to env only if missing)
+  console.log('[Fonepay QR] generateQr success', {
+    prn,
+    deviceId,
+    websocketUrl: websocketUrl ? 'provided' : 'using fallback',
+  });
+
   return {
     success: true,
     qrMessage,
     websocketUrl: websocketUrl || env.FONEPAY_QR_WS_BASE,
+    deviceId,
     status: 'CREATED',
   };
 }
