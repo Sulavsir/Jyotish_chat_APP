@@ -367,25 +367,66 @@ export async function verifyFonepayQrPayment(
   userId: string,
   prn: string
 ): Promise<VerifyFonepayQrResponse> {
-  const payment = await prisma.payment.findFirst({
+  console.log('[verifyFonepayQrPayment] Starting verification', { userId, prn });
+  
+  // First check if already completed (avoid unnecessary Fonepay API call)
+  const existingPayment = await prisma.payment.findFirst({
     where: {
       userId,
       paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
-      status: PaymentStatus.PENDING,
       metadata: { path: ['prn'], equals: prn },
     },
   });
 
-  if (!payment) {
+  console.log('[verifyFonepayQrPayment] Found payment:', existingPayment?.id, 'status:', existingPayment?.status);
+
+  if (!existingPayment) {
     throw new AppError(
-      'Fonepay QR order not found or already completed',
+      'Fonepay QR order not found',
       HTTP_STATUS.NOT_FOUND,
       ERROR_CODES.NOT_FOUND
     );
   }
 
+  // If already completed, return success (idempotent)
+  if (existingPayment.status === PaymentStatus.SUCCESS) {
+    console.log('[verifyFonepayQrPayment] Payment already completed, returning cached result');
+    const balance = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { coins: true },
+    });
+    return {
+      success: true,
+      message: 'Payment already verified.',
+      balance: balance?.coins ?? 0,
+      orderId: existingPayment.id,
+    };
+  }
+
+  // If already failed, return failure
+  if (existingPayment.status === PaymentStatus.FAILED) {
+    return {
+      success: false,
+      message: 'This payment has already failed. Please try again with a new order.',
+    };
+  }
+
+  // Only process PENDING payments
+  const payment = existingPayment.status === PaymentStatus.PENDING ? existingPayment : null;
+
+  if (!payment) {
+    throw new AppError(
+      'Fonepay QR order is in an invalid state',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
   const metadata = (payment.metadata as { prn?: string; coins?: number; planId?: string }) ?? {};
+  console.log('[verifyFonepayQrPayment] Payment metadata:', metadata);
+  
   if (metadata.prn !== prn) {
+    console.error('[verifyFonepayQrPayment] PRN mismatch:', { expected: prn, got: metadata.prn });
     throw new AppError(
       'Order does not match PRN',
       HTTP_STATUS.BAD_REQUEST,
@@ -393,7 +434,10 @@ export async function verifyFonepayQrPayment(
     );
   }
 
+  console.log('[verifyFonepayQrPayment] Checking status with Fonepay...');
   const statusResult = await fonepayQr.checkStatus({ prn });
+  console.log('[verifyFonepayQrPayment] Fonepay status result:', statusResult);
+  
   if (!statusResult.success) {
     return {
       success: false,
@@ -402,6 +446,7 @@ export async function verifyFonepayQrPayment(
   }
 
   if (statusResult.paymentStatus !== 'success') {
+    console.log('[verifyFonepayQrPayment] Payment not successful, status:', statusResult.paymentStatus);
     return {
       success: false,
       message:
@@ -413,6 +458,12 @@ export async function verifyFonepayQrPayment(
 
   const coinsToAdd = metadata.coins ?? 0;
   const planId = metadata.planId;
+  console.log('[verifyFonepayQrPayment] Processing success - coins:', coinsToAdd, 'planId:', planId);
+
+  // Ensure transactionId is always a string (fonepayTraceId might come as number from API)
+  const transactionId = statusResult.fonepayTraceId != null 
+    ? String(statusResult.fonepayTraceId) 
+    : prn;
 
   const updateResult = await prisma.payment.updateMany({
     where: {
@@ -422,11 +473,14 @@ export async function verifyFonepayQrPayment(
     },
     data: {
       status: PaymentStatus.SUCCESS,
-      transactionId: statusResult.fonepayTraceId ?? prn,
+      transactionId,
     },
   });
 
+  console.log('[verifyFonepayQrPayment] Payment update result:', updateResult);
+
   if (updateResult.count === 0) {
+    console.log('[verifyFonepayQrPayment] Update count 0 - payment already processed');
     const balance = await prisma.user.findUnique({
       where: { id: userId },
       select: { coins: true },
@@ -439,22 +493,31 @@ export async function verifyFonepayQrPayment(
     };
   }
 
-  if (planId) {
-    await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
-  } else if (coinsToAdd > 0) {
-    await addCoins(
-      userId,
-      coinsToAdd,
-      CoinTransactionReason.PAYMENT_SUCCESS,
-      undefined,
-      payment.id
-    );
+  try {
+    if (planId) {
+      console.log('[verifyFonepayQrPayment] Activating plan:', planId);
+      await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
+    } else if (coinsToAdd > 0) {
+      console.log('[verifyFonepayQrPayment] Adding coins:', coinsToAdd);
+      await addCoins(
+        userId,
+        coinsToAdd,
+        CoinTransactionReason.PAYMENT_SUCCESS,
+        undefined,
+        payment.id
+      );
+    }
+  } catch (err) {
+    console.error('[verifyFonepayQrPayment] Error adding coins/activating plan:', err);
+    throw err;
   }
 
   const balance = await prisma.user.findUnique({
     where: { id: userId },
     select: { coins: true },
   });
+
+  console.log('[verifyFonepayQrPayment] Success! New balance:', balance?.coins);
 
   return {
     success: true,

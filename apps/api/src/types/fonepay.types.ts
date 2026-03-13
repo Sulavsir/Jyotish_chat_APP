@@ -72,13 +72,14 @@ export type FonepayPaymentStatus = 'success' | 'failed' | 'pending' | 'verified'
 
 /**
  * Raw response from Fonepay check status API.
+ * Note: fonepayTraceId is returned as number from the API, not string
  */
 export interface FonepayCheckStatusApiResponse {
   success?: boolean;
   status?: string;
   paymentStatus?: string;
-  fonepayTraceId?: string;
-  traceId?: number;
+  fonepayTraceId?: string | number; // Fonepay returns this as number
+  traceId?: string | number;
   amount?: string;
   remarks1?: string;
   remarks2?: string;
@@ -94,7 +95,7 @@ export interface FonepayCheckStatusApiResponse {
 export interface FonepayStatusResponse {
   success: true;
   paymentStatus: FonepayPaymentStatus;
-  fonepayTraceId?: string;
+  fonepayTraceId?: string | number; // Can be number from API, we convert to string when saving
   transactionDetails?: Record<string, unknown>;
 }
 

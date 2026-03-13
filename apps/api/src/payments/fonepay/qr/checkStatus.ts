@@ -92,17 +92,25 @@ export async function checkStatus(
     paymentStatus = 'pending';
   }
 
-  const fonepayTraceId = data.fonepayTraceId ?? (data.traceId ? String(data.traceId) : undefined);
+  // Fonepay returns fonepayTraceId as number, convert to string for database
+  const rawTraceId = data.fonepayTraceId ?? data.traceId;
+  const fonepayTraceId = rawTraceId != null ? String(rawTraceId) : undefined;
 
   const dbStatus = mapPaymentStatusToDbStatus(paymentStatus);
 
-  await prisma.fonepayTransaction.updateMany({
-    where: { prn },
-    data: {
-      status: dbStatus,
-      ...(fonepayTraceId ? { fonepayTraceId } : {}),
-    },
-  });
+  try {
+    await prisma.fonepayTransaction.updateMany({
+      where: { prn },
+      data: {
+        status: dbStatus,
+        ...(fonepayTraceId ? { fonepayTraceId } : {}),
+      },
+    });
+    console.log('[Fonepay QR] FonepayTransaction updated', { prn, dbStatus });
+  } catch (dbErr) {
+    // Log but don't fail - the important thing is the payment status from Fonepay
+    console.error('[Fonepay QR] Failed to update FonepayTransaction', { prn, error: dbErr });
+  }
 
   console.log('[Fonepay QR] checkStatus completed', { prn, paymentStatus, fonepayTraceId });
 

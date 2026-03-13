@@ -21,7 +21,9 @@ const router = Router();
 router.get('/success-redirect', asyncHandler(paymentController.successRedirect));
 router.get('/fail-redirect', asyncHandler(paymentController.failRedirect));
 // Public: Fonepay redirects here after card payment. We verify and 302 to frontend.
+// Support both GET and POST since some payment gateways use POST for callbacks
 router.get('/fonepay-card-callback', asyncHandler(paymentController.fonepayCardCallback));
+router.post('/fonepay-card-callback', asyncHandler(paymentController.fonepayCardCallback));
 
 router.use(authenticate);
 

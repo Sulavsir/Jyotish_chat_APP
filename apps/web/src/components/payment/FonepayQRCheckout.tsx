@@ -38,16 +38,22 @@ export function FonepayQRCheckout({
 
   const verifyAndComplete = useCallback(async () => {
     // Prevent duplicate verification calls
-    if (verifyingRef.current) return;
+    if (verifyingRef.current) {
+      console.log('[FonepayQRCheckout] Skipping verify - already in progress');
+      return;
+    }
     verifyingRef.current = true;
     
+    console.log('[FonepayQRCheckout] Starting verification for PRN:', prn);
     setStatus('verifying');
     setErrorMessage(null);
     try {
       const result = await paymentService.verifyFonepayQr({ prn });
+      console.log('[FonepayQRCheckout] Verify result:', result);
       if (result.success) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
         setStatus('paid');
+        console.log('[FonepayQRCheckout] Payment verified successfully');
         // Small delay before redirect for better UX
         setTimeout(() => {
           onSuccess?.();
@@ -55,12 +61,15 @@ export function FonepayQRCheckout({
       } else {
         verifyingRef.current = false;
         setStatus('failed');
-        setErrorMessage(result.message ?? 'Verification failed');
-        onError?.(result.message ?? 'Verification failed');
+        const errMsg = result.message ?? 'Verification failed';
+        console.log('[FonepayQRCheckout] Verify returned failure:', errMsg);
+        setErrorMessage(errMsg);
+        onError?.(errMsg);
       }
     } catch (err) {
       verifyingRef.current = false;
       const msg = err instanceof Error ? err.message : 'Verification failed';
+      console.error('[FonepayQRCheckout] Verify error:', err);
       setStatus('failed');
       setErrorMessage(msg);
       onError?.(msg);

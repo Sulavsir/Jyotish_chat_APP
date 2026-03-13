@@ -201,15 +201,43 @@ export async function createFonepayCardOrder(
 }
 
 /**
- * GET /api/v1/payments/fonepay-card-callback
+ * GET/POST /api/v1/payments/fonepay-card-callback
  * Fonepay redirects here after card payment. Verify DV and redirect to frontend success/fail.
+ * IMPORTANT: This endpoint MUST always redirect, never return JSON errors.
+ * Supports both GET (query params) and POST (body params) for different gateway behaviors.
  */
-export async function fonepayCardCallback(req: Request, res: Response, next: NextFunction) {
+export async function fonepayCardCallback(req: Request, res: Response, _next: NextFunction) {
+  const frontendOrigin = (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const failUrl = `${frontendOrigin}/payment-fail`;
+  
   try {
-    const query = req.query as unknown as FonepayCardCallbackQuery;
+    // Support both GET query params and POST body params
+    const params = req.method === 'POST' 
+      ? { ...req.query, ...req.body } 
+      : req.query;
+    const query = params as unknown as FonepayCardCallbackQuery;
+    
+    console.log('[fonepayCardCallback] Received callback:', {
+      method: req.method,
+      PRN: query.PRN,
+      PS: query.PS,
+      RC: query.RC,
+      fullQuery: query,
+    });
+    
+    // Handle empty/missing callback (user might have navigated directly)
+    if (!query || !query.PRN) {
+      console.log('[fonepayCardCallback] Missing PRN, redirecting to fail page');
+      return res.redirect(302, `${failUrl}?message=${encodeURIComponent('Payment callback incomplete - please try again')}`);
+    }
+    
     const result = await paymentService.handleFonepayCardCallback(query);
-    res.redirect(302, result.redirectTo);
+    console.log('[fonepayCardCallback] Redirecting to:', result.redirectTo);
+    return res.redirect(302, result.redirectTo);
   } catch (error) {
-    next(error);
+    // Always redirect on error - never return JSON for this callback
+    console.error('[fonepayCardCallback] Error processing callback:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Payment processing failed';
+    return res.redirect(302, `${failUrl}?message=${encodeURIComponent(errorMessage)}`);
   }
 }
