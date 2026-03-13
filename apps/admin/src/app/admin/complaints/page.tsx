@@ -37,7 +37,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, ComplaintStatusFilter, type ComplaintFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -81,7 +81,7 @@ const PRIORITY_COLORS: Record<ComplaintPriority, string> = {
 export default function ComplaintsPage() {
   const queryClient = useQueryClient();
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
-  const [filterStatus, setFilterStatus] = useState<ComplaintStatus | 'ALL'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<ComplaintFilterValue>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [resolution, setResolution] = useState('');
@@ -100,7 +100,7 @@ export default function ComplaintsPage() {
     queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage],
     queryFn: () =>
       adminApi.complaints.getComplaints({
-        status: filterStatus === 'ALL' ? undefined : filterStatus,
+        status: filterStatus === 'ALL' ? undefined : filterStatus as ComplaintStatus,
         limit: ITEMS_PER_PAGE,
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
@@ -391,16 +391,23 @@ export default function ComplaintsPage() {
             <h2 className="text-3xl font-bold text-white">User Complaints</h2>
             <p className="text-slate-400 mt-1">Real-time monitoring of all user complaints</p>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <ComplaintStatusFilter
+              value={filterStatus}
+              onChange={setFilterStatus}
+              disabled={isLoading}
+            />
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -440,35 +447,6 @@ export default function ComplaintsPage() {
               </div>
               <X className="w-8 h-8 text-gray-400" />
             </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="cosmic-card rounded-xl p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-slate-400 font-medium">Filter by status:</span>
-            {[
-              'ALL',
-              ComplaintStatus.IN_REVIEW,
-              ComplaintStatus.RESOLVED,
-              ComplaintStatus.DISMISSED,
-            ].map((status) => (
-              <Button
-                key={status}
-                size="sm"
-                variant={filterStatus === status ? 'default' : 'ghost'}
-                onClick={() => {
-                  setFilterStatus(status as ComplaintStatus | 'ALL');
-                }}
-                className={
-                  filterStatus === status
-                    ? 'bg-transparent'
-                    : 'border-slate-700 text-white hover:bg-slate-800'
-                }
-              >
-                {status === 'ALL' ? 'All' : COMPLAINT_STATUS_LABELS[status as ComplaintStatus]}
-              </Button>
-            ))}
           </div>
         </div>
 

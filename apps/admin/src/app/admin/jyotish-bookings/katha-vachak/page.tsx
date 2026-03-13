@@ -30,7 +30,7 @@ import {
   AvatarFallback,
 } from '@jyotish/ui';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, BookingStatusFilter, type BookingStatusFilterValue } from '@/components/admin';
 import { formatAdminDate, getImageUrl } from '@/utils/helpers';
 import { generatePageNumbers } from '@/utils/helpers';
 import { RefreshCw } from 'lucide-react';
@@ -82,6 +82,7 @@ export default function KathaVachakBookingsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
 
@@ -95,6 +96,7 @@ export default function KathaVachakBookingsPage() {
       ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
       currentPage,
       searchTerm,
+      statusFilter,
     ],
     queryFn: () =>
       adminApi.jyotishBookings.list({
@@ -102,6 +104,7 @@ export default function KathaVachakBookingsPage() {
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm || undefined,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
   });
 
@@ -113,10 +116,10 @@ export default function KathaVachakBookingsPage() {
     totalPages: 0,
   };
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (input: {
@@ -263,16 +266,23 @@ export default function KathaVachakBookingsPage() {
             <h1 className="text-2xl font-bold text-white">Katha Vachak Requests</h1>
             <p className="text-slate-400">Approve or reject Katha Vachak booking requests</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => refetch()}
-            disabled={isLoading}
-            size="sm"
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-3">
+            <BookingStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              size="sm"
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <Search

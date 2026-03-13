@@ -70,6 +70,7 @@ export interface ListAppointmentsResponse {
 export interface ListAppointmentsParams {
   page?: number;
   limit?: number;
+  status?: AppointmentStatus | string;
 }
 
 /** Payload for cancelling an appointment (admin) */

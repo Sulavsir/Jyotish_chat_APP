@@ -32,12 +32,15 @@ import {
   Input,
 } from '@jyotish/ui';
 import { RefreshCw, X, Download, FileText, Trash2, Eye, EyeOff } from 'lucide-react';
-import { AdminTable, AstrologerRowActions, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import {
-  DELETE_CONFIRM,
-  ASTROLOGER_EDIT_PASSWORD,
-} from '@/constants/app.constants';
+  AdminTable,
+  AstrologerRowActions,
+  type AdminTableColumn,
+  ActiveStatusFilter,
+  type ActiveFilterValue,
+} from '@/components/admin';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { DELETE_CONFIRM, ASTROLOGER_EDIT_PASSWORD } from '@/constants/app.constants';
 import { useAdminSocket } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
@@ -63,6 +66,7 @@ export default function AstrologersPage() {
   const { on, off, isConnected } = useAdminSocket();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
   const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
@@ -98,12 +102,13 @@ export default function AstrologersPage() {
     isLoading,
     refetch,
   } = useQuery<AstrologersResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, searchTerm],
+    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, searchTerm, statusFilter],
     queryFn: async (): Promise<AstrologersResponse> => {
       const response = await adminApi.astrologers.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm || undefined,
+        isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
       });
       if (
         response &&
@@ -211,7 +216,7 @@ export default function AstrologersPage() {
         err?.message?.toLowerCase().includes('invalid') ||
           err?.message?.toLowerCase().includes('forbidden')
           ? ASTROLOGER_EDIT_PASSWORD.INVALID_PASSWORD
-          : err?.message ?? 'Verification failed'
+          : (err?.message ?? 'Verification failed')
       );
     },
   });
@@ -271,10 +276,10 @@ export default function AstrologersPage() {
     }
   };
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   const columns: AdminTableColumn<Astrologer>[] = [
     {
@@ -341,7 +346,23 @@ export default function AstrologersPage() {
       ),
     },
     {
-      header: 'Account Status',
+      header: 'Attachments',
+      accessor: (astrologer) => (
+        <div className="flex justify-center">
+          <AttachmentPreview
+            attachmentUrl={astrologer.proofOfAstrology}
+            onView={() => {
+              setViewingProfileImage(null);
+              setViewingAttachment(astrologer.proofOfAstrology || null);
+            }}
+            size="md"
+          />
+        </div>
+      ),
+      className: 'text-center',
+    },
+    {
+      header: 'Status',
       accessor: (astrologer) => (
         <span
           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -370,22 +391,7 @@ export default function AstrologersPage() {
         );
       },
     },
-    {
-      header: 'Attachments',
-      accessor: (astrologer) => (
-        <div className="flex justify-center">
-          <AttachmentPreview
-            attachmentUrl={astrologer.proofOfAstrology}
-            onView={() => {
-              setViewingProfileImage(null);
-              setViewingAttachment(astrologer.proofOfAstrology || null);
-            }}
-            size="md"
-          />
-        </div>
-      ),
-      className: 'text-center',
-    },
+
     {
       header: 'Actions',
       accessor: (astrologer) => (
@@ -411,6 +417,11 @@ export default function AstrologersPage() {
             <p className="text-slate-400 mt-1">Manage your cosmic advisors</p>
           </div>
           <div className="flex items-center gap-2">
+            <ActiveStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
             <Button
               onClick={() => refetch()}
               variant="outline"

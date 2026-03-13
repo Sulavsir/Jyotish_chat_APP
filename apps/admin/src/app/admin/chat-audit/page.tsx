@@ -5,7 +5,7 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, Search, ChatIcon, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@jyotish/ui';
 import { RefreshCw } from 'lucide-react';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, ChatAuditStatusFilter, ChatAuditTypeFilter, type ChatAuditStatusFilterValue, type ChatAuditTypeFilterValue } from '@/components/admin';
 import { useAdminSocket } from '@/hooks';
 import { toast } from 'sonner';
 import {
@@ -18,8 +18,6 @@ import {
 import {
   CHAT_AUDIT_DEFAULTS,
   SOCKET_EVENTS,
-  STATUS_FILTER_OPTIONS,
-  TYPE_FILTER_OPTIONS,
   PAGINATION_DEFAULTS,
   AVATAR_GRADIENTS,
 } from '@/constants';
@@ -38,8 +36,8 @@ export default function ChatAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState<number>(CHAT_AUDIT_DEFAULTS.PAGE);
   const [itemsPerPage] = useState<number>(CHAT_AUDIT_DEFAULTS.LIMIT);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<ChatAuditStatusFilterValue>('');
+  const [typeFilter, setTypeFilter] = useState<ChatAuditTypeFilterValue>('');
   const { on, off, isConnected } = useAdminSocket();
 
   useEffect(() => {
@@ -270,53 +268,37 @@ export default function ChatAuditPage() {
               {isConnected && <span className="ml-2 text-green-400">• Live</span>}
             </p>
           </div>
-          <Button
-            onClick={loadLogs}
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <ChatAuditTypeFilter
+              value={typeFilter}
+              onChange={setTypeFilter}
+              disabled={loading}
+            />
+            <ChatAuditStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={loading}
+            />
+            <Button
+              onClick={loadLogs}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex w-full gap-4">
-          <div className="w-full">
-            <Search
-              placeholder="Search by client or astrologer name/phone..."
-              value={searchTerm}
-              onSearch={setSearchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-16 px-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 whitespace-nowrap"
-            >
-              {TYPE_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-16 px-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              {STATUS_FILTER_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        {/* Search */}
+        <Search
+          placeholder="Search by client or astrologer name/phone..."
+          value={searchTerm}
+          onSearch={setSearchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">

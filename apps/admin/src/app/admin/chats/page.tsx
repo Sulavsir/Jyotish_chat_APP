@@ -16,7 +16,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, ChatStatusFilter, type ChatStatusFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { Chat } from '@/types';
 import ChatDetailModal from '@/components/chat/ChatDetailModal';
@@ -38,6 +38,7 @@ export default function ChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<ChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { on, off, isConnected } = useAdminSocket();
@@ -48,11 +49,12 @@ export default function ChatsPage() {
     isLoading,
     refetch,
   } = useQuery<ChatsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, searchTerm],
+    queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, searchTerm, statusFilter],
     queryFn: async () => {
       const response: any = await adminApi.chats.list({
         page: currentPage,
         limit: PAGINATION_DEFAULTS.LIMIT,
+        status: statusFilter || undefined,
       });
       // Handle both response formats
       if (response?.chats && response?.pagination) {
@@ -125,10 +127,10 @@ export default function ChatsPage() {
     };
   }, [isConnected, on, off, queryClient]);
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   const isImageUrl = (text: string) => {
     if (!text) return false;
@@ -227,16 +229,23 @@ export default function ChatsPage() {
               Monitor conversations between users and astrologers
             </p>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <ChatStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar */}

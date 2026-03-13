@@ -20,7 +20,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, AdminChatStatusFilter, type AdminChatStatusFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { AdminChat } from '@/lib/admin-api';
 import { useAdminSocket } from '@/hooks';
@@ -45,7 +45,7 @@ export default function AdminChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'RESOLVED' | 'CLOSED' | ''>('');
+  const [statusFilter, setStatusFilter] = useState<AdminChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { on, off, isConnected } = useAdminSocket();
@@ -213,42 +213,32 @@ export default function AdminChatsPage() {
               {isConnected && <span className="ml-2 text-green-400">• Live</span>}
             </p>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <AdminChatStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <Search
-              placeholder="Search by participant name, email, or phone..."
-              value={searchTerm}
-              onSearch={setSearchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className='flex items-center '>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            className="p-2 h-16 items-center bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="">All Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="RESOLVED">Resolved</option>
-            <option value="CLOSED">Closed</option>
-          </select>
-          </div>
-         
-        </div>
+        {/* Search */}
+        <Search
+          placeholder="Search by participant name, email, or phone..."
+          value={searchTerm}
+          onSearch={setSearchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">

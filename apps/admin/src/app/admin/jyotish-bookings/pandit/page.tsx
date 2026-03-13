@@ -27,7 +27,7 @@ import {
   PaginationPrevious,
 } from '@jyotish/ui';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, BookingStatusFilter, type BookingStatusFilterValue } from '@/components/admin';
 import { formatAdminDate } from '@/utils/helpers';
 import { generatePageNumbers } from '@/utils/helpers';
 import { RefreshCw } from 'lucide-react';
@@ -85,6 +85,7 @@ export default function PanditBookingsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
 
@@ -98,6 +99,7 @@ export default function PanditBookingsPage() {
       ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.PANDIT }),
       currentPage,
       searchTerm,
+      statusFilter,
     ],
     queryFn: () =>
       adminApi.jyotishBookings.list({
@@ -105,6 +107,7 @@ export default function PanditBookingsPage() {
         page: currentPage,
         limit: PAGINATION_DEFAULTS.LIMIT,
         search: searchTerm || undefined,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
   });
 
@@ -116,10 +119,10 @@ export default function PanditBookingsPage() {
     totalPages: 0,
   };
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (input: {
@@ -247,16 +250,23 @@ export default function PanditBookingsPage() {
             <h1 className="text-2xl font-bold text-white">Book Pujari Ji Requests</h1>
             <p className="text-slate-400">Approve or reject Pandit Ji booking requests</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => refetch()}
-            disabled={isLoading}
-            size="sm"
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-3">
+            <BookingStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading}
+              size="sm"
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <Search

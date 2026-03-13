@@ -18,7 +18,7 @@ import {
   PaginationPrevious,
 } from '@jyotish/ui';
 import { RefreshCw, Banknote, Plus } from 'lucide-react';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, ActiveStatusFilter, type ActiveFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { User } from '@/types';
 import { AddCoinsModal } from '@/components/admin/AddCoinsModal';
@@ -40,6 +40,7 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; balance?: number } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
 
@@ -49,12 +50,13 @@ export default function UsersPage() {
     isLoading,
     refetch,
   } = useQuery<UsersResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.USERS.LIST(), currentPage, searchTerm],
+    queryKey: [...ADMIN_QUERY_KEYS.USERS.LIST(), currentPage, searchTerm, statusFilter],
     queryFn: async () => {
       const response: any = await adminApi.users.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: searchTerm || undefined,
+        isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
       });
       // Handle both response formats
       if (response?.users && response?.pagination) {
@@ -100,10 +102,10 @@ export default function UsersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   const columns: AdminTableColumn<User>[] = [
     {
@@ -189,16 +191,23 @@ export default function UsersPage() {
             <h2 className="text-3xl font-bold text-white">Users</h2>
             <p className="text-slate-400 mt-1">Manage your platform users</p>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <ActiveStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar */}

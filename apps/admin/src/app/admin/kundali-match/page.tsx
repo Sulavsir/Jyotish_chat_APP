@@ -22,18 +22,13 @@ import {
   Label,
   Textarea,
   LoadingButton,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, KundaliMatchStatusFilter, type KundaliMatchFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
-import type { KundaliMatchRequest, KundaliMatchStatus } from '@/types/kundaliMatch.types';
+import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
 import { generatePageNumbers } from '@/utils/helpers';
 import { toast } from 'sonner';
-import { Banknote, User, Eye } from 'lucide-react';
+import { Banknote, User, Eye, RefreshCw } from 'lucide-react';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
@@ -49,21 +44,15 @@ function formatDateShort(dateString: string) {
   return new Date(dateString).toISOString().slice(0, 10);
 }
 
-const STATUS_OPTIONS: { value: 'ALL' | KundaliMatchStatus; label: string }[] = [
-  { value: 'ALL', label: 'All' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'REVIEWED', label: 'Reviewed' },
-];
-
 export default function KundaliMatchPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | KundaliMatchStatus>('ALL');
+  const [statusFilter, setStatusFilter] = useState<KundaliMatchFilterValue>('ALL');
   const [reviewModalRequest, setReviewModalRequest] = useState<KundaliMatchRequest | null>(null);
   const [viewModalRequest, setViewModalRequest] = useState<KundaliMatchRequest | null>(null);
   const [reviewMessage, setReviewMessage] = useState('');
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: [...ADMIN_QUERY_KEYS.KUNDALI_MATCH.LIST(), currentPage, statusFilter],
     queryFn: () =>
       adminApi.kundaliMatch.list({
@@ -210,30 +199,29 @@ export default function KundaliMatchPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-white">Kundali Match</h2>
             <p className="text-slate-400 mt-1">
               Review requests and send the kundali match report (text) to the user.
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-sm text-slate-400 font-medium">Status:</span>
-            <Select
+          <div className="flex items-center gap-2">
+            <KundaliMatchStatusFilter
               value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as 'ALL' | KundaliMatchStatus)}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
             >
-              <SelectTrigger className="w-[140px] bg-slate-800 border-slate-600 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
         </div>
 

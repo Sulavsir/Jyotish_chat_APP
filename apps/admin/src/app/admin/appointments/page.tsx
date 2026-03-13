@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
@@ -24,7 +24,7 @@ import {
   Label,
   Textarea,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { AdminTable, type AdminTableColumn, AppointmentStatusFilter, type AppointmentFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import {
   CalendarDays,
@@ -70,9 +70,15 @@ const CANCELLABLE_STATUSES: AppointmentStatus[] = [
 
 export default function AppointmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<AppointmentFilterValue>('ALL');
   const [cancelModalAppointment, setCancelModalAppointment] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const queryClient = useQueryClient();
+
+  // Reset to page 1 when status filter changes
+  useEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [statusFilter]);
 
   // Fetch appointments with TanStack Query (server-side pagination)
   const {
@@ -81,11 +87,12 @@ export default function AppointmentsPage() {
     error,
     refetch,
   } = useQuery<ListAppointmentsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(), currentPage],
+    queryKey: [...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(), currentPage, statusFilter],
     queryFn: () =>
       adminApi.appointments.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
     refetchInterval: 20000,
   });
@@ -259,16 +266,23 @@ export default function AppointmentsPage() {
             <h2 className="text-3xl font-bold text-white">Appointment Audits</h2>
             <p className="text-slate-400 mt-1">Real-time monitoring of all appointment bookings</p>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <AppointmentStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <Button
+              onClick={() => refetch()}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              className="border-slate-700 text-white hover:bg-slate-800"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}

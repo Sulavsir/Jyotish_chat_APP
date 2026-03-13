@@ -446,7 +446,7 @@ export const adminApi = {
    * Users
    */
   users: {
-    list: async (params?: { page?: number; limit?: number; search?: string }) => {
+    list: async (params?: { page?: number; limit?: number; search?: string; isActive?: boolean }) => {
       const response = await apiClient.get(API_ENDPOINTS.USERS.LIST, { params });
       return response;
     },
@@ -517,7 +517,7 @@ export const adminApi = {
    * Chats
    */
   chats: {
-    list: async (params?: { page?: number; limit?: number }) => {
+    list: async (params?: { page?: number; limit?: number; status?: string }) => {
       const response = await apiClient.get(API_ENDPOINTS.CHATS.LIST, { params });
       return response;
     },
