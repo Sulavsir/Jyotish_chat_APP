@@ -37,6 +37,8 @@ export {
   resetPasswordWithTokenSchema,
   resetPasswordWithOtpSchema,
   verifyPasswordResetOtpSchema,
+  googleMobileLoginSchema,
+  type GoogleMobileLoginInput,
 } from './auth.validators';
 export * from './query.validators';
 export * from './coin.validators';

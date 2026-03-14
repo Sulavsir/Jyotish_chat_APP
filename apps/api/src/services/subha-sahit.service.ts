@@ -2,12 +2,13 @@
  * Subha Sahit Service - Auspicious dates for Pandit Ji bookings
  */
 
-import { prisma } from '@jyotish/database';
+import { prisma, SubhaSahitDate as PrismaSubhaSahitDate, Prisma } from '@jyotish/database';
+import { normalizeToDbLanguageCode, type DbLanguageCode } from '@jyotish/shared';
 
 export interface SubhaSahitDate {
   id: string;
   date: Date;
-  language: string;
+  language: DbLanguageCode;
   occasion: string;
   description: string | null;
   isActive: boolean;
@@ -15,11 +16,11 @@ export interface SubhaSahitDate {
   updatedAt: Date;
 }
 
-function toSubhaSahitDate(entity: any): SubhaSahitDate {
+function toSubhaSahitDate(entity: PrismaSubhaSahitDate): SubhaSahitDate {
   return {
     id: entity.id,
     date: entity.date,
-    language: entity.language,
+    language: entity.language as DbLanguageCode,
     occasion: entity.occasion,
     description: entity.description,
     isActive: entity.isActive,
@@ -29,41 +30,32 @@ function toSubhaSahitDate(entity: any): SubhaSahitDate {
 }
 
 export class SubhaSahitService {
-  private normalizeLanguage(language?: string): 'EN' | 'NE' | 'HI' {
-    const code = (language ?? 'en').toLowerCase();
-    if (code === 'ne' || code === 'np' || code === 'nepali') return 'NE';
-    if (code === 'hi' || code === 'hin' || code === 'hindi') return 'HI';
-    return 'EN';
-  }
 
   async createOccasion(
     name: string,
     language?: string
-  ): Promise<{ id: string; name: string; isActive: boolean; language: string }> {
+  ): Promise<{ id: string; name: string; isActive: boolean; language: DbLanguageCode }> {
     const trimmed = name.trim();
-    const lang = this.normalizeLanguage(language);
+    const lang = normalizeToDbLanguageCode(language);
 
     // Try to find an existing occasion case-insensitively
-    const existingWhere: any = {
-      occasion: {
-        equals: trimmed,
-        mode: 'insensitive',
-      },
-      language: lang,
-    };
-
     const existing = await prisma.subhaSahitDate.findFirst({
-      where: existingWhere,
+      where: {
+        occasion: {
+          equals: trimmed,
+          mode: 'insensitive',
+        },
+        language: lang,
+      },
       orderBy: { createdAt: 'desc' },
     });
 
     if (existing) {
-      const row: any = existing;
       return {
-        id: row.id,
-        name: row.occasion,
-        isActive: row.isActive,
-        language: row.language,
+        id: existing.id,
+        name: existing.occasion,
+        isActive: existing.isActive,
+        language: existing.language as DbLanguageCode,
       };
     }
 
@@ -76,15 +68,14 @@ export class SubhaSahitService {
         occasion: trimmed,
         isActive: true,
         language: lang,
-      } as any,
+      },
     });
 
-    const row: any = created;
     return {
-      id: row.id,
-      name: row.occasion,
-      isActive: row.isActive,
-      language: row.language,
+      id: created.id,
+      name: created.occasion,
+      isActive: created.isActive,
+      language: created.language as DbLanguageCode,
     };
   }
 
@@ -99,7 +90,7 @@ export class SubhaSahitService {
     }>,
     language?: string
   ): Promise<SubhaSahitDate[]> {
-    const lang = this.normalizeLanguage(language);
+    const lang = normalizeToDbLanguageCode(language);
     const created: SubhaSahitDate[] = [];
     for (const item of items) {
       const date = new Date(item.date);
@@ -113,7 +104,7 @@ export class SubhaSahitService {
           occasion: item.occasion,
           description: item.description || null,
           language: lang,
-        } as any,
+        },
       });
       created.push(toSubhaSahitDate(row));
     }
@@ -143,33 +134,27 @@ export class SubhaSahitService {
     const placeholderDate = new Date('2099-12-31');
     placeholderDate.setHours(0, 0, 0, 0);
 
-    const where: any = {
-      date: {
-        not: placeholderDate,
-      },
+    // Build date filter
+    const dateFilter: Prisma.DateTimeFilter<'SubhaSahitDate'> = {
+      not: placeholderDate,
     };
 
-    if (params.language) {
-      where.language = this.normalizeLanguage(params.language);
+    if (params.dateFrom) {
+      const from = new Date(params.dateFrom);
+      from.setHours(0, 0, 0, 0);
+      dateFilter.gte = from;
+    }
+    if (params.dateTo) {
+      const to = new Date(params.dateTo);
+      to.setHours(23, 59, 59, 999);
+      dateFilter.lte = to;
     }
 
-    if (params.occasion) {
-      where.occasion = { contains: params.occasion, mode: 'insensitive' };
-    }
-
-    if (params.dateFrom || params.dateTo) {
-      where.date = {};
-      if (params.dateFrom) {
-        const from = new Date(params.dateFrom);
-        from.setHours(0, 0, 0, 0);
-        where.date.gte = from;
-      }
-      if (params.dateTo) {
-        const to = new Date(params.dateTo);
-        to.setHours(23, 59, 59, 999);
-        where.date.lte = to;
-      }
-    }
+    const where: Prisma.SubhaSahitDateWhereInput = {
+      date: dateFilter,
+      ...(params.language && { language: normalizeToDbLanguageCode(params.language) }),
+      ...(params.occasion && { occasion: { contains: params.occasion, mode: 'insensitive' } }),
+    };
 
     const [rows, total] = await Promise.all([
       prisma.subhaSahitDate.findMany({
@@ -209,28 +194,24 @@ export class SubhaSahitService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const where: any = {
-      isActive: true,
-      date: {
-        not: placeholderDate,
-        // Always filter to only show dates from today onwards
-        gte: params.dateFrom ? new Date(params.dateFrom) : today,
-      },
+    // Build date filter
+    const dateFilter: Prisma.DateTimeFilter<'SubhaSahitDate'> = {
+      not: placeholderDate,
+      gte: params.dateFrom ? new Date(params.dateFrom) : today,
     };
-
-    if (params.language) {
-      where.language = this.normalizeLanguage(params.language);
-    }
-
-    if (params.occasion) {
-      where.occasion = { contains: params.occasion, mode: 'insensitive' };
-    }
 
     if (params.dateTo) {
       const to = new Date(params.dateTo);
       to.setHours(23, 59, 59, 999);
-      where.date.lte = to;
+      dateFilter.lte = to;
     }
+
+    const where: Prisma.SubhaSahitDateWhereInput = {
+      isActive: true,
+      date: dateFilter,
+      ...(params.language && { language: normalizeToDbLanguageCode(params.language) }),
+      ...(params.occasion && { occasion: { contains: params.occasion, mode: 'insensitive' } }),
+    };
 
     const rows = await prisma.subhaSahitDate.findMany({
       where,
@@ -253,7 +234,7 @@ export class SubhaSahitService {
       language?: string;
     }
   ): Promise<SubhaSahitDate> {
-    const updateData: any = {};
+    const updateData: Prisma.SubhaSahitDateUpdateInput = {};
 
     if (data.date !== undefined) {
       const date = new Date(data.date);
@@ -270,7 +251,7 @@ export class SubhaSahitService {
       updateData.isActive = data.isActive;
     }
     if (data.language !== undefined) {
-      updateData.language = this.normalizeLanguage(data.language);
+      updateData.language = normalizeToDbLanguageCode(data.language);
     }
 
     const row = await prisma.subhaSahitDate.update({
@@ -305,10 +286,10 @@ export class SubhaSahitService {
    * Returns distinct occasions from all SubhaSahitDate entries (including occasion-only placeholders)
    */
   async getOccasions(language?: string): Promise<string[]> {
-    const where: any = { isActive: true };
-    if (language) {
-      where.language = this.normalizeLanguage(language);
-    }
+    const where: Prisma.SubhaSahitDateWhereInput = {
+      isActive: true,
+      ...(language && { language: normalizeToDbLanguageCode(language) }),
+    };
 
     const rows = await prisma.subhaSahitDate.findMany({
       where,

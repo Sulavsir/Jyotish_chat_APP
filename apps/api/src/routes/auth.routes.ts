@@ -18,6 +18,7 @@ import {
   resetPasswordWithTokenSchema,
   resetPasswordWithOtpSchema,
   verifyPasswordResetOtpSchema,
+  googleMobileLoginSchema,
 } from '../validators';
 
 const router = Router();
@@ -56,6 +57,66 @@ router.get('/google/login', asyncHandler(googleOAuthController.googleLogin));
  *         description: Redirects to frontend with auth cookies set
  */
 router.get('/google/callback', asyncHandler(googleOAuthController.googleCallback));
+
+/**
+ * @swagger
+ * /api/v1/auth/google/verify-token:
+ *   post:
+ *     summary: Google Sign-In for mobile apps (Flutter) - Verify ID token
+ *     tags: [Auth]
+ *     description: |
+ *       Accepts a Google ID token from native sign-in (google_sign_in package),
+ *       verifies it with Google, finds or creates the user, and returns app session tokens.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - idToken
+ *             properties:
+ *               idToken:
+ *                 type: string
+ *                 description: Google ID token JWT from native sign-in
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                     refreshToken:
+ *                       type: string
+ *                     user:
+ *                       type: object
+ *                     isNewUser:
+ *                       type: boolean
+ *       400:
+ *         description: Validation error (missing or invalid token format)
+ *       401:
+ *         description: Invalid or expired Google ID token
+ */
+router.post(
+  '/google/verify-token',
+  validateBody(googleMobileLoginSchema),
+  asyncHandler(googleOAuthController.googleMobileLogin)
+);
+
+// Alias for backwards compatibility (if any other clients use /google/mobile)
+router.post(
+  '/google/mobile',
+  validateBody(googleMobileLoginSchema),
+  asyncHandler(googleOAuthController.googleMobileLogin)
+);
 
 // ─── Phone / Password Auth ──────────────────────────────────────────
 

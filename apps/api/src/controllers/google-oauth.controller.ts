@@ -1,11 +1,72 @@
 import { Response, NextFunction } from 'express';
-import { AuthRequest } from '../types';
+import { AuthRequest, GoogleMobileLoginResponse } from '../types';
 import { setAuthCookies } from '../utils';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { googleOAuthService } from '../services/google-oauth.service';
 import { AppError } from '../middleware/error-handler';
 import { logUserLogin, logUserRegister } from '../utils';
 import { getClientIp } from '../utils/request-utils';
+import type { GoogleMobileLoginInput } from '../validators';
+
+/**
+ * Handle Google Sign-In from mobile apps (Flutter)
+ * POST /api/v1/auth/google/mobile
+ *
+ * Accepts an ID token from google_sign_in Flutter package,
+ * verifies it with Google, and returns JWT tokens.
+ *
+ * Note: Request body is validated by googleMobileLoginSchema middleware
+ */
+export async function googleMobileLogin(req: AuthRequest, res: Response, _next: NextFunction) {
+  // Body is already validated by middleware
+  const { idToken } = req.body as GoogleMobileLoginInput;
+
+  try {
+    const googleUser = await googleOAuthService.verifyIdToken(idToken);
+
+    const metadata = {
+      userAgent: req.headers['user-agent'],
+      ipAddress: getClientIp(req) ?? req.socket?.remoteAddress,
+    };
+
+    const result = await googleOAuthService.findOrCreateUser(googleUser, metadata);
+
+    if (result.isNewUser) {
+      await logUserRegister(result.user.id, req, {
+        method: 'google_mobile',
+        email: googleUser.email,
+      });
+    } else {
+      await logUserLogin(result.user.id, req, {
+        loginMethod: 'google_mobile',
+        email: googleUser.email,
+      });
+    }
+
+    const response: GoogleMobileLoginResponse = {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: result.user,
+      isNewUser: result.isNewUser,
+    };
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: response,
+    });
+  } catch (error) {
+    // Re-throw AppErrors as-is, wrap others
+    if (error instanceof AppError) {
+      throw error;
+    }
+    console.error('[GoogleOAuth] Mobile login error:', error);
+    throw new AppError(
+      'Google authentication failed',
+      HTTP_STATUS.UNAUTHORIZED,
+      ERROR_CODES.UNAUTHORIZED
+    );
+  }
+}
 
 const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:3000';
 

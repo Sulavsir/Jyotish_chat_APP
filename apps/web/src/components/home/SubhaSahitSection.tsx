@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/constants';
 import { subhaSahitService } from '@/services/subha-sahit.service';
 import { Label } from '@jyotish/ui';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { useNepaliDateConvert } from '@/hooks/useNepaliDateConvert';
-import type { QuestionnaireLanguage } from '@jyotish/shared';
+import { toApiLanguageCode, type QuestionnaireLanguage } from '@jyotish/shared';
 
 function getMonthRange(date: Date): { from: string; to: string } {
   const start = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -27,17 +27,15 @@ export function SubhaSahitSection() {
   const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
   const setQuestionnaireLanguage = useQuestionnaireLanguageStore((s) => s.setLanguage);
 
-  const apiLanguage: 'en' | 'ne' | 'hi' = useMemo(() => {
-    switch (questionnaireLanguage) {
-      case 'NEPALI':
-        return 'ne';
-      case 'HINDI':
-        return 'hi';
-      case 'ENGLISH':
-      default:
-        return 'en';
-    }
-  }, [questionnaireLanguage]);
+  const apiLanguage = useMemo(
+    () => toApiLanguageCode(questionnaireLanguage),
+    [questionnaireLanguage]
+  );
+
+  // Reset occasion filter when language changes (occasions are language-specific)
+  useEffect(() => {
+    setOccasionFilter('');
+  }, [apiLanguage]);
 
   const selectedMonthDate = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number);

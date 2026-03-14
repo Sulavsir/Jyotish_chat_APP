@@ -71,10 +71,11 @@ export const createDates = async (req: Request, res: Response, next: NextFunctio
  * GET /api/v1/admin/subha-sahit
  */
 export const listDates = async (req: Request, res: Response, next: NextFunction) => {
-  const { occasion, dateFrom, dateTo, page, limit } = req.query as {
+  const { occasion, dateFrom, dateTo, language, page, limit } = req.query as {
     occasion?: string;
     dateFrom?: string;
     dateTo?: string;
+    language?: string;
     page?: number;
     limit?: number;
   };
@@ -83,6 +84,7 @@ export const listDates = async (req: Request, res: Response, next: NextFunction)
     occasion,
     dateFrom,
     dateTo,
+    language,
     page,
     limit,
   });

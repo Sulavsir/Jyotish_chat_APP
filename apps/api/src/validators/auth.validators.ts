@@ -1,9 +1,29 @@
 /**
- * Auth validators - password reset and related
+ * Auth validators - password reset, Google OAuth, and related
  * Defined in API so routes work without depending on shared package build.
  */
 
 import { z } from 'zod';
+
+// ─── Google OAuth Validators ───────────────────────────────────────────────
+
+/**
+ * Validator for Google mobile login (Flutter)
+ * Expects an ID token from google_sign_in package
+ */
+export const googleMobileLoginSchema = z.object({
+  idToken: z
+    .string()
+    .min(1, 'ID token is required')
+    .refine(
+      (token) => token.split('.').length === 3,
+      'Invalid ID token format (expected JWT)'
+    ),
+});
+
+export type GoogleMobileLoginInput = z.infer<typeof googleMobileLoginSchema>;
+
+// ─── Phone / Password Validators ───────────────────────────────────────────
 
 const nepaliPhoneRegex = /^(98|97)\d{8}$/;
 const phoneValidation = z

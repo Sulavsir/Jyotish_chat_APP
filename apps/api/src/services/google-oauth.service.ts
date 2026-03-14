@@ -7,17 +7,12 @@ import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import type { LoginResult, UserEntity } from '../types';
-
-interface GoogleUserInfo {
-  sub: string;
-  email: string;
-  email_verified: boolean;
-  name: string;
-  given_name?: string;
-  family_name?: string;
-  picture?: string;
-}
+import type {
+  GoogleUserInfo,
+  GoogleTokenPayload,
+  GoogleLoginResult,
+  UserEntity,
+} from '../types';
 
 function createGoogleClient(): Google {
   const config = getGoogleOAuthConfig();
@@ -72,10 +67,90 @@ class GoogleOAuthService {
     return userInfo;
   }
 
+  /**
+   * Verify ID token from mobile apps (Flutter google_sign_in)
+   * Uses Google's tokeninfo endpoint to verify the token
+   */
+  async verifyIdToken(idToken: string): Promise<GoogleUserInfo> {
+    const config = getGoogleOAuthConfig();
+    const GOOGLE_TOKEN_INFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
+
+    // Verify token with Google's tokeninfo endpoint
+    const response = await fetch(
+      `${GOOGLE_TOKEN_INFO_URL}?id_token=${encodeURIComponent(idToken)}`
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[GoogleOAuth] Token verification failed:', errorText);
+      throw new AppError(
+        'Invalid Google ID token',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+
+    const payload = (await response.json()) as GoogleTokenPayload;
+
+    // Build list of valid audiences (Web client ID is always required, mobile IDs are optional)
+    const validAudiences: string[] = [config.GOOGLE_CLIENT_ID];
+    
+    if (config.GOOGLE_IOS_CLIENT_ID) {
+      validAudiences.push(config.GOOGLE_IOS_CLIENT_ID);
+    }
+    if (config.GOOGLE_ANDROID_CLIENT_ID) {
+      validAudiences.push(config.GOOGLE_ANDROID_CLIENT_ID);
+    }
+
+    if (!validAudiences.includes(payload.aud)) {
+      console.error('[GoogleOAuth] Token audience mismatch:', {
+        received: payload.aud,
+        expected: validAudiences,
+      });
+      throw new AppError(
+        'ID token is not for this application',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+
+    // Check token expiry
+    if (payload.exp) {
+      const now = Math.floor(Date.now() / 1000);
+      const expiry = parseInt(payload.exp, 10);
+      if (expiry < now) {
+        throw new AppError(
+          'ID token has expired',
+          HTTP_STATUS.UNAUTHORIZED,
+          ERROR_CODES.UNAUTHORIZED
+        );
+      }
+    }
+
+    // Verify email is present and verified
+    if (!payload.email || payload.email_verified !== 'true') {
+      throw new AppError(
+        'Google account email is not verified',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      email_verified: payload.email_verified === 'true',
+      name: payload.name ?? '',
+      given_name: payload.given_name,
+      family_name: payload.family_name,
+      picture: payload.picture,
+    };
+  }
+
   async findOrCreateUser(
     googleUser: GoogleUserInfo,
     metadata?: { userAgent?: string; ipAddress?: string }
-  ): Promise<LoginResult & { isNewUser: boolean }> {
+  ): Promise<GoogleLoginResult> {
     // Check if user exists by googleId
     let user = await prisma.user.findUnique({
       where: { googleId: googleUser.sub },

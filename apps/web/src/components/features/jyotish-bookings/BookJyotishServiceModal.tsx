@@ -42,6 +42,7 @@ import { getImageUrl } from '@/utils/image.utils';
 import { subhaSahitService } from '@/services/subha-sahit.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { useNepaliDateConvert } from '@/hooks/useNepaliDateConvert';
+import { toApiLanguageCode } from '@jyotish/shared';
 
 type Props = {
   isOpen: boolean;
@@ -74,10 +75,14 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
 
   const astrologerSearch = '';
 
-  // Subha Sahit occasions (for Pandit Ji categories)
+  // Get language from store and convert to API format
+  const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
+  const apiLanguage = toApiLanguageCode(questionnaireLanguage);
+
+  // Subha Sahit occasions (for Pandit Ji categories) - filtered by language
   const { data: subhaOccasionsResp } = useQuery({
-    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE(),
-    queryFn: () => subhaSahitService.getOccasions(),
+    queryKey: QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(apiLanguage),
+    queryFn: () => subhaSahitService.getOccasions(apiLanguage),
     enabled: type === JyotishBookingType.PANDIT,
   });
 
@@ -123,16 +128,18 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     [eligibleAstrologers, preferredAstrologerId]
   );
 
-  // Fetch Subha Sahit dates filtered by selected occasion/category
+  // Fetch Subha Sahit dates filtered by selected occasion/category and language
   const { data: subhaSahitResp } = useQuery({
     queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({
       dateFrom: todayISO(),
       occasion: needsSubhaSahit && category ? category : undefined,
+      language: apiLanguage,
     }),
     queryFn: () =>
       subhaSahitService.getAvailableDates({
         dateFrom: todayISO(),
         occasion: needsSubhaSahit && category ? category : undefined,
+        language: apiLanguage,
       }),
     enabled: isOpen && needsSubhaSahit,
     refetchOnMount: true,
@@ -150,13 +157,12 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     return dates;
   }, [subhaSahitResp?.dates]);
 
-  const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
   const { getDisplayDate: getDateDisplay } = useNepaliDateConvert(
     availableDates,
     questionnaireLanguage
   );
 
-  // Reset form when modal opens
+  // Reset form when modal opens or language changes
   useEffect(() => {
     if (!isOpen) return;
     setCategory(categories[0] ?? '');
@@ -170,7 +176,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     } else {
       setBookingDate(''); // Will be set when dates load
     }
-  }, [isOpen, categories, needsSubhaSahit]);
+  }, [isOpen, categories, needsSubhaSahit, apiLanguage]);
 
   // When category or available dates change, update selected date
   useEffect(() => {
