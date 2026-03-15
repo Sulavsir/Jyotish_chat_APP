@@ -11,9 +11,13 @@ import * as publicAstrologerController from '../controllers/publicAstrologerCont
 import * as dashboardRotatingCopyController from '../controllers/dashboardRotatingCopyController';
 import * as questionnaireController from '../controllers/questionnaireController';
 import * as nepaliDateController from '../controllers/nepali-date.controller';
+import * as locationController from '../controllers/location.controller';
 import {
   getNepaliDateQuerySchema,
+  getEnglishDateQuerySchema,
   convertNepaliDatesBodySchema,
+  adMonthQuerySchema,
+  bsMonthQuerySchema,
 } from '../validators/nepali-date.validators';
 
 const router = Router();
@@ -39,10 +43,32 @@ router.get(
   validateQuery(getNepaliDateQuerySchema),
   asyncHandler(nepaliDateController.getByDate)
 );
+router.get(
+  '/nepali-date/english',
+  validateQuery(getEnglishDateQuerySchema),
+  asyncHandler(nepaliDateController.getEnglishByNepaliDate)
+);
 router.post(
   '/nepali-date/convert',
   validateBody(convertNepaliDatesBodySchema),
   asyncHandler(nepaliDateController.convertBulk)
+);
+router.get(
+  '/nepali-date/ad-month',
+  validateQuery(adMonthQuerySchema),
+  asyncHandler(nepaliDateController.getAdMonth)
+);
+router.get(
+  '/nepali-date/bs-month',
+  validateQuery(bsMonthQuerySchema),
+  asyncHandler(nepaliDateController.getBsMonth)
+);
+
+// ==================== Location (Nepal provinces & districts for place of birth) ====================
+router.get('/location/provinces', asyncHandler(locationController.listProvinces));
+router.get(
+  '/location/provinces/:provinceId/districts',
+  asyncHandler(locationController.listDistrictsByProvince)
 );
 
 export default router;

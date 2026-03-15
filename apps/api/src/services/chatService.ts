@@ -129,6 +129,7 @@ export const findChatOnly = async (
       data: {
         isLocked: false,
         status: ChatStatus.ACTIVE,
+        reopenedAfterEnded: true,
         endedBy: null,
         endedAt: null,
       },
@@ -176,6 +177,7 @@ export const findOrCreateChat = async (
       data: {
         isLocked: false,
         status: ChatStatus.ACTIVE,
+        reopenedAfterEnded: true,
         endedBy: null,
         endedAt: null,
       },
@@ -637,6 +639,7 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
       participant1Id: true,
       participant2Id: true,
       status: true,
+      reopenedAfterEnded: true,
       turnBasedEnabled: true,
       waitingForReply: true,
       astrologerParticipant: {
@@ -714,12 +717,13 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
   // PREMIUM astrologers don't require coins (already checked above)
   if (senderRole === UserRole.CLIENT) {
     if (astrologerCategory && requiresCoinsForChat(astrologerCategory)) {
-      // Check if this chat is from a broadcast message
+      // Check if this chat is from a broadcast message; reopened chats use instant fee
       const broadcastMessage = await prisma.broadcastMessage.findFirst({
         where: { chatId },
         select: { id: true },
       });
-      const isBroadcastChat = !!broadcastMessage;
+      const isBroadcastChat =
+        !!broadcastMessage && !chat.reopenedAfterEnded;
 
       // Import here to avoid circular dependency
       const { deductCoinsForMessage } = await import('./coin.service');

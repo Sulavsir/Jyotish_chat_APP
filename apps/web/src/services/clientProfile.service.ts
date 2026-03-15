@@ -17,6 +17,10 @@ export interface CreateClientProfilePayload {
   dateOfBirth?: string | null;
   timeOfBirth?: string | null;
   placeOfBirth?: string | null;
+  placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+  placeOfBirthPradeshId?: string | null;
+  placeOfBirthDistrictId?: string | null;
+  placeOfBirthLocation?: string | null;
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
 }
 

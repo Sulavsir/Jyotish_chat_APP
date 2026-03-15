@@ -219,14 +219,20 @@ export class UserService {
    * Setup/complete user profile
    */
   async setupProfile(userId: string, data: ProfileSetupData): Promise<UserResponse> {
+    const placeComplete =
+      (!!data.placeOfBirth && data.placeOfBirth.trim().length > 0) ||
+      (data.placeOfBirthType === 'NEPAL' &&
+        !!data.placeOfBirthPradeshId &&
+        !!data.placeOfBirthDistrictId &&
+        !!data.placeOfBirthLocation &&
+        data.placeOfBirthLocation.trim().length > 0);
     const isProfileComplete =
       !!data.name &&
       data.name.trim().length > 0 &&
       !!data.dateOfBirth &&
       !!data.timeOfBirth &&
       data.timeOfBirth.trim().length > 0 &&
-      !!data.placeOfBirth &&
-      data.placeOfBirth.trim().length > 0;
+      placeComplete;
 
     // Accept common Flutter date formats like "YYYY/MM/DD" by normalizing to ISO-ish.
     const dobRaw = data.dateOfBirth instanceof Date ? data.dateOfBirth : String(data.dateOfBirth);
@@ -241,7 +247,33 @@ export class UserService {
     const rawZodiac = data.zodiacSign as string | null | undefined;
     const resolvedZodiacSign = rawZodiac && rawZodiac.trim() !== '' ? rawZodiac : null;
 
-    // Update user profile
+    let placeOfBirthValue: string | null =
+      (data.placeOfBirth && data.placeOfBirth.trim()) || null;
+    if (
+      !placeOfBirthValue &&
+      data.placeOfBirthType === 'NEPAL' &&
+      data.placeOfBirthDistrictId &&
+      data.placeOfBirthPradeshId &&
+      'nepalGeography' in prisma
+    ) {
+      const [district, province] = await Promise.all([
+        (prisma as any).nepalGeography.findUnique({
+          where: { id: data.placeOfBirthDistrictId },
+          select: { nameEn: true },
+        }),
+        (prisma as any).nepalGeography.findUnique({
+          where: { id: data.placeOfBirthPradeshId },
+          select: { nameEn: true },
+        }),
+      ]);
+      const parts = [
+        province?.nameEn || '',
+        district?.nameEn || '',
+        (data.placeOfBirthLocation && data.placeOfBirthLocation.trim()) || '',
+      ].filter(Boolean);
+      placeOfBirthValue = parts.length > 0 ? parts.join(', ') : null;
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -250,10 +282,13 @@ export class UserService {
         dateOfBirth: dob,
         zodiacSign: resolvedZodiacSign as any,
         timeOfBirth: data.timeOfBirth,
-        placeOfBirth: data.placeOfBirth,
+        placeOfBirth: placeOfBirthValue,
+        placeOfBirthType: data.placeOfBirthType || null,
+        placeOfBirthPradeshId: data.placeOfBirthPradeshId || null,
+        placeOfBirthDistrictId: data.placeOfBirthDistrictId || null,
+        placeOfBirthLocation: data.placeOfBirthLocation || null,
         currentAddress: data.currentAddress,
         permanentAddress: data.permanentAddress,
-        // Don't force a default gender; keep null unless explicitly provided
         gender: (data.gender as string | null | undefined) && (data.gender as string).trim() !== '' ? data.gender : null,
         profileCompleted: isProfileComplete,
         ...(data.profilePhoto && { profilePhoto: data.profilePhoto }),
@@ -272,6 +307,10 @@ export class UserService {
         dateOfBirth: true,
         timeOfBirth: true,
         placeOfBirth: true,
+        placeOfBirthType: true,
+        placeOfBirthPradeshId: true,
+        placeOfBirthDistrictId: true,
+        placeOfBirthLocation: true,
         currentAddress: true,
         permanentAddress: true,
         latitude: true,
@@ -293,12 +332,12 @@ export class UserService {
   async updateProfile(userId: string, data: Partial<ProfileSetupData>): Promise<UserResponse> {
     const updateData: Record<string, unknown> = { ...data };
 
-    // Convert dateOfBirth to Date if provided
     if (data.dateOfBirth) {
-      updateData.dateOfBirth = new Date(data.dateOfBirth);
-      delete updateData.dateOfBirth;
-      updateData.dateOfBirth = new Date(data.dateOfBirth);
+      updateData.dateOfBirth = new Date(data.dateOfBirth as string | Date);
     }
+    if (data.placeOfBirthPradeshId === undefined) delete updateData.placeOfBirthPradeshId;
+    if (data.placeOfBirthDistrictId === undefined) delete updateData.placeOfBirthDistrictId;
+    if (data.placeOfBirthLocation === undefined) delete updateData.placeOfBirthLocation;
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -317,6 +356,10 @@ export class UserService {
         dateOfBirth: true,
         timeOfBirth: true,
         placeOfBirth: true,
+        placeOfBirthType: true,
+        placeOfBirthPradeshId: true,
+        placeOfBirthDistrictId: true,
+        placeOfBirthLocation: true,
         currentAddress: true,
         permanentAddress: true,
         latitude: true,

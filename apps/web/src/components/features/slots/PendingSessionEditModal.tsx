@@ -81,6 +81,7 @@ export function PendingSessionEditModal({
               value={date}
               onChange={(e) => setDate(e.target.value)}
               className="w-full bg-white/5 border-white/20 text-white"
+              nepaliDate
             />
           </div>
           <div>

@@ -3,16 +3,12 @@
  */
 
 import type { NepaliDateMapping } from '@/services/nepali-date.service';
+import { NEPALI_WEEKDAY_LABELS } from '@jyotish/ui';
 
-const NEPALI_WEEKDAY_MAP: Record<string, string> = {
-  sun: 'आइतबार',
-  mon: 'सोमबार',
-  tue: 'मंगलबार',
-  wed: 'बुधबार',
-  thu: 'बिहीबार',
-  fri: 'शुक्रबार',
-  sat: 'शनिबार',
-};
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+const NEPALI_WEEKDAY_MAP: Record<string, string> = Object.fromEntries(
+  DAY_KEYS.map((key, i) => [key, NEPALI_WEEKDAY_LABELS[i]])
+) as Record<string, string>;
 
 const BS_MONTH_NAMES: string[] = [
   '',

@@ -50,6 +50,10 @@ export const RequestInstantChatButton: React.FC = () => {
     handleCancelRequest,
   } = useBroadcastPending({
     onAccepted: (data) => {
+      toast.success(
+        `${data.astrologer?.name || 'An astrologer'} accepted your request! Opening chat...`,
+        { description: 'You can now start chatting with your astrologer', duration: 3000 }
+      );
       router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chat.id));
     },
     onInsufficientCoins: (coins) => {

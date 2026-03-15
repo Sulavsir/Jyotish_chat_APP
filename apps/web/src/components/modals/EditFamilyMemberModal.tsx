@@ -33,6 +33,10 @@ import type { ClientProfile } from '@jyotish/shared';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { QUERY_KEYS } from '@/constants';
 import { showErrorToast } from '@/lib/error-handler';
+import {
+  PlaceOfBirthInput,
+  type PlaceOfBirthFieldName,
+} from '@/components/form/PlaceOfBirthInput';
 
 type ProfileFormValues = z.infer<typeof createClientProfileSchema>;
 
@@ -53,6 +57,10 @@ function profileToFormValues(profile: ClientProfile): ProfileFormValues {
     dateOfBirth: dob,
     timeOfBirth: profile.timeOfBirth ?? '',
     placeOfBirth: profile.placeOfBirth ?? '',
+    placeOfBirthType: profile.placeOfBirthType ?? null,
+    placeOfBirthPradeshId: profile.placeOfBirthPradeshId ?? null,
+    placeOfBirthDistrictId: profile.placeOfBirthDistrictId ?? null,
+    placeOfBirthLocation: profile.placeOfBirthLocation ?? null,
     gender: profile.gender ?? null,
   };
 }
@@ -74,6 +82,13 @@ function preparePayload(values: ProfileFormValues) {
       typeof values.timeOfBirth === 'string' ? values.timeOfBirth.trim() || undefined : undefined,
     placeOfBirth:
       typeof values.placeOfBirth === 'string' ? values.placeOfBirth.trim() || undefined : undefined,
+    placeOfBirthType: values.placeOfBirthType ?? undefined,
+    placeOfBirthPradeshId: values.placeOfBirthPradeshId ?? undefined,
+    placeOfBirthDistrictId: values.placeOfBirthDistrictId ?? undefined,
+    placeOfBirthLocation:
+      typeof values.placeOfBirthLocation === 'string'
+        ? values.placeOfBirthLocation.trim() || undefined
+        : undefined,
     gender: values.gender ?? undefined,
   };
 }
@@ -84,6 +99,10 @@ const defaultFormValues: ProfileFormValues = {
   dateOfBirth: undefined,
   timeOfBirth: '',
   placeOfBirth: '',
+  placeOfBirthType: null,
+  placeOfBirthPradeshId: null,
+  placeOfBirthDistrictId: null,
+  placeOfBirthLocation: null,
   gender: null,
 };
 
@@ -183,6 +202,7 @@ export function EditFamilyMemberModal({
                 id="edit-profile-dob"
                 {...form.register('dateOfBirth')}
                 className="mt-1 bg-white/5 border-white/10 text-white"
+                nepaliDate
               />
             </div>
             <div>
@@ -203,17 +223,12 @@ export function EditFamilyMemberModal({
               <p className="text-xs text-gray-500 mt-0.5">24-hour format</p>
             </div>
           </div>
-          <div>
-            <Label htmlFor="edit-profile-pob" className="text-gray-300">
-              Place of birth
-            </Label>
-            <Input
-              id="edit-profile-pob"
-              {...form.register('placeOfBirth')}
-              placeholder="City or place"
-              className="mt-1 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
-            />
-          </div>
+          <PlaceOfBirthInput
+            setValue={form.setValue as (name: PlaceOfBirthFieldName, value: unknown) => void}
+            watch={form.watch as (name: PlaceOfBirthFieldName) => unknown}
+            errors={form.formState.errors}
+            className="mt-1"
+          />
           <div>
             <Label className="text-gray-300">Gender</Label>
             <Select

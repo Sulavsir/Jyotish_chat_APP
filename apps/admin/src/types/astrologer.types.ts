@@ -1,8 +1,3 @@
-/**
- * Astrologer-related type definitions
- */
-
-/** Params for listing astrologers (GET /admin/astrologers) */
 export interface ListAstrologersParams {
   page?: number;
   limit?: number;
@@ -65,3 +60,5 @@ export interface UpdateAstrologerRequest {
   chatMessageFee?: number | null;
   country?: string | null;
 }
+
+

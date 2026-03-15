@@ -178,9 +178,13 @@ export const profileSetupSchema = z.preprocess(
 );
 
 export const birthDetailsSchema = z.object({
-  dateOfBirth: z.string().or(z.date()),
-  timeOfBirth: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
-  placeOfBirth: z.string().min(2, 'Place of birth is required'),
+  dateOfBirth: z.preprocess((v) => (v === '' ? undefined : v), z.string().or(z.date()).optional()),
+  timeOfBirth: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)').optional()),
+  placeOfBirth: z.preprocess((v) => (v === '' ? undefined : v), z.string().max(200).optional().nullable()),
+  placeOfBirthType: z.enum(['NEPAL', 'OUTSIDE_NEPAL']).optional().nullable(),
+  placeOfBirthPradeshId: z.preprocess((v) => (v === '' ? null : v), z.string().uuid().optional().nullable()),
+  placeOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), z.string().uuid().optional().nullable()),
+  placeOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), z.string().max(200).optional().nullable()),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   currentAddress: z.string().optional(),
@@ -201,6 +205,10 @@ export const createClientProfileSchema = z.object({
     .nullable()
     .or(z.literal('')),
   placeOfBirth: z.string().max(200).optional().nullable().or(z.literal('')),
+  placeOfBirthType: z.enum(['NEPAL', 'OUTSIDE_NEPAL']).optional().nullable(),
+  placeOfBirthPradeshId: z.string().uuid().optional().nullable().or(z.literal('')),
+  placeOfBirthDistrictId: z.string().uuid().optional().nullable().or(z.literal('')),
+  placeOfBirthLocation: z.string().max(200).optional().nullable().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
 });
 

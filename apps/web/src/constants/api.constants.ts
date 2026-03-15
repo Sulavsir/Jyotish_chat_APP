@@ -28,6 +28,11 @@ export const API_ENDPOINTS = {
     DASHBOARD_ROTATING_COPY: '/api/v1/public/dashboard-rotating-copy',
     NEPALI_DATE: '/api/v1/public/nepali-date',
     NEPALI_DATE_CONVERT: '/api/v1/public/nepali-date/convert',
+    NEPALI_DATE_AD_MONTH: '/api/v1/public/nepali-date/ad-month',
+    NEPALI_DATE_BS_MONTH: '/api/v1/public/nepali-date/bs-month',
+    LOCATION_PROVINCES: '/api/v1/public/location/provinces',
+    LOCATION_DISTRICTS: (provinceId: string) =>
+      `/api/v1/public/location/provinces/${provinceId}/districts`,
   },
   JYOTISH_BOOKINGS: {
     CREATE: '/api/v1/jyotish-bookings',

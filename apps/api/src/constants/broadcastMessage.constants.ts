@@ -17,8 +17,8 @@ export const BROADCAST_MESSAGE_EXPIRY_MINUTES = 5;
  * based on their category
  */
 export const BROADCAST_ACCEPTANCE_LIMITS = {
-  ORDINARY: 3,
-  PROFESSIONAL: 5,
+  ORDINARY: 10,
+  PROFESSIONAL: 10,
   PREMIUM: 0, // Premium astrologers cannot accept broadcasts
   KATHA_VACHAK: 0, // Katha Vachak astrologers cannot accept broadcasts
 } as const;

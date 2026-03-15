@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from 'sonner';
 import { QueryProvider } from '@/providers/query-provider';
 import { AuthProvider } from '@/providers/auth-provider';
+import { NepaliDateProvider } from '@/providers/nepali-date-provider';
 import { AdminChatWidget } from '@/components/widgets/AdminChatWidget';
 import { PaymentRedirectHandler } from '@/components/payment/PaymentRedirectHandler';
 
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <QueryProvider>
           <AuthProvider>
+            <NepaliDateProvider>
             <Suspense fallback={null}>
               <PaymentRedirectHandler />
             </Suspense>
@@ -93,6 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 pointerEvents: 'none',
               }}
             />
+            </NepaliDateProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

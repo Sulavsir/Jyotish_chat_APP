@@ -1,5 +1,6 @@
 /**
  * Kundali Match Validators
+ * Place of birth: structured (Nepal = province, district, place; Outside = single string).
  */
 
 import { z } from 'zod';
@@ -11,19 +12,44 @@ const timeOfBirthSchema = z
   .string()
   .min(1, 'Time of birth is required')
   .max(20, 'Time of birth too long');
-const placeOfBirthSchema = z
-  .string()
-  .min(1, 'Place of birth is required')
-  .max(500, 'Place of birth too long');
 
-export const createKundaliMatchRequestSchema = z.object({
-  boyDateOfBirth: dateOnlySchema,
-  boyTimeOfBirth: timeOfBirthSchema,
-  boyPlaceOfBirth: placeOfBirthSchema,
-  girlDateOfBirth: dateOnlySchema,
-  girlTimeOfBirth: timeOfBirthSchema,
-  girlPlaceOfBirth: placeOfBirthSchema,
-});
+const placeOfBirthTypeSchema = z.enum(['NEPAL', 'OUTSIDE_NEPAL']);
+const uuidOptional = z.string().uuid().optional().nullable();
+const locationString = z.string().max(200).optional().nullable();
+
+export const createKundaliMatchRequestSchema = z
+  .object({
+    boyDateOfBirth: dateOnlySchema,
+    boyTimeOfBirth: timeOfBirthSchema,
+    boyPlaceOfBirthType: placeOfBirthTypeSchema,
+    boyPlaceOfBirthPradeshId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
+    boyPlaceOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
+    boyPlaceOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), locationString),
+    boyPlaceOfBirth: z.string().max(500).optional().nullable(),
+    girlDateOfBirth: dateOnlySchema,
+    girlTimeOfBirth: timeOfBirthSchema,
+    girlPlaceOfBirthType: placeOfBirthTypeSchema,
+    girlPlaceOfBirthPradeshId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
+    girlPlaceOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
+    girlPlaceOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), locationString),
+    girlPlaceOfBirth: z.string().max(500).optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.boyPlaceOfBirthType === 'NEPAL') {
+      if (!data.boyPlaceOfBirthPradeshId) ctx.addIssue({ code: 'custom', message: 'Boy province is required', path: ['boyPlaceOfBirthPradeshId'] });
+      if (!data.boyPlaceOfBirthDistrictId) ctx.addIssue({ code: 'custom', message: 'Boy district is required', path: ['boyPlaceOfBirthDistrictId'] });
+      if (!data.boyPlaceOfBirthLocation?.trim()) ctx.addIssue({ code: 'custom', message: 'Boy place/location is required', path: ['boyPlaceOfBirthLocation'] });
+    } else {
+      if (!data.boyPlaceOfBirth?.trim()) ctx.addIssue({ code: 'custom', message: 'Boy place of birth is required', path: ['boyPlaceOfBirth'] });
+    }
+    if (data.girlPlaceOfBirthType === 'NEPAL') {
+      if (!data.girlPlaceOfBirthPradeshId) ctx.addIssue({ code: 'custom', message: 'Girl province is required', path: ['girlPlaceOfBirthPradeshId'] });
+      if (!data.girlPlaceOfBirthDistrictId) ctx.addIssue({ code: 'custom', message: 'Girl district is required', path: ['girlPlaceOfBirthDistrictId'] });
+      if (!data.girlPlaceOfBirthLocation?.trim()) ctx.addIssue({ code: 'custom', message: 'Girl place/location is required', path: ['girlPlaceOfBirthLocation'] });
+    } else {
+      if (!data.girlPlaceOfBirth?.trim()) ctx.addIssue({ code: 'custom', message: 'Girl place of birth is required', path: ['girlPlaceOfBirth'] });
+    }
+  });
 
 export const submitKundaliMatchReviewSchema = z.object({
   adminReviewMessage: z

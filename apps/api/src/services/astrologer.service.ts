@@ -1,8 +1,3 @@
-/**
- * Astrologer Service - Handle astrologer-related business logic
- * Astrologers can only be created by admins, not through signup
- */
-
 import { prisma, Gender } from '@jyotish/database';
 import { UserRole, AstrologerCategory } from '@jyotish/shared';
 import bcrypt from 'bcryptjs';
@@ -523,9 +518,6 @@ export class AstrologerService {
     });
   }
 
-  /**
-   * List all astrologers with pagination and filters
-   */
   async list(params: {
     page?: number;
     limit?: number;
@@ -538,7 +530,6 @@ export class AstrologerService {
     const skip = (page - 1) * limit;
 
     const where: any = {
-      // Only show approved, not soft-deleted astrologers
       accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
       isDeleted: false,
     };
@@ -594,13 +585,31 @@ export class AstrologerService {
           createdAt: true,
           updatedAt: true,
         },
-        orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ name: 'asc' }],
       }),
       prisma.astrologer.count({ where }),
     ]);
 
+    const astrologerIds = astrologers.map((a) => a.id);
+    const earningsAgg =
+      astrologerIds.length > 0
+        ? await prisma.astrologerCoinEarning.groupBy({
+            by: ['astrologerId'],
+            where: { astrologerId: { in: astrologerIds } },
+            _sum: { astrologerCoinsEarned: true },
+          })
+        : [];
+    const earningsMap = new Map(
+      earningsAgg.map((e) => [e.astrologerId, e._sum.astrologerCoinsEarned ?? 0])
+    );
+
+    const astrologersWithBalance = astrologers.map((a) => ({
+      ...a,
+      totalCoinEarnings: earningsMap.get(a.id) ?? 0,
+    }));
+
     return {
-      astrologers,
+      astrologers: astrologersWithBalance,
       pagination: {
         page,
         limit,
@@ -610,9 +619,6 @@ export class AstrologerService {
     };
   }
 
-  /**
-   * Get astrologer earnings
-   */
   async getEarnings(
     astrologerId: string,
     params: { page?: number; limit?: number; status?: string }

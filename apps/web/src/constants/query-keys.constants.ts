@@ -204,5 +204,13 @@ export const QUERY_KEYS = {
   NEPALI_DATE: {
     BY_DATE: (date: string) => ['nepali-date', date] as const,
     CONVERT: (dates: string[]) => ['nepali-date', 'convert', dates] as const,
+    AD_MONTH: (year: number, month: number) => ['nepali-date', 'ad-month', year, month] as const,
+    BS_MONTH: (year: number, month: number) => ['nepali-date', 'bs-month', year, month] as const,
+  },
+
+  // Location (Nepal provinces & districts)
+  LOCATION: {
+    PROVINCES: ['location', 'provinces'] as const,
+    DISTRICTS: (provinceId: string) => ['location', 'districts', provinceId] as const,
   },
 } as const;

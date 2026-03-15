@@ -19,8 +19,8 @@ import {
   Input,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { useMutation } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { displayError, displaySuccess } from '@/utils/error-handler';
 import {
@@ -41,14 +41,19 @@ import { authApi } from '@/lib/auth-api';
 import { ProfileImageUpload } from '@/components/profile/ProfileImageUpload';
 import { RemoveProfileModal } from '@/components/modals/RemoveProfileModal';
 import { FormInput } from '@/components/form';
+import {
+  PlaceOfBirthInput,
+  type PlaceOfBirthFieldName,
+} from '@/components/form/PlaceOfBirthInput';
 import { profileEditSchema, type ProfileEditFormData } from '@/lib/validations';
 import type { ApiError } from '@/types/auth';
 import { CoinDisplay } from '@/components/ui';
-import { ZODIAC_SIGNS } from '@/constants';
+import { ZODIAC_SIGNS, QUERY_KEYS } from '@/constants';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { getRashiDisplayName } from '@jyotish/shared';
 
 export default function ProfilePage() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const language = useQuestionnaireLanguageStore((s) => s.language);
   const { user } = useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
@@ -80,9 +85,12 @@ export default function ProfilePage() {
 
   // React Hook Form
   const {
+    control,
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ProfileEditFormData>({
     resolver: zodResolver(profileEditSchema),
@@ -92,6 +100,10 @@ export default function ProfilePage() {
       dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
       timeOfBirth: user?.timeOfBirth || '',
       placeOfBirth: user?.placeOfBirth || '',
+      placeOfBirthType: (user as { placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null })?.placeOfBirthType ?? null,
+      placeOfBirthPradeshId: (user as { placeOfBirthPradeshId?: string | null })?.placeOfBirthPradeshId ?? null,
+      placeOfBirthDistrictId: (user as { placeOfBirthDistrictId?: string | null })?.placeOfBirthDistrictId ?? null,
+      placeOfBirthLocation: (user as { placeOfBirthLocation?: string | null })?.placeOfBirthLocation ?? null,
       currentAddress: user?.currentAddress || '',
       permanentAddress: user?.permanentAddress || '',
       gender: getGenderFromStorage(),
@@ -111,6 +123,10 @@ export default function ProfilePage() {
             : '',
           timeOfBirth: user.timeOfBirth || '',
           placeOfBirth: user.placeOfBirth || '',
+          placeOfBirthType: (user as { placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null })?.placeOfBirthType ?? null,
+          placeOfBirthPradeshId: (user as { placeOfBirthPradeshId?: string | null })?.placeOfBirthPradeshId ?? null,
+          placeOfBirthDistrictId: (user as { placeOfBirthDistrictId?: string | null })?.placeOfBirthDistrictId ?? null,
+          placeOfBirthLocation: (user as { placeOfBirthLocation?: string | null })?.placeOfBirthLocation ?? null,
           currentAddress: user.currentAddress || '',
           permanentAddress: user.permanentAddress || '',
           gender: getGenderFromStorage(),
@@ -131,20 +147,33 @@ export default function ProfilePage() {
         email: data.email,
       });
 
-      // Then update birth details if they're provided (including gender and zodiacSign)
-      if (data.dateOfBirth || data.timeOfBirth || data.placeOfBirth || data.gender || data.zodiacSign) {
-        return await authApi.updateBirthDetails({
-          dateOfBirth: data.dateOfBirth,
-          timeOfBirth: data.timeOfBirth,
-          placeOfBirth: data.placeOfBirth,
-          currentAddress: data.currentAddress,
-          permanentAddress: data.permanentAddress,
-          ...(data.gender ? { gender: data.gender as GenderType } : {}),
-          ...(data.zodiacSign ? { zodiacSign: data.zodiacSign } : {}),
-        });
+      // Build place of birth: store single string "Province, District, Place" for Nepal (API resolves to IDs)
+      let placeOfBirthPayload = data.placeOfBirth ?? undefined;
+      if (data.placeOfBirthType === 'NEPAL' && data.placeOfBirthPradeshId && data.placeOfBirthDistrictId) {
+        const provinces = queryClient.getQueryData<{ id: string; nameEn: string }[]>(QUERY_KEYS.LOCATION.PROVINCES) ?? [];
+        const districts = queryClient.getQueryData<{ id: string; nameEn: string }[]>(
+          QUERY_KEYS.LOCATION.DISTRICTS(data.placeOfBirthPradeshId)
+        ) ?? [];
+        const province = provinces.find((p) => p.id === data.placeOfBirthPradeshId);
+        const district = districts.find((d) => d.id === data.placeOfBirthDistrictId);
+        const location = (data.placeOfBirthLocation && data.placeOfBirthLocation.trim()) || '';
+        placeOfBirthPayload = [province?.nameEn ?? '', district?.nameEn ?? '', location].filter(Boolean).join(', ');
       }
 
-      return updatedUser;
+      // Always update birth details when form is submitted (send single string for Nepal; API resolves to IDs)
+      return await authApi.updateBirthDetails({
+        dateOfBirth: data.dateOfBirth,
+        timeOfBirth: data.timeOfBirth,
+        placeOfBirth: placeOfBirthPayload,
+        placeOfBirthType: data.placeOfBirthType ?? undefined,
+        ...(data.placeOfBirthType !== 'NEPAL'
+          ? {}
+          : { placeOfBirthPradeshId: undefined, placeOfBirthDistrictId: undefined, placeOfBirthLocation: undefined }),
+        currentAddress: data.currentAddress,
+        permanentAddress: data.permanentAddress,
+        ...(data.gender ? { gender: data.gender as GenderType } : {}),
+        ...(data.zodiacSign ? { zodiacSign: data.zodiacSign } : {}),
+      });
     },
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
@@ -167,6 +196,10 @@ export default function ProfilePage() {
           : '',
         timeOfBirth: updatedUser.timeOfBirth || '',
         placeOfBirth: updatedUser.placeOfBirth || '',
+        placeOfBirthType: (updatedUser as { placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null })?.placeOfBirthType ?? null,
+        placeOfBirthPradeshId: (updatedUser as { placeOfBirthPradeshId?: string | null })?.placeOfBirthPradeshId ?? null,
+        placeOfBirthDistrictId: (updatedUser as { placeOfBirthDistrictId?: string | null })?.placeOfBirthDistrictId ?? null,
+        placeOfBirthLocation: (updatedUser as { placeOfBirthLocation?: string | null })?.placeOfBirthLocation ?? null,
         currentAddress: updatedUser.currentAddress || '',
         permanentAddress: updatedUser.permanentAddress || '',
         gender: (updatedUser?.gender as GenderType) || null,
@@ -227,6 +260,10 @@ export default function ProfilePage() {
       dateOfBirth: user?.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
       timeOfBirth: user?.timeOfBirth || '',
       placeOfBirth: user?.placeOfBirth || '',
+      placeOfBirthType: (user as { placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null })?.placeOfBirthType ?? null,
+      placeOfBirthPradeshId: (user as { placeOfBirthPradeshId?: string | null })?.placeOfBirthPradeshId ?? null,
+      placeOfBirthDistrictId: (user as { placeOfBirthDistrictId?: string | null })?.placeOfBirthDistrictId ?? null,
+      placeOfBirthLocation: (user as { placeOfBirthLocation?: string | null })?.placeOfBirthLocation ?? null,
       currentAddress: user?.currentAddress || '',
       permanentAddress: user?.permanentAddress || '',
       gender: (user?.gender as GenderType) || null,
@@ -565,18 +602,25 @@ export default function ProfilePage() {
                 Birth Details
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <FormInput
-                  id="dateOfBirth"
-                  label="Date of Birth"
-                  type="date"
-                  {...register('dateOfBirth')}
-                  error={errors.dateOfBirth?.message}
-                  disabled={!isEditing}
-                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed [color-scheme:dark]"
+            <CardContent className="pt-0 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Controller
+                  control={control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <FormInput
+                      id="dateOfBirth"
+                      label="Date of Birth"
+                      type="date"
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(e?.target?.value ?? '')}
+                      onBlur={field.onBlur}
+                      error={errors.dateOfBirth?.message}
+                      disabled={!isEditing}
+                      className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed [color-scheme:dark] w-full"
+                    />
+                  )}
                 />
-
                 <FormInput
                   id="timeOfBirth"
                   label="Time of Birth"
@@ -584,18 +628,19 @@ export default function ProfilePage() {
                   {...register('timeOfBirth')}
                   error={errors.timeOfBirth?.message}
                   disabled={!isEditing}
-                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed [color-scheme:dark]"
+                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed [color-scheme:dark] w-full"
                   helperText="24-hour format"
                 />
-
-                <FormInput
-                  id="placeOfBirth"
-                  label="Place of Birth"
-                  placeholder="City, Country"
-                  {...register('placeOfBirth')}
-                  error={errors.placeOfBirth?.message}
+              </div>
+              <div className="border-t border-white/10 pt-4">
+                <PlaceOfBirthInput
+                  setValue={setValue as (name: PlaceOfBirthFieldName, value: unknown) => void}
+                  watch={watch as (name: PlaceOfBirthFieldName) => unknown}
+                  errors={errors}
                   disabled={!isEditing}
-                  className="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed md:col-span-2 lg:col-span-1"
+                  className="space-y-0"
+                  labelClassName="text-white"
+                  inputClassName="bg-white/5 border-white/20 text-white placeholder:text-gray-500 disabled:opacity-60 disabled:cursor-not-allowed w-full"
                 />
               </div>
             </CardContent>

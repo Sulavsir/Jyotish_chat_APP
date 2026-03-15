@@ -152,6 +152,7 @@ export default function HoroscopePage() {
                       }}
                       className="bg-white/5 border-purple-500/30 text-white [color-scheme:dark] min-w-[180px]"
                       iconClassName="text-purple-400"
+                      nepaliDate
                     />
                   </div>
                 </div>

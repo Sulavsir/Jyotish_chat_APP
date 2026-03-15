@@ -1,8 +1,3 @@
-/**
- * Add Balance Modal
- * Allows admin to add monetary balance to a user
- */
-
 'use client';
 
 import React from 'react';
@@ -23,7 +18,7 @@ import {
   FormMessage,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { IndianRupee, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
 import { ADMIN_QUERY_KEYS } from '@/constants';

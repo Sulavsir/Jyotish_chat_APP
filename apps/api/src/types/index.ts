@@ -15,6 +15,7 @@ export * from './notification.types';
 export * from './database.types';
 export * from './service.types';
 export * from './common.types';
+export * from './nepali-date.types';
 export * from './sms.types';
 // Re-export appointment types but exclude AstrologerCategory to avoid conflict with @jyotish/shared
 export type {

@@ -125,6 +125,7 @@ export default function CreateDailyPredictionPage() {
                     value={row.date}
                     onChange={(e) => updateRow(row.id, { date: e.target.value })}
                     className="mt-1.5 w-full bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
+                    nepaliDate
                   />
                 </div>
                 <div className="space-y-1.5">

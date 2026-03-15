@@ -108,6 +108,7 @@ export default function CreateHoroscopePage() {
                 onChange={(e) => setBulkShared((s) => ({ ...s, date: e.target.value }))}
                 className="mt-1 h-11 w-full bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
                 iconClassName="text-purple-400"
+                nepaliDate
               />
             </div>
             <div>

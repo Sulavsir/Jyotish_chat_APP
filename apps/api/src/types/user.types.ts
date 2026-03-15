@@ -23,7 +23,11 @@ export interface ProfileSetupData {
   email: string;
   dateOfBirth: string | Date; // YYYY-MM-DD or Date object
   timeOfBirth: string; // HH:MM
-  placeOfBirth: string;
+  placeOfBirth: string; // Display string; required for OUTSIDE_NEPAL, or built from Pradesh+District+Location for NEPAL
+  placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL';
+  placeOfBirthPradeshId?: string | null;
+  placeOfBirthDistrictId?: string | null;
+  placeOfBirthLocation?: string | null; // Area/location when NEPAL
   currentAddress: string;
   permanentAddress: string;
   gender?: 'MALE' | 'FEMALE' | 'OTHER';

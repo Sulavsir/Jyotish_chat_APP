@@ -113,6 +113,7 @@ export default function EditSubhaSahitDatePage() {
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className="bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
+                    nepaliDate
                   />
                 </div>
 

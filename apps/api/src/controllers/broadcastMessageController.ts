@@ -453,25 +453,30 @@ export async function sendQuestions(req: AuthRequest, res: Response) {
         select: { id: true },
       });
 
+      const firstMessage = messages[0];
+
+      // Emit socket event for each message so astrologers see all questions,
+      // but notifications and "new" summary are sent once per batch.
       for (const message of messages) {
         eligibleAstrologers.forEach((astrologer) => {
           io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
         });
-        const notificationPromises = eligibleAstrologers.map((astrologer) =>
-          notificationService.createNotification({
-            astrologerId: astrologer.id,
-            type: NotificationType.BROADCAST_MESSAGE,
-            title: 'New Chat Request',
-            message: 'A client is requesting to chat with an astrologer',
-            metadata: {
-              broadcastMessageId: message.id,
-              clientId: message.clientId,
-              isConfidential: true,
-            },
-          })
-        );
-        await Promise.all(notificationPromises);
       }
+
+      const notificationPromises = eligibleAstrologers.map((astrologer) =>
+        notificationService.createNotification({
+          astrologerId: astrologer.id,
+          type: NotificationType.BROADCAST_MESSAGE,
+          title: 'New Chat Request',
+          message: 'A client is requesting to chat with an astrologer',
+          metadata: {
+            broadcastMessageId: firstMessage.id,
+            clientId: firstMessage.clientId,
+            isConfidential: true,
+          },
+        })
+      );
+      await Promise.all(notificationPromises);
 
       io.to('astrologers').emit('notification:new', {
         type: 'BROADCAST_MESSAGE',

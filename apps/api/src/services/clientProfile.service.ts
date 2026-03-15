@@ -23,6 +23,10 @@ export async function create(
     dateOfBirth?: Date | string | null;
     timeOfBirth?: string | null;
     placeOfBirth?: string | null;
+    placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+    placeOfBirthPradeshId?: string | null;
+    placeOfBirthDistrictId?: string | null;
+    placeOfBirthLocation?: string | null;
     gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   }
 ) {
@@ -45,6 +49,10 @@ export async function create(
       dateOfBirth,
       timeOfBirth,
       placeOfBirth,
+      placeOfBirthType: data.placeOfBirthType ?? null,
+      placeOfBirthPradeshId: data.placeOfBirthPradeshId ?? null,
+      placeOfBirthDistrictId: data.placeOfBirthDistrictId ?? null,
+      placeOfBirthLocation: data.placeOfBirthLocation ?? null,
       gender: data.gender ?? null,
     },
   });
@@ -60,6 +68,10 @@ export async function update(
     dateOfBirth?: Date | string | null;
     timeOfBirth?: string | null;
     placeOfBirth?: string | null;
+    placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+    placeOfBirthPradeshId?: string | null;
+    placeOfBirthDistrictId?: string | null;
+    placeOfBirthLocation?: string | null;
     gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   }
 ) {
@@ -99,6 +111,10 @@ export async function update(
       ...(dateOfBirth !== undefined && { dateOfBirth }),
       ...(timeOfBirth !== undefined && { timeOfBirth }),
       ...(placeOfBirth !== undefined && { placeOfBirth }),
+      ...(data.placeOfBirthType !== undefined && { placeOfBirthType: data.placeOfBirthType }),
+      ...(data.placeOfBirthPradeshId !== undefined && { placeOfBirthPradeshId: data.placeOfBirthPradeshId }),
+      ...(data.placeOfBirthDistrictId !== undefined && { placeOfBirthDistrictId: data.placeOfBirthDistrictId }),
+      ...(data.placeOfBirthLocation !== undefined && { placeOfBirthLocation: data.placeOfBirthLocation }),
       ...(data.gender !== undefined && { gender: data.gender }),
     },
   });

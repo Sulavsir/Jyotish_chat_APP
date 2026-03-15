@@ -1,121 +1,90 @@
 'use client';
 
 import * as React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from './utils';
+import { useNepaliDateApi } from './nepali-date-api-context';
+import { NEPALI_WEEKDAY_LABELS } from './nepali-weekdays';
 
 type CalendarSystem = 'AD' | 'BS';
 
+const AD_YEAR_MIN = 1944;
+const AD_YEAR_MAX = 2030;
+const BS_YEAR_MIN = 1970;
+const BS_YEAR_MAX = 2090;
+
+/** Fallback path when app does not provide getBsMonth via NepaliDateApiProvider */
+const BS_MONTH_API_PATH = '/api/v1/public/nepali-date/bs-month';
+
+const BS_MONTH_NAMES = [
+  '',
+  'Baisakh',
+  'Jestha',
+  'Ashadh',
+  'Shrawan',
+  'Bhadra',
+  'Ashwin',
+  'Kartik',
+  'Mangsir',
+  'Poush',
+  'Magh',
+  'Falgun',
+  'Chaitra',
+] as const;
+
 export interface BsAdCalendarProps {
-  value?: string; // ISO date yyyy-mm-dd
+  value?: string; // ISO date yyyy-mm-dd (always English date)
   onChange: (value: string) => void;
   min?: string;
   max?: string;
-  /**
-   * When true, BS tab is hidden and only AD can be used.
-   * Useful for date-of-birth fields where we don't have full BS coverage.
-   */
   disableBs?: boolean;
   /**
-   * Optional custom loader for Nepali mappings.
-   * When provided, this will be used instead of the internal fetch logic.
+   * @deprecated Use AD/BS month APIs instead. Kept for backward compat; ignored when using new month APIs.
    */
-  loadNepaliMap?: (dates: string[]) => Promise<NepaliMap>;
-  /**
-   * Notify parent when calendar system (AD/BS) changes.
-   */
+  loadNepaliMap?: (dates: string[]) => Promise<Record<string, { nepaliDate: string; days: string }>>;
   onSystemChange?: (system: CalendarSystem) => void;
-  /**
-   * Notify parent with extra meta (BS mapping & system) when a date is selected.
-   */
   onDateMetaChange?: (
     value: string,
-    meta: { system: CalendarSystem; mapping?: NepaliDateMapping }
+    meta: { system: CalendarSystem; mapping?: { nepaliDate: string; days: string } }
   ) => void;
 }
 
-interface NepaliDateMapping {
+interface AdMonthDay {
+  date: string;
+  day: number;
+}
+
+interface BsMonthDay {
   nepaliDate: string;
-  days: string;
+  englishDate: string;
+  day: number;
 }
 
-type NepaliMap = Record<string, NepaliDateMapping>;
-
-function toDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+interface AdMonthResponse {
+  year: number;
+  month: number;
+  days: AdMonthDay[];
 }
 
-function getMonthRange(date: Date): { start: Date; end: Date; days: Date[] } {
-  const start = new Date(date.getFullYear(), date.getMonth(), 1);
-  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const days: Date[] = [];
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    days.push(new Date(d));
+interface BsMonthResponse {
+  year: number;
+  month: number;
+  days: BsMonthDay[];
+}
+
+function getAdMonthDays(year: number, month: number): AdMonthDay[] {
+  const days: AdMonthDay[] = [];
+  const lastDay = new Date(year, month, 0).getDate();
+  for (let d = 1; d <= lastDay; d++) {
+    const m = String(month).padStart(2, '0');
+    const dayStr = String(d).padStart(2, '0');
+    days.push({ date: `${year}-${m}-${dayStr}`, day: d });
   }
-  return { start, end, days };
+  return days;
 }
 
-function getApiBaseUrl(): string {
-  if (typeof window === 'undefined') return '';
-  // Prefer explicit public API URL if provided (production).
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  // Match backend dev port convention used in web app (hostname:4000).
-  return `${window.location.protocol}//${window.location.hostname}:4000`;
-}
-
-async function fetchNepaliMappings(dates: Date[]): Promise<NepaliMap> {
-  if (dates.length === 0) return {};
-  const baseUrl = getApiBaseUrl();
-  if (!baseUrl) return {};
-  const keys = dates.map(toDateKey);
-  try {
-    const res = await fetch(`${baseUrl}/api/v1/public/nepali-date/convert`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dates: keys }),
-    });
-    if (!res.ok) return {};
-    const raw = (await res.json()) as unknown;
-    // API response shape: { success: boolean, data: { map: Record<string, { nepaliDate, days }> } }
-    // Fallback to direct { map } if ever changed.
-    const anyRaw = raw as {
-      success?: boolean;
-      data?: { map?: NepaliMap };
-      map?: NepaliMap;
-    };
-    const map = anyRaw?.data?.map ?? anyRaw?.map;
-    return map ?? {};
-  } catch {
-    return {};
-  }
-}
-
-function getBsMonthLabel(mapping?: NepaliDateMapping | null): string {
-  if (!mapping?.nepaliDate) return '';
-  const [yearStr, monthStr] = mapping.nepaliDate.split('-');
-  const year = yearStr ?? '';
-  const monthNum = Number.parseInt(monthStr ?? '', 10);
-  const monthNames = [
-    '',
-    'Baisakh',
-    'Jestha',
-    'Ashadh',
-    'Shrawan',
-    'Bhadra',
-    'Ashwin',
-    'Kartik',
-    'Mangsir',
-    'Poush',
-    'Magh',
-    'Falgun',
-    'Chaitra',
-  ] as const;
-  const monthName = Number.isFinite(monthNum) ? (monthNames[monthNum] ?? monthStr) : monthStr;
-  return monthName ? `${monthName} ${year}` : mapping.nepaliDate;
+function getBsMonthName(month: number): string {
+  return BS_MONTH_NAMES[month] ?? String(month);
 }
 
 export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
@@ -124,115 +93,159 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
   min,
   max,
   disableBs,
-  loadNepaliMap,
   onSystemChange,
   onDateMetaChange,
 }) => {
+  const { getBsMonth } = useNepaliDateApi();
+  const today = new Date();
+  const initialDate = value ? new Date(value) : today;
+  const validInitial = Number.isNaN(initialDate.getTime()) ? today : initialDate;
+
   const [system, setSystem] = React.useState<CalendarSystem>(disableBs ? 'AD' : 'BS');
-  const initialDate = value ? new Date(value) : new Date();
-  const [visibleMonth, setVisibleMonth] = React.useState<Date>(
-    Number.isNaN(initialDate.getTime()) ? new Date() : initialDate
-  );
-  const [nepaliMap, setNepaliMap] = React.useState<NepaliMap>({});
-  const [isLoadingBs, setIsLoadingBs] = React.useState(false);
-  const monthCache = React.useRef<Record<string, NepaliMap>>({});
-  const inFlight = React.useRef<Record<string, Promise<NepaliMap> | undefined>>({});
+  const [adYear, setAdYear] = React.useState(validInitial.getFullYear());
+  const [adMonth, setAdMonth] = React.useState(validInitial.getMonth() + 1);
+  const [bsYear, setBsYear] = React.useState(2080);
+  const [bsMonth, setBsMonth] = React.useState(11);
 
-  const { days, start } = React.useMemo(() => getMonthRange(visibleMonth), [visibleMonth]);
-  const monthKey = React.useMemo(() => toDateKey(start), [start]);
+  const useQueryForBs = Boolean(system === 'BS' && getBsMonth);
 
-  const selectedKey = React.useMemo(() => {
-    if (!value) return '';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return '';
-    return toDateKey(d);
-  }, [value]);
+  const { data: bsMonthData, isLoading: isLoadingBsQuery } = useQuery({
+    queryKey: ['nepali-date', 'bs-month', bsYear, bsMonth],
+    queryFn: () => getBsMonth!(bsYear, bsMonth),
+    enabled: useQueryForBs,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const [bsDaysFallback, setBsDaysFallback] = React.useState<BsMonthDay[]>([]);
+  const [isLoadingBsFallback, setIsLoadingBsFallback] = React.useState(false);
+  const bsCache = React.useRef<Record<string, BsMonthDay[]>>({});
+
+  React.useEffect(() => {
+    if (system !== 'BS' || getBsMonth) return;
+    const cacheKey = `${bsYear}-${bsMonth}`;
+    const cached = bsCache.current[cacheKey];
+    if (cached) {
+      setBsDaysFallback(cached);
+      return;
+    }
+    setIsLoadingBsFallback(true);
+    const url = `${BS_MONTH_API_PATH}?year=${bsYear}&month=${bsMonth}`;
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : { data: null }))
+      .then((raw: { success?: boolean; data?: BsMonthResponse }) => {
+        const data = raw?.data;
+        const days = data?.days && Array.isArray(data.days) ? data.days : [];
+        bsCache.current[cacheKey] = days;
+        setBsDaysFallback(days);
+      })
+      .catch(() => setBsDaysFallback([]))
+      .finally(() => setIsLoadingBsFallback(false));
+  }, [system, bsYear, bsMonth, getBsMonth]);
+
+  const bsDays = useQueryForBs ? (bsMonthData?.days ?? []) : bsDaysFallback;
+  const isLoadingBs = useQueryForBs ? isLoadingBsQuery : isLoadingBsFallback;
 
   const minDate = min ? new Date(min) : undefined;
   const maxDate = max ? new Date(max) : undefined;
 
-  React.useEffect(() => {
-    let ignore = false;
-    if (system !== 'BS') return;
-    setIsLoadingBs(true);
-    const cached = monthCache.current[monthKey];
-    if (cached) {
-      setNepaliMap(cached);
-      setIsLoadingBs(false);
-      return () => {
-        ignore = true;
-      };
-    }
-    const dateKeys = days.map(toDateKey);
+  const selectedKey = React.useMemo(() => {
+    if (!value) return '';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '' : value.slice(0, 10);
+  }, [value]);
 
-    let promise = inFlight.current[monthKey];
-    if (!promise) {
-      const loader = async () => {
-        const map = loadNepaliMap ? await loadNepaliMap(dateKeys) : await fetchNepaliMappings(days);
-        monthCache.current[monthKey] = map;
-        return map;
-      };
-      promise = loader().finally(() => {
-        inFlight.current[monthKey] = undefined;
-      });
-      inFlight.current[monthKey] = promise;
-    }
+  const adDays = React.useMemo(
+    () => getAdMonthDays(adYear, adMonth),
+    [adYear, adMonth]
+  );
 
-    promise
-      .then((map) => {
-        if (!ignore) {
-          setNepaliMap(map);
-        }
-      })
-      .finally(() => {
-        if (!ignore) setIsLoadingBs(false);
-      });
-    return () => {
-      ignore = true;
-    };
-  }, [days, system, monthKey, loadNepaliMap]);
+  const adFirstWeekday = React.useMemo(
+    () => new Date(adYear, adMonth - 1, 1).getDay(),
+    [adYear, adMonth]
+  );
 
-  const handleSelect = (date: Date) => {
-    if (minDate && date < minDate) return;
-    if (maxDate && date > maxDate) return;
-    const key = toDateKey(date);
-    onChange(key);
-    const mapping = nepaliMap[key];
-    onDateMetaChange?.(key, { system, mapping });
+  const handleSelectAd = (dateStr: string) => {
+    if (min != null && dateStr < min) return;
+    if (max != null && dateStr > max) return;
+    onChange(dateStr);
+    onDateMetaChange?.(dateStr, { system: 'AD' });
   };
 
-  const navigateMonth = (delta: number) => {
-    setVisibleMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  const handleSelectBs = (day: BsMonthDay) => {
+    if (min != null && day.englishDate < min) return;
+    if (max != null && day.englishDate > max) return;
+    onChange(day.englishDate);
+    onDateMetaChange?.(day.englishDate, {
+      system: 'BS',
+      mapping: { nepaliDate: day.nepaliDate, days: '' },
+    });
   };
 
-  const weekdayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const navigateAdMonth = (delta: number) => {
+    let y = adYear;
+    let m = adMonth + delta;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    } else if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    setAdMonth(m);
+    setAdYear(y);
+  };
 
-  const firstWeekday = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay();
-  const leadingEmpty = Array.from({ length: firstWeekday }).map((_, i) => i);
+  const navigateBsMonth = (delta: number) => {
+    let y = bsYear;
+    let m = bsMonth + delta;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    } else if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    setBsMonth(m);
+    setBsYear(y);
+  };
 
-  const adMonthLabel = visibleMonth.toLocaleString('en-US', {
-    month: 'long',
-    year: 'numeric',
-  });
+  const adYearOptions = React.useMemo(() => {
+    const opts: number[] = [];
+    for (let y = AD_YEAR_MAX; y >= AD_YEAR_MIN; y--) opts.push(y);
+    return opts;
+  }, []);
 
-  const bsMonthLabel = React.useMemo(() => {
-    if (system !== 'BS') return '';
-    const firstKey = days.length > 0 ? toDateKey(days[0]) : '';
-    const mapping = firstKey ? nepaliMap[firstKey] : undefined;
-    return getBsMonthLabel(mapping);
-  }, [days, nepaliMap, system]);
+  const bsYearOptions = React.useMemo(() => {
+    const opts: number[] = [];
+    for (let y = BS_YEAR_MAX; y >= BS_YEAR_MIN; y--) opts.push(y);
+    return opts;
+  }, []);
+
+  const bsFirstWeekday = React.useMemo(() => {
+    if (bsDays.length === 0) return 0;
+    const firstDate = new Date(bsDays[0].englishDate);
+    return firstDate.getDay();
+  }, [bsDays]);
+
+  const weekdayLabelsAd = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const weekdayLabels = system === 'BS' ? [...NEPALI_WEEKDAY_LABELS] : weekdayLabelsAd;
+
+  const adMonthLabel = React.useMemo(
+    () => new Date(adYear, adMonth - 1, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+    [adYear, adMonth]
+  );
+
+  const bsMonthLabel = `${getBsMonthName(bsMonth)} ${bsYear}`;
 
   return (
     <div className="w-full text-xs text-slate-900 dark:text-slate-50">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-900/60 p-0.5 border border-slate-200/60 dark:border-slate-700/80">
           <button
             type="button"
             className={cn(
               'px-2 py-1 rounded-full text-[11px] font-medium transition-colors',
-              system === 'AD'
-                ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-100'
-                : 'text-slate-500 dark:text-slate-300'
+              system === 'AD' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-100' : 'text-slate-500 dark:text-slate-300'
             )}
             onClick={() => {
               setSystem('AD');
@@ -246,9 +259,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
               type="button"
               className={cn(
                 'px-2 py-1 rounded-full text-[11px] font-medium transition-colors',
-                system === 'BS'
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-100'
-                  : 'text-slate-500 dark:text-slate-300'
+                system === 'BS' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-100' : 'text-slate-500 dark:text-slate-300'
               )}
               onClick={() => {
                 setSystem('BS');
@@ -259,87 +270,123 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
             </button>
           )}
         </div>
+
         <div className="flex items-center gap-1 text-[11px] font-medium">
-          <button
-            type="button"
-            className="h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigateMonth(-1)}
-          >
-            ‹
-          </button>
-          <span className="min-w-[120px] text-center truncate">
-            {system === 'BS' && bsMonthLabel ? bsMonthLabel : adMonthLabel}
-          </span>
-          <button
-            type="button"
-            className="h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigateMonth(1)}
-          >
-            ›
-          </button>
+          {system === 'AD' ? (
+            <>
+              <select
+                value={adYear}
+                onChange={(e) => setAdYear(Number(e.target.value))}
+                className="h-7 px-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                aria-label="Select year (AD)"
+              >
+                {adYearOptions.map((y) => (
+                  <option key={y} value={y}>{y} AD</option>
+                ))}
+              </select>
+              <button type="button" className="h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => navigateAdMonth(-1)}>‹</button>
+              <span className="min-w-[100px] text-center truncate">{adMonthLabel}</span>
+              <button type="button" className="h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => navigateAdMonth(1)}>›</button>
+            </>
+          ) : (
+            <>
+              <select
+                value={bsYear}
+                onChange={(e) => setBsYear(Number(e.target.value))}
+                className="h-7 px-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                aria-label="Select year (BS)"
+              >
+                {bsYearOptions.map((y) => (
+                  <option key={y} value={y}>{y} BS</option>
+                ))}
+              </select>
+              <button type="button" className="h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => navigateBsMonth(-1)}>‹</button>
+              <span className="min-w-[100px] text-center truncate">{bsMonthLabel}</span>
+              <button type="button" className="h-6 w-6 inline-flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => navigateBsMonth(1)}>›</button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1 mb-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
         {weekdayLabels.map((label) => (
-          <div key={label} className="text-center">
-            {label}
-          </div>
+          <div key={label} className="text-center truncate" title={label}>{label}</div>
         ))}
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {leadingEmpty.map((i) => (
-          <div key={`empty-${i}`} />
-        ))}
-        {days.map((date) => {
-          const key = toDateKey(date);
-          const isSelected = key === selectedKey;
-          const isTodayKey = toDateKey(new Date()) === key;
-          const disabled =
-            (minDate && date < minDate) || (maxDate && date > maxDate) || isLoadingBs === true;
-          const mapping = nepaliMap[key];
-
-          const adLabel = date.getDate();
-          const rawBsDay = mapping?.nepaliDate?.split('-')?.[2] ?? undefined;
-          const bsLabel = rawBsDay ? Number.parseInt(rawBsDay, 10) || rawBsDay : null;
-
-          const showTopLabel = system === 'BS' ? (bsLabel ?? adLabel) : adLabel;
-          const showBottomLabel = system === 'BS' ? adLabel : bsLabel;
-
-          return (
-            <button
-              key={key}
-              type="button"
-              disabled={disabled}
-              onClick={() => handleSelect(date)}
-              className={cn(
-                'relative h-8 rounded-md border text-[11px] flex flex-col items-center justify-center transition-colors',
-                'border-slate-200 bg-white hover:bg-slate-50 text-slate-900',
-                'dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-50',
-                disabled &&
-                  'opacity-40 cursor-not-allowed hover:bg-white dark:hover:bg-slate-900 dark:hover:bg-none',
-                isSelected &&
-                  'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-200 dark:border-purple-400',
-                !isSelected &&
-                  isTodayKey &&
-                  'border-emerald-500/70 bg-emerald-500/5 dark:border-emerald-500/70'
-              )}
-            >
-              <span className="leading-none text-[11px]">{showTopLabel}</span>
-              {showBottomLabel != null && (
-                <span className="leading-none text-[9px] text-slate-500 dark:text-slate-400">
-                  {showBottomLabel}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {system === 'AD' ? (
+          <>
+            {Array.from({ length: adFirstWeekday }).map((_, i) => (
+              <div key={`ad-empty-${i}`} />
+            ))}
+            {adDays.map(({ date, day }) => {
+              const isSelected = date === selectedKey;
+              const isToday = date === today.toISOString().slice(0, 10);
+              const disabled =
+                (min != null && date < min) ||
+                (max != null && date > max);
+              return (
+                <button
+                  key={date}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => handleSelectAd(date)}
+                  className={cn(
+                    'relative h-8 rounded-md border text-[11px] flex items-center justify-center transition-colors',
+                    'border-slate-200 bg-white hover:bg-slate-50 text-slate-900',
+                    'dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-50',
+                    disabled && 'opacity-40 cursor-not-allowed',
+                    isSelected && 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-200 dark:border-purple-400',
+                    !isSelected && isToday && 'border-emerald-500/70 bg-emerald-500/5 dark:border-emerald-500/70'
+                  )}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            {Array.from({ length: bsFirstWeekday }).map((_, i) => (
+              <div key={`bs-empty-${i}`} />
+            ))}
+            {bsDays.map((day) => {
+              const isSelected = day.englishDate === selectedKey;
+              const isToday = day.englishDate === today.toISOString().slice(0, 10);
+              const disabled =
+                isLoadingBs ||
+                (min != null && day.englishDate < min) ||
+                (max != null && day.englishDate > max);
+              return (
+                <button
+                  key={day.nepaliDate}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => handleSelectBs(day)}
+                  className={cn(
+                    'relative h-8 rounded-md border text-[11px] flex items-center justify-center transition-colors',
+                    'border-slate-200 bg-white hover:bg-slate-50 text-slate-900',
+                    'dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-50',
+                    disabled && 'opacity-40 cursor-not-allowed',
+                    isSelected && 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-200 dark:border-purple-400',
+                    !isSelected && isToday && 'border-emerald-500/70 bg-emerald-500/5 dark:border-emerald-500/70'
+                  )}
+                >
+                  {day.day}
+                </button>
+              );
+            })}
+          </>
+        )}
       </div>
 
-      {system === 'BS' && Object.keys(nepaliMap).length === 0 && (
+      {system === 'BS' && isLoadingBs && (
+        <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">Loading month…</p>
+      )}
+      {system === 'BS' && !isLoadingBs && bsDays.length === 0 && (
         <p className="mt-2 text-[10px] text-amber-600 dark:text-amber-400">
-          Nepali date conversion not available for this month. Please switch to AD.
+          No data for this BS month. Try another month or switch to AD.
         </p>
       )}
     </div>

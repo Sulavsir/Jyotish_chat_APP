@@ -448,6 +448,7 @@ export default function JyotishSlotsPage() {
                 value={editDate}
                 onChange={(e) => setEditDate(e.target.value)}
                 className="w-full bg-white/5 border-white/20 text-white"
+                nepaliDate
               />
             </div>
             <div>

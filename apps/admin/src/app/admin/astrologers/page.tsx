@@ -87,16 +87,6 @@ export default function AstrologersPage() {
     setViewingProfileImage(null);
   };
 
-  // Debug: Log socket connection status
-  useEffect(() => {
-    console.log('📊 [ADMIN ASTROLOGERS] Socket connection status:', {
-      isConnected,
-      hasOn: !!on,
-      hasOff: !!off,
-    });
-  }, [isConnected, on, off]);
-
-  // Fetch astrologers with TanStack Query (server-side pagination)
   const {
     data: astrologersResponse,
     isLoading,
@@ -529,7 +519,6 @@ export default function AstrologersPage() {
           </div>
         )}
 
-        {/* Edit: password required before navigating to edit page */}
         <AstrologerEditPasswordModal
           open={astrologerToEdit !== null}
           onOpenChange={(open) => !open && setAstrologerToEdit(null)}
@@ -538,7 +527,6 @@ export default function AstrologersPage() {
           submitLabel={ASTROLOGER_EDIT_PASSWORD.CONTINUE_TO_EDIT}
         />
 
-        {/* Delete confirmation (password required) */}
         <Dialog
           open={astrologerToDelete !== null}
           onOpenChange={(open) => {
@@ -608,7 +596,6 @@ export default function AstrologersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Toggle status confirmation (same style as logout modal) */}
         <Dialog
           open={astrologerToToggle !== null}
           onOpenChange={(open) => !open && setAstrologerToToggle(null)}
@@ -641,7 +628,6 @@ export default function AstrologersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Attachment / Profile Image Viewer Modal */}
         {viewing && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"

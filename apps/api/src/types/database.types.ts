@@ -20,6 +20,10 @@ export interface UserResponse {
   dateOfBirth?: Date | null;
   timeOfBirth?: string | null;
   placeOfBirth?: string | null;
+  placeOfBirthType?: string | null;
+  placeOfBirthPradeshId?: string | null;
+  placeOfBirthDistrictId?: string | null;
+  placeOfBirthLocation?: string | null;
   currentAddress?: string | null;
   permanentAddress?: string | null;
   zodiacSign?: string | null;

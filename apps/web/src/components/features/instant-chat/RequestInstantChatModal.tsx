@@ -151,10 +151,6 @@ export function RequestInstantChatModal({
       type: 'TEXT',
       ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
     });
-    toast.success('Message request sent to all online Jyotish.', {
-      description: 'Waiting for an astrologer to accept...',
-      duration: 4000,
-    });
     // Show matching modal with animation immediately (same as Publish to all Jyotish)
     onSendRequested?.();
   };

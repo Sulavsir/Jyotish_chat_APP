@@ -38,7 +38,6 @@ export const PasswordInput = memo(function PasswordInput({
     setShowPassword((prev) => !prev);
   }, []);
 
-  // Calculate password strength if enabled (memoized)
   const strength = useMemo(() => {
     if (!showStrength || !value) return null;
     
@@ -99,7 +98,6 @@ export const PasswordInput = memo(function PasswordInput({
         </Button>
       </div>
 
-      {/* Password Strength Indicator */}
       {showStrength && strength && strength.score > 0 && (
         <div className="space-y-1">
           <div className="flex gap-1">

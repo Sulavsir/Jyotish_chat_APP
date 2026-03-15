@@ -14,6 +14,7 @@ export * from './astrologer';
 export * from './broadcast';
 export * from './rating';
 export * from './horoscope.types';
+export * from './nepali-date.types';
 
 // Frontend-specific types
 export interface ApiResponse<T = unknown> {

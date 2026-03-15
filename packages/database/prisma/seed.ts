@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { seedNepaliDates } from './date_seed';
+import { seedNepaliDates } from './seed_nepali_from_xlsx';
+import { seedNepalProvincesDistricts } from './seed_nepal_provinces_districts';
 
 const prisma = new PrismaClient();
 
@@ -8,6 +9,7 @@ async function main() {
   console.log('🌱 Starting database seeding...');
 
   await seedNepaliDates(prisma);
+  await seedNepalProvincesDistricts(prisma);
 
   // Default password for new admins
   const defaultPassword = 'Nepal@123';
@@ -18,6 +20,16 @@ async function main() {
       email: 'pawankostyle@gmail.com',
       password: hashedPassword,
       name: 'Pawan Admin',
+    },
+    {
+      email: 'emailhariharadhikari@gmail.com',
+      password: hashedPassword,
+      name: 'Harihar Admin',
+    },
+    {
+      email: '',
+      password: hashedPassword,
+      name: 'Harihar Admin',
     },
     {
       email: 'emailhariharadhikari@gmail.com',

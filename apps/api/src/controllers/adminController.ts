@@ -361,11 +361,6 @@ export async function uploadAstrologerProfilePhoto(
   }
 }
 
-/**
- * Delete astrologer (soft delete)
- * DELETE /api/v1/admin/astrologers/:id
- * Body: { editPassword }. Password validated against Settings.
- */
 export async function deleteAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
@@ -392,10 +387,6 @@ export async function deleteAstrologer(req: AuthRequest, res: Response, next: Ne
   }
 }
 
-/**
- * Toggle astrologer active status
- * POST /api/v1/admin/astrologers/:id/toggle-status
- */
 export async function toggleAstrologerStatus(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
@@ -671,11 +662,6 @@ export async function getUser(req: AuthRequest, res: Response, next: NextFunctio
   }
 }
 
-/**
- * Add coins to user (admin only)
- * POST /api/v1/admin/users/:id/add-coins
- * Body is validated by adminAddCoinsSchema middleware
- */
 export async function addCoinsToUser(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
@@ -685,7 +671,6 @@ export async function addCoinsToUser(req: AuthRequest, res: Response, next: Next
     const coinService = await import('../services/coin.service');
     const { CoinTransactionReason } = await import('../types/coin.types');
 
-    // Ensure we only store valid enum reasons in DB
     const reasonRaw = typeof reason === 'string' ? reason.trim() : '';
     const validReasons = Object.values(CoinTransactionReason) as string[];
     const resolvedReason = validReasons.includes(reasonRaw)
@@ -699,12 +684,9 @@ export async function addCoinsToUser(req: AuthRequest, res: Response, next: Next
       adminId
     );
 
-    // Log admin action (do not fail main flow if this fails)
     try {
       await auditService.logAction({
-        // Target user (FK-safe)
         userId: id,
-        // Actor admin
         adminId,
         action: AuditAction.ADMIN_ACTION,
         resource: 'User',
@@ -719,8 +701,8 @@ export async function addCoinsToUser(req: AuthRequest, res: Response, next: Next
           newBalance: result.balance,
         },
       });
-    } catch (err) {
-      console.error('Failed to log audit action:', err);
+    } catch {
+      // ignore
     }
 
     return sendSuccess(res, result, HTTP_STATUS.OK);
@@ -729,10 +711,6 @@ export async function addCoinsToUser(req: AuthRequest, res: Response, next: Next
   }
 }
 
-/**
- * Toggle user active status
- * POST /api/v1/admin/users/:id/toggle-status
- */
 export async function toggleUserStatus(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
@@ -753,10 +731,6 @@ export async function toggleUserStatus(req: AuthRequest, res: Response, next: Ne
   }
 }
 
-/**
- * Delete user
- * DELETE /api/v1/admin/users/:id
- */
 export async function deleteUser(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
@@ -1210,6 +1184,7 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
         abandonReason: null,
         isLocked: false, // Unlock the chat
         status: 'ACTIVE', // Reactivate
+        reopenedAfterEnded: true,
         endedBy: null,
         endedAt: null,
       },

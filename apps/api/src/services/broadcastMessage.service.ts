@@ -381,7 +381,8 @@ export async function createMultipleBroadcastMessages(
   await deductCoinsForBroadcastQuestions(clientId, totalNr);
 
   const batchId = randomUUID();
-  const amountPerMessage = Math.round(totalNr / count);
+  const rawAmountPerMessage = Math.round(totalNr / count);
+  const amountPerMessage = Math.max(1, rawAmountPerMessage);
   const metadataBase =
     hasBirthDetails && Object.keys(birthDetails!).length > 0
       ? { birthDetails }
@@ -435,11 +436,11 @@ export async function createMultipleBroadcastMessages(
 }
 
 /**
- * Expire old broadcast messages
- * Automatically expires messages older than BROADCAST_MESSAGE_EXPIRY_MS
+ * Expire old broadcast messages and refund the client for each (no one accepted).
+ * Automatically expires messages older than BROADCAST_MESSAGE_EXPIRY_MS and refunds
+ * using amountRefundNr (batch) or BROADCAST_SEND rate (single).
  */
 export async function expireOldMessages() {
-  // Graceful handling if table doesn't exist yet
   if (!('broadcastMessage' in prisma)) {
     return { count: 0 };
   }
@@ -447,19 +448,37 @@ export async function expireOldMessages() {
   try {
     const expiryTime = new Date(Date.now() - BROADCAST_MESSAGE_EXPIRY_MS);
 
-    const result = await prisma.broadcastMessage.updateMany({
+    const toExpire = await prisma.broadcastMessage.findMany({
       where: {
         status: BroadcastMessageStatus.PENDING,
-        createdAt: {
-          lt: expiryTime,
-        },
-      },
-      data: {
-        status: BroadcastMessageStatus.EXPIRED,
+        createdAt: { lt: expiryTime },
       },
     });
 
-    return result;
+    for (const message of toExpire) {
+      const meta = (message.metadata as Record<string, unknown> | null) || {};
+      const refundAmount =
+        typeof meta.amountRefundNr === 'number' && meta.amountRefundNr >= 0
+          ? Math.max(1, meta.amountRefundNr)
+          : await getRate('BROADCAST_SEND').then((r) => Math.max(1, r));
+
+      try {
+        await refundCoins(message.clientId, refundAmount);
+      } catch (refundErr) {
+        console.error(
+          `[expireOldMessages] Refund failed for message ${message.id}, client ${message.clientId}:`,
+          refundErr
+        );
+        // Still expire the message so it does not stay pending
+      }
+
+      await prisma.broadcastMessage.update({
+        where: { id: message.id },
+        data: { status: BroadcastMessageStatus.EXPIRED },
+      });
+    }
+
+    return { count: toExpire.length };
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
     if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
@@ -830,6 +849,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       data: {
         isLocked: false,
         status: 'ACTIVE',
+        reopenedAfterEnded: true, // Reopened chat uses instant chat fee, not broadcast
         endedBy: null,
         endedAt: null,
       },

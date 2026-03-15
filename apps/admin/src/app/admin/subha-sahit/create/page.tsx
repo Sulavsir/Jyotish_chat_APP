@@ -32,7 +32,7 @@ const defaultRow = (): SubhaSahitRow => ({
 export default function CreateSubhaSahitPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialOccasionFromQuery = searchParams.get('occasion') ?? '';
+  const initialOccasionFromQuery = searchParams?.get('occasion') ?? '';
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<SubhaSahitRow[]>([defaultRow()]);
   const [language, setLanguage] = useState<'en' | 'ne' | 'hi'>('en');
@@ -199,6 +199,7 @@ export default function CreateSubhaSahitPage() {
                         value={row.date}
                         onChange={(e) => updateRow(row.id, { date: e.target.value })}
                         className="w-full bg-slate-900/40 border-2 border-purple-500/20 text-white placeholder-slate-500 rounded-lg py-3 px-4 focus:border-purple-500/60 focus:bg-slate-900/60 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 [color-scheme:dark]"
+                        nepaliDate
                       />
                     </div>
                     <div className="space-y-3">

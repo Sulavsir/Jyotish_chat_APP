@@ -18,13 +18,28 @@ export async function list(req: AuthRequest, res: Response) {
 
 export async function create(req: AuthRequest, res: Response) {
   const userId = req.user!.id;
-  const { name, relationship, dateOfBirth, timeOfBirth, placeOfBirth, gender } = req.body;
+  const {
+    name,
+    relationship,
+    dateOfBirth,
+    timeOfBirth,
+    placeOfBirth,
+    placeOfBirthType,
+    placeOfBirthPradeshId,
+    placeOfBirthDistrictId,
+    placeOfBirthLocation,
+    gender,
+  } = req.body;
   const profile = await clientProfileService.create(userId, {
     name,
     relationship,
     dateOfBirth,
     timeOfBirth,
     placeOfBirth,
+    placeOfBirthType,
+    placeOfBirthPradeshId,
+    placeOfBirthDistrictId,
+    placeOfBirthLocation,
     gender,
   });
   res.status(201).json({
@@ -36,13 +51,28 @@ export async function create(req: AuthRequest, res: Response) {
 export async function update(req: AuthRequest, res: Response) {
   const userId = req.user!.id;
   const { id } = req.params;
-  const { name, relationship, dateOfBirth, timeOfBirth, placeOfBirth, gender } = req.body;
+  const {
+    name,
+    relationship,
+    dateOfBirth,
+    timeOfBirth,
+    placeOfBirth,
+    placeOfBirthType,
+    placeOfBirthPradeshId,
+    placeOfBirthDistrictId,
+    placeOfBirthLocation,
+    gender,
+  } = req.body;
   const profile = await clientProfileService.update(id, userId, {
     name,
     relationship,
     dateOfBirth,
     timeOfBirth,
     placeOfBirth,
+    placeOfBirthType,
+    placeOfBirthPradeshId,
+    placeOfBirthDistrictId,
+    placeOfBirthLocation,
     gender,
   });
   res.json({

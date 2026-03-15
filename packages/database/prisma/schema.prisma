@@ -23,7 +23,11 @@ model User {
   profileCompleted             Boolean                @default(false)
   dateOfBirth                  DateTime?
   timeOfBirth                  String?
-  placeOfBirth                 String?
+  placeOfBirth                 String?   
+  placeOfBirthType             String?  
+  placeOfBirthPradeshId        String?
+  placeOfBirthDistrictId      String?
+  placeOfBirthLocation         String?  
   currentAddress               String?
   permanentAddress             String?
   latitude                     Float?
@@ -53,6 +57,8 @@ model User {
   jyotishBookingRequests       JyotishBookingRequest[]
   kundaliMatchRequests         KundaliMatchRequest[]
   clientProfiles               ClientProfile[]
+  placeOfBirthPradesh          NepalGeography? @relation("UserPlaceOfBirthPradesh", fields: [placeOfBirthPradeshId], references: [id], onDelete: SetNull)
+  placeOfBirthDistrict         NepalGeography? @relation("UserPlaceOfBirthDistrict", fields: [placeOfBirthDistrictId], references: [id], onDelete: SetNull)
 
   @@index([phone])
   @@index([email])
@@ -61,19 +67,49 @@ model User {
   @@index([zodiacSign])
 }
 
+enum GeographyType {
+  PROVINCE
+  DISTRICT
+}
+
+model NepalGeography {
+  id       String         @id @default(uuid())
+  nameEn   String
+  type     GeographyType
+  parentId String?       
+
+  parent   NepalGeography?  @relation("NepalGeographyHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children NepalGeography[] @relation("NepalGeographyHierarchy")
+
+  usersAsPradesh     User[]          @relation("UserPlaceOfBirthPradesh")
+  usersAsDistrict    User[]          @relation("UserPlaceOfBirthDistrict")
+  profilesAsPradesh  ClientProfile[] @relation("ClientProfilePlaceOfBirthPradesh")
+  profilesAsDistrict ClientProfile[] @relation("ClientProfilePlaceOfBirthDistrict")
+
+  @@unique([nameEn, parentId])
+  @@index([type])
+  @@index([parentId])
+}
+
 // Client profiles (self = User; family/friends = ClientProfile) for questions/consultations
 model ClientProfile {
-  id           String     @id @default(uuid())
-  userId       String
-  name         String
-  relationship String   
-  dateOfBirth  DateTime?
-  timeOfBirth  String?
-  placeOfBirth String?
-  gender       Gender?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String     @id @default(uuid())
+  userId                String
+  name                  String
+  relationship          String
+  dateOfBirth           DateTime?
+  timeOfBirth           String?
+  placeOfBirth          String?
+  placeOfBirthType      String?
+  placeOfBirthPradeshId  String?
+  placeOfBirthDistrictId String?
+  placeOfBirthLocation  String?
+  gender                Gender?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  placeOfBirthPradesh   NepalGeography? @relation("ClientProfilePlaceOfBirthPradesh", fields: [placeOfBirthPradeshId], references: [id], onDelete: SetNull)
+  placeOfBirthDistrict  NepalGeography? @relation("ClientProfilePlaceOfBirthDistrict", fields: [placeOfBirthDistrictId], references: [id], onDelete: SetNull)
 
   @@index([userId])
 }
@@ -271,6 +307,7 @@ model Chat {
   appointmentId         String?         // Link to Appointment when chat is used for appointment/kundali session
   status                ChatStatus      @default(ACTIVE)
   isLocked              Boolean         @default(false) // When true, chat is locked (like Facebook block)
+  reopenedAfterEnded    Boolean         @default(false) // When true, chat was ended and reactivated; per-message fee uses instant chat rate, not broadcast
   endedBy               String? // User/Astrologer ID who ended the chat
   endedAt               DateTime? // When the chat was ended
   lastMessageAt         DateTime?
@@ -1258,6 +1295,7 @@ enum AstrologerCoinEarningSource {
   BROADCAST_MESSAGE
   APPOINTMENT
   KUNDALI_REVIEW
+  ADMIN_CREDIT // Admin adds balance to astrologer account
 }
 
 model AstrologerCoinEarning {

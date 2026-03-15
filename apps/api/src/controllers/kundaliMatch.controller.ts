@@ -1,13 +1,55 @@
 /**
  * Kundali Match Controller
  * Client: create request, list mine. Admin: list all, get one, submit review.
+ * Place of birth: structured (province, district, place for Nepal; single string for outside).
  */
 
 import { Response, NextFunction } from 'express';
+import { prisma } from '@jyotish/database';
 import { AuthRequest } from '../types';
 import { sendSuccess } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import * as kundaliMatchService from '../services/kundaliMatch.service';
+
+type ValidatedBody = {
+  boyDateOfBirth: string;
+  boyTimeOfBirth: string;
+  boyPlaceOfBirthType: 'NEPAL' | 'OUTSIDE_NEPAL';
+  boyPlaceOfBirthPradeshId: string | null;
+  boyPlaceOfBirthDistrictId: string | null;
+  boyPlaceOfBirthLocation: string | null;
+  boyPlaceOfBirth: string | null;
+  girlDateOfBirth: string;
+  girlTimeOfBirth: string;
+  girlPlaceOfBirthType: 'NEPAL' | 'OUTSIDE_NEPAL';
+  girlPlaceOfBirthPradeshId: string | null;
+  girlPlaceOfBirthDistrictId: string | null;
+  girlPlaceOfBirthLocation: string | null;
+  girlPlaceOfBirth: string | null;
+};
+
+async function buildPlaceOfBirthString(
+  type: 'NEPAL' | 'OUTSIDE_NEPAL',
+  pradeshId: string | null,
+  districtId: string | null,
+  location: string | null,
+  outsideText: string | null
+): Promise<string> {
+  if (type === 'OUTSIDE_NEPAL') {
+    return (outsideText && outsideText.trim()) || '';
+  }
+  if (!pradeshId || !districtId) return '';
+  const [district, province] = await Promise.all([
+    prisma.nepalGeography.findUnique({ where: { id: districtId }, select: { nameEn: true } }),
+    prisma.nepalGeography.findUnique({ where: { id: pradeshId }, select: { nameEn: true } }),
+  ]);
+  const parts = [
+    province?.nameEn ?? '',
+    district?.nameEn ?? '',
+    (location && location.trim()) ?? '',
+  ].filter(Boolean);
+  return parts.join(', ');
+}
 
 /**
  * Client: create kundali match request (deducts coins).
@@ -19,22 +61,31 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
     if (!userId) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, message: 'Unauthorized' });
     }
-    const body = req.body as {
-      boyDateOfBirth: string;
-      boyTimeOfBirth: string;
-      boyPlaceOfBirth: string;
-      girlDateOfBirth: string;
-      girlTimeOfBirth: string;
-      girlPlaceOfBirth: string;
-    };
+    const body = req.body as ValidatedBody;
+    const [boyPlaceOfBirth, girlPlaceOfBirth] = await Promise.all([
+      buildPlaceOfBirthString(
+        body.boyPlaceOfBirthType,
+        body.boyPlaceOfBirthPradeshId,
+        body.boyPlaceOfBirthDistrictId,
+        body.boyPlaceOfBirthLocation,
+        body.boyPlaceOfBirth
+      ),
+      buildPlaceOfBirthString(
+        body.girlPlaceOfBirthType,
+        body.girlPlaceOfBirthPradeshId,
+        body.girlPlaceOfBirthDistrictId,
+        body.girlPlaceOfBirthLocation,
+        body.girlPlaceOfBirth
+      ),
+    ]);
     const request = await kundaliMatchService.createRequest({
       userId,
       boyDateOfBirth: body.boyDateOfBirth,
       boyTimeOfBirth: body.boyTimeOfBirth,
-      boyPlaceOfBirth: body.boyPlaceOfBirth,
+      boyPlaceOfBirth,
       girlDateOfBirth: body.girlDateOfBirth,
       girlTimeOfBirth: body.girlTimeOfBirth,
-      girlPlaceOfBirth: body.girlPlaceOfBirth,
+      girlPlaceOfBirth,
     });
     return sendSuccess(
       res,

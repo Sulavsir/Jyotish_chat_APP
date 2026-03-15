@@ -1,9 +1,10 @@
 /**
- * Nepali Date Service - Convert English dates to Bikram Sambat via API
+ * Nepali Date Service - AD/BS month APIs and convert (Bikram Sambat) via API
  */
 
 import { apiClient } from '@/lib/api-client';
 import { API_ENDPOINTS } from '@/constants';
+import type { AdMonthResponse, BsMonthResponse } from '@/types/nepali-date.types';
 
 export interface NepaliDateMapping {
   nepaliDate: string;
@@ -35,5 +36,23 @@ export const nepaliDateService = {
       { dates }
     );
     return res?.map ?? {};
+  },
+
+  /**
+   * Get all days for an AD (English) month.
+   */
+  async getAdMonth(year: number, month: number): Promise<AdMonthResponse> {
+    return apiClient.get<AdMonthResponse>(API_ENDPOINTS.PUBLIC.NEPALI_DATE_AD_MONTH, {
+      params: { year, month },
+    });
+  },
+
+  /**
+   * Get all days for a BS (Nepali) month.
+   */
+  async getBsMonth(year: number, month: number): Promise<BsMonthResponse> {
+    return apiClient.get<BsMonthResponse>(API_ENDPOINTS.PUBLIC.NEPALI_DATE_BS_MONTH, {
+      params: { year, month },
+    });
   },
 };

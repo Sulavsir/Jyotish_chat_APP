@@ -1,8 +1,3 @@
-/**
- * Admin Astrologer Validators
- * Update schema excludes isOnline (managed separately)
- */
-
 import { z } from 'zod';
 import { AstrologerCategory } from '@jyotish/shared';
 import { queryPaginationSchema } from './query.validators';
@@ -37,7 +32,6 @@ export const updateAstrologerSchema = z
     message: 'At least one field must be provided',
   });
 
-/** Body schema for DELETE /admin/astrologers/:id (soft delete requires password) */
 export const deleteAstrologerBodySchema = z.object({
   editPassword: z.string().min(1, 'Edit password is required'),
 });
@@ -52,7 +46,6 @@ export type VerifyEditPasswordBody = z.infer<typeof verifyEditPasswordBodySchema
 
 export type UpdateAstrologerInput = z.infer<typeof updateAstrologerSchema>;
 
-/** Query schema for GET /admin/astrologers (list) */
 export const listAdminAstrologersQuerySchema = queryPaginationSchema.extend({
   search: z.string().optional(),
   isActive: z
@@ -70,3 +63,5 @@ export const listAdminAstrologersQuerySchema = queryPaginationSchema.extend({
 });
 
 export type ListAdminAstrologersQuery = z.infer<typeof listAdminAstrologersQuerySchema>;
+
+

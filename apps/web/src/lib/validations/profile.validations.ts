@@ -18,13 +18,20 @@ export type ProfileUpdateFormData = z.infer<typeof profileUpdateSchema>;
 export const profileEditSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  dateOfBirth: z.string().optional(),
-  timeOfBirth: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:MM format')
-    .optional()
-    .or(z.literal('')),
-  placeOfBirth: z.string().optional(),
+  dateOfBirth: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+  timeOfBirth: z.preprocess(
+    (v) => (v === null ? '' : v),
+    z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:MM format')
+      .optional()
+      .or(z.literal(''))
+  ),
+  placeOfBirth: z.preprocess((v) => (v === '' || v === null ? undefined : v), z.string().max(200).optional()),
+  placeOfBirthType: z.enum(['NEPAL', 'OUTSIDE_NEPAL']).optional().nullable(),
+  placeOfBirthPradeshId: z.preprocess((v) => (v === '' ? null : v), z.string().uuid().optional().nullable()),
+  placeOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), z.string().uuid().optional().nullable()),
+  placeOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), z.string().max(200).optional().nullable()),
   currentAddress: z.string().optional(),
   permanentAddress: z.string().optional(),
   gender: z.enum([...GENDER_OPTIONS] as [string, ...string[]]).optional().nullable(),

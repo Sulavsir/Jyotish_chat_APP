@@ -3,18 +3,20 @@
  */
 
 import { forwardRef } from 'react';
-import { Input, Label, DateInput } from '@jyotish/ui';
+import { Input, Label, DateInput, TimeInput } from '@jyotish/ui';
 import type { InputHTMLAttributes } from 'react';
 
 interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
+  nepaliDate?: boolean;
 }
 
 export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ label, error, helperText, className, type, ...props }, ref) => {
+  ({ label, error, helperText, className, type, nepaliDate, ...props }, ref) => {
     const isDate = type === 'date';
+    const isTime = type === 'time';
 
     const renderInput = () => {
       if (isDate) {
@@ -27,7 +29,21 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
             ref={ref}
             className={className}
             value={stringValue}
-            {...(rest as any)}
+            nepaliDate={nepaliDate ?? true}
+            {...rest}
+          />
+        );
+      }
+
+      if (isTime) {
+        const { value, ...rest } = props;
+        return (
+          <TimeInput
+            ref={ref}
+            className={className}
+            value={value as string}
+            iconClassName="text-yellow-500"
+            {...rest}
           />
         );
       }

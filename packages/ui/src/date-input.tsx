@@ -10,8 +10,11 @@ export interface DateInputProps
   className?: string;
   iconClassName?: string;
   /**
-   * When true, use the custom AD/BS calendar popover instead of the native browser date picker.
+   * When true, use the Nepali (AD/BS) calendar popover instead of the native date picker.
+   * Single prop to enable Nepali date input everywhere.
    */
+  nepaliDate?: boolean;
+  /** @deprecated Use nepaliDate instead. When true, same as nepaliDate. */
   useBsCalendar?: boolean;
   /**
    * Disable BS tab (AD only). Recommended for date-of-birth fields where BS mapping range is limited.
@@ -32,6 +35,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       {
         className,
         iconClassName = 'text-yellow-500',
+        nepaliDate,
         useBsCalendar,
         disableBs,
         value,
@@ -43,6 +47,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
       },
       ref
     ) => {
+      const useCalendar = nepaliDate ?? useBsCalendar ?? false;
       const [open, setOpen] = React.useState(false);
       const [calendarSystem, setCalendarSystem] = React.useState<'AD' | 'BS'>(disableBs ? 'AD' : 'BS');
       const [displayValue, setDisplayValue] = React.useState<string>('');
@@ -55,7 +60,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
         setOpen(false);
       };
 
-      if (!useBsCalendar) {
+      if (!useCalendar) {
         return (
           <div className="relative">
             <Input

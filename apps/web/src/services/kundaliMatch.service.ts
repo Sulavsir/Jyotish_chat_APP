@@ -26,13 +26,22 @@ export interface KundaliMatchRequest {
   updatedAt: string;
 }
 
+/** Structured place of birth (Nepal: province, district, place; Outside: single string). */
 export interface CreateKundaliMatchRequestBody {
   boyDateOfBirth: string;
   boyTimeOfBirth: string;
-  boyPlaceOfBirth: string;
+  boyPlaceOfBirthType: 'NEPAL' | 'OUTSIDE_NEPAL';
+  boyPlaceOfBirthPradeshId: string | null;
+  boyPlaceOfBirthDistrictId: string | null;
+  boyPlaceOfBirthLocation: string | null;
+  boyPlaceOfBirth: string | null;
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
-  girlPlaceOfBirth: string;
+  girlPlaceOfBirthType: 'NEPAL' | 'OUTSIDE_NEPAL';
+  girlPlaceOfBirthPradeshId: string | null;
+  girlPlaceOfBirthDistrictId: string | null;
+  girlPlaceOfBirthLocation: string | null;
+  girlPlaceOfBirth: string | null;
 }
 
 export interface ListMyKundaliMatchResponse {

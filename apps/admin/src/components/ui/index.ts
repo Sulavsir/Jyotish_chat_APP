@@ -1,7 +1,3 @@
-/**
- * UI Components Exports
- */
-
 export { LoadingButton } from './LoadingButton';
 export { Pagination } from './Pagination';
 export { ConfirmDialog } from './ConfirmDialog';
@@ -13,3 +9,4 @@ export {
   SimpleTooltip,
 } from './Tooltip';
 export { AstrologerEditPasswordModal } from './AstrologerEditPasswordModal';
+export { PasswordInput } from './PasswordInput';

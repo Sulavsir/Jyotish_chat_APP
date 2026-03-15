@@ -192,6 +192,7 @@ export default function AdminHoroscopesPage() {
               onChange={(e) => setDateFrom(e.target.value)}
               className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
+              nepaliDate
             />
           </div>
           <div>
@@ -201,6 +202,7 @@ export default function AdminHoroscopesPage() {
               onChange={(e) => setDateTo(e.target.value)}
               className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
+              nepaliDate
             />
           </div>
         </div>

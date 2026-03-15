@@ -20,7 +20,6 @@ import {
 } from '@/constants/slot.constants';
 import type { BookingType } from '@/types/appointment.types';
 import type { CreateSlotBody } from '@/services/astrologerSlots.service';
-import { nepaliDateService } from '@/services/nepali-date.service';
 import { TimeRangeMultiSelect } from './TimeRangeMultiSelect';
 import { PendingSessionEditModal, type PendingSlotSession } from './PendingSessionEditModal';
 import { Sparkles, Plus, X } from 'lucide-react';
@@ -177,8 +176,7 @@ export function AddSlotsModal({
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="w-full border-white/20"
-                useBsCalendar
-                loadNepaliMap={(dates) => nepaliDateService.convertBulk(dates)}
+                nepaliDate
               />
             </div>
             <div>

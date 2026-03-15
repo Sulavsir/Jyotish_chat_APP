@@ -387,7 +387,9 @@ export function chatHandlers(io: Server, socket: Socket) {
                 where: { chatId: chat!.id },
                 select: { id: true },
               });
-              const isBroadcastChat = !!broadcastMessage;
+              // Reopened chats (ended then reactivated) use instant chat fee, not broadcast
+              const isBroadcastChat =
+                !!broadcastMessage && !(chat as { reopenedAfterEnded?: boolean }).reopenedAfterEnded;
               const { deductCoinsForMessage } = await import('../services/coin.service');
               try {
                 await deductCoinsForMessage(

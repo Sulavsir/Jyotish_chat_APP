@@ -39,6 +39,35 @@ function isClientProfileCompleteForFlag(user: {
   );
 }
 
+/** Resolve "Province, District, Place" string to geography IDs (for Flutter / simple clients). */
+async function resolveNepalPlaceOfBirthString(
+  value: string
+): Promise<{ pradeshId: string; districtId: string; location: string | null } | null> {
+  const parts = value.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const provinceName = parts[0];
+  const districtName = parts[1];
+  const location = parts.slice(2).join(', ').trim() || null;
+  const province = await prisma.nepalGeography.findFirst({
+    where: {
+      type: 'PROVINCE',
+      parentId: null,
+      nameEn: { equals: provinceName, mode: 'insensitive' },
+    },
+    select: { id: true },
+  });
+  if (!province) return null;
+  const district = await prisma.nepalGeography.findFirst({
+    where: {
+      type: 'DISTRICT',
+      parentId: province.id,
+      nameEn: { equals: districtName, mode: 'insensitive' },
+    },
+    select: { id: true },
+  });
+  return district ? { pradeshId: province.id, districtId: district.id, location } : null;
+}
+
 /**
  * Get current user profile
  * GET /api/v1/users/me
@@ -332,24 +361,69 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
   }
 
   const validatedData = birthDetailsSchema.parse(req.body);
-  const dob = new Date(validatedData.dateOfBirth);
-  // Preserve existing zodiacSign unless the client explicitly provides it.
-  // This prevents clients (e.g. Flutter) that omit zodiacSign from unintentionally overwriting
-  // an already-selected sign with an auto-calculated one.
+
   const existing = await prisma.user.findUnique({
     where: { id: req.user!.id },
-    select: { name: true, zodiacSign: true, gender: true },
+    select: { name: true, zodiacSign: true, gender: true, dateOfBirth: true, timeOfBirth: true },
   });
 
   if (!existing) {
     throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.USER_NOT_FOUND);
   }
 
+  // Only use dateOfBirth when it's a valid date string (avoid Invalid Date)
+  const dateOfBirthStr =
+    validatedData.dateOfBirth && String(validatedData.dateOfBirth).trim()
+      ? String(validatedData.dateOfBirth).trim()
+      : null;
+  const dobInput = dateOfBirthStr ? new Date(dateOfBirthStr) : null;
+  const isValidDob = dobInput && !Number.isNaN(dobInput.getTime());
+  const dob = isValidDob ? dobInput! : (existing.dateOfBirth ?? null);
+
+  // Resolve Nepal place-of-birth: either structured IDs (web) or single string "Province, District, Place" (e.g. Flutter)
+  let placeOfBirthValue: string | null =
+    (validatedData.placeOfBirth && String(validatedData.placeOfBirth).trim()) || null;
+  let resolvedPradeshId = validatedData.placeOfBirthPradeshId ?? null;
+  let resolvedDistrictId = validatedData.placeOfBirthDistrictId ?? null;
+  let resolvedLocation = validatedData.placeOfBirthLocation ?? null;
+
+  if (validatedData.placeOfBirthType === 'NEPAL' && 'nepalGeography' in prisma) {
+    if (resolvedPradeshId && resolvedDistrictId) {
+      // Client sent structured IDs (web): build display string from geography names
+      if (!placeOfBirthValue) {
+        const [district, province] = await Promise.all([
+          prisma.nepalGeography.findUnique({
+            where: { id: resolvedDistrictId },
+            select: { nameEn: true },
+          }),
+          prisma.nepalGeography.findUnique({
+            where: { id: resolvedPradeshId },
+            select: { nameEn: true },
+          }),
+        ]);
+        const parts = [
+          province?.nameEn || '',
+          district?.nameEn || '',
+          (resolvedLocation && String(resolvedLocation).trim()) || '',
+        ].filter(Boolean);
+        placeOfBirthValue = parts.length > 0 ? parts.join(', ') : null;
+      }
+    } else if (placeOfBirthValue) {
+      // Client sent only string (e.g. Flutter): "Province, District, Place" → resolve to IDs
+      const resolved = await resolveNepalPlaceOfBirthString(placeOfBirthValue);
+      if (resolved) {
+        resolvedPradeshId = resolved.pradeshId;
+        resolvedDistrictId = resolved.districtId;
+        resolvedLocation = resolved.location;
+      }
+    }
+  }
+
   if (debug) {
     console.log('[users/me/birth-details] validated:', {
       dateOfBirth: validatedData.dateOfBirth,
       timeOfBirth: validatedData.timeOfBirth,
-      placeOfBirth: validatedData.placeOfBirth,
+      placeOfBirth: placeOfBirthValue ?? validatedData.placeOfBirth,
       zodiacSign: validatedData.zodiacSign,
       gender: validatedData.gender,
     });
@@ -363,13 +437,18 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
   const resolvedZodiacSign =
     validatedData.zodiacSign !== undefined && validatedData.zodiacSign !== null
       ? validatedData.zodiacSign
-      : (existing.zodiacSign ?? getZodiacSign(dob));
+      : (existing.zodiacSign ?? getZodiacSign(dob ?? existing.dateOfBirth ?? new Date()));
+
+  const timeOfBirthValue =
+    validatedData.timeOfBirth != null && String(validatedData.timeOfBirth).trim()
+      ? String(validatedData.timeOfBirth).trim()
+      : (existing.timeOfBirth ?? null);
 
   const computedProfileCompleted = isClientProfileCompleteForFlag({
     name: existing.name,
-    dateOfBirth: dob,
-    timeOfBirth: validatedData.timeOfBirth,
-    placeOfBirth: validatedData.placeOfBirth,
+    dateOfBirth: dob ?? undefined,
+    timeOfBirth: timeOfBirthValue ?? undefined,
+    placeOfBirth: placeOfBirthValue ?? validatedData.placeOfBirth ?? null,
   });
 
   if (debug) {
@@ -382,13 +461,17 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
   const user = await prisma.user.update({
     where: { id: req.user!.id },
     data: {
-      dateOfBirth: dob,
-      timeOfBirth: validatedData.timeOfBirth,
-      placeOfBirth: validatedData.placeOfBirth,
-      latitude: validatedData.latitude,
-      longitude: validatedData.longitude,
-      currentAddress: validatedData.currentAddress,
-      permanentAddress: validatedData.permanentAddress,
+      ...(isValidDob && { dateOfBirth: dob }),
+      ...(validatedData.timeOfBirth != null && validatedData.timeOfBirth !== '' && { timeOfBirth: timeOfBirthValue }),
+      placeOfBirth: placeOfBirthValue ?? validatedData.placeOfBirth ?? null,
+      placeOfBirthType: validatedData.placeOfBirthType ?? null,
+      placeOfBirthPradeshId: resolvedPradeshId,
+      placeOfBirthDistrictId: resolvedDistrictId,
+      placeOfBirthLocation: resolvedLocation,
+      ...(validatedData.latitude !== undefined && { latitude: validatedData.latitude }),
+      ...(validatedData.longitude !== undefined && { longitude: validatedData.longitude }),
+      ...(validatedData.currentAddress !== undefined && { currentAddress: validatedData.currentAddress }),
+      ...(validatedData.permanentAddress !== undefined && { permanentAddress: validatedData.permanentAddress }),
       zodiacSign: resolvedZodiacSign,
       ...(validatedData.gender !== undefined ? { gender: validatedData.gender } : {}),
       profileCompleted: computedProfileCompleted,
@@ -403,6 +486,10 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
       dateOfBirth: true,
       timeOfBirth: true,
       placeOfBirth: true,
+      placeOfBirthType: true,
+      placeOfBirthPradeshId: true,
+      placeOfBirthDistrictId: true,
+      placeOfBirthLocation: true,
       currentAddress: true,
       permanentAddress: true,
       zodiacSign: true,

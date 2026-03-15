@@ -221,6 +221,7 @@ export default function EditHoroscopePage() {
                   {...register('date')}
                   className="mt-1.5 w-full bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
                   iconClassName="text-purple-400"
+                  nepaliDate
                 />
                 {errors.date && (
                   <p className="text-red-400 text-sm mt-1">

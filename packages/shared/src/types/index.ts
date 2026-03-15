@@ -12,6 +12,10 @@ export interface User {
   dateOfBirth?: string | Date;
   timeOfBirth?: string;
   placeOfBirth?: string;
+  placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+  placeOfBirthPradeshId?: string | null;
+  placeOfBirthDistrictId?: string | null;
+  placeOfBirthLocation?: string | null;
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   zodiacSign?: ZodiacSign | null;
 
@@ -80,9 +84,24 @@ export interface ClientProfile {
   dateOfBirth: Date | null;
   timeOfBirth: string | null;
   placeOfBirth: string | null;
+  placeOfBirthType: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+  placeOfBirthPradeshId: string | null;
+  placeOfBirthDistrictId: string | null;
+  placeOfBirthLocation: string | null;
   gender: 'MALE' | 'FEMALE' | 'OTHER' | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+}
+
+// Place of birth type (Nepal vs outside)
+export type PlaceOfBirthType = 'NEPAL' | 'OUTSIDE_NEPAL';
+
+// Nepal geography (provinces and districts) shared type
+export interface NepalGeography {
+  id: string;
+  nameEn: string;
+  type: 'PROVINCE' | 'DISTRICT';
+  parentId: string | null;
 }
 
 // Dashboard types

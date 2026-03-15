@@ -30,7 +30,7 @@ import { useCoinRates } from '@/hooks/useCoinRates';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { CoinPurchaseModal } from '@/components/modals';
-// import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
+import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 
 interface BroadcastChatWindowProps {
   onChatCreated?: (chatId: string) => void;
@@ -113,19 +113,20 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       console.log('✅ [BroadcastChatWindow] Broadcast message sent successfully');
       setMessages((prev) => [...prev, message]); // Add new message at the end (bottom)
       setIsSending(false);
-      // Start waiting for acceptance - modal should stay open
       setIsWaitingForAcceptance(true);
 
-      // Invalidate coin balance query to reflect real-time deduction
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
 
-      // Re-check active chat status after sending (in case this creates an active conversation)
       checkActiveChat();
 
-      // Auto-scroll to bottom to show new message
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
+
+      toast.success('Message request sent to all online Jyotish.', {
+        description: 'Waiting for an astrologer to accept...',
+        duration: 4000,
+      });
     });
 
     socket.on(
@@ -609,14 +610,14 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       />
 
       {/* Jyotish Matching Modal - Show only while waiting for acceptance */}
-      {/* {isWaitingForAcceptance && pendingMessage && (
+      {isWaitingForAcceptance && pendingMessage && (
         <JyotishMatchingModal
           isOpen={isWaitingForAcceptance && !!pendingMessage}
           timeRemaining={getTimeRemaining(pendingMessage)}
           title="Searching for Available Jyotish"
           subtitle="Your message has been broadcasted. Waiting for an astrologer to accept..."
         />
-      )} */}
+      )}
     </div>
   );
 }

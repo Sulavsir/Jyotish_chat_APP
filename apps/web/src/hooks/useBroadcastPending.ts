@@ -109,10 +109,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       setIsWaitingForAcceptance(true);
       setPendingMessage(msg);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      toast.success('Message request sent to all online Jyotish.', {
-        description: 'Waiting for an astrologer to accept...',
-        duration: 4000,
-      });
+      // Toast is shown from the component that initiates the request (to avoid duplicates)
     });
 
     socket.on(
@@ -125,10 +122,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
         setIsSending(false);
         setIsWaitingForAcceptance(false);
         setPendingMessage(null);
-        toast.success(
-          `${data.astrologer?.name || 'An astrologer'} accepted your request! Opening chat...`,
-          { description: 'You can now start chatting with your astrologer', duration: 3000 }
-        );
+        // Toast is shown from the consumer (BroadcastChatWindow / RequestInstantChatButton) to avoid duplicate toasts
         if (options.onAccepted) {
           options.onAccepted(data);
         } else {

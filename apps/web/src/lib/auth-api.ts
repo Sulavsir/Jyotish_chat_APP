@@ -173,6 +173,10 @@ export const authApi = {
     dateOfBirth?: string;
     timeOfBirth?: string;
     placeOfBirth?: string;
+    placeOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+    placeOfBirthPradeshId?: string | null;
+    placeOfBirthDistrictId?: string | null;
+    placeOfBirthLocation?: string | null;
     currentAddress?: string;
     permanentAddress?: string;
     gender?: GenderType;

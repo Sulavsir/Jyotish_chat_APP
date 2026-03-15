@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogDescription,
   Button,
-  Input,
   Label,
   LoadingButton,
   DateInput,
@@ -26,6 +25,11 @@ import kundaliMatchService, {
 } from '@/services/kundaliMatch.service';
 import { QUERY_KEYS } from '@/constants';
 import { showErrorToast } from '@/lib/error-handler';
+import {
+  PlaceOfBirthField,
+  buildPlaceOfBirthString,
+  type PlaceOfBirthFieldValue,
+} from '@/components/form/PlaceOfBirthField';
 
 interface KundaliMatchModalProps {
   isOpen: boolean;
@@ -33,18 +37,38 @@ interface KundaliMatchModalProps {
   onSuccess?: () => void;
 }
 
+const emptyPobValue: PlaceOfBirthFieldValue = {
+  placeOfBirthType: null,
+  placeOfBirthPradeshId: null,
+  placeOfBirthDistrictId: null,
+  placeOfBirthLocation: null,
+  placeOfBirth: null,
+  placeOfBirthPradeshName: null,
+  placeOfBirthDistrictName: null,
+};
+
 const emptyForm: CreateKundaliMatchRequestBody = {
   boyDateOfBirth: '',
   boyTimeOfBirth: '',
-  boyPlaceOfBirth: '',
+  boyPlaceOfBirthType: 'OUTSIDE_NEPAL',
+  boyPlaceOfBirthPradeshId: null,
+  boyPlaceOfBirthDistrictId: null,
+  boyPlaceOfBirthLocation: null,
+  boyPlaceOfBirth: null,
   girlDateOfBirth: '',
   girlTimeOfBirth: '',
-  girlPlaceOfBirth: '',
+  girlPlaceOfBirthType: 'OUTSIDE_NEPAL',
+  girlPlaceOfBirthPradeshId: null,
+  girlPlaceOfBirthDistrictId: null,
+  girlPlaceOfBirthLocation: null,
+  girlPlaceOfBirth: null,
 };
 
 export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchModalProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<CreateKundaliMatchRequestBody>(emptyForm);
+  const [boyPob, setBoyPob] = useState<PlaceOfBirthFieldValue>(emptyPobValue);
+  const [girlPob, setGirlPob] = useState<PlaceOfBirthFieldValue>(emptyPobValue);
 
   const { rates } = useCoinRates(isOpen);
   const coinCost = rates?.KUNDALI_MATCH ?? 300;
@@ -61,6 +85,8 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.KUNDALI_MATCH.ALL });
       toast.success(data.message);
       setForm(emptyForm);
+      setBoyPob(emptyPobValue);
+      setGirlPob(emptyPobValue);
       onSuccess?.();
       onClose();
     },
@@ -68,15 +94,17 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
   });
 
   const handleSubmit = () => {
+    const boyPlaceOfBirthStr = buildPlaceOfBirthString(boyPob);
+    const girlPlaceOfBirthStr = buildPlaceOfBirthString(girlPob);
     if (
       !form.boyDateOfBirth ||
       !form.boyTimeOfBirth?.trim() ||
-      !form.boyPlaceOfBirth?.trim() ||
+      !boyPlaceOfBirthStr?.trim() ||
       !form.girlDateOfBirth ||
       !form.girlTimeOfBirth?.trim() ||
-      !form.girlPlaceOfBirth?.trim()
+      !girlPlaceOfBirthStr?.trim()
     ) {
-      toast.error('Please fill all birth details for both boy and girl.');
+      toast.error('Please fill all birth details for both boy and girl (including place of birth).');
       return;
     }
     if (coinCost > 0 && coinBalance < coinCost) {
@@ -85,10 +113,26 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
       );
       return;
     }
-    createMutation.mutate(form);
+    const payload: CreateKundaliMatchRequestBody = {
+      boyDateOfBirth: form.boyDateOfBirth,
+      boyTimeOfBirth: form.boyTimeOfBirth.trim(),
+      boyPlaceOfBirthType: boyPob.placeOfBirthType ?? 'OUTSIDE_NEPAL',
+      boyPlaceOfBirthPradeshId: boyPob.placeOfBirthPradeshId ?? null,
+      boyPlaceOfBirthDistrictId: boyPob.placeOfBirthDistrictId ?? null,
+      boyPlaceOfBirthLocation: boyPob.placeOfBirthLocation ?? null,
+      boyPlaceOfBirth: boyPob.placeOfBirth ?? null,
+      girlDateOfBirth: form.girlDateOfBirth,
+      girlTimeOfBirth: form.girlTimeOfBirth.trim(),
+      girlPlaceOfBirthType: girlPob.placeOfBirthType ?? 'OUTSIDE_NEPAL',
+      girlPlaceOfBirthPradeshId: girlPob.placeOfBirthPradeshId ?? null,
+      girlPlaceOfBirthDistrictId: girlPob.placeOfBirthDistrictId ?? null,
+      girlPlaceOfBirthLocation: girlPob.placeOfBirthLocation ?? null,
+      girlPlaceOfBirth: girlPob.placeOfBirth ?? null,
+    };
+    createMutation.mutate(payload);
   };
 
-  const update = (field: keyof CreateKundaliMatchRequestBody, value: string) => {
+  const update = (field: 'boyDateOfBirth' | 'boyTimeOfBirth' | 'girlDateOfBirth' | 'girlTimeOfBirth', value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -126,6 +170,7 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
                     value={form.boyDateOfBirth}
                     onChange={(e) => update('boyDateOfBirth', e.target.value)}
                     className="bg-white/5 border-white/20 text-white mt-1"
+                    nepaliDate
                   />
                 </div>
                 <div>
@@ -136,15 +181,12 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
                     className="bg-white/5 border-white/20 text-white mt-1"
                   />
                 </div>
-                <div>
-                  <Label className="text-white/80 text-xs">Place of birth</Label>
-                  <Input
-                    placeholder="City, Country"
-                    value={form.boyPlaceOfBirth}
-                    onChange={(e) => update('boyPlaceOfBirth', e.target.value)}
-                    className="bg-white/5 border-white/20 text-white mt-1"
-                  />
-                </div>
+                <PlaceOfBirthField
+                  label="Place of birth"
+                  value={boyPob}
+                  onChange={setBoyPob}
+                  inputClassName="bg-white/5 border-white/20 text-white mt-1"
+                />
               </div>
             </div>
 
@@ -162,6 +204,7 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
                     value={form.girlDateOfBirth}
                     onChange={(e) => update('girlDateOfBirth', e.target.value)}
                     className="bg-white/5 border-white/20 text-white mt-1"
+                    nepaliDate
                   />
                 </div>
                 <div>
@@ -172,15 +215,12 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
                     className="bg-white/5 border-white/20 text-white mt-1"
                   />
                 </div>
-                <div>
-                  <Label className="text-white/80 text-xs">Place of birth</Label>
-                  <Input
-                    placeholder="City, Country"
-                    value={form.girlPlaceOfBirth}
-                    onChange={(e) => update('girlPlaceOfBirth', e.target.value)}
-                    className="bg-white/5 border-white/20 text-white mt-1"
-                  />
-                </div>
+                <PlaceOfBirthField
+                  label="Place of birth"
+                  value={girlPob}
+                  onChange={setGirlPob}
+                  inputClassName="bg-white/5 border-white/20 text-white mt-1"
+                />
               </div>
             </div>
           </div>
@@ -198,10 +238,10 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
                 (coinCost > 0 && coinBalance < coinCost) ||
                 !form.boyDateOfBirth ||
                 !form.boyTimeOfBirth?.trim() ||
-                !form.boyPlaceOfBirth?.trim() ||
+                !buildPlaceOfBirthString(boyPob)?.trim() ||
                 !form.girlDateOfBirth ||
                 !form.girlTimeOfBirth?.trim() ||
-                !form.girlPlaceOfBirth?.trim()
+                !buildPlaceOfBirthString(girlPob)?.trim()
               }
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >

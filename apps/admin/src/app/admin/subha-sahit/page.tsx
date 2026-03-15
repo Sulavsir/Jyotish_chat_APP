@@ -233,6 +233,7 @@ export default function SubhaSahitPage() {
                 setPage(1);
               }}
               className="bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
+              nepaliDate
             />
           </div>
           <div className="space-y-1.5">
@@ -244,6 +245,7 @@ export default function SubhaSahitPage() {
                 setPage(1);
               }}
               className="bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
+              nepaliDate
             />
           </div>
           <div className="space-y-1.5">
