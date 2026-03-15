@@ -66,42 +66,71 @@ app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
 // Initialize Socket.io with network access
-// Function to check if origin is allowed
-const isOriginAllowed = (origin: string | undefined): boolean => {
-  if (!origin) {
-    return true; // Allow requests with no origin (like mobile apps)
-  }
+const normalizeOrigin = (raw: string): string => raw.trim().replace(/\/+$/, '');
 
-  // In development, allow all localhost and local network origins
-  if (process.env.NODE_ENV !== 'production') {
-    // Allow localhost on any port
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+// Build allowed origins list once (normalized, no duplicates)
+const getAllowedOrigins = (): string[] => {
+  const corsOrigin = process.env.CORS_ORIGIN || '';
+  const list = corsOrigin
+    .split(',')
+    .map((url) => normalizeOrigin(url))
+    .filter(Boolean);
+  const set = new Set(list);
+  if (process.env.FRONTEND_URL) {
+    set.add(normalizeOrigin(process.env.FRONTEND_URL));
+  }
+  return Array.from(set);
+};
+
+let cachedAllowedOrigins: string[] | null = null;
+const getAllowedOriginsCached = (): string[] => {
+  if (cachedAllowedOrigins === null) {
+    cachedAllowedOrigins = getAllowedOrigins();
+  }
+  return cachedAllowedOrigins;
+};
+
+const debugCors = process.env.DEBUG_CORS === '1' || process.env.DEBUG_CORS === 'true';
+
+const allowEmptyOrigin =
+  process.env.NODE_ENV !== 'production' || process.env.CORS_ALLOW_EMPTY_ORIGIN !== '0';
+
+// Function to check if origin is allowed. Production: only origins in CORS_ORIGIN are allowed.
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  const hasOrigin = origin && origin !== 'null';
+
+  if (!hasOrigin) {
+    if (allowEmptyOrigin) {
       return true;
     }
+    if (debugCors) {
+      console.warn('[CORS] Rejected request with no Origin (production strict mode)');
+    }
+    return false;
+  }
 
-    // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (process.env.NODE_ENV !== 'production') {
+    if (normalizedOrigin.includes('localhost') || normalizedOrigin.includes('127.0.0.1')) {
+      return true;
+    }
     if (
-      origin.match(/^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}/) ||
-      origin.match(/^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}/) ||
-      origin.match(/^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}/)
+      /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}/.test(normalizedOrigin) ||
+      /^https?:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(normalizedOrigin) ||
+      /^https?:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}/.test(normalizedOrigin)
     ) {
       return true;
     }
   }
 
+  const allowedOrigins = getAllowedOriginsCached();
+  const isAllowed = allowedOrigins.length > 0 && allowedOrigins.includes(normalizedOrigin);
 
-  const corsOrigin = process.env.CORS_ORIGIN || '';
-  const allowedOrigins = corsOrigin
-    .split(',')
-    .map((url) => url.trim())
-    .filter(Boolean);
-
-  // Also add FRONTEND_URL if set (for backward compatibility)
-  if (process.env.FRONTEND_URL) {
-    allowedOrigins.push(process.env.FRONTEND_URL.trim());
+  if (debugCors && !isAllowed) {
+    console.warn('[CORS] Rejected origin:', normalizedOrigin, '| Allowed:', allowedOrigins);
   }
 
-  const isAllowed = allowedOrigins.includes(origin);
   return isAllowed;
 };
 
