@@ -125,6 +125,7 @@ export interface ChatInputProps {
   onFocus?: () => void;
   disabled?: boolean;
   placeholder?: string;
-  /** When 'jyotish', uses dark-theme input styling */
   variant?: 'default' | 'jyotish';
+  initialValue?: string;
+  onChangeMessage?: (value: string) => void;
 }

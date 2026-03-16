@@ -56,6 +56,7 @@ export const ADMIN_ROUTES = {
   
   // Earnings
   EARNINGS: '/admin/earnings',
+  TRANSACTIONS: '/admin/transactions',
 
   // Balance Settings (set NRs for chat, broadcast, appointment)
   SET_COINS: '/admin/set-balance',

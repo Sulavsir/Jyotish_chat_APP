@@ -341,7 +341,13 @@ export const adminApi = {
 
     approveRegistration: async (
       id: string,
-      data: { category: string; appointmentFee?: number; chatMessageFee?: number; commissionRate?: number }
+      data: {
+        category: string;
+        appointmentFee?: number;
+        chatMessageFee?: number;
+        commissionRate?: number;
+        inhouseAstrologer?: boolean;
+      }
     ) => {
       const response = await apiClient.post(
         API_ENDPOINTS.ASTROLOGERS.APPROVE_REGISTRATION(id),
@@ -832,6 +838,42 @@ export const adminApi = {
     },
     cancel: async (id: string, data?: CancelAppointmentPayload): Promise<Appointment> => {
       return apiClient.post<Appointment>(API_ENDPOINTS.APPOINTMENTS.CANCEL(id), data ?? {});
+    },
+  },
+
+  transactions: {
+    list: async (params?: { page?: number; limit?: number }) => {
+      const response = await apiClient.get(
+        API_ENDPOINTS.EARNINGS.LIST.replace('/earnings', '/coin-transactions'),
+        { params }
+      );
+      return response as {
+        transactions: {
+          id: string;
+          userId: string;
+          amount: number;
+          type: 'DEDUCT' | 'ADD' | 'REFUND';
+          reason: string;
+          balanceBefore: number;
+          balanceAfter: number;
+          chatId?: string | null;
+          paymentId?: string | null;
+          adminId?: string | null;
+          createdAt: string;
+          user?: {
+            id: string;
+            name: string | null;
+            email: string | null;
+            phone: string;
+          } | null;
+        }[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      };
     },
   },
 

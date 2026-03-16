@@ -25,6 +25,7 @@ import {
   ChatStatus,
   AppointmentStatus,
   ComplaintStatus,
+  CoinTransactionReason as DbCoinTransactionReason,
 } from '@jyotish/database';
 import { KundaliMatchStatus } from '@prisma/client';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
@@ -248,6 +249,10 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
     const commissionRate = req.body.commissionRate ? parseFloat(req.body.commissionRate) : 0;
     const appointmentFee = req.body.appointmentFee ? parseFloat(req.body.appointmentFee) : null;
     const chatMessageFee = req.body.chatMessageFee ? parseFloat(req.body.chatMessageFee) : null;
+    const inhouseAstrologer =
+      req.body.inhouseAstrologer === true ||
+      req.body.inhouseAstrologer === 'true' ||
+      req.body.inhouseAstrologer === '1';
 
     const astrologer = await astrologerService.create({
       ...req.body,
@@ -258,6 +263,7 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
       createdBy: adminId,
       proofOfAstrology,
       profilePhoto: profilePhoto ?? undefined,
+      inhouseAstrologer,
     });
 
     // Emit real-time stats update to admin
@@ -481,13 +487,18 @@ export async function approveRegistration(
   try {
     const { id } = req.params;
     const adminId = req.user!.id;
-    const { category, appointmentFee, chatMessageFee, commissionRate } = req.body;
+    const { category, appointmentFee, chatMessageFee, commissionRate, inhouseAstrologer } =
+      req.body;
 
     const astrologer = await astrologerService.approveRegistration(id, adminId, {
       category,
       appointmentFee: appointmentFee ? parseFloat(appointmentFee) : null,
       chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : null,
       commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
+      inhouseAstrologer:
+        inhouseAstrologer === true ||
+        inhouseAstrologer === 'true' ||
+        inhouseAstrologer === '1',
     });
 
     // Log audit event
@@ -502,6 +513,7 @@ export async function approveRegistration(
         appointmentFee,
         chatMessageFee,
         commissionRate,
+        inhouseAstrologer,
       },
       ipAddress: getClientIp(req),
       userAgent: req.get('user-agent'),
@@ -609,8 +621,31 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
       prisma.user.count({ where }),
     ]);
 
+    // Compute total balance loaded per user (sum of ADD/PAYMENT_SUCCESS coin transactions)
+    const userIds = users.map((u) => u.id);
+    const loads =
+      userIds.length > 0
+        ? await prisma.coinTransaction.groupBy({
+            by: ['userId'],
+            where: {
+              userId: { in: userIds },
+              type: 'ADD',
+              reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
+            },
+            _sum: { amount: true },
+          })
+        : [];
+    const loadMap = new Map<string, number>(
+      loads.map((l) => [l.userId, l._sum.amount ?? 0])
+    );
+
+    const usersWithTotals = users.map((u) => ({
+      ...u,
+      totalBalanceLoaded: loadMap.get(u.id) ?? 0,
+    }));
+
     return sendSuccess(res, {
-      users,
+      users: usersWithTotals,
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
@@ -1265,6 +1300,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       todayConsultations,
       newUsersToday,
       todayEarnings,
+      platformTotalLoaded,
+      platformTodayLoaded,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'CLIENT' } }),
       prisma.astrologer.count({
@@ -1305,6 +1342,19 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
           },
         },
       }),
+      prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { status: 'SUCCESS' },
+      }),
+      prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'SUCCESS',
+          createdAt: {
+            gte: today,
+          },
+        },
+      }),
     ]);
 
     const stats = {
@@ -1316,6 +1366,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       todayConsultations,
       newUsersToday,
       todayEarnings: todayEarnings._sum.amount || 0,
+      platformTotalLoaded: platformTotalLoaded._sum.amount || 0,
+      platformTodayLoaded: platformTodayLoaded._sum.amount || 0,
     };
 
     return sendSuccess(res, { stats });
@@ -1359,6 +1411,51 @@ export async function listAstrologersWithCoinEarnings(
       search: query.search,
     });
     return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get platform coin transactions (admin view)
+ * GET /api/v1/admin/coin-transactions
+ */
+export async function getPlatformTransactions(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { page = '1', limit = '20' } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [transactions, total] = await Promise.all([
+      prisma.coinTransaction.findMany({
+        skip,
+        take: limitNum,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.coinTransaction.count(),
+    ]);
+
+    return sendSuccess(res, {
+      transactions,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
   } catch (error) {
     next(error);
   }

@@ -101,6 +101,7 @@ export const createAstrologerSchema = z.object({
     .array(z.string())
     .optional()
     .default([]),
+  inhouseAstrologer: z.boolean().optional().default(false),
 
   // Additional Information
   bio: z
@@ -138,6 +139,7 @@ export const updateAstrologerFormSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   country: z.string().max(100).optional().nullable(),
+  inhouseAstrologer: z.boolean().optional(),
 });
 
 export type UpdateAstrologerFormData = z.infer<typeof updateAstrologerFormSchema>;

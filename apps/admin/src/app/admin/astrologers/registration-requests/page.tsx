@@ -61,6 +61,7 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
   const [commissionRate, setCommissionRate] = useState<string>('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inhouseAstrologer, setInhouseAstrologer] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +74,7 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
           appointmentFee: appointmentFee ? parseFloat(appointmentFee) : undefined,
           chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : undefined,
           commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
+          inhouseAstrologer,
         });
         toast.success('Registration approved successfully');
       } else {
@@ -169,6 +171,21 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
                     placeholder="e.g., 20.0"
                     className="w-full px-4 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    In-house astrologer? <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={inhouseAstrologer ? 'yes' : 'no'}
+                    onChange={(e) => setInhouseAstrologer(e.target.value === 'yes')}
+                    className="w-full px-4 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
                 </div>
               </>
             ) : (

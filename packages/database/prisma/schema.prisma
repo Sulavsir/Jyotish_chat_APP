@@ -150,6 +150,7 @@ model Astrologer {
   gender                       Gender?
   country                      String?
   createdBy                    String // Admin ID who created this astrologer (or "SELF_REGISTERED" for self-registrations)
+  inhouseAstrologer            Boolean               @default(false) // Only in-house astrologers can accept free broadcast questions
   createdAt                    DateTime              @default(now())
   updatedAt                    DateTime              @updatedAt
   consultationsAsAstrologer    Consultation[]        @relation("AstrologerConsultations")

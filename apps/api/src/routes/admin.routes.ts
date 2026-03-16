@@ -262,6 +262,13 @@ router.post(
   adminController.markEarningPaid
 );
 
+// ==================== Platform Coin Transactions ====================
+router.get(
+  '/coin-transactions',
+  validateQuery(queryPaginationSchema),
+  asyncHandler(adminController.getPlatformTransactions)
+);
+
 // ==================== Sidebar Counts (for badges) ====================
 router.get('/sidebar-counts', asyncHandler(adminController.getSidebarCounts));
 

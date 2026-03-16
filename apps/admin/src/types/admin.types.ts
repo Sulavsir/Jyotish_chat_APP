@@ -25,6 +25,7 @@ export interface Astrologer {
   isActive: boolean;
   isOnline: boolean;
   commissionRate: number;
+   inhouseAstrologer: boolean;
   bio?: string | null;
   address?: string | null;
   languages?: string[];
@@ -46,6 +47,7 @@ export interface User {
   profilePhoto?: string;
   dateOfBirth?: string;
   coins?: number;
+  totalBalanceLoaded?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -172,6 +174,8 @@ export interface DashboardStats {
   todayConsultations: number;
   newUsersToday: number;
   todayEarnings: number;
+  platformTotalLoaded: number;
+  platformTodayLoaded: number;
 }
 
 // Form Types

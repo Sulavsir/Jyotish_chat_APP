@@ -112,6 +112,7 @@ export default function EditAstrologerPage() {
       gender: data.gender ?? null,
       address: data.address ?? null,
       country: data.country ?? null,
+      inhouseAstrologer: (data as any).inhouseAstrologer ?? false,
     });
   }, [data, form]);
 
@@ -667,6 +668,31 @@ export default function EditAstrologerPage() {
                       />
                     </FormControl>
                     <FormDescription>Optional address (city, region, country)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="inhouseAstrologer"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>In-house astrologer?</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        value={field.value ? 'yes' : 'no'}
+                        onChange={(e) => field.onChange(e.target.value === 'yes')}
+                        className="w-full px-3 py-2 bg-slate-800 text-white border border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </FormControl>
+                    <FormDescription>
+                      Only in-house astrologers can accept broadcast requests.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

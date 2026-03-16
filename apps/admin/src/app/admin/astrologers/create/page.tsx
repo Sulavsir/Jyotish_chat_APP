@@ -63,6 +63,7 @@ export default function CreateAstrologerPage() {
       bio: '',
       address: '',
       country: null,
+      inhouseAstrologer: false,
     },
   });
 
@@ -97,6 +98,9 @@ export default function CreateAstrologerPage() {
       if (data.country) {
         formData.append('country', data.country);
       }
+
+      // In-house flag
+      formData.append('inhouseAstrologer', data.inhouseAstrologer ? 'true' : 'false');
 
       // Add arrays
       const specialization = Array.isArray(data.specialization) ? data.specialization : [];
@@ -519,6 +523,30 @@ export default function CreateAstrologerPage() {
                           />
                         </FormControl>
                         <FormDescription>Comma-separated list (optional)</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="inhouseAstrologer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>In-house astrologer?</FormLabel>
+                        <FormControl>
+                          <select
+                            value={field.value ? 'yes' : 'no'}
+                            onChange={(e) => field.onChange(e.target.value === 'yes')}
+                            className="w-full px-3 py-2 bg-slate-800 text-white border border-slate-700 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          >
+                            <option value="no">No</option>
+                            <option value="yes">Yes</option>
+                          </select>
+                        </FormControl>
+                        <FormDescription>
+                          Only in-house astrologers can accept free broadcast questions.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

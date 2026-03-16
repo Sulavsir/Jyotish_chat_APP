@@ -41,6 +41,7 @@ export default function JyotishChatPage() {
   const [totalChats, setTotalChats] = useState(0);
   const initializedRef = useRef(false);
   const currentOtherUserId = useRef<string | null>(null);
+  const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
 
   const { sendMessage, sendTypingIndicator, isConnected, socket } = useSocket();
   const chatMessages = useStore((state) => state.messages);
@@ -663,6 +664,13 @@ export default function JyotishChatPage() {
 
     if (!success) {
       toast.error('Failed to send message. Please check your connection.');
+    } else if (activeChat.id) {
+      // Clear draft for this chat after successful send
+      setChatDrafts((prev) => {
+        const next = { ...prev };
+        delete next[activeChat.id];
+        return next;
+      });
     }
 
     // Don't add optimistically - let WebSocket handle it
@@ -676,6 +684,21 @@ export default function JyotishChatPage() {
     const otherUser = activeChat.clientParticipant;
 
     sendTypingIndicator(otherUser.id, isTyping);
+  };
+
+  const getDraftForChat = (chatId: string | null): string =>
+    chatId && chatDrafts[chatId] ? chatDrafts[chatId] : '';
+
+  const handleDraftChange = (value: string) => {
+    if (!activeChatId) return;
+    setChatDrafts((prev) => {
+      if (!value.trim()) {
+        const next = { ...prev };
+        delete next[activeChatId];
+        return next;
+      }
+      return { ...prev, [activeChatId]: value };
+    });
   };
 
   // Handle input focus - mark messages as read
@@ -794,6 +817,8 @@ export default function JyotishChatPage() {
                 hasMore={hasMore}
                 isConnected={isConnected}
                 emptyStateTheme="dark"
+                draftValue={getDraftForChat(activeChatId)}
+                onDraftChange={handleDraftChange}
               />
             </div>
           </div>

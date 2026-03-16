@@ -158,6 +158,17 @@ export default function UsersPage() {
       ),
     },
     {
+      header: 'Total Balance Loaded (NRs)',
+      accessor: (user) => (
+        <div className="flex items-center gap-2">
+          <Banknote className="h-4 w-4 text-blue-400" />
+          <span className="text-blue-400 font-semibold">
+            NRs {Number(user.totalBalanceLoaded ?? 0).toLocaleString()}
+          </span>
+        </div>
+      ),
+    },
+    {
       header: 'Actions',
       accessor: (user) => (
         <div className="flex gap-2">

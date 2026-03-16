@@ -387,6 +387,7 @@ export const approveAstrologerRegistrationSchema = z.object({
     .min(0)
     .max(100, 'Commission rate must be between 0 and 100')
     .optional(),
+  inhouseAstrologer: z.boolean().optional().default(false),
 });
 
 export const rejectAstrologerRegistrationSchema = z.object({

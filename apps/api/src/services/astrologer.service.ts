@@ -40,6 +40,7 @@ export class AstrologerService {
         isOnline: true,
         isVerified: true,
         commissionRate: true,
+        inhouseAstrologer: true,
         languages: true,
         gender: true,
         country: true,
@@ -78,6 +79,7 @@ export class AstrologerService {
         isOnline: true,
         isVerified: true,
         commissionRate: true,
+        inhouseAstrologer: true,
         languages: true,
         gender: true,
         country: true,
@@ -113,6 +115,7 @@ export class AstrologerService {
         isOnline: true,
         isVerified: true,
         commissionRate: true,
+        inhouseAstrologer: true,
         languages: true,
         gender: true,
         country: true,
@@ -151,6 +154,7 @@ export class AstrologerService {
     chatMessageFee?: number | null;
     commissionRate: number;
     languages: string[];
+    inhouseAstrologer?: boolean;
     gender?: Gender;
     country?: string | null;
     createdBy: string; // Admin ID
@@ -216,6 +220,7 @@ export class AstrologerService {
         chatMessageFee: data.chatMessageFee ?? null,
         commissionRate: data.commissionRate,
         languages: data.languages,
+        inhouseAstrologer: data.inhouseAstrologer ?? false,
         gender: data.gender ?? null,
         country: data.country ?? null,
         createdBy: data.createdBy,
@@ -438,6 +443,7 @@ export class AstrologerService {
       appointmentFee?: number | null;
       proofOfAstrology?: string | null;
       chatMessageFee?: number | null;
+      inhouseAstrologer?: boolean;
     }
   ) {
     const astrologer = await prisma.astrologer.update({
@@ -462,6 +468,7 @@ export class AstrologerService {
         isOnline: true,
         isVerified: true,
         commissionRate: true,
+        inhouseAstrologer: true,
         languages: true,
         gender: true,
         country: true,
@@ -581,6 +588,7 @@ export class AstrologerService {
           isOnline: true,
           isVerified: true,
           commissionRate: true,
+          inhouseAstrologer: true,
           languages: true,
           gender: true,
           country: true,
@@ -861,6 +869,7 @@ cle   * Get all pending registration requests with pagination and search
       appointmentFee?: number | null;
       chatMessageFee?: number | null;
       commissionRate?: number;
+      inhouseAstrologer?: boolean;
     }
   ) {
     const astrologer = await prisma.astrologer.findFirst({
@@ -898,6 +907,7 @@ cle   * Get all pending registration requests with pagination and search
         appointmentFee: data.appointmentFee ?? null,
         chatMessageFee: data.chatMessageFee ?? null,
         commissionRate: data.commissionRate ?? 0.0,
+        inhouseAstrologer: data.inhouseAstrologer ?? false,
       },
       select: {
         id: true,

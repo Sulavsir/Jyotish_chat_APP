@@ -53,14 +53,11 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         // Send confirmation to client
         socket.emit('broadcast:messageSent', message);
 
-        // Broadcast the new message to astrologers (excluding PREMIUM) in real-time
-        // Get only ORDINARY and PROFESSIONAL astrologers
+        // Broadcast the new message to eligible in-house astrologers in real-time
         const eligibleAstrologers = await prisma.astrologer.findMany({
           where: {
             isActive: true,
-            category: {
-              in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
-            },
+            inhouseAstrologer: true,
           },
           select: { id: true },
         });
@@ -123,6 +120,19 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         return;
       }
 
+      // Only in-house astrologers can accept broadcast messages
+      const astrologerRecord = await prisma.astrologer.findUnique({
+        where: { id: userId },
+        select: { inhouseAstrologer: true },
+      });
+
+      if (!astrologerRecord || !astrologerRecord.inhouseAstrologer) {
+        socket.emit('broadcast:error', {
+          message: 'Only in-house astrologers can accept broadcast messages',
+        });
+        return;
+      }
+
       const result = await broadcastMessageService.acceptBroadcastMessage({
         messageId: data.messageId,
         astrologerId: userId,
@@ -139,11 +149,11 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         initialMessages: result.initialMessages, // Include the auto-generated messages
       });
 
-      // Get other astrologers who are ORDINARY or PROFESSIONAL only (exclude PREMIUM and the acceptor)
+      // Get other in-house astrologers (exclude the acceptor)
       const otherEligibleAstrologers = await prisma.astrologer.findMany({
         where: {
           id: { not: userId },
-          category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] },
+          inhouseAstrologer: true,
         },
         select: { id: true },
       });

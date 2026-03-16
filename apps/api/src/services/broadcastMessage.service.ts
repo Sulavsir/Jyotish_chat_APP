@@ -167,14 +167,12 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   }
 
   // Check if there are any online astrologers available (exclude PREMIUM only)
-  // ORDINARY and PROFESSIONAL can accept broadcasts
+  // Only in-house astrologers can accept broadcasts
   const onlineAstrologers = await prisma.astrologer.count({
     where: {
       isActive: true,
       isOnline: true,
-      category: {
-        in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
-      },
+      inhouseAstrologer: true,
     },
   });
 
@@ -352,9 +350,7 @@ export async function createMultipleBroadcastMessages(
     where: {
       isActive: true,
       isOnline: true,
-      category: {
-        in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL],
-      },
+      inhouseAstrologer: true,
     },
   });
   if (onlineAstrologers === 0) {
@@ -582,15 +578,15 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     return [];
   }
 
-  // If astrologer ID is provided, check if they are PREMIUM
+  // If astrologer ID is provided, check if they are in-house and eligible
   if (astrologerId) {
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
-      select: { category: true },
+      select: { category: true, inhouseAstrologer: true },
     });
 
-    // PREMIUM astrologers should not see broadcast messages
-    if (astrologer?.category === AstrologerCategory.PREMIUM) {
+    // Only in-house astrologers may see broadcast messages
+    if (!astrologer?.inhouseAstrologer) {
       return [];
     }
   }
@@ -650,15 +646,15 @@ export async function getAllBroadcastMessages(astrologerId?: string) {
     return [];
   }
 
-  // If astrologer ID is provided, check if they are PREMIUM
+  // If astrologer ID is provided, check if they are in-house and eligible
   if (astrologerId) {
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
-      select: { category: true },
+      select: { category: true, inhouseAstrologer: true },
     });
 
-    // PREMIUM astrologers should not see broadcast messages
-    if (astrologer?.category === AstrologerCategory.PREMIUM) {
+    // Only in-house astrologers may see broadcast messages
+    if (!astrologer?.inhouseAstrologer) {
       return [];
     }
   }
@@ -750,7 +746,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   // Check if astrologer is PROFESSIONAL or PREMIUM - they cannot accept broadcast messages
   const astrologer = await prisma.astrologer.findUnique({
     where: { id: astrologerId },
-    select: { category: true, name: true },
+    select: { category: true, name: true, inhouseAstrologer: true },
   });
 
   if (!astrologer) {
@@ -761,8 +757,16 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     );
   }
 
-  // Only PREMIUM astrologers cannot accept broadcast messages
-  // PROFESSIONAL astrologers can accept broadcasts (1 coin per message)
+  // Only in-house astrologers can accept broadcast messages
+  if (!astrologer.inhouseAstrologer) {
+    throw new AppError(
+      'Only in-house astrologers can accept broadcast messages.',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // PREMIUM astrologers cannot accept broadcast messages (appointments only)
   if (astrologer.category === AstrologerCategory.PREMIUM) {
     throw new AppError(
       `${astrologer.name} is a Premium astrologer and only available through scheduled appointments. Please book an appointment to chat.`,

@@ -229,6 +229,18 @@ export default function DashboardPage() {
         icon: <MoneyIcon className="w-8 h-8 text-emerald-300" />,
         color: 'from-emerald-300 to-lime-400',
       },
+      {
+        title: 'Total Loaded (Platform)',
+        value: `Nrs.${stats.platformTotalLoaded}`,
+        icon: <MoneyIcon className="w-8 h-8 text-blue-300" />,
+        color: 'from-blue-300 to-indigo-400',
+      },
+      {
+        title: "Today's Loaded (Platform)",
+        value: `Nrs.${stats.platformTodayLoaded}`,
+        icon: <MoneyIcon className="w-8 h-8 text-teal-300" />,
+        color: 'from-teal-300 to-cyan-400',
+      },
     {
       title: 'Pending Payouts',
         value: `Nrs.${stats.pendingPayouts}`,

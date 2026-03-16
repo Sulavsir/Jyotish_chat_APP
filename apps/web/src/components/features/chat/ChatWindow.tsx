@@ -81,6 +81,10 @@ interface ChatWindowProps {
   onProfileChange?: (profileId: string) => void;
   /** Client only: family profiles for displaying current profile name */
   familyProfiles?: ClientProfile[];
+  /** Optional per-chat draft value (used for Jyotish chat to preserve input drafts) */
+  draftValue?: string;
+  /** Called whenever the input draft changes */
+  onDraftChange?: (value: string) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -103,6 +107,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   selectedProfileId = 'me',
   onProfileChange,
   familyProfiles = [],
+  draftValue,
+  onDraftChange,
 }) => {
   const isJyotish = variant === 'jyotish';
   const emptyStateDark = emptyStateTheme === 'dark';
@@ -897,6 +903,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   : 'Connecting to chat server...'
             }
             variant={isJyotish ? 'jyotish' : 'default'}
+            initialValue={draftValue ?? ''}
+            onChangeMessage={onDraftChange}
           />
         </>
       )}

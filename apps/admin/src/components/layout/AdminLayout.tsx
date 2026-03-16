@@ -466,6 +466,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
     {
       kind: 'link',
+      name: 'Transactions history',
+      href: ADMIN_ROUTES.TRANSACTIONS,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8c-1.657 0-3 .895-3 2 0 1.657 1.343 3 3 3s3 1.343 3 3-1.343 3-3 3m0-14V4m0 1V4m0 1a4 4 0 014 4m-4-4a4 4 0 00-4 4M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      kind: 'link',
       name: 'Balance Settings',
       href: ADMIN_ROUTES.SET_COINS,
       icon: (

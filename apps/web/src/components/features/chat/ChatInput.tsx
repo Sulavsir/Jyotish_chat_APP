@@ -19,14 +19,21 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   disabled = false,
   placeholder = 'Type a message...',
   variant = 'default',
+  initialValue = '',
+  onChangeMessage,
 }) => {
   const isJyotish = variant === 'jyotish';
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialValue);
   const [isTyping, setIsTyping] = useState(false);
   const [attachment, setAttachment] = useState<FileAttachment | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Keep local state in sync when initialValue changes (e.g. switching chats, restoring drafts)
+  useEffect(() => {
+    setMessage(initialValue);
+  }, [initialValue]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -37,7 +44,9 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [message]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
+    const value = e.target.value;
+    setMessage(value);
+    onChangeMessage?.(value);
 
     // Handle typing indicator
     if (!isTyping) {
@@ -116,6 +125,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       // If only attachment, send empty message (the UI will show the file)
       onSendMessage(trimmedMessage || '', attachment || undefined);
       setMessage('');
+      onChangeMessage?.('');
       setIsTyping(false);
       onTyping?.(false);
 
