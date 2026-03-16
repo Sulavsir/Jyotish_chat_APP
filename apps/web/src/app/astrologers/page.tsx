@@ -28,6 +28,13 @@ import {
   AvatarFallback,
   AvatarImage,
   Badge,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
 } from '@jyotish/ui';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { getImageUrl } from '@/utils/image.utils';
@@ -406,28 +413,66 @@ function AstrologersContent() {
             ))}
           </div>
 
-          {/* Pagination */}
+          {/* Pagination - admin-style */}
           {astrologersData?.pagination && astrologersData.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                onClick={() => handleFilterChange('page', (filters.page || 1) - 1)}
-                disabled={filters.page === 1}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10"
-              >
-                Previous
-              </Button>
-              <span className="text-white px-4">
-                Page {astrologersData.pagination.page} of {astrologersData.pagination.totalPages}
-              </span>
-              <Button
-                onClick={() => handleFilterChange('page', (filters.page || 1) + 1)}
-                disabled={!astrologersData.pagination.hasMore}
-                variant="outline"
-                className="border-white/20 text-white hover:bg-white/10"
-              >
-                Next
-              </Button>
+            <div className="mt-6 border-t border-white/10 pt-4">
+              <div className="flex flex-col items-center gap-2 text-sm text-gray-300 mb-3">
+                <div>
+                  Showing{' '}
+                  <span className="text-purple-400">
+                    {astrologersData.pagination.total === 0
+                      ? 0
+                      : (astrologersData.pagination.page - 1) * astrologersData.pagination.limit +
+                        1}
+                  </span>{' '}
+                  to{' '}
+                  <span className="text-purple-400">
+                    {Math.min(
+                      astrologersData.pagination.page * astrologersData.pagination.limit,
+                      astrologersData.pagination.total
+                    )}
+                  </span>{' '}
+                  of <span className="text-purple-400">{astrologersData.pagination.total}</span>{' '}
+                  astrologers
+                </div>
+              </div>
+
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        handleFilterChange('page', Math.max(1, (filters.page || 1) - 1))
+                      }
+                    />
+                  </PaginationItem>
+
+                  {Array.from(
+                    { length: astrologersData.pagination.totalPages },
+                    (_, i) => i + 1
+                  ).map((page) => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={page === (filters.page || 1)}
+                        onClick={() => handleFilterChange('page', page)}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        handleFilterChange(
+                          'page',
+                          Math.min(astrologersData.pagination.totalPages, (filters.page || 1) + 1)
+                        )
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
         </>

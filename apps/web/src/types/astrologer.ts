@@ -14,6 +14,7 @@ export interface PublicAstrologerProfile {
   email?: string | null;
   profilePhoto?: string | null;
   address?: string | null;
+  country?: string | null;
   bio?: string | null;
   category: AstrologerCategory;
   specialization?: string[];
