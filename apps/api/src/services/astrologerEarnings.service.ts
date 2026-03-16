@@ -237,7 +237,10 @@ export async function listAstrologersWithCoinEarnings(params: {
 
   const [astrologers, total] = await Promise.all([
     prisma.astrologer.findMany({
-      where,
+      where: {
+        ...where,
+        isDeleted: false,
+      },
       skip,
       take: limit,
       select: {
@@ -250,7 +253,12 @@ export async function listAstrologersWithCoinEarnings(params: {
       },
       orderBy: { name: 'asc' },
     }),
-    prisma.astrologer.count({ where }),
+    prisma.astrologer.count({
+      where: {
+        ...where,
+        isDeleted: false,
+      },
+    }),
   ]);
 
   const astrologerIds = astrologers.map((a) => a.id);

@@ -1267,7 +1267,11 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       todayEarnings,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'CLIENT' } }),
-      prisma.astrologer.count(),
+      prisma.astrologer.count({
+        where: {
+          isDeleted: false,
+        },
+      }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
       prisma.astrologerEarnings.aggregate({
         _sum: { amount: true },
@@ -2019,7 +2023,11 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
           createdAt: { gte: today },
         },
       }),
-      prisma.astrologer.count(),
+      prisma.astrologer.count({
+        where: {
+          isDeleted: false,
+        },
+      }),
       prisma.astrologer.count({
         where: {
           accountStatus: 'PENDING',

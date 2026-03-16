@@ -519,17 +519,29 @@ export function BroadcastMessageBar() {
                 <div className="mt-4 bg-white rounded-lg p-4 shadow-sm border border-purple-100 max-h-60 overflow-y-auto">
                   {questionCount > 1 ? (
                     <ul className="space-y-2 text-sm text-gray-700">
-                      {currentGroup.messages.map((msg, index) => (
-                        <li
-                          key={msg.id}
-                          className="flex items-start gap-2 rounded-md bg-purple-50 px-3 py-2 border border-purple-100"
-                        >
-                          <span className="mt-[2px] flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 text-[11px] font-semibold text-purple-700">
-                            {index + 1}
-                          </span>
-                          <p className="leading-relaxed">{msg.content}</p>
-                        </li>
-                      ))}
+                      {currentGroup.messages.map((msg, index) => {
+                        const isFirst = index === 0;
+                        const baseClasses =
+                          'flex items-start gap-2 rounded-md px-3 py-2 border transition-colors';
+                        const paletteClasses = isFirst
+                          ? 'bg-purple-50 border-purple-100'
+                          : 'bg-emerald-50 border-emerald-200';
+
+                        return (
+                          <li key={msg.id} className={`${baseClasses} ${paletteClasses}`}>
+                            <span
+                              className={`mt-[2px] flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                                isFirst
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {index + 1}
+                            </span>
+                            <p className="leading-relaxed">{msg.content}</p>
+                          </li>
+                        );
+                      })}
                     </ul>
                   ) : (
                     <p className="text-gray-700 text-sm leading-relaxed line-clamp-3">

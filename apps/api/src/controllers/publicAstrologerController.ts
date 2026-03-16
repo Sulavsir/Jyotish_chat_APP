@@ -85,6 +85,7 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
     // Build where clause
     const where: any = {
       isActive: true,
+      isDeleted: false,
     };
 
     if (category) {
@@ -190,11 +191,11 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
 export async function getAstrologerStats(req: Request, res: Response, next: NextFunction) {
   try {
     const [total, online, byCategory] = await Promise.all([
-      prisma.astrologer.count({ where: { isActive: true } }),
-      prisma.astrologer.count({ where: { isActive: true, isOnline: true } }),
+      prisma.astrologer.count({ where: { isActive: true, isDeleted: false } }),
+      prisma.astrologer.count({ where: { isActive: true, isOnline: true, isDeleted: false } }),
       prisma.astrologer.groupBy({
         by: ['category'],
-        where: { isActive: true },
+        where: { isActive: true, isDeleted: false },
         _count: true,
       }),
     ]);

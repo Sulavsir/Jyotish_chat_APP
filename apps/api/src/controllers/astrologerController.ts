@@ -333,6 +333,7 @@ export async function listAstrologers(req: AuthRequest, res: Response, next: Nex
 
     const where: any = {
       isActive: true,
+      isDeleted: false,
     };
 
     // Filter by online status (for chat)

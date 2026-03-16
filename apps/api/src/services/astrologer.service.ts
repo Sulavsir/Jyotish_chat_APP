@@ -556,7 +556,10 @@ export class AstrologerService {
 
     const [astrologers, total] = await Promise.all([
       prisma.astrologer.findMany({
-        where,
+        where: {
+          ...where,
+          isDeleted: false,
+        },
         skip,
         take: limit,
         select: {
@@ -587,7 +590,12 @@ export class AstrologerService {
         },
         orderBy: [{ name: 'asc' }],
       }),
-      prisma.astrologer.count({ where }),
+      prisma.astrologer.count({
+        where: {
+          ...where,
+          isDeleted: false,
+        },
+      }),
     ]);
 
     const astrologerIds = astrologers.map((a) => a.id);

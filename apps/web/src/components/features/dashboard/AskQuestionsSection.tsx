@@ -821,22 +821,40 @@ export function AskQuestionsSection() {
                     {t('selectQuestion')} (select one or more)
                   </label>
                   <div className="rounded-lg border border-gray-600 bg-white/5 max-h-[200px] overflow-y-auto p-2 space-y-1.5">
-                    {broadcastCategoryData.questions.map((question) => (
-                      <label
-                        key={question.id}
-                        className="flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/5 text-sm text-gray-200"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedBroadcastQuestionIds.includes(question.id)}
-                          onChange={(e) =>
-                            handleBroadcastQuestionToggle(question.id, e.target.checked)
-                          }
-                          className="mt-1 rounded border-gray-500 bg-slate-800 text-orange-500 focus:ring-orange-500"
-                        />
-                        <span className="flex-1">{question.text}</span>
-                      </label>
-                    ))}
+                    {broadcastCategoryData.questions.map((question) => {
+                      const isSelected = selectedBroadcastQuestionIds.includes(question.id);
+                      const selectedIndex = isSelected
+                        ? selectedBroadcastQuestionIds.indexOf(question.id)
+                        : -1;
+
+                      const baseLabelClasses =
+                        'flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-sm transition-colors';
+
+                      const paletteClasses = !isSelected
+                        ? 'text-gray-200 hover:bg-white/5'
+                        : selectedIndex === 0
+                          ? // First selected question (free) – keep current subtle style
+                            'text-gray-100 bg-white/10 border border-orange-400/40'
+                          : // Additional (payable) questions – highlight in green
+                            'text-emerald-50 bg-emerald-600/20 border border-emerald-400/60';
+
+                      return (
+                        <label
+                          key={question.id}
+                          className={`${baseLabelClasses} ${paletteClasses}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) =>
+                              handleBroadcastQuestionToggle(question.id, e.target.checked)
+                            }
+                            className="mt-1 rounded border-gray-500 bg-slate-800 text-orange-500 focus:ring-orange-500"
+                          />
+                          <span className="flex-1">{question.text}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                   {selectedCount > 0 && (
                     <div className="space-y-1.5">
