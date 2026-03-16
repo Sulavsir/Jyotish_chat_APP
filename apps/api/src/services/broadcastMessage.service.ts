@@ -10,6 +10,7 @@ import {
   AuditAction,
   BroadcastMessageStatus,
   ChatStatus,
+  PlatformCoinRateType,
 } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_ACCEPTANCE_LIMITS } from '../constants';
@@ -227,23 +228,38 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     }
   }
 
-  // First broadcast is free: if client has never used broadcast before, skip deduction once.
+  // First broadcast can have a discounted rate: if client has never used broadcast before,
+  // apply admin-configured percentage discount once. Subsequent broadcasts use full rate.
   const alreadyUsedBroadcast = await hasUserUsedBroadcast(data.clientId);
-  const isFirstFreeBroadcast = !alreadyUsedBroadcast;
+  const isFirstBroadcast = !alreadyUsedBroadcast;
 
-  if (!isFirstFreeBroadcast) {
-    // Check coin balance and deduct 1 coin upfront for broadcast message
-    try {
-      await deductCoinsForBroadcastMessage(data.clientId);
-    } catch (error: unknown) {
-      const err = error as { code?: string };
-      if (err.code === ERROR_CODES.INSUFFICIENT_COINS) {
-        throw new Error(
-          `Insufficient coins. Required: 1 coin to send a broadcast message. Available: ${clientProfile.coins} coins. Please top up your coins.`
-        );
+  try {
+    if (isFirstBroadcast) {
+      // Get base broadcast cost and admin-configured discount percentage
+      const [baseCost, discountPercent] = await Promise.all([
+        getRate('BROADCAST_SEND'),
+        getRate('FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType),
+      ]);
+
+      const clampedDiscount = Math.max(0, Math.min(100, discountPercent));
+      const effectiveCost =
+        clampedDiscount >= 100 ? 0 : Math.round((baseCost * (100 - clampedDiscount)) / 100);
+
+      if (effectiveCost > 0) {
+        await deductCoinsForBroadcastMessage(data.clientId, effectiveCost);
       }
-      throw error;
+      // If effectiveCost is 0, treat as free but still mark as first broadcast
+    } else {
+      await deductCoinsForBroadcastMessage(data.clientId);
     }
+  } catch (error: unknown) {
+    const err = error as { code?: string };
+    if (err.code === ERROR_CODES.INSUFFICIENT_COINS) {
+      throw new Error(
+        'Insufficient coins to send a broadcast message. Please top up your balance.'
+      );
+    }
+    throw error;
   }
 
   const baseMetadata: Record<string, unknown> =
@@ -258,7 +274,6 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       type: data.type || MessageType.TEXT,
       metadata: {
         ...baseMetadata,
-        ...(isFirstFreeBroadcast ? { freeTrial: true } : {}),
       } as Prisma.InputJsonValue,
       status: BroadcastMessageStatus.PENDING,
     },

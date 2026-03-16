@@ -290,7 +290,8 @@ export type PlatformCoinRateType =
   | 'APPOINTMENT'
   | 'KUNDALI_REVIEW'
   | 'KUNDALI_MATCH'
-  | 'COINS_PER_NPR';
+  | 'COINS_PER_NPR'
+  | 'FIRST_BROADCAST_DISCOUNT';
 
 export interface PlatformCoinRateRow {
   id: string;

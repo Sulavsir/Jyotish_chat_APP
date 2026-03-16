@@ -1265,6 +1265,7 @@ enum PlatformCoinRateType {
   KUNDALI_REVIEW
   KUNDALI_MATCH
   COINS_PER_NPR // Purchase rate: how many coins per NPR (e.g., 1 = 1 coin per NPR, 2 = 2 coins per NPR)
+  FIRST_BROADCAST_DISCOUNT
 }
 
 model PlatformCoinRate {

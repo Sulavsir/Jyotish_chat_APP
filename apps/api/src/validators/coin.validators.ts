@@ -63,6 +63,7 @@ export const transactionHistoryQuerySchema = z.object({
 });
 
 const coinRateValue = z.number().int().min(0).max(10000);
+const percentageValue = z.number().int().min(0).max(100);
 
 /**
  * Validator for admin updating platform coin rates
@@ -76,6 +77,7 @@ export const updatePlatformCoinRatesSchema = z
     KUNDALI_REVIEW: coinRateValue.optional(),
     KUNDALI_MATCH: coinRateValue.optional(),
     COINS_PER_NPR: coinRateValue.optional(),
+    FIRST_BROADCAST_DISCOUNT: percentageValue.optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: 'At least one rate must be provided',

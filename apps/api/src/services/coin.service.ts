@@ -338,16 +338,21 @@ export const deductCoinsForChat = async (params: CoinDeductionParams): Promise<C
 };
 
 /**
- * Deduct coins for creating a broadcast message (1 coin upfront)
+ * Deduct coins for creating a broadcast message.
+ * Optionally accepts an explicit coinCost (used for first-broadcast discounts).
  */
-export const deductCoinsForBroadcastMessage = async (userId: string): Promise<CoinBalance> => {
+export const deductCoinsForBroadcastMessage = async (
+  userId: string,
+  overrideCoinCost?: number
+): Promise<CoinBalance> => {
   const hasUnlimited = await hasActiveUnlimitedPlan(userId);
   if (hasUnlimited) {
     const balance = await getCoinBalance(userId);
     return { userId, balance };
   }
 
-  const coinCost = await getRate('BROADCAST_SEND');
+  const baseCost = await getRate('BROADCAST_SEND');
+  const coinCost = overrideCoinCost !== undefined ? overrideCoinCost : baseCost;
 
   // Get current balance
   const user = await prisma.user.findUnique({

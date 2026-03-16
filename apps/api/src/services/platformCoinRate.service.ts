@@ -25,6 +25,7 @@ export interface UpdatePlatformCoinRatesInput {
   KUNDALI_REVIEW?: number;
   KUNDALI_MATCH?: number;
   COINS_PER_NPR?: number;
+   FIRST_BROADCAST_DISCOUNT?: number;
 }
 
 /** All platform coin rate types (must match Prisma enum PlatformCoinRateType). */
@@ -36,6 +37,7 @@ const RATE_TYPES: PlatformCoinRateType[] = [
   'KUNDALI_REVIEW',
   'KUNDALI_MATCH',
   'COINS_PER_NPR' as PlatformCoinRateType,
+  'FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType,
 ];
 
 /**
@@ -56,6 +58,7 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
       KUNDALI_REVIEW: 500,
       KUNDALI_MATCH: 0,
       COINS_PER_NPR: 1,
+      FIRST_BROADCAST_DISCOUNT: 0,
     } as Record<PlatformCoinRateType, number>;
     return defaults[rateType] ?? 0;
   }
@@ -87,6 +90,7 @@ export async function getRatesForClient(): Promise<
     KUNDALI_REVIEW: kundaliReview,
     KUNDALI_MATCH: kundaliMatch,
     COINS_PER_NPR: coinsPerNpr,
+    FIRST_BROADCAST_DISCOUNT: await getRate('FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType),
   } as Record<PlatformCoinRateType, number>;
 }
 
@@ -107,6 +111,7 @@ export async function getAllRates(): Promise<PlatformCoinRateRow[]> {
     KUNDALI_REVIEW: 500,
     KUNDALI_MATCH: 0,
     COINS_PER_NPR: 1,
+    FIRST_BROADCAST_DISCOUNT: 0,
   } as Record<PlatformCoinRateType, number>;
   for (const rateType of RATE_TYPES) {
     if (!existing.has(rateType)) {

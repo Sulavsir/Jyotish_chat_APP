@@ -29,6 +29,7 @@ const RATE_LABELS: Partial<Record<PlatformCoinRateType, string>> = {
   BROADCAST_SEND: 'Broadcast send (per message)',
   KUNDALI_MATCH: 'Kundali Match',
   COINS_PER_NPR: 'NRs per NPR (Purchase Rate)',
+  FIRST_BROADCAST_DISCOUNT: 'First broadcast discount (%)',
 };
 
 export default function SetCoinsPage() {
@@ -42,6 +43,7 @@ export default function SetCoinsPage() {
     KUNDALI_REVIEW: '',
     KUNDALI_MATCH: '',
     COINS_PER_NPR: '',
+    FIRST_BROADCAST_DISCOUNT: '',
   });
 
   const { data: ratesData, isLoading, isError, error } = useQuery({
@@ -62,6 +64,7 @@ export default function SetCoinsPage() {
         KUNDALI_REVIEW: '',
         KUNDALI_MATCH: '',
         COINS_PER_NPR: '',
+        FIRST_BROADCAST_DISCOUNT: '',
       };
       rates.forEach((r: PlatformCoinRateRow) => {
         next[r.rateType] = String(r.coins);
