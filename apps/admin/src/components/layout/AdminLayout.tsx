@@ -51,6 +51,69 @@ type NavGroupItem = {
   children: NavChildLink[];
 };
 
+type SidebarBadgeKey =
+  | 'admin-chats'
+  | 'chat-monitor'
+  | 'chat-audit'
+  | 'complaints'
+  | 'appointments'
+  | 'kundali-match'
+  | 'users'
+  | 'astrologers-all'
+  | 'astrologer-registrations';
+
+type SidebarBadgeState = Partial<Record<SidebarBadgeKey, number>>;
+
+const SIDEBAR_BADGE_STORAGE_KEY = 'admin.sidebar.lastSeenBadges';
+
+function safelyParseSidebarBadgeState(raw: string | null): SidebarBadgeState {
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
+    }
+    const result: SidebarBadgeState = {} as SidebarBadgeState;
+    (Object.keys(parsed) as SidebarBadgeKey[]).forEach((key) => {
+      const value = (parsed as Record<string, unknown>)[key];
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        result[key] = value;
+      }
+    });
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function getSidebarBadgeKeyForRoute(href: string): SidebarBadgeKey | null {
+  switch (href) {
+    case ADMIN_ROUTES.ADMIN_CHATS:
+      return 'admin-chats';
+    case ADMIN_ROUTES.CHATS:
+      return 'chat-monitor';
+    case ADMIN_ROUTES.CHAT_AUDIT:
+      return 'chat-audit';
+    case ADMIN_ROUTES.COMPLAINTS:
+      return 'complaints';
+    case ADMIN_ROUTES.APPOINTMENTS:
+      return 'appointments';
+    case ADMIN_ROUTES.KUNDALI_MATCH:
+      return 'kundali-match';
+    case ADMIN_ROUTES.USERS:
+      return 'users';
+    case ADMIN_ROUTES.ASTROLOGERS:
+      return 'astrologers-all';
+    case ADMIN_ROUTES.ASTROLOGERS_REGISTRATION_REQUESTS:
+      return 'astrologer-registrations';
+    default:
+      return null;
+  }
+}
+
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -67,6 +130,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const scrollbarTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const { isConnected, isConnecting, error: socketError, on, off } = useAdminSocket();
 
+  const [badgeState, setBadgeState] = useState<SidebarBadgeState | null>(null);
+
   // Unread admin chat count (sidebar badge)
   const { data: unreadData } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.ADMIN_CHAT.UNREAD_COUNT(),
@@ -75,6 +140,104 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     staleTime: 10_000,
   });
   const unreadCount = unreadData?.count ?? 0;
+
+  // Sidebar counts (chat monitor, complaints, appointments, kundali match)
+  const { data: sidebarCountsData } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS(),
+    queryFn: () => adminApi.getSidebarCounts(),
+    enabled: isAuthenticated && _hasHydrated,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+  });
+  const sidebarCounts = sidebarCountsData?.counts ?? {
+    activeChats: 0,
+    pendingComplaints: 0,
+    pendingAppointments: 0,
+    pendingKundaliMatch: 0,
+    totalUsers: 0,
+    newUsersToday: 0,
+    totalAstrologers: 0,
+    pendingAstrologerRegistrations: 0,
+  };
+
+  const getCurrentCountForKey = (key: SidebarBadgeKey): number => {
+    switch (key) {
+      case 'admin-chats':
+        return unreadCount;
+      case 'chat-monitor':
+      case 'chat-audit':
+        return sidebarCounts.activeChats;
+      case 'complaints':
+        return sidebarCounts.pendingComplaints;
+      case 'appointments':
+        return sidebarCounts.pendingAppointments;
+      case 'kundali-match':
+        return sidebarCounts.pendingKundaliMatch;
+      case 'users':
+        return sidebarCounts.newUsersToday;
+      case 'astrologers-all':
+        return sidebarCounts.totalAstrologers;
+      case 'astrologer-registrations':
+        return sidebarCounts.pendingAstrologerRegistrations;
+      default:
+        return 0;
+    }
+  };
+
+  const getNewBadgeCount = (key: SidebarBadgeKey, currentCount: number): number => {
+    // Until badge state is hydrated from localStorage, treat as up-to-date
+    if (!badgeState) {
+      return 0;
+    }
+    const lastSeen = badgeState[key] ?? 0;
+    if (currentCount <= lastSeen) {
+      return 0;
+    }
+    return currentCount - lastSeen;
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const raw = window.localStorage.getItem(SIDEBAR_BADGE_STORAGE_KEY);
+    const initial = safelyParseSidebarBadgeState(raw);
+    setBadgeState(initial);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !badgeState) {
+      return;
+    }
+    window.localStorage.setItem(SIDEBAR_BADGE_STORAGE_KEY, JSON.stringify(badgeState));
+  }, [badgeState]);
+
+  useEffect(() => {
+    if (!pathname) {
+      return;
+    }
+    const key = getSidebarBadgeKeyForRoute(pathname);
+    if (!key) {
+      return;
+    }
+
+    if (!badgeState) {
+      return;
+    }
+
+    const currentCount = getCurrentCountForKey(key);
+    setBadgeState((prevState) => {
+      const prev = prevState ?? {};
+      const existing = prev[key];
+      if (existing === currentCount) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [key]: currentCount,
+      };
+    });
+  }, [pathname, unreadCount, sidebarCounts]);
 
   // Live update unread count on new incoming user message
   useEffect(() => {
@@ -444,10 +607,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     >
                       <span className="relative">
                         {item.icon}
-                        {item.key === 'chat-management' && unreadCount > 0 && (
-                          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                          </span>
+                        {item.key === 'chat-management' && (
+                          (() => {
+                            const badgeKey: SidebarBadgeKey = 'admin-chats';
+                            const current = unreadCount;
+                            const newCount = getNewBadgeCount(badgeKey, current);
+                            if (newCount <= 0) {
+                              return null;
+                            }
+                            return (
+                              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                                {newCount > 99 ? '99+' : newCount}
+                              </span>
+                            );
+                          })()
                         )}
                       </span>
                       {sidebarOpen && (
@@ -480,6 +653,28 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         {item.children.map((c) => {
                           const active = pathname === c.href;
                           const isAdminChats = c.href === ADMIN_ROUTES.ADMIN_CHATS;
+                          const isChatMonitor = c.href === ADMIN_ROUTES.CHATS;
+                          const isChatAudit = c.href === ADMIN_ROUTES.CHAT_AUDIT;
+                          const isAllAstrologers = c.href === ADMIN_ROUTES.ASTROLOGERS;
+                          const isAstrologerRegistrations =
+                            c.href === ADMIN_ROUTES.ASTROLOGERS_REGISTRATION_REQUESTS;
+
+                          const badgeCountBase = isAdminChats
+                            ? unreadCount
+                            : isChatMonitor || isChatAudit
+                              ? sidebarCounts.activeChats
+                              : isAllAstrologers
+                                ? sidebarCounts.totalAstrologers
+                                : isAstrologerRegistrations
+                                  ? sidebarCounts.pendingAstrologerRegistrations
+                                  : 0;
+
+                          const sidebarKey = getSidebarBadgeKeyForRoute(c.href);
+                          const badgeCount =
+                            !active && sidebarKey && badgeCountBase > 0
+                              ? getNewBadgeCount(sidebarKey, badgeCountBase)
+                              : 0;
+
                           return (
                             <Link
                               key={c.href}
@@ -493,9 +688,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <span className="truncate min-w-0">{c.name}</span>
-                                {isAdminChats && unreadCount > 0 && (
-                                  <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
-                                    {unreadCount}
+                                {badgeCount > 0 && (
+                                  <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-xs font-bold">
+                                    {badgeCount > 99 ? '99+' : badgeCount}
                                   </span>
                                 )}
                               </div>
@@ -510,6 +705,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
               const isActive = pathname === item.href;
               const isAdminChats = item.href === ADMIN_ROUTES.ADMIN_CHATS;
+              const isComplaints = item.href === ADMIN_ROUTES.COMPLAINTS;
+              const isAppointments = item.href === ADMIN_ROUTES.APPOINTMENTS;
+              const isKundaliMatch = item.href === ADMIN_ROUTES.KUNDALI_MATCH;
+              const isUsers = item.href === ADMIN_ROUTES.USERS;
 
               return (
                 <Link
@@ -526,11 +725,40 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   {sidebarOpen && (
                     <div className="flex items-center justify-between w-full">
                       <span className="font-medium truncate min-w-0">{item.name}</span>
-                      {isAdminChats && unreadCount > 0 && (
-                        <span className="ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold">
-                          {unreadCount}
-                        </span>
-                      )}
+                      {!isActive &&
+                        (() => {
+                        const sidebarKey = getSidebarBadgeKeyForRoute(item.href);
+                        if (!sidebarKey) {
+                          return null;
+                        }
+                        const currentCount = getCurrentCountForKey(sidebarKey);
+                        const newCount = getNewBadgeCount(sidebarKey, currentCount);
+                        if (newCount <= 0) {
+                          return null;
+                        }
+
+                        const badgeClassName = isAdminChats
+                          ? 'bg-red-500'
+                          : isComplaints
+                            ? 'bg-amber-500'
+                            : isAppointments
+                              ? 'bg-sky-500'
+                              : isKundaliMatch
+                                ? 'bg-purple-500'
+                                : isUsers
+                                  ? 'bg-emerald-500'
+                                  : 'bg-emerald-500';
+
+                        const displayValue = newCount > 99 ? '99+' : newCount;
+
+                        return (
+                          <span
+                            className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full ${badgeClassName} text-white text-xs font-bold`}
+                          >
+                            {displayValue}
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                 </Link>

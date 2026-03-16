@@ -262,6 +262,9 @@ router.post(
   adminController.markEarningPaid
 );
 
+// ==================== Sidebar Counts (for badges) ====================
+router.get('/sidebar-counts', asyncHandler(adminController.getSidebarCounts));
+
 // ==================== Dashboard ====================
 router.get('/dashboard/stats', adminController.getDashboardStats);
 

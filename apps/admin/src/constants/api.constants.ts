@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
     LOGIN: '/api/v1/admin/auth/login',
     LOGOUT: '/api/v1/admin/auth/logout',
     ME: '/api/v1/admin/auth/me',
+    SIDEBAR_COUNTS: '/api/v1/admin/sidebar-counts',
   },
 
   ASTROLOGERS: {

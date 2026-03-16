@@ -106,6 +106,19 @@ export interface AdminChatUnreadCountResponse {
   count: number;
 }
 
+export interface AdminSidebarCountsResponse {
+  counts: {
+    activeChats: number;
+    pendingComplaints: number;
+    pendingAppointments: number;
+    pendingKundaliMatch: number;
+    totalUsers: number;
+    newUsersToday: number;
+    totalAstrologers: number;
+    pendingAstrologerRegistrations: number;
+  };
+}
+
 export interface AdminChatUploadedFile {
   url: string;
   originalName: string;
@@ -198,6 +211,13 @@ export const adminApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const response = await apiClient.post<LoginResponse>(API_ENDPOINTS.ADMIN.LOGIN, credentials);
     return response;
+  },
+
+  /**
+   * Sidebar counts (badges for navigation)
+   */
+  getSidebarCounts: async (): Promise<AdminSidebarCountsResponse> => {
+    return apiClient.get<AdminSidebarCountsResponse>(API_ENDPOINTS.ADMIN.SIDEBAR_COUNTS);
   },
 
   /**
@@ -637,8 +657,10 @@ export const adminApi = {
    * Dashboard
    */
   dashboard: {
-    stats: async () => {
-      const response = await apiClient.get(API_ENDPOINTS.DASHBOARD.STATS);
+    stats: async (): Promise<{ stats: import('@/types').DashboardStats }> => {
+      const response = await apiClient.get<{ stats: import('@/types').DashboardStats }>(
+        API_ENDPOINTS.DASHBOARD.STATS
+      );
       return response;
     },
 

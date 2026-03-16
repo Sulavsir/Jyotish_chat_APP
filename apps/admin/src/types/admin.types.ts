@@ -170,6 +170,8 @@ export interface DashboardStats {
   totalEarnings: number;
   pendingPayouts: number;
   todayConsultations: number;
+  newUsersToday: number;
+  todayEarnings: number;
 }
 
 // Form Types

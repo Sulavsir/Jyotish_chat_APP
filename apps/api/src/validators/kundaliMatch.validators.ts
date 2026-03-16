@@ -21,14 +21,21 @@ export const createKundaliMatchRequestSchema = z
   .object({
     boyDateOfBirth: dateOnlySchema,
     boyTimeOfBirth: timeOfBirthSchema,
-    boyPlaceOfBirthType: placeOfBirthTypeSchema,
+    // Optional so older clients can omit it and just send boyPlaceOfBirth string
+    boyPlaceOfBirthType: z.preprocess(
+      (v) => (v === '' || v === null ? undefined : v),
+      placeOfBirthTypeSchema.optional().nullable()
+    ),
     boyPlaceOfBirthPradeshId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
     boyPlaceOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
     boyPlaceOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), locationString),
     boyPlaceOfBirth: z.string().max(500).optional().nullable(),
     girlDateOfBirth: dateOnlySchema,
     girlTimeOfBirth: timeOfBirthSchema,
-    girlPlaceOfBirthType: placeOfBirthTypeSchema,
+    girlPlaceOfBirthType: z.preprocess(
+      (v) => (v === '' || v === null ? undefined : v),
+      placeOfBirthTypeSchema.optional().nullable()
+    ),
     girlPlaceOfBirthPradeshId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
     girlPlaceOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
     girlPlaceOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), locationString),

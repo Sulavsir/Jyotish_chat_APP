@@ -15,6 +15,7 @@ import { setupSocketHandlers } from './socket';
 import { setSocketInstance } from './utils/socket-instance';
 import { getSocketRedisAdapter, closeSocketRedisClients } from './config/socket-redis';
 import routes from './routes';
+import { setupRecurringJobs } from './workers';
 
 // Load environment variables from the API directory
 const envPath = path.resolve(__dirname, '../.env');
@@ -217,6 +218,13 @@ async function start() {
 
   const { startAppointmentChatEnderWorker } = await import('./workers/appointmentChatEnder');
   startAppointmentChatEnderWorker();
+
+  // Schedule BullMQ recurring jobs (horoscope delivery, consultation reminders, appointment sessions)
+  try {
+    await setupRecurringJobs();
+  } catch (err) {
+    console.error('Failed to setup recurring jobs:', err);
+  }
 
   const PORT = Number(process.env.PORT) || 4000;
   const HOST = '0.0.0.0';

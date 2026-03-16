@@ -100,6 +100,9 @@ export const ADMIN_QUERY_KEYS = {
     STATS: () => ['admin', 'dashboard', 'stats'] as const,
   },
 
+  // Sidebar counts (badges)
+  SIDEBAR_COUNTS: () => ['admin', 'sidebar-counts'] as const,
+
   // Website
   WEBSITE: {
     DASHBOARD_ROTATING_COPY: () => ['admin', 'website', 'dashboard', 'rotating-copy'] as const,

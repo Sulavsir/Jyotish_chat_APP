@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
@@ -14,62 +15,158 @@ import {
   DocumentIcon,
 } from '@jyotish/ui';
 import { RefreshCw } from 'lucide-react';
-import { ADMIN_ROUTES } from '@/constants';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { DashboardStats } from '@/types';
 import { useAdminSocket } from '@/hooks';
+import { LoadingButton } from '@/components/ui/LoadingButton';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { on, off, isConnected } = useAdminSocket();
 
-  useEffect(() => {
-    loadStats();
-  }, []);
+  const {
+    data,
+    isLoading: isLoadingStats,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+    queryFn: () => adminApi.dashboard.stats(),
+    select: (response) => response.stats,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const stats: DashboardStats | undefined = data;
 
   // Listen for real-time stats updates
   useEffect(() => {
     if (!isConnected) return;
 
     const handleStatsUpdate = (updatedStats: Partial<DashboardStats>) => {
-      console.log('📊 Received stats update:', updatedStats);
-      setStats((prev) => (prev ? { ...prev, ...updatedStats } : prev));
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) {
+            return stats ? { stats: { ...stats, ...updatedStats } } : prev;
+          }
+
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+
+          return {
+            stats: {
+              ...currentStats,
+              ...updatedStats,
+            },
+          };
+        }
+      );
     };
 
     const handleNewUser = () => {
-      setStats((prev) => (prev ? { ...prev, totalUsers: (prev.totalUsers || 0) + 1 } : prev));
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) return prev;
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+          return {
+            stats: {
+              ...currentStats,
+              totalUsers: currentStats.totalUsers + 1,
+              newUsersToday: currentStats.newUsersToday + 1,
+            },
+          };
+        }
+      );
     };
 
     const handleNewAstrologer = () => {
-      setStats((prev) =>
-        prev ? { ...prev, totalAstrologers: (prev.totalAstrologers || 0) + 1 } : prev
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) return prev;
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+          return {
+            stats: {
+              ...currentStats,
+              totalAstrologers: currentStats.totalAstrologers + 1,
+            },
+          };
+        }
       );
     };
 
     const handleNewChat = () => {
-      console.log('📊 New chat created');
-      setStats((prev) => (prev ? { ...prev, activeChats: (prev.activeChats || 0) + 1 } : prev));
-    };
-
-    const handleChatEnded = () => {
-      console.log('📊 Chat ended');
-      setStats((prev) =>
-        prev ? { ...prev, activeChats: Math.max((prev.activeChats || 0) - 1, 0) } : prev
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) return prev;
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+          return {
+            stats: {
+              ...currentStats,
+              activeChats: currentStats.activeChats + 1,
+            },
+          };
+        }
       );
     };
 
-    const handleNewEarning = (data: { amount: number }) => {
-      console.log('📊 New earning:', data.amount);
-      setStats((prev) =>
-        prev ? { ...prev, totalEarnings: (prev.totalEarnings || 0) + data.amount } : prev
+    const handleChatEnded = () => {
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) return prev;
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+          return {
+            stats: {
+              ...currentStats,
+              activeChats: Math.max(currentStats.activeChats - 1, 0),
+            },
+          };
+        }
+      );
+    };
+
+    const handleNewEarning = (payload: { amount: number }) => {
+      const { amount } = payload;
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) return prev;
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+          return {
+            stats: {
+              ...currentStats,
+              totalEarnings: currentStats.totalEarnings + amount,
+              todayEarnings: currentStats.todayEarnings + amount,
+            },
+          };
+        }
       );
     };
 
     const handleNewConsultation = () => {
-      console.log('📊 New consultation created');
-      setStats((prev) =>
-        prev ? { ...prev, todayConsultations: (prev.todayConsultations || 0) + 1 } : prev
+      queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
+        ADMIN_QUERY_KEYS.DASHBOARD.STATS(),
+        (prev) => {
+          if (!prev) return prev;
+          const currentStats =
+            'stats' in prev ? (prev.stats as DashboardStats) : (prev as DashboardStats);
+          return {
+            stats: {
+              ...currentStats,
+              todayConsultations: currentStats.todayConsultations + 1,
+            },
+          };
+        }
       );
     };
 
@@ -90,49 +187,51 @@ export default function DashboardPage() {
       off('earning:new', handleNewEarning);
       off('consultation:new', handleNewConsultation);
     };
-  }, [isConnected, on, off]);
+  }, [isConnected, on, off, queryClient, stats]);
 
-  const loadStats = async () => {
-    try {
-      const response = await adminApi.dashboard.stats();
-      console.log('📊 Dashboard stats response:', response);
-      // API returns { stats: { totalUsers, totalAstrologers, ... } }
-      setStats((response as any).stats as DashboardStats);
-    } catch (error) {
-      console.error('Failed to load stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const statCards = [
-    {
-      title: 'Total Users',
-      value: stats?.totalUsers || 0,
+  const statCards =
+    stats == null
+      ? []
+      : [
+      {
+        title: 'Total Users',
+        value: stats.totalUsers,
       icon: <UsersIcon className="w-8 h-8 text-red-400" />,
       color: 'from-purple-500 to-pink-500',
     },
+      {
+        title: 'New Users Today',
+        value: stats.newUsersToday,
+        icon: <UsersIcon className="w-8 h-8 text-emerald-400" />,
+        color: 'from-emerald-400 to-teal-500',
+      },
     {
       title: 'Total Astrologers',
-      value: stats?.totalAstrologers || 0,
+        value: stats.totalAstrologers,
       icon: <StarIcon className="w-8 h-8 text-purple-400" />,
       color: 'from-pink-500 to-purple-500',
     },
     {
       title: 'Active Chats',
-      value: stats?.activeChats || 0,
+        value: stats.activeChats,
       icon: <ChatIcon className="w-8 h-8 text-green-400" />,
       color: 'from-green-400 to-emerald-500',
     },
     {
       title: 'Total Earnings',
-      value: `Nrs.${stats?.totalEarnings || 0}`,
+        value: `Nrs.${stats.totalEarnings}`,
       icon: <MoneyIcon className="w-8 h-8 text-yellow-400" />,
       color: 'from-yellow-400 to-orange-500',
     },
+      {
+        title: "Today's Earnings",
+        value: `Nrs.${stats.todayEarnings}`,
+        icon: <MoneyIcon className="w-8 h-8 text-emerald-300" />,
+        color: 'from-emerald-300 to-lime-400',
+      },
     {
       title: 'Pending Payouts',
-      value: `Nrs.${stats?.pendingPayouts || 0}`,
+        value: `Nrs.${stats.pendingPayouts}`,
       icon: (
         <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -147,7 +246,7 @@ export default function DashboardPage() {
     },
     {
       title: "Today's Consultations",
-      value: stats?.todayConsultations || 0,
+        value: stats.todayConsultations,
       icon: (
         <svg
           className="w-8 h-8 text-blue-400"
@@ -165,7 +264,7 @@ export default function DashboardPage() {
       ),
       color: 'from-blue-400 to-cyan-500',
     },
-  ];
+      ];
 
   const quickActions = [
     {
@@ -253,21 +352,22 @@ export default function DashboardPage() {
             </h2>
             <p className="text-slate-400 mt-2">Welcome back! Here's what's happening today.</p>
           </div>
-          <Button
-            onClick={() => loadStats()}
+          <LoadingButton
+            onClick={() => refetch()}
             variant="outline"
             size="sm"
-            disabled={loading}
+            isLoading={isRefetching}
+            loadingText="Refreshing"
             className="border-slate-700 text-white hover:bg-slate-800"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
-          </Button>
+          </LoadingButton>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading
+          {isLoadingStats && !stats
             ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="cosmic-card rounded-xl p-6">
                   <Skeleton className="h-6 w-32 mb-4" />

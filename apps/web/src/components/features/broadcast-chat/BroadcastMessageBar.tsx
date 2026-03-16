@@ -184,7 +184,22 @@ export function BroadcastMessageBar() {
     );
 
     socket.on('broadcast:error', (error: { message?: string }) => {
-      toast.error(error.message || 'Something went wrong');
+      const messageText = error.message || 'Something went wrong';
+
+      // If this request was already accepted or expired, just refresh from server
+      if (
+        messageText.toLowerCase().includes('accepted') &&
+        messageText.toLowerCase().includes('expired')
+      ) {
+        void loadPendingMessages();
+        toast.info(
+          'This request has already been accepted or expired. Please watch out for new requests.'
+        );
+        setAccepting(null);
+        return;
+      }
+
+      toast.error(messageText);
       setAccepting(null);
     });
 
@@ -492,11 +507,8 @@ export function BroadcastMessageBar() {
                         expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
                         showIcon={false}
                         onExpire={() => {
-                          // Remove expired message immediately
-                          setPendingMessages((prev) =>
-                            prev.filter((m) => m.id !== currentMessage.id)
-                          );
-                          toast.info('This request has expired');
+                          // Re-sync with server so expiration is driven by backend status
+                          void loadPendingMessages();
                         }}
                       />
                     </div>

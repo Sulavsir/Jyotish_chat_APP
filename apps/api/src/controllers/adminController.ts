@@ -19,7 +19,14 @@ import { executeSoftDelete } from '../utils/delete.utils';
 import type { ListAdminAstrologersQuery } from '../validators/adminAstrologer.validators';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
-import { prisma, AuditAction } from '@jyotish/database';
+import {
+  prisma,
+  AuditAction,
+  ChatStatus,
+  AppointmentStatus,
+  ComplaintStatus,
+} from '@jyotish/database';
+import { KundaliMatchStatus } from '@prisma/client';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { getClientIp } from '../utils/request-utils';
 
@@ -1246,6 +1253,9 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
  */
 export async function getDashboardStats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const [
       totalUsers,
       totalAstrologers,
@@ -1253,6 +1263,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       totalEarnings,
       pendingEarnings,
       todayConsultations,
+      newUsersToday,
+      todayEarnings,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'CLIENT' } }),
       prisma.astrologer.count(),
@@ -1268,7 +1280,24 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       prisma.consultation.count({
         where: {
           createdAt: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
+            gte: today,
+          },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          role: 'CLIENT',
+          createdAt: {
+            gte: today,
+          },
+        },
+      }),
+      prisma.astrologerEarnings.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: 'PAID',
+          createdAt: {
+            gte: today,
           },
         },
       }),
@@ -1279,8 +1308,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       totalAstrologers,
       activeChats,
       totalEarnings: totalEarnings._sum.amount || 0,
-      pendingEarnings: pendingEarnings._sum.amount || 0,
+      pendingPayouts: pendingEarnings._sum.amount || 0,
       todayConsultations,
+      newUsersToday,
+      todayEarnings: todayEarnings._sum.amount || 0,
     };
 
     return sendSuccess(res, { stats });
@@ -1937,6 +1968,76 @@ export async function resolveComplaint(req: AuthRequest, res: Response, next: Ne
     return sendSuccess(res, {
       message: 'Complaint resolved successfully',
       complaint: updatedComplaint,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Sidebar counts for admin navigation badges.
+ * GET /api/v1/admin/sidebar-counts
+ */
+export async function getSidebarCounts(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [
+      activeChats,
+      pendingComplaints,
+      pendingAppointments,
+      pendingKundaliMatch,
+      totalUsers,
+      newUsersToday,
+      totalAstrologers,
+      pendingAstrologerRegistrations,
+    ] = await prisma.$transaction([
+      prisma.chat.count({
+        where: {
+          status: ChatStatus.ACTIVE,
+        },
+      }),
+      prisma.complaint.count({
+        where: {
+          status: ComplaintStatus.PENDING,
+        },
+      }),
+      prisma.appointment.count({
+        where: {
+          status: AppointmentStatus.PENDING,
+        },
+      }),
+      prisma.kundaliMatchRequest.count({
+        where: {
+          status: KundaliMatchStatus.PENDING,
+        },
+      }),
+      prisma.user.count(),
+      prisma.user.count({
+        where: {
+          createdAt: { gte: today },
+        },
+      }),
+      prisma.astrologer.count(),
+      prisma.astrologer.count({
+        where: {
+          accountStatus: 'PENDING',
+        },
+      }),
+    ]);
+
+    return sendSuccess(res, {
+      counts: {
+        activeChats,
+        pendingComplaints,
+        pendingAppointments,
+        pendingKundaliMatch,
+        totalUsers,
+        newUsersToday,
+        totalAstrologers,
+        pendingAstrologerRegistrations,
+      },
     });
   } catch (error) {
     next(error);
