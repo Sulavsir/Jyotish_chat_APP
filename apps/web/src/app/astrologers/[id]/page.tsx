@@ -39,6 +39,22 @@ function AstrologerProfileContent() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const [isBookAppointmentOpen, setIsBookAppointmentOpen] = useState(false);
 
+  const COUNTRY_LABELS: Record<string, string> = {
+    NP: 'Nepal',
+    IN: 'India',
+    US: 'United States',
+    GB: 'United Kingdom',
+  };
+
+  const formatCountry = (value?: string | null): string => {
+    if (!value) return 'Nepal';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Nepal';
+    const upper = trimmed.toUpperCase();
+    if (COUNTRY_LABELS[upper]) return COUNTRY_LABELS[upper];
+    return trimmed;
+  };
+
   const {
     data: profileData,
     isLoading,
@@ -316,12 +332,10 @@ function AstrologerProfileContent() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {astrologer.address && (
-                  <div>
-                    <span className="text-gray-400">Address:</span>
-                    <span className="text-white ml-2">{astrologer.address}</span>
-                  </div>
-                )}
+                <div>
+                  <span className="text-gray-400">Country:</span>
+                  <span className="text-white ml-2">{formatCountry(astrologer.country)}</span>
+                </div>
                 <div>
                   <span className="text-gray-400">Phone:</span>
                   <span className="text-white ml-2">{astrologer.phone}</span>

@@ -252,6 +252,22 @@ export default function AstrologersPage() {
     );
   };
 
+  const COUNTRY_LABELS: Record<string, string> = {
+    NP: 'Nepal',
+    IN: 'India',
+    US: 'United States',
+    GB: 'United Kingdom',
+  };
+
+  const formatCountry = (value?: string | null): string => {
+    if (!value) return 'Nepal';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Nepal';
+    const upper = trimmed.toUpperCase();
+    if (COUNTRY_LABELS[upper]) return COUNTRY_LABELS[upper];
+    return trimmed;
+  };
+
   const handleEditPasswordSubmit = async (password: string) => {
     if (!astrologerToEdit) return;
     try {
@@ -283,6 +299,16 @@ export default function AstrologersPage() {
     {
       header: 'Phone',
       accessor: (astrologer) => astrologer.phone,
+    },
+    {
+      header: 'Country',
+      accessor: (astrologer) => {
+        return formatCountry(astrologer.country);
+      },
+    },
+    {
+      header: 'Address',
+      accessor: (astrologer) => astrologer.address?.trim() || '-',
     },
     {
       header: 'Experience',

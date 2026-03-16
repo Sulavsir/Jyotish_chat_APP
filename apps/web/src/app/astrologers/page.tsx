@@ -84,6 +84,22 @@ function AstrologersContent() {
     router.push(ROUTE_BUILDERS.ASTROLOGER_PROFILE(astrologerId));
   };
 
+  const COUNTRY_LABELS: Record<string, string> = {
+    NP: 'Nepal',
+    IN: 'India',
+    US: 'United States',
+    GB: 'United Kingdom',
+  };
+
+  const formatCountry = (value?: string | null): string => {
+    if (!value) return 'Nepal';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Nepal';
+    const upper = trimmed.toUpperCase();
+    if (COUNTRY_LABELS[upper]) return COUNTRY_LABELS[upper];
+    return trimmed;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -330,11 +346,9 @@ function AstrologersContent() {
                         )}
                       </div>
 
-                      {astrologer.address && (
-                        <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
-                          📍 {astrologer.address}
-                        </p>
-                      )}
+                      <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
+                        📍 {formatCountry(astrologer.country)}
+                      </p>
                       {astrologer.bio && (
                         <p className="text-gray-400 text-sm mt-2 line-clamp-2">{astrologer.bio}</p>
                       )}

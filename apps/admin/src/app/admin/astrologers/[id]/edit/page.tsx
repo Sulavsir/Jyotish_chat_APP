@@ -206,11 +206,17 @@ export default function EditAstrologerPage() {
         specialization: Array.isArray(specialization) ? specialization : [],
       };
 
+      // Handle existing proof URLs that were removed via the UI.
       const serverProofUrls = parseProofUrls(data?.proofOfAstrology ?? null);
-      const allRemoved =
-        serverProofUrls.length > 0 && serverProofUrls.every((url) => proofUrlsToRemove.has(url));
-      if (allRemoved && proofFiles.length === 0) {
+      const keptServerUrls = serverProofUrls.filter((url) => !proofUrlsToRemove.has(url));
+
+      if (keptServerUrls.length === 0 && proofFiles.length === 0) {
+        // No existing proofs kept and no new files selected -> clear all proofs
         updatePayload.proofOfAstrology = null;
+      } else if (keptServerUrls.length > 0) {
+        // Persist the remaining proofs by overwriting the field on the server
+        updatePayload.proofOfAstrology =
+          keptServerUrls.length === 1 ? keptServerUrls[0]! : JSON.stringify(keptServerUrls);
       }
 
       for (const file of proofFiles) {
