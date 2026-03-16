@@ -1295,7 +1295,6 @@ enum AstrologerCoinEarningSource {
   BROADCAST_MESSAGE
   APPOINTMENT
   KUNDALI_REVIEW
-  ADMIN_CREDIT // Admin adds balance to astrologer account
 }
 
 model AstrologerCoinEarning {

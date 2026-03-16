@@ -47,7 +47,9 @@ export interface AcceptBroadcastMessageData {
 
 /**
  * Check if a client has ever used broadcast before.
- * We treat \"used\" as having at least one BroadcastMessage row.
+ *
+ * Behaviour detail:
+ * If a broadcast message is free-trial and expires, it should not be counted as used.
  */
 export async function hasUserUsedBroadcast(clientId: string): Promise<boolean> {
   if (!('broadcastMessage' in prisma)) {
@@ -55,7 +57,20 @@ export async function hasUserUsedBroadcast(clientId: string): Promise<boolean> {
   }
 
   const existing = await prisma.broadcastMessage.findFirst({
-    where: { clientId },
+    where: {
+      clientId,
+      NOT: {
+        AND: [
+          {
+            metadata: {
+              path: ['freeTrial'],
+              equals: true,
+            },
+          },
+          { status: BroadcastMessageStatus.EXPIRED },
+        ],
+      },
+    },
     select: { id: true },
   });
 
@@ -329,9 +344,7 @@ export async function createMultipleBroadcastMessages(
     },
   });
   if (activeChat) {
-    throw new Error(
-      'You have an active chat. End your current chat before starting a new one.'
-    );
+    throw new Error('You have an active chat. End your current chat before starting a new one.');
   }
 
   // Online astrologers
@@ -384,9 +397,7 @@ export async function createMultipleBroadcastMessages(
   const rawAmountPerMessage = Math.round(totalNr / count);
   const amountPerMessage = Math.max(1, rawAmountPerMessage);
   const metadataBase =
-    hasBirthDetails && Object.keys(birthDetails!).length > 0
-      ? { birthDetails }
-      : undefined;
+    hasBirthDetails && Object.keys(birthDetails!).length > 0 ? { birthDetails } : undefined;
 
   const messages: Awaited<ReturnType<typeof prisma.broadcastMessage.create>>[] = [];
 
