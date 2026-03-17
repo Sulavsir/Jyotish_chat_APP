@@ -55,35 +55,79 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
   const cancelBroadcastMutation = useMutation({
-    mutationFn: async (messageIdOrFetch: string | null) => {
-      if (messageIdOrFetch && messageIdOrFetch !== SENDING_PLACEHOLDER_ID) {
-        const message = await broadcastMessageService.getMessage(messageIdOrFetch);
-        if (!message || isMultiQuestionBatch(message)) {
-          return null;
-        }
-        return broadcastMessageService.cancelMessage(messageIdOrFetch);
-      }
-      // User cancelled before broadcast:messageSent arrived; find latest PENDING and cancel via API
-      const messages = await broadcastMessageService.getMyMessages();
+    mutationFn: async (messageIdOrFetch: string | null): Promise<{ refundAmount: number } | null> => {
+      // Helper: cancel multiple messages and aggregate total refund
+      const cancelAll = async (ids: string[]): Promise<{ refundAmount: number } | null> => {
+        if (ids.length === 0) return null;
+        const results = await Promise.allSettled(
+          ids.map((id) => broadcastMessageService.cancelMessage(id))
+        );
+        const totalRefund = results.reduce((sum, r) => {
+          if (r.status === 'fulfilled' && r.value) return sum + (r.value.refundAmount ?? 0);
+          return sum;
+        }, 0);
+        return { refundAmount: totalRefund };
+      };
+
+      // Fetch all pending messages once — used by both code paths
+      const allMessages = await broadcastMessageService.getMyMessages();
       const now = Date.now();
-      const pending = messages
-        .filter(
-          (m) =>
-            m.status === 'PENDING' &&
-            !isMultiQuestionBatch(m) &&
-            new Date(m.createdAt).getTime() + BROADCAST_MESSAGE_EXPIRY_MS > now
-        )
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-      if (!pending) {
-        return null;
+      const activePending = allMessages.filter(
+        (m) =>
+          m.status === 'PENDING' &&
+          new Date(m.createdAt).getTime() + BROADCAST_MESSAGE_EXPIRY_MS > now
+      );
+
+      if (messageIdOrFetch && messageIdOrFetch !== SENDING_PLACEHOLDER_ID) {
+        // Specific message ID supplied (e.g. instant-chat single message)
+        const target = activePending.find((m) => m.id === messageIdOrFetch);
+        if (!target) return null;
+
+        if (isMultiQuestionBatch(target)) {
+          // Cancel every sibling in the same batch
+          const batchId = (target.metadata as Record<string, unknown>)?.batchId as string;
+          const siblings = activePending.filter(
+            (m) => (m.metadata as Record<string, unknown>)?.batchId === batchId
+          );
+          return cancelAll(siblings.map((m) => m.id));
+        }
+        // Plain single message
+        const res = await broadcastMessageService.cancelMessage(messageIdOrFetch);
+        return { refundAmount: res?.refundAmount ?? 0 };
       }
-      return broadcastMessageService.cancelMessage(pending.id);
+
+      // Null / 'sending' placeholder path — determine what is pending and cancel it
+      if (activePending.length === 0) return null;
+
+      // Sort newest-first so we operate on the latest broadcast
+      const sorted = [...activePending].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const newest = sorted[0];
+
+      if (isMultiQuestionBatch(newest)) {
+        // Cancel every message in this batch
+        const batchId = (newest.metadata as Record<string, unknown>)?.batchId as string;
+        const batchMessages = activePending.filter(
+          (m) => (m.metadata as Record<string, unknown>)?.batchId === batchId
+        );
+        return cancelAll(batchMessages.map((m) => m.id));
+      }
+
+      // Single instant-chat message
+      const res = await broadcastMessageService.cancelMessage(newest.id);
+      return { refundAmount: res?.refundAmount ?? 0 };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       if (data != null) {
-        toast.success('Request cancelled. Your balance has been refunded.');
+        const refundNr = data.refundAmount ?? 0;
+        if (refundNr > 0) {
+          toast.success(`Request cancelled. ${refundNr} NRs have been refunded to your account.`);
+        } else {
+          toast.success('Request cancelled. Your balance has been refunded.');
+        }
       }
     },
     onError: (error: Error) => {
@@ -114,6 +158,13 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       createdAt: new Date().toISOString(),
       status: 'PENDING',
     } as BroadcastMessage & { id: typeof SENDING_PLACEHOLDER_ID });
+  }, []);
+
+  /** Reset the waiting state without hitting the cancel API (e.g. when the send request itself failed). */
+  const clearWaiting = useCallback(() => {
+    setIsSending(false);
+    setIsWaitingForAcceptance(false);
+    setPendingMessage(null);
   }, []);
 
   // Socket listeners
@@ -174,10 +225,26 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       }
     });
 
+    socket.on('broadcast:messageExpired', (data: { messageId: string; refundAmount: number }) => {
+      // Server confirmed expiry + refund; show exact amount to the client
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+      const refundNr = data.refundAmount ?? 0;
+      if (refundNr > 0) {
+        toast.success(
+          `Broadcast expired. ${refundNr} NRs have been refunded to your App account.`,
+          {
+            duration: 5000,
+          }
+        );
+      }
+    });
+
     return () => {
       socket.off('broadcast:messageSent');
       socket.off('broadcast:yourMessageAccepted');
       socket.off('broadcast:error');
+      socket.off('broadcast:messageExpired');
     };
   }, [socket, isConnected, queryClient, router, options.onAccepted, options.onInsufficientCoins]);
 
@@ -197,8 +264,8 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
         setIsSending(false);
         setIsWaitingForAcceptance(false);
         setPendingMessage(null);
-        toast.info('Request expired. Send new one.', {
-          description: 'No astrologers accepted in time. Try again when more are online.',
+        toast.info('Broadcast expired. No one accepted in time.', {
+          description: 'Your coins will be refunded shortly.',
           duration: 4000,
         });
       }
@@ -242,6 +309,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
     pendingMessage,
     timeRemaining,
     markSending,
+    clearWaiting,
     handleCancelRequest,
     isCancelLoading: cancelBroadcastMutation.isPending,
   };

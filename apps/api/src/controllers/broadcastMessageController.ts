@@ -249,7 +249,10 @@ export async function cancelBroadcastMessage(req: AuthRequest, res: Response) {
       );
     }
 
-    const message = await broadcastMessageService.cancelBroadcastMessage(messageId, clientId);
+    const { message, refundAmount } = await broadcastMessageService.cancelBroadcastMessage(
+      messageId,
+      clientId
+    );
 
     const io = getSocketInstance();
     if (io) {
@@ -263,6 +266,7 @@ export async function cancelBroadcastMessage(req: AuthRequest, res: Response) {
       success: true,
       message,
       messageId: message.id,
+      refundAmount,
     });
   } catch (error: unknown) {
     const err = error as BroadcastMessageControllerError;

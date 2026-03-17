@@ -9,7 +9,8 @@ export type PlatformCoinRateType =
   | 'APPOINTMENT'
   | 'KUNDALI_REVIEW'
   | 'KUNDALI_MATCH'
-  | 'COINS_PER_NPR';
+  | 'COINS_PER_NPR'
+  | 'FIRST_BROADCAST_DISCOUNT';
 
 export interface PlatformCoinRates {
   CHAT_PER_MESSAGE: number;
@@ -19,6 +20,7 @@ export interface PlatformCoinRates {
   KUNDALI_REVIEW: number;
   KUNDALI_MATCH: number;
   COINS_PER_NPR: number;
+  FIRST_BROADCAST_DISCOUNT: number;
 }
 
 export interface CoinBalance {

@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, MessageSquare } from 'lucide-react';
+import { Eye, MessageSquare, ChevronDown, Tag, Info } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -77,6 +77,9 @@ export function AskQuestionsSection() {
   const [broadcastProfileId, setBroadcastProfileId] = useState<string>('me');
   const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
   const [showSelectedDirectQuestionsModal, setShowSelectedDirectQuestionsModal] = useState(false);
+  const [isBatchBroadcast, setIsBatchBroadcast] = useState(false);
+  const [showPricingGuide, setShowPricingGuide] = useState(false);
+
   const [prepareResult, setPrepareResult] = useState<{
     totalNr: number;
     originalTotalNr: number;
@@ -136,12 +139,14 @@ export function AskQuestionsSection() {
     pendingMessage,
     timeRemaining,
     markSending,
+    clearWaiting,
     handleCancelRequest,
   } = useBroadcastPending({
     onAccepted: (data) => {
       setBroadcastMessage('');
       setBroadcastQuestion('');
       setBroadcastCategory('');
+      setIsBatchBroadcast(false);
       router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chat.id));
     },
     onInsufficientCoins: (coins) => {
@@ -167,21 +172,35 @@ export function AskQuestionsSection() {
     queryFn: () => broadcastMessageService.getQuestionPricing(),
     enabled: mode === 'broadcast',
   });
-  const pricingTiers = pricingData?.tiers ?? [];
+  const pricingTiers = React.useMemo(() => pricingData?.tiers ?? [], [pricingData]);
+
+  // Whether this client still has their once-in-lifetime first-broadcast discount
+  const hasFirstBroadcastDiscount = !!(user as any)?.hasFreeBroadcastAvailable;
+  const firstBroadcastDiscountPct = coinRates?.FIRST_BROADCAST_DISCOUNT ?? 0;
+
   /**
-   * Per-position pricing preview (mirrors backend logic, without first-broadcast
-   * discount since we don't know that on the frontend).
-   * Q1 = BROADCAST_SEND; Q_n = tier[n] if exists, else BROADCAST_SEND.
+   * Per-position pricing preview — mirrors backend buildPerQuestionPrices.
+   * Q1 uses BROADCAST_SEND (with first-broadcast discount if available).
+   * Q_n (n>1) uses the custom tier for position n, or BROADCAST_SEND as fallback.
    */
-  const getTotalNrForCount = (count: number): number => {
+  const getTotalNrForCount = (count: number, applyDiscount = false): number => {
     if (count <= 0) return 0;
     const broadcastSendRate = coinRates?.BROADCAST_SEND ?? 0;
     if (!broadcastSendRate && !pricingTiers.length) return 0;
     const tierMap = new Map(pricingTiers.map((t) => [t.questionCount, t.amountNr]));
+    const clampedDiscount = applyDiscount
+      ? Math.max(0, Math.min(100, firstBroadcastDiscountPct))
+      : 0;
     let total = 0;
     for (let pos = 1; pos <= count; pos++) {
       if (pos === 1) {
-        total += broadcastSendRate;
+        const q1 =
+          clampedDiscount > 0
+            ? clampedDiscount >= 100
+              ? 0
+              : Math.round((broadcastSendRate * (100 - clampedDiscount)) / 100)
+            : broadcastSendRate;
+        total += q1;
       } else {
         const tierPrice = tierMap.get(pos);
         total += tierPrice !== undefined ? tierPrice : broadcastSendRate;
@@ -209,10 +228,16 @@ export function AskQuestionsSection() {
       setBroadcastQuestion('');
       setBroadcastCategory('');
       toast.success(
-        `${variables.questionItems.length} question${variables.questionItems.length === 1 ? '' : 's'} published to all Jyotish.`
+        `${variables.questionItems.length} question${variables.questionItems.length === 1 ? '' : 's'} published to all Jyotish. Waiting for acceptance...`
       );
+      // markSending() already called before this API request; just ensure state is correct
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to send questions'),
+    onError: (err) => {
+      // Reset the waiting modal that was shown optimistically before this call
+      setIsBatchBroadcast(false);
+      clearWaiting();
+      toast.error(err instanceof Error ? err.message : 'Failed to send questions');
+    },
   });
 
   // Client profiles (Me + family/friends) for profile selection in direct and broadcast
@@ -410,6 +435,13 @@ export function AskQuestionsSection() {
 
   const handleOpenBroadcastProfileModal = async () => {
     if (!user) return;
+
+    // Guard: prevent sending when a broadcast is already pending
+    if (isWaitingForAcceptance) {
+      toast.error('You already have a pending broadcast. Please wait for it to be accepted or expire before sending another one.');
+      return;
+    }
+
     if (selectedBroadcastQuestionIds.length === 0) {
       if (!(broadcastMessage.trim() || broadcastQuestion.trim())) {
         setBroadcastMessageError(t('messageCannotBeEmpty'));
@@ -472,6 +504,9 @@ export function AskQuestionsSection() {
         if (result.remainingNr > 0) {
           setShowRemainingPayModal(true);
         } else {
+          // Show the waiting modal immediately — before the network request completes
+          setIsBatchBroadcast(true);
+          markSending();
           await sendQuestionsMutation.mutateAsync({
             questionItems: result.questions,
             totalNr: result.totalNr,
@@ -511,6 +546,9 @@ export function AskQuestionsSection() {
 
     try {
       setIsSending(true);
+      // Show the waiting modal immediately — server confirms via broadcast:messageSent
+      // If the server rejects, broadcast:error resets the state automatically
+      markSending();
       socket.emit('broadcast:sendMessage', {
         content: messageToSend,
         type: 'TEXT',
@@ -519,25 +557,48 @@ export function AskQuestionsSection() {
     } catch (error) {
       console.error('Error sending broadcast message:', error);
       toast.error('Failed to send message');
-      setIsSending(false);
+      clearWaiting();
     }
   };
 
   const finalBroadcastMessage = broadcastMessage.trim() || broadcastQuestion.trim();
   const selectedCount = selectedBroadcastQuestionIds.length;
-  const totalNrPreview = getTotalNrForCount(selectedCount);
-  const displayTotalNr = totalNrPreview;
 
-  // For UI: show original (non-discounted) price vs discounted tier price when applicable.
-  const broadcastBasePerQuestion = coinRates?.BROADCAST_SEND ?? null;
-  const originalTotalNr =
-    broadcastBasePerQuestion && selectedCount > 0
-      ? Math.round(broadcastBasePerQuestion * selectedCount)
-      : null;
+  // Discounted total (Q1 gets first-broadcast % off when available)
+  const displayTotalNr = getTotalNrForCount(selectedCount, hasFirstBroadcastDiscount);
+  // Undiscounted total (for strikethrough)
+  const originalTotalNr = selectedCount > 0 ? getTotalNrForCount(selectedCount, false) : null;
+  // Show strikethrough only when the discount actually lowers the price
   const hasDiscount =
-    originalTotalNr !== null && displayTotalNr > 0 && originalTotalNr > displayTotalNr;
+    hasFirstBroadcastDiscount &&
+    firstBroadcastDiscountPct > 0 &&
+    originalTotalNr !== null &&
+    displayTotalNr < originalTotalNr;
 
-  // If waiting for acceptance, show matching modal
+  /**
+   * Derived values for the Pricing Guide panel.
+   * Shows: Q1 (with optional first-broadcast discount), each custom tier, and the standard rate.
+   */
+  const pricingGuideData = React.useMemo(() => {
+    const baseRate = coinRates?.BROADCAST_SEND ?? 0;
+    const clampedDiscount = Math.max(0, Math.min(100, firstBroadcastDiscountPct));
+    const q1Price =
+      hasFirstBroadcastDiscount && clampedDiscount > 0
+        ? clampedDiscount >= 100
+          ? 0
+          : Math.round((baseRate * (100 - clampedDiscount)) / 100)
+        : baseRate;
+
+    return {
+      baseRate,
+      q1Price,
+      tiers: [...pricingTiers].sort((a, b) => a.questionCount - b.questionCount),
+      hasTiers: pricingTiers.length > 0,
+      hasAnyInfo: pricingTiers.length > 0 || (hasFirstBroadcastDiscount && clampedDiscount > 0),
+    };
+  }, [coinRates, pricingTiers, hasFirstBroadcastDiscount, firstBroadcastDiscountPct]);
+
+  // If waiting for acceptance, show matching modal (portal-rendered full-screen overlay)
   if (isWaitingForAcceptance && pendingMessage) {
     return (
       <>
@@ -546,7 +607,11 @@ export function AskQuestionsSection() {
           onCancel={handleCancelRequest}
           timeRemaining={timeRemaining}
           title={t('searchingForJyotish')}
-          subtitle={t('messageBroadcastedWaiting')}
+          subtitle={
+            isBatchBroadcast
+              ? 'Your questions have been published to all Jyotish. Waiting for one to accept...'
+              : t('messageBroadcastedWaiting')
+          }
         />
       </>
     );
@@ -860,6 +925,90 @@ export function AskQuestionsSection() {
                       );
                     })}
                   </div>
+                  {/* Pricing Guide — collapsible panel showing per-position prices */}
+                  {pricingGuideData.hasAnyInfo && (
+                    <div className="rounded-lg border border-slate-700/70 bg-slate-800/40 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowPricingGuide((v) => !v)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-slate-700/30 transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5 text-slate-300">
+                          <Tag className="h-3 w-3 text-orange-400" />
+                          <span className="font-medium">Pricing Guide</span>
+                          {hasFirstBroadcastDiscount && firstBroadcastDiscountPct > 0 && (
+                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] text-emerald-300 font-medium">
+                              🎁 {firstBroadcastDiscountPct}% off Q1
+                            </span>
+                          )}
+                        </span>
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${showPricingGuide ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {showPricingGuide && (
+                        <div className="border-t border-slate-700/50 px-3 pt-2 pb-3 space-y-1">
+                          {/* Q1 row */}
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-[11px] text-slate-400">Q1 (first question)</span>
+                            <div className="flex items-center gap-2">
+                              {hasFirstBroadcastDiscount && firstBroadcastDiscountPct > 0 ? (
+                                <>
+                                  <span className="text-[11px] text-slate-500 line-through">
+                                    {pricingGuideData.baseRate} NRs
+                                  </span>
+                                  <span className="text-[11px] font-bold text-emerald-400">
+                                    {pricingGuideData.q1Price} NRs
+                                  </span>
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                    🎁 First broadcast
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-[11px] text-slate-200">
+                                  {pricingGuideData.baseRate} NRs
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Custom tier rows */}
+                          {pricingGuideData.tiers.map((tier) => (
+                            <div
+                              key={tier.questionCount}
+                              className="flex items-center justify-between py-1"
+                            >
+                              <span className="text-[11px] text-slate-400">
+                                Q{tier.questionCount}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-sky-300">
+                                  {tier.amountNr} NRs
+                                </span>
+                                <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                  Custom tier
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Standard rate catch-all */}
+                          <div className="flex items-center justify-between py-1 border-t border-slate-700/40 mt-1 pt-2">
+                            <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                              <Info className="h-3 w-3" />
+                              All other questions
+                            </span>
+                            <span className="text-[11px] text-slate-300">
+                              {pricingGuideData.baseRate} NRs each
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected count + price bar */}
                   {selectedCount > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-xs text-orange-200 flex items-center gap-2 flex-wrap">
@@ -918,7 +1067,7 @@ export function AskQuestionsSection() {
             <div className="flex gap-2 mt-auto">
               <LoadingButton
                 onClick={handleOpenBroadcastProfileModal}
-                disabled={!hasBroadcastSelection}
+                disabled={!hasBroadcastSelection || isWaitingForAcceptance}
                 loading={isSending || prepareMutation.isPending || sendQuestionsMutation.isPending}
                 loadingText={t('sending')}
                 className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"

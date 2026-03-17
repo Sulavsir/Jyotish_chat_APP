@@ -34,6 +34,8 @@ export interface User {
   hasPassword?: boolean;
   isActive?: boolean;
   coins?: number;
+  /** True when this client has never sent a broadcast before (first-broadcast discount is available) */
+  hasFreeBroadcastAvailable?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
   // astrologer field comes from @jyotish/shared User type

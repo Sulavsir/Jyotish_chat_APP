@@ -472,6 +472,20 @@ export async function expireOldMessages() {
         where: { id: message.id },
         data: { status: BroadcastMessageStatus.EXPIRED },
       });
+
+      // Notify the client so they can show a refund toast
+      try {
+        const { getSocketInstance } = require('../utils/socket-instance');
+        const io = getSocketInstance();
+        if (io) {
+          io.to(`user:${message.clientId}`).emit('broadcast:messageExpired', {
+            messageId: message.id,
+            refundAmount,
+          });
+        }
+      } catch {
+        // Socket notification is best-effort; do not break expiry logic
+      }
     }
 
     return { count: toExpire.length };
@@ -552,7 +566,7 @@ export async function cancelBroadcastMessage(messageId: string, clientId: string
     },
   });
 
-  return updatedMessage;
+  return { message: updatedMessage, refundAmount };
 }
 
 /**

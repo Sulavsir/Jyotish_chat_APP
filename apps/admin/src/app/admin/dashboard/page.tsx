@@ -218,13 +218,13 @@ export default function DashboardPage() {
             color: 'from-green-400 to-emerald-500',
           },
           {
-            title: 'Total Earnings',
+            title: 'Total Earnings (Astrologers)',
             value: `Nrs.${stats.totalEarnings}`,
             icon: <MoneyIcon className="w-8 h-8 text-yellow-400" />,
             color: 'from-yellow-400 to-orange-500',
           },
           {
-            title: "Today's Earnings",
+            title: "Today's Earnings (Astrologers)",
             value: `Nrs.${stats.todayEarnings}`,
             icon: <MoneyIcon className="w-8 h-8 text-emerald-300" />,
             color: 'from-emerald-300 to-lime-400',

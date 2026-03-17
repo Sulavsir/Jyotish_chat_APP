@@ -283,12 +283,16 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         return;
       }
 
-      const message = await broadcastMessageService.cancelBroadcastMessage(messageId, userId);
+      const { message, refundAmount } = await broadcastMessageService.cancelBroadcastMessage(
+        messageId,
+        userId
+      );
 
       socket.emit('broadcast:messageCancelled', {
         messageId: message.id,
         message,
         cancelledAt: message.updatedAt,
+        refundAmount,
       });
 
       // Notify all astrologers so they remove this message from their list

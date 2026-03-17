@@ -75,6 +75,7 @@ export interface CancelBroadcastMessageResponse {
   success: boolean;
   messageId: string;
   message: BroadcastMessage;
+  refundAmount?: number;
 }
 
 export interface BroadcastMessageListResponse {

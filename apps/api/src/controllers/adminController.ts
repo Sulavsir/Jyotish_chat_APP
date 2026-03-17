@@ -1327,14 +1327,14 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
           },
         },
       }),
-      prisma.payment.aggregate({
+      prisma.coinTransaction.aggregate({
         _sum: { amount: true },
-        where: { status: 'SUCCESS' },
+        where: { reason: 'PAYMENT_SUCCESS' },
       }),
-      prisma.payment.aggregate({
+      prisma.coinTransaction.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'SUCCESS',
+          reason: 'PAYMENT_SUCCESS',
           createdAt: {
             gte: today,
           },

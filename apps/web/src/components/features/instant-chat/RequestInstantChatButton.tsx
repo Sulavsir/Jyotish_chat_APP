@@ -73,6 +73,13 @@ export const RequestInstantChatButton: React.FC = () => {
       router.push(ROUTES.LOGIN);
       return;
     }
+
+    // Guard: prevent sending when a broadcast is already pending
+    if (isWaitingForAcceptance) {
+      toast.error('You already have a pending broadcast. Please wait for it to be accepted or expire before sending another one.');
+      return;
+    }
+
     if (
       broadcastSendCoins != null &&
       broadcastSendCoins > 0 &&
@@ -146,7 +153,8 @@ export const RequestInstantChatButton: React.FC = () => {
       <Button
         ref={buttonRef}
         onClick={handleButtonClick}
-        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative"
+        disabled={isWaitingForAcceptance}
+        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative disabled:opacity-50 disabled:cursor-not-allowed"
         size="lg"
       >
         <MessageSquare className="mr-2 h-5 w-5" />
