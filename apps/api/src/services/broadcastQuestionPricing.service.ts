@@ -125,9 +125,7 @@ export async function getTotalNrForQuestionCount(
   }
 
   const discountedFirst =
-    clampedDiscount >= 100
-      ? 0
-      : Math.round((broadcastSend * (100 - clampedDiscount)) / 100);
+    clampedDiscount >= 100 ? 0 : Math.round((broadcastSend * (100 - clampedDiscount)) / 100);
 
   const remainingCount = questionCount - 1;
   const remainingTotal = remainingCount > 0 ? remainingCount * broadcastSend : 0;
@@ -187,6 +185,65 @@ export async function upsertTiers(
   }
   return result;
 }
+
+/**
+ * Replace all tiers atomically (admin only).
+ * Deletes every existing tier then upserts the provided list so that
+ * rows removed in the admin UI are actually removed from the database.
+ */
+export async function replaceTiers(
+  tiers: { questionCount: number; amountNr: number }[]
+): Promise<BroadcastQuestionPricingTier[]> {
+  if (tiers.length === 0) {
+    throw new AppError(
+      'At least one pricing tier is required.',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const counts = tiers.map((t) => t.questionCount);
+  const duplicate = counts.find((c, i) => counts.indexOf(c) !== i);
+  if (duplicate != null) {
+    throw new AppError(
+      `Duplicate question count: ${duplicate}. Each tier must be unique.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Delete all existing tiers
+    await tx.broadcastQuestionPricing.deleteMany();
+
+    // Recreate with the new set
+    const rows: BroadcastQuestionPricingTier[] = [];
+    for (const t of tiers) {
+      if (t.questionCount < 1 || t.questionCount > MAX_QUESTION_COUNT) {
+        throw new AppError(
+          `Question count must be between 1 and ${MAX_QUESTION_COUNT}`,
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+      if (t.amountNr < 0) {
+        throw new AppError('Amount must be non-negative', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+      }
+      const row = await tx.broadcastQuestionPricing.create({
+        data: { questionCount: t.questionCount, amountNr: t.amountNr },
+      });
+      rows.push({
+        id: row.id,
+        questionCount: row.questionCount,
+        amountNr: row.amountNr,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      });
+    }
+    return rows;
+  });
+}
+
 
 export interface PrepareBroadcastQuestionsResult {
   totalNr: number;

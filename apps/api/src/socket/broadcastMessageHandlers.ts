@@ -184,8 +184,12 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
 
       await Promise.all(acceptNotificationPromises);
 
+      // Include all accepted IDs (primary + batch siblings) so every astrologer removes the whole group
+      const allAcceptedIds = result.allAcceptedMessageIds ?? [result.message.id];
+
       const requestAcceptedPayload = {
         messageId: result.message.id,
+        allAcceptedMessageIds: allAcceptedIds,
         message:
           'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
       };
@@ -195,6 +199,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
 
       const acceptedByPayload = {
         messageId: result.message.id,
+        allAcceptedMessageIds: allAcceptedIds,
         acceptedBy: {
           id: result.message.acceptedAstrologer?.id ?? userId,
           name: result.message.acceptedAstrologer?.name,

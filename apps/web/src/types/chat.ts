@@ -108,6 +108,7 @@ export interface MessageBubbleProps {
   isOwn: boolean;
   showAvatar?: boolean;
   showTimestamp?: boolean;
+  showBirthDetails?: boolean;
   /** When 'jyotish', uses dark-theme bubble styling */
   variant?: 'default' | 'jyotish';
   onViewProfile?: (clientId: string) => void;

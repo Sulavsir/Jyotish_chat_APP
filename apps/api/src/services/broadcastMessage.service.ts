@@ -986,10 +986,59 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     },
   });
 
-  // Create automatic messages in the chat
-  // 1. User's original broadcast message (include birthDetails from selected profile for Jyotish view)
+  // ── Batch: accept sibling questions from the same batch ──────────────────
   const broadcastMeta = (message.metadata as Record<string, unknown>) || {};
+  const batchId = typeof broadcastMeta.batchId === 'string' ? broadcastMeta.batchId : null;
   const birthDetails = broadcastMeta.birthDetails as Record<string, unknown> | undefined;
+
+  // Find remaining PENDING siblings (same batchId, same client, not the already-accepted one)
+  const batchSiblings = batchId
+    ? await prisma.broadcastMessage
+        .findMany({
+          where: {
+            id: { not: messageId },
+            clientId: message.clientId,
+            status: BroadcastMessageStatus.PENDING,
+          },
+        })
+        .then((msgs) =>
+          msgs
+            .filter((m) => {
+              const mMeta = (m.metadata as Record<string, unknown>) || {};
+              return mMeta.batchId === batchId;
+            })
+            .sort((a, b) => {
+              const ai = ((a.metadata as Record<string, unknown>).batchIndex as number) ?? 0;
+              const bi = ((b.metadata as Record<string, unknown>).batchIndex as number) ?? 0;
+              return ai - bi;
+            })
+        )
+    : [];
+
+  // Mark all siblings ACCEPTED and link to the same chat
+  const acceptedSiblings: typeof updatedMessage[] = [];
+  for (const sibling of batchSiblings) {
+    const accepted = await prisma.broadcastMessage.update({
+      where: { id: sibling.id },
+      data: {
+        status: BroadcastMessageStatus.ACCEPTED,
+        acceptedBy: astrologerId,
+        chatId: chat.id,
+        acceptedAt: new Date(),
+      },
+      include: {
+        client: { select: { id: true, name: true, phone: true, profilePhoto: true } },
+        acceptedAstrologer: { select: { id: true, name: true, phone: true, profilePhoto: true } },
+      },
+    });
+    acceptedSiblings.push(accepted);
+  }
+
+  // Collect all accepted messageIds (primary + siblings) for downstream events
+  const allAcceptedMessageIds = [messageId, ...acceptedSiblings.map((s) => s.id)];
+
+  // ── Create automatic messages in the chat ─────────────────────────────────
+  // 1. Primary broadcast question
   const originalMessage = await prisma.message.create({
     data: {
       chatId: chat.id,
@@ -1002,12 +1051,44 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       metadata: {
         originalBroadcast: true,
         broadcastMessageId: messageId,
+        batchIndex: (broadcastMeta.batchIndex as number | undefined) ?? 0,
+        ...(batchId ? { batchId } : {}),
         ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
       } as Prisma.InputJsonValue,
     },
   });
 
-  // 2. Astrologer's welcome message
+  // 2. Sibling questions (in batch order) — add each as a separate client message
+  const siblingMessages: typeof originalMessage[] = [];
+  for (const sibling of batchSiblings) {
+    const sibMeta = (sibling.metadata as Record<string, unknown>) || {};
+    const sibBirthDetails = sibMeta.birthDetails as Record<string, unknown> | undefined;
+    const sibMsg = await prisma.message.create({
+      data: {
+        chatId: chat.id,
+        senderId: message.clientId,
+        senderType: 'CLIENT',
+        receiverId: astrologerId,
+        receiverType: 'ASTROLOGER',
+        content: sibling.content,
+        type: 'TEXT',
+        metadata: {
+          originalBroadcast: true,
+          broadcastMessageId: sibling.id,
+          batchIndex: (sibMeta.batchIndex as number | undefined) ?? 0,
+          ...(batchId ? { batchId } : {}),
+          ...(sibBirthDetails && Object.keys(sibBirthDetails).length > 0
+            ? { birthDetails: sibBirthDetails }
+            : birthDetails && Object.keys(birthDetails).length > 0
+              ? { birthDetails }
+              : {}),
+        } as Prisma.InputJsonValue,
+      },
+    });
+    siblingMessages.push(sibMsg);
+  }
+
+  // 3. Astrologer's welcome message
   const astrologerName = updatedMessage.acceptedAstrologer?.name || 'The astrologer';
   const welcomeMessageContent = `Thank you for sending request. I (${astrologerName}) have accepted your request. I am currently analysing your profile and will get back to you soon...`;
 
@@ -1042,7 +1123,8 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   return {
     message: updatedMessage,
     chat,
-    initialMessages: [originalMessage, welcomeMessage],
+    initialMessages: [originalMessage, ...siblingMessages, welcomeMessage],
+    allAcceptedMessageIds,
   };
 }
 

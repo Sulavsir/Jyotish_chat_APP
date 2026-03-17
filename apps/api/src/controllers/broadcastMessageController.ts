@@ -203,8 +203,10 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
       });
 
       // Notify only ORDINARY and PROFESSIONAL astrologers (PREMIUM should not see broadcast toasts)
+      const allAcceptedIds = result.allAcceptedMessageIds ?? [result.message.id];
       const payload = {
         messageId: result.message.id,
+        allAcceptedMessageIds: allAcceptedIds,
         acceptedBy: result.message.acceptedAstrologer,
         acceptedAt: result.message.acceptedAt,
         clientName: result.message.client?.name || result.message.client?.phone,

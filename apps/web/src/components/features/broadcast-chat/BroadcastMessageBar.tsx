@@ -147,17 +147,33 @@ export function BroadcastMessageBar() {
       });
     });
 
-    // Message was accepted by an astrologer - remove immediately
+    // Message was accepted by an astrologer - remove entire batch immediately
     socket.on(
       'broadcast:messageAcceptedByAstrologer',
       (data: {
         messageId: string;
+        allAcceptedMessageIds?: string[];
         acceptedBy: { id: string; name?: string };
         acceptedAt: string;
         clientName: string;
       }) => {
-        // Remove message immediately - it's no longer available
-        setPendingMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+        setPendingMessages((prev) => {
+          // Build a Set of all IDs to remove (server-provided list + batchId fallback)
+          const removeIds = new Set<string>(data.allAcceptedMessageIds ?? [data.messageId]);
+
+          // Also remove any siblings sharing the same batchId as the primary message
+          const target = prev.find((m) => m.id === data.messageId);
+          const meta = (target?.metadata || {}) as Record<string, unknown>;
+          const batchId = typeof meta.batchId === 'string' ? meta.batchId : null;
+          if (batchId) {
+            prev.forEach((m) => {
+              const mMeta = (m.metadata || {}) as Record<string, unknown>;
+              if (mMeta.batchId === batchId) removeIds.add(m.id);
+            });
+          }
+
+          return prev.filter((m) => !removeIds.has(m.id));
+        });
         if (data.acceptedBy.id !== user?.id) {
           toast.info('This request was accepted by another astrologer');
         }
@@ -169,12 +185,27 @@ export function BroadcastMessageBar() {
       setPendingMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     });
 
-    // My acceptance was successful - remove immediately
+    // My acceptance was successful - remove entire batch immediately
     socket.on(
       'broadcast:messageAccepted',
-      (data: { message?: { id: string }; chat?: { id: string } }) => {
+      (data: { message?: { id: string }; allAcceptedMessageIds?: string[]; chat?: { id: string } }) => {
         if (data.message?.id) {
-          setPendingMessages((prev) => prev.filter((m) => m.id !== data.message!.id));
+          setPendingMessages((prev) => {
+            const removeIds = new Set<string>(data.allAcceptedMessageIds ?? [data.message!.id]);
+
+            // Also catch siblings via batchId in case server list is incomplete
+            const target = prev.find((m) => m.id === data.message!.id);
+            const meta = (target?.metadata || {}) as Record<string, unknown>;
+            const batchId = typeof meta.batchId === 'string' ? meta.batchId : null;
+            if (batchId) {
+              prev.forEach((m) => {
+                const mMeta = (m.metadata || {}) as Record<string, unknown>;
+                if (mMeta.batchId === batchId) removeIds.add(m.id);
+              });
+            }
+
+            return prev.filter((m) => !removeIds.has(m.id));
+          });
         }
         setAccepting(null);
         if (data.chat) {

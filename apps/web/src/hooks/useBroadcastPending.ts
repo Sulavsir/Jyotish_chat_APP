@@ -24,7 +24,9 @@ function isMultiQuestionBatch(message: BroadcastMessage): boolean {
     totalInBatch?: number;
   };
 
-  return !!metadata.batchId && typeof metadata.totalInBatch === 'number' && metadata.totalInBatch > 1;
+  return (
+    !!metadata.batchId && typeof metadata.totalInBatch === 'number' && metadata.totalInBatch > 1
+  );
 }
 
 function extractRequiredCoins(errorMessage: string): number {

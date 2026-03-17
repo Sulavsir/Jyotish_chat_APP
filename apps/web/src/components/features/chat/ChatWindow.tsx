@@ -708,19 +708,45 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               // 3. Next message is from a different sender
               let showTimestamp = false;
               if (index === uniqueMessages.length - 1) {
-                // Always show timestamp on last message
                 showTimestamp = true;
               } else if (nextMessage && !nextIsSystem) {
                 const currentTime = new Date(regularMessage.createdAt).getTime();
                 const nextTime = new Date(nextMessage.createdAt).getTime();
                 const timeDiffMinutes = (nextTime - currentTime) / (1000 * 60);
-
-                // Show if more than 5 minutes apart or different sender
                 showTimestamp =
                   timeDiffMinutes > 5 ||
                   (nextMessage as Message).senderId !== regularMessage.senderId;
               } else {
                 showTimestamp = true;
+              }
+
+              // Birth-details deduplication for batch broadcast questions:
+              // Only the LAST message of each batch should render the birth-details card.
+              // For non-batch messages let MessageBubble decide (undefined = auto).
+              let showBirthDetails: boolean | undefined = undefined;
+              const msgMeta = (regularMessage.metadata as Record<string, unknown> | undefined) ?? {};
+              const batchId = typeof msgMeta.batchId === 'string' ? msgMeta.batchId : null;
+              const isOriginalBroadcast = msgMeta.originalBroadcast === true;
+
+              if (isOriginalBroadcast && batchId) {
+                // Find the last message in this batch among all visible messages
+                let lastBatchIndex = index;
+                for (let j = index + 1; j < uniqueMessages.length; j++) {
+                  const candidate = uniqueMessages[j];
+                  if ('isSystemMessage' in candidate) break;
+                  const candidateMeta =
+                    ((candidate as Message).metadata as Record<string, unknown> | undefined) ?? {};
+                  if (
+                    candidateMeta.originalBroadcast === true &&
+                    candidateMeta.batchId === batchId
+                  ) {
+                    lastBatchIndex = j;
+                  } else {
+                    break;
+                  }
+                }
+                // Only the last batch question shows the birth details
+                showBirthDetails = index === lastBatchIndex;
               }
 
               return (
@@ -730,12 +756,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   isOwn={isOwn}
                   showAvatar={showAvatar}
                   showTimestamp={showTimestamp}
+                  showBirthDetails={showBirthDetails}
                   variant={isJyotish ? 'jyotish' : 'default'}
                   onViewProfile={
                     user?.role === UserRole.ASTROLOGER &&
                     !isOwn &&
                     otherUser.role === UserRole.CLIENT
-                      ? (clientId: string) => {
+                      ? (_clientId: string) => {
                           setShowClientDetailsModal(true);
                         }
                       : undefined

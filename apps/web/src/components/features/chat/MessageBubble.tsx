@@ -20,6 +20,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isOwn,
   showAvatar = true,
   showTimestamp = true,
+  showBirthDetails: showBirthDetailsProp,
   variant = 'default',
   onViewProfile,
 }) => {
@@ -56,7 +57,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const displayDob = birthDetails?.dateOfBirth ?? message.sender?.dateOfBirth;
   const displayTob = birthDetails?.timeOfBirth ?? message.sender?.timeOfBirth;
   const displayPob = birthDetails?.placeOfBirth ?? message.sender?.placeOfBirth;
-  const hasBirthDetails = isAstrologerViewingClient && (displayDob || displayTob || displayPob);
+  const hasBirthDetails =
+    (showBirthDetailsProp !== false) &&
+    isAstrologerViewingClient &&
+    (displayDob || displayTob || displayPob);
 
   // Check if message has file attachment
   const metadata = message.metadata as Record<string, unknown> | undefined;

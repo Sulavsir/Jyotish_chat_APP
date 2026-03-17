@@ -26,7 +26,7 @@ export async function getPricing(req: AuthRequest, res: Response) {
 export async function updatePricing(req: AuthRequest, res: Response) {
   try {
     const { tiers } = req.body as { tiers: { questionCount: number; amountNr: number }[] };
-    const updated = await broadcastQuestionPricingService.upsertTiers(tiers);
+    const updated = await broadcastQuestionPricingService.replaceTiers(tiers);
     return sendSuccess(res, { tiers: updated, message: 'Broadcast question pricing updated.' });
   } catch (error: unknown) {
     const err = error as Error;

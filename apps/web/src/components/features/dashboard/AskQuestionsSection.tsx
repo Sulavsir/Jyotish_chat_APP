@@ -59,9 +59,8 @@ export function AskQuestionsSection() {
   const { socket, isConnected } = useSocket();
   const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
   const [selectedAstrologerId, setSelectedAstrologerId] = useState<string>('');
-  const [selectedAstrologerCategory, setSelectedAstrologerCategory] = useState<
-    AstrologerCategory | null
-  >(null);
+  const [selectedAstrologerCategory, setSelectedAstrologerCategory] =
+    useState<AstrologerCategory | null>(null);
   const { setShowExtraInfoCards } = useAskQuestionsLayoutStore();
 
   // Direct-chat tab state
@@ -122,12 +121,10 @@ export function AskQuestionsSection() {
   const basePerMessageNr =
     selectedAstrologerFee && selectedAstrologerFee > 0
       ? selectedAstrologerFee
-      : coinRates?.CHAT_PER_MESSAGE ?? 0;
+      : (coinRates?.CHAT_PER_MESSAGE ?? 0);
   const requiredCoinsDirect = isAppointmentOnlyDirect ? 0 : basePerMessageNr;
   const showInsufficientCoinsBanner =
-    !!selectedAstrologerId &&
-    requiredCoinsDirect > 0 &&
-    coinBalance < requiredCoinsDirect;
+    !!selectedAstrologerId && requiredCoinsDirect > 0 && coinBalance < requiredCoinsDirect;
 
   const {
     isSending,
@@ -183,7 +180,8 @@ export function AskQuestionsSection() {
 
   const prepareMutation = useMutation({
     mutationFn: (questionIds: string[]) => broadcastMessageService.prepareQuestions(questionIds),
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to prepare questions'),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : 'Failed to prepare questions'),
   });
   const sendQuestionsMutation = useMutation({
     mutationFn: (payload: {
@@ -503,7 +501,6 @@ export function AskQuestionsSection() {
         type: 'TEXT',
         ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
       });
-  
     } catch (error) {
       console.error('Error sending broadcast message:', error);
       toast.error('Failed to send message');
@@ -523,9 +520,7 @@ export function AskQuestionsSection() {
       ? Math.round(broadcastBasePerQuestion * selectedCount)
       : null;
   const hasDiscount =
-    originalTotalNr !== null &&
-    displayTotalNr > 0 &&
-    originalTotalNr > displayTotalNr;
+    originalTotalNr !== null && displayTotalNr > 0 && originalTotalNr > displayTotalNr;
 
   // If waiting for acceptance, show matching modal
   if (isWaitingForAcceptance && pendingMessage) {
@@ -548,9 +543,7 @@ export function AskQuestionsSection() {
         {/* Header */}
         <div className="animate-in fade-in slide-in-from-right-4 delay-100">
           <h3 className="text-xl font-bold text-white mb-2">{t('askYourQuestion')}</h3>
-          <p className="text-sm text-gray-400">
-            {t('chooseHowToContact')}
-          </p>
+          <p className="text-sm text-gray-400">{t('chooseHowToContact')}</p>
         </div>
 
         {/* Mode Tabs */}
@@ -605,9 +598,7 @@ export function AskQuestionsSection() {
             {!selectedAstrologerId && (
               <div className="flex flex-col items-center justify-center py-6 px-4 rounded-xl border border-white/10 bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-transparent animate-in fade-in delay-200">
                 <MessageSquare className="h-10 w-10 text-purple-400/60 mb-2 animate-pulse" />
-                <p className="text-sm text-gray-300 text-center">
-                  {t('selectJyotishToStart')}
-                </p>
+                <p className="text-sm text-gray-300 text-center">{t('selectJyotishToStart')}</p>
               </div>
             )}
 
@@ -617,7 +608,9 @@ export function AskQuestionsSection() {
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 delay-200">
                   {/* Category Selection */}
                   <div className="w-full">
-                    <label className="text-sm text-gray-300 mb-2 block">{t('selectCategory')}</label>
+                    <label className="text-sm text-gray-300 mb-2 block">
+                      {t('selectCategory')}
+                    </label>
                     <Select
                       value={directCategory}
                       onValueChange={(value) =>
@@ -764,9 +757,7 @@ export function AskQuestionsSection() {
                   {t('yourQuestionPublishedToAll')}
                 </p>
               </div>
-              <p className="text-xs text-orange-200/80">
-                {t('firstToAcceptStartsChat')}
-              </p>
+              <p className="text-xs text-orange-200/80">{t('firstToAcceptStartsChat')}</p>
             </div>
 
             {/* Select profile whose birth details will be shared */}
@@ -889,9 +880,7 @@ export function AskQuestionsSection() {
               {/* Custom Message Input */}
               <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
                 <label className="text-sm text-gray-300 mb-2 block">
-                  {broadcastQuestion
-                    ? t('orEditBeforePublish')
-                    : t('orTypeToAll')}
+                  {broadcastQuestion ? t('orEditBeforePublish') : t('orTypeToAll')}
                 </label>
                 <textarea
                   value={broadcastMessage}
@@ -900,9 +889,7 @@ export function AskQuestionsSection() {
                     handleBroadcastMessageChange(e.target.value);
                   }}
                   placeholder={
-                    broadcastQuestion
-                      ? broadcastQuestion
-                      : t('typeQuestionToPublishPlaceholder')
+                    broadcastQuestion ? broadcastQuestion : t('typeQuestionToPublishPlaceholder')
                   }
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
                 />
@@ -925,14 +912,11 @@ export function AskQuestionsSection() {
                 {selectedCount > 0 ? (
                   hasDiscount && originalTotalNr !== null ? (
                     <>
-                      {t('sendMessageToAll')}{' '}
-                      {`(${selectedCount} · `}
+                      {t('sendMessageToAll')} {`(${selectedCount} · `}
                       <span className="line-through mr-1">
                         NRs {originalTotalNr.toLocaleString()}
                       </span>
-                      <span className="font-semibold">
-                        NRs {displayTotalNr.toLocaleString()}
-                      </span>
+                      <span className="font-semibold">NRs {displayTotalNr.toLocaleString()}</span>
                       {')'}
                     </>
                   ) : (
