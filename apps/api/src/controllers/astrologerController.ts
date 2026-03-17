@@ -212,11 +212,15 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
 
     const astrologer = await astrologerService.findById(astrologerId);
 
+    const canAccessAppointmentsFlag = canAcceptAppointments(astrologer.category);
+    const canAcceptBroadcastMessagesFlag =
+      canAcceptBroadcastMessages(astrologer.category) || astrologer.inhouseAstrologer === true;
+
     return sendSuccess(res, {
       astrologer: {
         ...astrologer,
-        canAccessAppointments: canAcceptAppointments(astrologer.category),
-        canAcceptBroadcastMessages: canAcceptBroadcastMessages(astrologer.category),
+        canAccessAppointments: canAccessAppointmentsFlag,
+        canAcceptBroadcastMessages: canAcceptBroadcastMessagesFlag,
       },
     });
   } catch (error) {

@@ -311,6 +311,20 @@ export default function AstrologersPage() {
       accessor: (astrologer) => astrologer.address?.trim() || '-',
     },
     {
+      header: 'Inhouse Astrologer',
+      accessor: (astrologer) => (
+        <span
+          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            astrologer.inhouseAstrologer
+              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+              : 'bg-slate-600/20 text-slate-300 border border-slate-600/40'
+          }`}
+        >
+          {astrologer.inhouseAstrologer ? 'Yes' : 'No'}
+        </span>
+      ),
+    },
+    {
       header: 'Experience',
       accessor: (astrologer) => `${astrologer.experience} years`,
     },

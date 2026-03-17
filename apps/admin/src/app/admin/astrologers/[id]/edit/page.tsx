@@ -34,10 +34,8 @@ import type { Astrologer } from '@/types';
 import { X } from 'lucide-react';
 import { AstrologerCategory, ASTROLOGER_PROOF_UPLOAD } from '@jyotish/shared';
 
-const {
-  MAX_FILES: MAX_NEW_PROOF_FILES,
-  isAllowedType: isAllowedProofType,
-} = ASTROLOGER_PROOF_UPLOAD;
+const { MAX_FILES: MAX_NEW_PROOF_FILES, isAllowedType: isAllowedProofType } =
+  ASTROLOGER_PROOF_UPLOAD;
 
 export default function EditAstrologerPage() {
   const router = useRouter();
@@ -201,8 +199,12 @@ export default function EditAstrologerPage() {
         typeof payload.specialization === 'string'
           ? parseCommaSeparatedToArray(payload.specialization as unknown as string)
           : (payload.specialization ?? []);
+
+      const inhouseAstrologer = payload.inhouseAstrologer === true;
+
       const updatePayload: UpdateAstrologerFormData & { proofOfAstrology?: string | null } = {
         ...payload,
+        inhouseAstrologer,
         specialization: Array.isArray(specialization) ? specialization : [],
       };
 
@@ -504,7 +506,11 @@ export default function EditAstrologerPage() {
                       onClick={() => profilePhotoInputRef.current?.click()}
                       disabled={uploadProfilePhotoMutation.isPending}
                     >
-                      {uploadProfilePhotoMutation.isPending ? 'Uploading…' : data.profilePhoto ? 'Change' : 'Upload'}
+                      {uploadProfilePhotoMutation.isPending
+                        ? 'Uploading…'
+                        : data.profilePhoto
+                          ? 'Change'
+                          : 'Upload'}
                     </Button>
                     {data.profilePhoto && (
                       <Button
@@ -785,9 +791,7 @@ export default function EditAstrologerPage() {
                       >
                         <X className="h-4 w-4" />
                       </button>
-                      <p className="text-xs text-amber-400 mt-1">
-                        New (saved on Save)
-                      </p>
+                      <p className="text-xs text-amber-400 mt-1">New (saved on Save)</p>
                     </div>
                   );
                 })}

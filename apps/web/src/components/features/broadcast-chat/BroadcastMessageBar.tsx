@@ -31,6 +31,7 @@ import { ROUTE_BUILDERS } from '@/constants';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import type { User as SharedUser } from '@jyotish/shared';
 
 export function BroadcastMessageBar() {
   const { socket, isConnected } = useSocket();
@@ -112,6 +113,28 @@ export function BroadcastMessageBar() {
       loadPendingMessages();
     }
   }, [user]);
+
+  const isInhouseAstrologer = (currentUser: SharedUser | null | undefined): boolean => {
+    if (!currentUser || currentUser.role !== 'ASTROLOGER') {
+      return false;
+    }
+    return currentUser.astrologer?.inhouseAstrologer === true;
+  };
+
+  const isMultiQuestionNonFirst = (message: BroadcastMessage): boolean => {
+    const metadata = (message.metadata ?? {}) as {
+      batchId?: string;
+      batchIndex?: number;
+      totalInBatch?: number;
+    };
+    if (!metadata.batchId || typeof metadata.totalInBatch !== 'number') {
+      return false;
+    }
+    if (metadata.totalInBatch <= 1) {
+      return false;
+    }
+    return typeof metadata.batchIndex === 'number' && metadata.batchIndex > 0;
+  };
 
   // Setup socket listeners
   useEffect(() => {
@@ -303,7 +326,15 @@ export function BroadcastMessageBar() {
   }
 
   // Don't show if not an astrologer or no pending messages
-  if (user?.role !== 'ASTROLOGER' || pendingMessages.length === 0) {
+  const inhouse = isInhouseAstrologer(user as unknown as SharedUser | null);
+  const visiblePendingMessages = pendingMessages.filter((message) => {
+    if (inhouse) {
+      return true;
+    }
+    return isMultiQuestionNonFirst(message);
+  });
+
+  if (user?.role !== 'ASTROLOGER' || visiblePendingMessages.length === 0) {
     return null;
   }
 
@@ -314,7 +345,7 @@ export function BroadcastMessageBar() {
   };
 
   const groupsMap = new Map<string, BroadcastMessage[]>();
-  for (const message of pendingMessages) {
+  for (const message of visiblePendingMessages) {
     const metadata = (message.metadata || {}) as Record<string, unknown>;
     const batchId = typeof metadata.batchId === 'string' ? metadata.batchId : null;
     const key = batchId || message.id;

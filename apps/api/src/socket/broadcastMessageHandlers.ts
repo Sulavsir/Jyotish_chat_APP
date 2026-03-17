@@ -98,11 +98,20 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
           message: 'A client is requesting to chat with an astrologer',
         });
       } catch (error: unknown) {
-        const err = error as Error;
+        const err = error as any;
         console.error('Error sending broadcast message:', error);
+
+        const messageText: string = err?.message || 'Failed to send message';
+        const isActiveChat = messageText.toLowerCase().includes('active chat');
+        const isInsufficientCoins = messageText.toLowerCase().includes('insufficient coins');
+
         socket.emit('broadcast:error', {
-          message: err?.message || 'Failed to send message',
-          code: err?.message?.includes('active chat') ? 'ACTIVE_CHAT_EXISTS' : 'SEND_FAILED',
+          message: messageText,
+          code: isActiveChat
+            ? 'ACTIVE_CHAT_EXISTS'
+            : isInsufficientCoins
+              ? 'INSUFFICIENT_COINS'
+              : 'SEND_FAILED',
         });
       }
     }

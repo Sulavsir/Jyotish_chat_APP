@@ -20,7 +20,7 @@ import {
 import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
 import { getSocketInstance } from '../utils/socket-instance';
-import { hasUserUsedBroadcast } from '../services/broadcastMessage.service';
+import { hasUserUsedBroadcast } from '../services/broadcastUsage.service';
 
 function isClientProfileCompleteForFlag(user: {
   name?: string | null;

@@ -22,6 +22,7 @@ import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { ROUTE_BUILDERS } from '@/constants';
 import { useRouter } from 'next/navigation';
+import type { User as SharedUser } from '@jyotish/shared';
 
 interface AstrologerBroadcastViewProps {
   onChatCreated?: (chatId: string) => void;
@@ -36,6 +37,28 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
   const [accepting, setAccepting] = useState<string | null>(null);
   // ✅ REMOVED: hasActiveChat state - astrologers can handle multiple chats
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const isInhouseAstrologer = (currentUser: SharedUser | null | undefined): boolean => {
+    if (!currentUser || currentUser.role !== 'ASTROLOGER') {
+      return false;
+    }
+    return currentUser.astrologer?.inhouseAstrologer === true;
+  };
+
+  const isMultiQuestionNonFirst = (message: BroadcastMessage): boolean => {
+    const metadata = (message.metadata ?? {}) as {
+      batchId?: string;
+      batchIndex?: number;
+      totalInBatch?: number;
+    };
+    if (!metadata.batchId || typeof metadata.totalInBatch !== 'number') {
+      return false;
+    }
+    if (metadata.totalInBatch <= 1) {
+      return false;
+    }
+    return typeof metadata.batchIndex === 'number' && metadata.batchIndex > 0;
+  };
 
   // Load all broadcast messages on mount
   useEffect(() => {
@@ -205,7 +228,16 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
 
   // Filter messages - only show PENDING messages (remove expired, cancelled, and accepted)
   // ✅ Astrologers should only see pending requests they can act on
-  const visibleMessages = messages.filter((m) => m.status === BroadcastMessageStatus.PENDING);
+  const inhouse = isInhouseAstrologer(user as unknown as SharedUser | null);
+  const visibleMessages = messages.filter((m) => {
+    if (m.status !== BroadcastMessageStatus.PENDING) {
+      return false;
+    }
+    if (inhouse) {
+      return true;
+    }
+    return isMultiQuestionNonFirst(m);
+  });
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-indigo-50">

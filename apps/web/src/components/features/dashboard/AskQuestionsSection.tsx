@@ -106,7 +106,9 @@ export function AskQuestionsSection() {
     setShowCoinPurchaseModal: setShowDirectCoinModal,
   } = useChat();
 
-  const { rates: coinRates } = useCoinRates(mode === 'direct' && !!selectedAstrologerId);
+  const { rates: coinRates } = useCoinRates(
+    (mode === 'direct' && !!selectedAstrologerId) || mode === 'broadcast'
+  );
   const { data: balanceData } = useQuery({
     queryKey: QUERY_KEYS.COINS.BALANCE,
     queryFn: () => coinService.getBalance(),
@@ -117,9 +119,10 @@ export function AskQuestionsSection() {
   const isAppointmentOnlyDirect =
     selectedAstrologerCategory === AstrologerCategory.PREMIUM ||
     selectedAstrologerCategory === AstrologerCategory.KATHA_VACHAK;
-  const basePerMessageNr = selectedAstrologerFee && selectedAstrologerFee > 0
-    ? selectedAstrologerFee
-    : coinRates?.CHAT_PER_MESSAGE ?? 0;
+  const basePerMessageNr =
+    selectedAstrologerFee && selectedAstrologerFee > 0
+      ? selectedAstrologerFee
+      : coinRates?.CHAT_PER_MESSAGE ?? 0;
   const requiredCoinsDirect = isAppointmentOnlyDirect ? 0 : basePerMessageNr;
   const showInsufficientCoinsBanner =
     !!selectedAstrologerId &&
@@ -500,7 +503,7 @@ export function AskQuestionsSection() {
         type: 'TEXT',
         ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
       });
-      markSending();
+  
     } catch (error) {
       console.error('Error sending broadcast message:', error);
       toast.error('Failed to send message');
@@ -514,15 +517,10 @@ export function AskQuestionsSection() {
   const displayTotalNr = totalNrPreview;
 
   // For UI: show original (non-discounted) price vs discounted tier price when applicable.
-  // Use the smallest tier as the base per-question rate; if a higher-count tier is cheaper,
-  // we show the crossed-out original total (base * count) and the discounted tier total.
-  const baseTier = pricingTiers.length
-    ? pricingTiers.slice().sort((a, b) => a.questionCount - b.questionCount)[0]
-    : null;
-  const basePerQuestion = baseTier ? baseTier.amountNr / baseTier.questionCount : null;
+  const broadcastBasePerQuestion = coinRates?.BROADCAST_SEND ?? null;
   const originalTotalNr =
-    basePerQuestion && selectedCount > 0
-      ? Math.round(basePerQuestion * selectedCount)
+    broadcastBasePerQuestion && selectedCount > 0
+      ? Math.round(broadcastBasePerQuestion * selectedCount)
       : null;
   const hasDiscount =
     originalTotalNr !== null &&

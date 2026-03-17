@@ -59,6 +59,7 @@ export interface UpdateAstrologerRequest {
   proofOfAstrology?: string | null;
   chatMessageFee?: number | null;
   country?: string | null;
+  inhouseAstrologer?: boolean;
 }
 
 

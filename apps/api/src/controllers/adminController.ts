@@ -287,6 +287,32 @@ export async function updateAstrologer(req: AuthRequest, res: Response, next: Ne
     }
     delete body.editPassword;
     delete body.isOnline;
+
+    // Debug: log body and normalize inhouseAstrologer only when present
+    // eslint-disable-next-line no-console
+    console.log('[updateAstrologer] raw body:', req.body);
+
+    if ('inhouseAstrologer' in body) {
+      const raw = (req.body as any)?.inhouseAstrologer;
+
+      // eslint-disable-next-line no-console
+      console.log('[updateAstrologer] raw inhouseAstrologer field:', raw);
+
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        body.inhouseAstrologer =
+          trimmed === 'true' || trimmed === '1' || trimmed.toLowerCase() === 'yes';
+      } else {
+        body.inhouseAstrologer = raw === true;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log('[updateAstrologer] normalized inhouseAstrologer:', body.inhouseAstrologer);
+    } else {
+      // eslint-disable-next-line no-console
+      console.log('[updateAstrologer] inhouseAstrologer not present in body');
+    }
+
     const astrologer = await astrologerService.update(id, body);
 
     return sendSuccess(res, { astrologer });
@@ -545,7 +571,7 @@ export async function rejectRegistration(req: AuthRequest, res: Response, next: 
  */
 export async function listUsers(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page = '1', limit = '10', search, isActive, joinedFrom, joinedTo } = req.query;
+    const { page = '1', limit = '10', search, isActive } = req.query;
 
     const where: any = { role: 'CLIENT' }; // Only CLIENT users
 
@@ -559,19 +585,6 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
 
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
-    }
-
-    // Date of joining filters (createdAt range)
-    if (joinedFrom || joinedTo) {
-      where.createdAt = {};
-      if (joinedFrom) {
-        (where.createdAt as { gte?: Date }).gte = new Date(joinedFrom as string);
-      }
-      if (joinedTo) {
-        const to = new Date(joinedTo as string);
-        to.setHours(23, 59, 59, 999);
-        (where.createdAt as { lte?: Date }).lte = to;
-      }
     }
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
@@ -1314,21 +1327,17 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
           },
         },
       }),
-      // Total Loaded (Platform): sum of ADD transactions from balance/coin transactions (payment integrations)
-      prisma.coinTransaction.aggregate({
+      prisma.payment.aggregate({
         _sum: { amount: true },
-        where: {
-          type: 'ADD',
-          paymentId: { not: null },
-        },
+        where: { status: 'SUCCESS' },
       }),
-      // Today's Loaded (Platform): same, filtered by today
-      prisma.coinTransaction.aggregate({
+      prisma.payment.aggregate({
         _sum: { amount: true },
         where: {
-          type: 'ADD',
-          paymentId: { not: null },
-          createdAt: { gte: today },
+          status: 'SUCCESS',
+          createdAt: {
+            gte: today,
+          },
         },
       }),
     ]);
@@ -1404,17 +1413,10 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where = {
-      paymentId: {
-        not: null,
-      },
-    } as const;
-
     const [transactions, total] = await Promise.all([
       prisma.coinTransaction.findMany({
         skip,
         take: limitNum,
-        where,
         include: {
           user: {
             select: {
@@ -1427,7 +1429,7 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.coinTransaction.count({ where }),
+      prisma.coinTransaction.count(),
     ]);
 
     return sendSuccess(res, {

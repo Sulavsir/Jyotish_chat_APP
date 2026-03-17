@@ -377,7 +377,9 @@ export const adminApi = {
     },
 
     /** Create one or more tips. Send { tips: [...] } with one or many items. */
-    create: async (data: CreateTipsRequest): Promise<{ tips: import('@/types').AdminDailyTip[] }> => {
+    create: async (
+      data: CreateTipsRequest
+    ): Promise<{ tips: import('@/types').AdminDailyTip[] }> => {
       const response = await apiClient.post<{ tips: import('@/types').AdminDailyTip[] }>(
         API_ENDPOINTS.TIPS.CREATE,
         data
@@ -394,7 +396,12 @@ export const adminApi = {
 
     update: async (
       id: string,
-      data: { date: string; text: string; language: import('@jyotish/shared').QuestionnaireLanguage; audience: import('@jyotish/shared').TipAudience }
+      data: {
+        date: string;
+        text: string;
+        language: import('@jyotish/shared').QuestionnaireLanguage;
+        audience: import('@jyotish/shared').TipAudience;
+      }
     ): Promise<{ tip: import('@/types').AdminDailyTip }> => {
       const response = await apiClient.patch<{ tip: import('@/types').AdminDailyTip }>(
         API_ENDPOINTS.TIPS.UPDATE(id),
@@ -420,7 +427,9 @@ export const adminApi = {
       return response;
     },
 
-    list: async (params?: import('@/types').ListSubhaSahitDatesParams): Promise<import('@/types').ListSubhaSahitDatesResponse> => {
+    list: async (
+      params?: import('@/types').ListSubhaSahitDatesParams
+    ): Promise<import('@/types').ListSubhaSahitDatesResponse> => {
       const response = await apiClient.get<import('@/types').ListSubhaSahitDatesResponse>(
         API_ENDPOINTS.SUBHA_SAHIT.LIST,
         { params }
@@ -428,7 +437,9 @@ export const adminApi = {
       return response;
     },
 
-    create: async (data: import('@/types').CreateSubhaSahitDatesRequest): Promise<import('@/types').CreateSubhaSahitDatesResponse> => {
+    create: async (
+      data: import('@/types').CreateSubhaSahitDatesRequest
+    ): Promise<import('@/types').CreateSubhaSahitDatesResponse> => {
       const response = await apiClient.post<import('@/types').CreateSubhaSahitDatesResponse>(
         API_ENDPOINTS.SUBHA_SAHIT.CREATE,
         data
@@ -436,7 +447,10 @@ export const adminApi = {
       return response;
     },
 
-    update: async (id: string, data: import('@/types').UpdateSubhaSahitDateRequest): Promise<import('@/types').UpdateSubhaSahitDateResponse> => {
+    update: async (
+      id: string,
+      data: import('@/types').UpdateSubhaSahitDateRequest
+    ): Promise<import('@/types').UpdateSubhaSahitDateResponse> => {
       const response = await apiClient.put<import('@/types').UpdateSubhaSahitDateResponse>(
         API_ENDPOINTS.SUBHA_SAHIT.UPDATE(id),
         data
@@ -445,14 +459,19 @@ export const adminApi = {
     },
 
     delete: async (id: string): Promise<{ message: string }> => {
-      const response = await apiClient.delete<{ message: string }>(API_ENDPOINTS.SUBHA_SAHIT.DELETE(id));
+      const response = await apiClient.delete<{ message: string }>(
+        API_ENDPOINTS.SUBHA_SAHIT.DELETE(id)
+      );
       return response;
     },
 
     getOccasions: async (language?: 'en' | 'ne' | 'hi'): Promise<{ occasions: string[] }> => {
-      const response = await apiClient.get<{ occasions: string[] }>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS, {
-        params: language ? { language } : undefined,
-      });
+      const response = await apiClient.get<{ occasions: string[] }>(
+        API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS,
+        {
+          params: language ? { language } : undefined,
+        }
+      );
       return response;
     },
 
@@ -460,10 +479,9 @@ export const adminApi = {
       name: string,
       language?: 'en' | 'ne' | 'hi'
     ): Promise<{ occasion: { id: string; name: string; isActive: boolean; language: string } }> => {
-      const response = await apiClient.post<{ occasion: { id: string; name: string; isActive: boolean; language: string } }>(
-        API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION,
-        language ? { name, language } : { name }
-      );
+      const response = await apiClient.post<{
+        occasion: { id: string; name: string; isActive: boolean; language: string };
+      }>(API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION, language ? { name, language } : { name });
       return response;
     },
   },
@@ -477,8 +495,6 @@ export const adminApi = {
       limit?: number;
       search?: string;
       isActive?: boolean;
-      joinedFrom?: string;
-      joinedTo?: string;
     }) => {
       const response = await apiClient.get(API_ENDPOINTS.USERS.LIST, { params });
       return response;
@@ -788,14 +804,22 @@ export const adminApi = {
 
     broadcastQuestionPricing: {
       get: async (): Promise<{
-        tiers: { id: string; questionCount: number; amountNr: number; createdAt: string; updatedAt: string }[];
+        tiers: {
+          id: string;
+          questionCount: number;
+          amountNr: number;
+          createdAt: string;
+          updatedAt: string;
+        }[];
       }> => {
         const response = await apiClient.get<{ tiers: BroadcastQuestionPricingTier[] }>(
           API_ENDPOINTS.WEBSITE.BROADCAST_QUESTION_PRICING
         );
         return response;
       },
-      update: async (tiers: { questionCount: number; amountNr: number }[]): Promise<{
+      update: async (
+        tiers: { questionCount: number; amountNr: number }[]
+      ): Promise<{
         tiers: BroadcastQuestionPricingTier[];
         message?: string;
       }> => {
@@ -969,7 +993,9 @@ export const adminApi = {
    * Horoscopes (admin CRUD)
    */
   horoscopes: {
-    list: async (params?: import('@/types').ListHoroscopesParams): Promise<import('@/types').ListHoroscopesResponse> => {
+    list: async (
+      params?: import('@/types').ListHoroscopesParams
+    ): Promise<import('@/types').ListHoroscopesResponse> => {
       const response = await apiClient.get<import('@/types').ListHoroscopesResponse>(
         API_ENDPOINTS.HOROSCOPES.LIST,
         { params }
@@ -987,10 +1013,9 @@ export const adminApi = {
     createBulk: async (
       data: import('@/types').CreateHoroscopesBulkRequest
     ): Promise<{ horoscopes: import('@/types').AdminHoroscopeEntry[] }> => {
-      const response = await apiClient.post<{ horoscopes: import('@/types').AdminHoroscopeEntry[] }>(
-        API_ENDPOINTS.HOROSCOPES.BULK_CREATE,
-        data
-      );
+      const response = await apiClient.post<{
+        horoscopes: import('@/types').AdminHoroscopeEntry[];
+      }>(API_ENDPOINTS.HOROSCOPES.BULK_CREATE, data);
       return response;
     },
 

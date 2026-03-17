@@ -3,10 +3,12 @@
  * Admin-managed pricing for broadcast by number of questions (NRs)
  */
 
-import { prisma } from '@jyotish/database';
+import { PlatformCoinRateType, prisma } from '@jyotish/database';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { getCoinBalance } from './coin.service';
+import { getRate } from './platformCoinRate.service';
+import { hasUserUsedBroadcast } from './broadcastUsage.service';
 
 export interface BroadcastQuestionPricingTier {
   id: string;
@@ -35,10 +37,10 @@ export async function getPricingTiers(): Promise<BroadcastQuestionPricingTier[]>
 }
 
 /**
- * Get total amount in NRs for a given question count.
- * Uses exact tier if present, otherwise interpolates from nearest lower tier or throws.
+ * Get base total amount in NRs for a given question count from pricing tiers.
+ * Ignores any first-broadcast discount logic (used internally).
  */
-export async function getTotalNrForQuestionCount(questionCount: number): Promise<number> {
+async function getBaseTotalNrForQuestionCount(questionCount: number): Promise<number> {
   if (questionCount < 1 || questionCount > MAX_QUESTION_COUNT) {
     throw new AppError(
       `Question count must be between 1 and ${MAX_QUESTION_COUNT}`,
@@ -78,6 +80,61 @@ export async function getTotalNrForQuestionCount(questionCount: number): Promise
     HTTP_STATUS.BAD_REQUEST,
     ERROR_CODES.VALIDATION_ERROR
   );
+}
+
+/**
+ * Get total amount in NRs for a given question count, including optional
+ * first-broadcast discount for multi-question flow.
+ */
+export async function getTotalNrForQuestionCount(
+  questionCount: number,
+  clientId?: string
+): Promise<number> {
+  if (questionCount < 1 || questionCount > MAX_QUESTION_COUNT) {
+    throw new AppError(
+      `Question count must be between 1 and ${MAX_QUESTION_COUNT}`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  // Base total from admin-managed tiers (used for all non-first-broadcast flows)
+  const baseTotal = await getBaseTotalNrForQuestionCount(questionCount);
+
+  if (!clientId) {
+    return baseTotal;
+  }
+
+  const hasUsed = await hasUserUsedBroadcast(clientId);
+  if (hasUsed) {
+    return baseTotal;
+  }
+
+  // First-time broadcast with multiple questions: apply admin-configured
+  // FIRST_BROADCAST_DISCOUNT to one BROADCAST_SEND unit, remaining questions
+  // use full BROADCAST_SEND. This ties the "first question" discount directly
+  // to the broadcast send fee rather than to tier curves.
+  const [broadcastSend, discountPercent] = await Promise.all([
+    getRate('BROADCAST_SEND'),
+    getRate('FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType),
+  ]);
+
+  const clampedDiscount = Math.max(0, Math.min(100, discountPercent));
+  if (clampedDiscount <= 0 || broadcastSend <= 0) {
+    return baseTotal;
+  }
+
+  const discountedFirst =
+    clampedDiscount >= 100
+      ? 0
+      : Math.round((broadcastSend * (100 - clampedDiscount)) / 100);
+
+  const remainingCount = questionCount - 1;
+  const remainingTotal = remainingCount > 0 ? remainingCount * broadcastSend : 0;
+
+  const discountedTotal = discountedFirst + remainingTotal;
+
+  return discountedTotal;
 }
 
 /**
@@ -175,7 +232,7 @@ export async function prepareBroadcastQuestions(
   }
 
   const questionCount = questions.length;
-  const totalNr = await getTotalNrForQuestionCount(questionCount);
+  const totalNr = await getTotalNrForQuestionCount(questionCount, clientId);
   const balanceNr = await getCoinBalance(clientId);
   const coveredByBalance = Math.min(balanceNr, totalNr);
   const remainingNr = Math.max(0, totalNr - coveredByBalance);

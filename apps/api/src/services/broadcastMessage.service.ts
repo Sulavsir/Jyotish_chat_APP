@@ -27,6 +27,7 @@ import {
 import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
 import { getTotalNrForQuestionCount } from './broadcastQuestionPricing.service';
+import { hasUserUsedBroadcast } from './broadcastUsage.service';
 import { randomUUID } from 'node:crypto';
 
 export interface CreateBroadcastMessageData {
@@ -44,38 +45,6 @@ export interface BroadcastQuestionItem {
 export interface AcceptBroadcastMessageData {
   messageId: string;
   astrologerId: string;
-}
-
-/**
- * Check if a client has ever used broadcast before.
- *
- * Behaviour detail:
- * If a broadcast message is free-trial and expires, it should not be counted as used.
- */
-export async function hasUserUsedBroadcast(clientId: string): Promise<boolean> {
-  if (!('broadcastMessage' in prisma)) {
-    return false;
-  }
-
-  const existing = await prisma.broadcastMessage.findFirst({
-    where: {
-      clientId,
-      NOT: {
-        AND: [
-          {
-            metadata: {
-              path: ['freeTrial'],
-              equals: true,
-            },
-          },
-          { status: BroadcastMessageStatus.EXPIRED },
-        ],
-      },
-    },
-    select: { id: true },
-  });
-
-  return !!existing;
 }
 
 /**
@@ -338,8 +307,7 @@ export async function createMultipleBroadcastMessages(
     );
   }
 
-  // Validate totalNr matches server-side pricing
-  const expectedTotal = await getTotalNrForQuestionCount(count);
+  const expectedTotal = await getTotalNrForQuestionCount(count, clientId);
   if (totalNr !== expectedTotal) {
     throw new AppError(
       `Pricing mismatch. Expected ${expectedTotal} NRs for ${count} question(s).`,
