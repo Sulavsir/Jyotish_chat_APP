@@ -1301,17 +1301,21 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
           },
         },
       }),
-      prisma.payment.aggregate({
-        _sum: { amount: true },
-        where: { status: 'SUCCESS' },
-      }),
-      prisma.payment.aggregate({
+      // Total Loaded (Platform): sum of ADD transactions from balance/coin transactions (payment integrations)
+      prisma.coinTransaction.aggregate({
         _sum: { amount: true },
         where: {
-          status: 'SUCCESS',
-          createdAt: {
-            gte: today,
-          },
+          type: 'ADD',
+          paymentId: { not: null },
+        },
+      }),
+      // Today's Loaded (Platform): same, filtered by today
+      prisma.coinTransaction.aggregate({
+        _sum: { amount: true },
+        where: {
+          type: 'ADD',
+          paymentId: { not: null },
+          createdAt: { gte: today },
         },
       }),
     ]);
