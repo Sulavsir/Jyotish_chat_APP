@@ -147,7 +147,7 @@ export default function PanditBookingsPage() {
 
   const columns: AdminTableColumn<(typeof bookings)[number]>[] = [
     {
-      header: 'Date',
+      header: 'Booking Date',
       accessor: (b) => <span className="text-slate-200">{formatAdminDate(b.bookingDate)}</span>,
       width: '140px',
     },

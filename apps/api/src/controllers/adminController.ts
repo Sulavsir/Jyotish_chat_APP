@@ -1413,10 +1413,16 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
+    const where = {
+      type: 'ADD',
+      reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
+    } as const;
+
     const [transactions, total] = await Promise.all([
       prisma.coinTransaction.findMany({
         skip,
         take: limitNum,
+        where,
         include: {
           user: {
             select: {
@@ -1429,7 +1435,7 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.coinTransaction.count(),
+      prisma.coinTransaction.count({ where }),
     ]);
 
     return sendSuccess(res, {

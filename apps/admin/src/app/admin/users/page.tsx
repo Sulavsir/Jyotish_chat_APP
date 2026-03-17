@@ -29,7 +29,8 @@ import type { User } from '@/types';
 import { AddCoinsModal } from '@/components/admin/AddCoinsModal';
 import { generatePageNumbers } from '@/utils/helpers';
 
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+const DEFAULT_ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 interface UsersResponse {
   users: User[];
@@ -45,6 +46,7 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
@@ -59,11 +61,17 @@ export default function UsersPage() {
     isLoading,
     refetch,
   } = useQuery<UsersResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.USERS.LIST(), currentPage, searchTerm, statusFilter],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.USERS.LIST(),
+      currentPage,
+      rowsPerPage,
+      searchTerm,
+      statusFilter,
+    ],
     queryFn: async () => {
       const response: any = await adminApi.users.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: searchTerm || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
       });
@@ -76,20 +84,20 @@ export default function UsersPage() {
           users: response,
           pagination: {
             page: 1,
-            limit: ITEMS_PER_PAGE,
+            limit: rowsPerPage,
             total: response.length,
             totalPages: 1,
           },
         };
       }
-      return { users: [], pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 } };
+      return { users: [], pagination: { page: 1, limit: rowsPerPage, total: 0, totalPages: 0 } };
     },
   });
 
   const users = usersResponse?.users || [];
   const pagination = usersResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -114,7 +122,7 @@ export default function UsersPage() {
   // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, rowsPerPage]);
 
   const columns: AdminTableColumn<User>[] = [
     {
@@ -175,6 +183,14 @@ export default function UsersPage() {
             NRs {Number(user.totalBalanceLoaded ?? 0).toLocaleString()}
           </span>
         </div>
+      ),
+    },
+    {
+      header: 'Date Joined',
+      accessor: (user) => (
+        <span className="text-slate-300 text-sm">
+          {user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}
+        </span>
       ),
     },
     {
@@ -255,11 +271,23 @@ export default function UsersPage() {
           />
         </div>
 
-        {/* Pagination */}
+        {/* Pagination + Rows per page */}
         {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
+          <div className="rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3 text-sm text-slate-200">
+              <span>Rows per page:</span>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => setRowsPerPage(Number(e.target.value) || DEFAULT_ITEMS_PER_PAGE)}
+                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {ROWS_PER_PAGE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+              <span className="ml-4">
                 Showing{' '}
                 <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
@@ -269,47 +297,47 @@ export default function UsersPage() {
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
                 </span>{' '}
                 of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              </span>
             </div>
+
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  />
+                </PaginationItem>
+
+                {generatePageNumbers(
+                  currentPage,
+                  pagination.totalPages,
+                  PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                ).map((page, index) => (
+                  <PaginationItem key={index}>
+                    {typeof page === 'number' ? (
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                      >
+                        {page}
+                      </PaginationLink>
+                    ) : (
+                      <PaginationEllipsis />
+                    )}
+                  </PaginationItem>
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                    }
+                    disabled={currentPage === pagination.totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         )}
       </div>

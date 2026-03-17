@@ -392,6 +392,14 @@ export default function AstrologersPage() {
       className: 'text-center',
     },
     {
+      header: 'Date Joined',
+      accessor: (astrologer) => (
+        <span className="text-slate-300 text-sm">
+          {astrologer.createdAt ? new Date(astrologer.createdAt).toLocaleString() : '—'}
+        </span>
+      ),
+    },
+    {
       header: 'Status',
       accessor: (astrologer) => (
         <span
