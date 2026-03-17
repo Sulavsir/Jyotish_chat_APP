@@ -545,7 +545,7 @@ export async function rejectRegistration(req: AuthRequest, res: Response, next: 
  */
 export async function listUsers(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page = '1', limit = '10', search, isActive } = req.query;
+    const { page = '1', limit = '10', search, isActive, joinedFrom, joinedTo } = req.query;
 
     const where: any = { role: 'CLIENT' }; // Only CLIENT users
 
@@ -559,6 +559,19 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
 
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
+    }
+
+    // Date of joining filters (createdAt range)
+    if (joinedFrom || joinedTo) {
+      where.createdAt = {};
+      if (joinedFrom) {
+        (where.createdAt as { gte?: Date }).gte = new Date(joinedFrom as string);
+      }
+      if (joinedTo) {
+        const to = new Date(joinedTo as string);
+        to.setHours(23, 59, 59, 999);
+        (where.createdAt as { lte?: Date }).lte = to;
+      }
     }
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);

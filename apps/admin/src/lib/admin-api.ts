@@ -472,7 +472,14 @@ export const adminApi = {
    * Users
    */
   users: {
-    list: async (params?: { page?: number; limit?: number; search?: string; isActive?: boolean }) => {
+    list: async (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      isActive?: boolean;
+      joinedFrom?: string;
+      joinedTo?: string;
+    }) => {
       const response = await apiClient.get(API_ENDPOINTS.USERS.LIST, { params });
       return response;
     },

@@ -24,7 +24,8 @@ import type { User } from '@/types';
 import { AddCoinsModal } from '@/components/admin/AddCoinsModal';
 import { generatePageNumbers } from '@/utils/helpers';
 
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+const DEFAULT_ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
 
 interface UsersResponse {
   users: User[];
@@ -41,6 +42,9 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
+  const [rowsPerPage, setRowsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
+  const [joinedFrom, setJoinedFrom] = useState<string>('');
+  const [joinedTo, setJoinedTo] = useState<string>('');
   const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; balance?: number } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
 
@@ -50,13 +54,23 @@ export default function UsersPage() {
     isLoading,
     refetch,
   } = useQuery<UsersResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.USERS.LIST(), currentPage, searchTerm, statusFilter],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.USERS.LIST(),
+      currentPage,
+      searchTerm,
+      statusFilter,
+      rowsPerPage,
+      joinedFrom,
+      joinedTo,
+    ],
     queryFn: async () => {
       const response: any = await adminApi.users.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: searchTerm || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
+        joinedFrom: joinedFrom || undefined,
+        joinedTo: joinedTo || undefined,
       });
       // Handle both response formats
       if (response?.users && response?.pagination) {
@@ -67,20 +81,23 @@ export default function UsersPage() {
           users: response,
           pagination: {
             page: 1,
-            limit: ITEMS_PER_PAGE,
+            limit: rowsPerPage,
             total: response.length,
             totalPages: 1,
           },
         };
       }
-      return { users: [], pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 } };
+      return {
+        users: [],
+        pagination: { page: 1, limit: rowsPerPage, total: 0, totalPages: 0 },
+      };
     },
   });
 
   const users = usersResponse?.users || [];
   const pagination = usersResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -105,7 +122,7 @@ export default function UsersPage() {
   // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, rowsPerPage, joinedFrom, joinedTo]);
 
   const columns: AdminTableColumn<User>[] = [
     {
@@ -143,6 +160,14 @@ export default function UsersPage() {
           }`}
         >
           {user.isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      header: 'Date/Time of Join',
+      accessor: (user) => (
+        <span className="text-xs text-slate-300">
+          {user.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}
         </span>
       ),
     },
@@ -221,13 +246,51 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <Search
-          placeholder="Search users by name, email, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        {/* Filters */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="flex-1">
+            <Search
+              placeholder="Search users by name, email, or phone..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-400 mb-1">Joined from</label>
+              <input
+                type="date"
+                value={joinedFrom}
+                onChange={(e) => setJoinedFrom(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-white"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-400 mb-1">Joined to</label>
+              <input
+                type="date"
+                value={joinedTo}
+                onChange={(e) => setJoinedTo(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-white"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-400 mb-1">Rows per page</label>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                className="bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-white"
+              >
+                {ROWS_PER_PAGE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -249,7 +312,7 @@ export default function UsersPage() {
         {/* Pagination */}
         {!isLoading && pagination.totalPages > 0 && (
           <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
+            <div className="flex flex-col gap-2 items-center justify-between md:flex-row">
               <div className="text-sm text-white font-medium">
                 Showing <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
