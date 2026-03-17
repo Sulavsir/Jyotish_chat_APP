@@ -23,7 +23,7 @@ import coinService from '@/services/coin.service';
 import kundaliMatchService, {
   type CreateKundaliMatchRequestBody,
 } from '@/services/kundaliMatch.service';
-import { QUERY_KEYS } from '@/constants';
+import { QUERY_KEYS, ROUTES } from '@/constants';
 import { showErrorToast } from '@/lib/error-handler';
 import {
   PlaceOfBirthField,
@@ -108,9 +108,14 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
       return;
     }
     if (coinCost > 0 && coinBalance < coinCost) {
+      const remaining = coinCost - coinBalance;
+      const safeRemaining = remaining > 0 ? remaining : coinCost;
       toast.error(
-        `Insufficient balance. Required: ${coinCost} NRs, Available: ${coinBalance} NRs. Please top up.`
+        `Insufficient balance. Redirecting to add at least ${safeRemaining} NRs to your wallet.`
       );
+      if (typeof window !== 'undefined') {
+        window.location.href = `${ROUTES.PAYMENT}?amount=${safeRemaining}&coins=${safeRemaining}`;
+      }
       return;
     }
     const payload: CreateKundaliMatchRequestBody = {
@@ -235,7 +240,6 @@ export function KundaliMatchModal({ isOpen, onClose, onSuccess }: KundaliMatchMo
               loadingText="Matching..."
               disabled={
                 createMutation.isPending ||
-                (coinCost > 0 && coinBalance < coinCost) ||
                 !form.boyDateOfBirth ||
                 !form.boyTimeOfBirth?.trim() ||
                 !buildPlaceOfBirthString(boyPob)?.trim() ||

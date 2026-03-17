@@ -153,19 +153,11 @@ export async function verifyAstrologerEditPassword(
     const body = req.body as { password?: string };
     const password = body?.password;
     if (!password) {
-      throw new AppError(
-        'Password is required',
-        HTTP_STATUS.FORBIDDEN,
-        ERROR_CODES.FORBIDDEN
-      );
+      throw new AppError('Password is required', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
     const valid = await settingsService.verifyAstrologerEditPassword(password);
     if (!valid) {
-      throw new AppError(
-        'Invalid edit password',
-        HTTP_STATUS.FORBIDDEN,
-        ERROR_CODES.FORBIDDEN
-      );
+      throw new AppError('Invalid edit password', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
     return sendSuccess(res, { valid: true });
   } catch (error) {
@@ -223,7 +215,9 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
     }
 
     // Handle file upload(s) - req.files is { [fieldname]: File[] } when using multer.fields()
-    const files = req.files as { proofOfAstrology?: Express.Multer.File[]; profilePhoto?: Express.Multer.File[] } | undefined;
+    const files = req.files as
+      | { proofOfAstrology?: Express.Multer.File[]; profilePhoto?: Express.Multer.File[] }
+      | undefined;
     const proofFiles = files?.proofOfAstrology ?? [];
     const profilePhotoFile = files?.profilePhoto?.[0];
 
@@ -237,8 +231,7 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
 
     // Construct proof URL(s): single string or JSON array string
     const proofUrls = proofFiles.map((f) => `/uploads/astrologer-registrations/${f.filename}`);
-    const proofOfAstrology =
-      proofUrls.length === 1 ? proofUrls[0]! : JSON.stringify(proofUrls);
+    const proofOfAstrology = proofUrls.length === 1 ? proofUrls[0]! : JSON.stringify(proofUrls);
 
     const profilePhoto = profilePhotoFile
       ? `/uploads/astrologer-registrations/${profilePhotoFile.filename}`
@@ -289,11 +282,7 @@ export async function updateAstrologer(req: AuthRequest, res: Response, next: Ne
     if (editPassword !== undefined && editPassword !== '') {
       const valid = await settingsService.verifyAstrologerEditPassword(editPassword);
       if (!valid) {
-        throw new AppError(
-          'Invalid edit password',
-          HTTP_STATUS.FORBIDDEN,
-          ERROR_CODES.FORBIDDEN
-        );
+        throw new AppError('Invalid edit password', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
       }
     }
     delete body.editPassword;
@@ -337,8 +326,7 @@ export async function uploadAstrologerProof(req: AuthRequest, res: Response, nex
     const existing = await astrologerService.findById(id);
     const existingUrls = parseProofUrls(existing?.proofOfAstrology ?? null);
     const mergedUrls = [...existingUrls, newUrl];
-    const proofOfAstrology =
-      mergedUrls.length === 1 ? mergedUrls[0]! : JSON.stringify(mergedUrls);
+    const proofOfAstrology = mergedUrls.length === 1 ? mergedUrls[0]! : JSON.stringify(mergedUrls);
     const astrologer = await astrologerService.update(id, { proofOfAstrology });
 
     return sendSuccess(res, { astrologer });
@@ -388,11 +376,7 @@ export async function deleteAstrologer(req: AuthRequest, res: Response, next: Ne
     }
     const valid = await settingsService.verifyAstrologerEditPassword(editPassword);
     if (!valid) {
-      throw new AppError(
-        'Invalid edit password',
-        HTTP_STATUS.FORBIDDEN,
-        ERROR_CODES.FORBIDDEN
-      );
+      throw new AppError('Invalid edit password', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
     await executeSoftDelete(res, next, id, (id) => astrologerService.delete(id));
   } catch (error) {
@@ -455,11 +439,7 @@ export async function getAstrologerEarnings(req: AuthRequest, res: Response, nex
  * Get all pending astrologer registration requests
  * GET /api/v1/admin/astrologers/registration-requests
  */
-export async function getRegistrationRequests(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) {
+export async function getRegistrationRequests(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { page = '1', limit = '10', search } = req.query;
 
@@ -479,11 +459,7 @@ export async function getRegistrationRequests(
  * Approve an astrologer registration request
  * POST /api/v1/admin/astrologers/:id/approve-registration
  */
-export async function approveRegistration(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) {
+export async function approveRegistration(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
     const adminId = req.user!.id;
@@ -496,9 +472,7 @@ export async function approveRegistration(
       chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : null,
       commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
       inhouseAstrologer:
-        inhouseAstrologer === true ||
-        inhouseAstrologer === 'true' ||
-        inhouseAstrologer === '1',
+        inhouseAstrologer === true || inhouseAstrologer === 'true' || inhouseAstrologer === '1',
     });
 
     // Log audit event
@@ -532,21 +506,13 @@ export async function approveRegistration(
  * Reject an astrologer registration request
  * POST /api/v1/admin/astrologers/:id/reject-registration
  */
-export async function rejectRegistration(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) {
+export async function rejectRegistration(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
     const adminId = req.user!.id;
     const { rejectionReason } = req.body;
 
-    const astrologer = await astrologerService.rejectRegistration(
-      id,
-      adminId,
-      rejectionReason
-    );
+    const astrologer = await astrologerService.rejectRegistration(id, adminId, rejectionReason);
 
     // Log audit event
     await auditService.logAction({
@@ -635,9 +601,7 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
             _sum: { amount: true },
           })
         : [];
-    const loadMap = new Map<string, number>(
-      loads.map((l) => [l.userId, l._sum.amount ?? 0])
-    );
+    const loadMap = new Map<string, number>(loads.map((l) => [l.userId, l._sum.amount ?? 0]));
 
     const usersWithTotals = users.map((u) => ({
       ...u,
@@ -719,12 +683,7 @@ export async function addCoinsToUser(req: AuthRequest, res: Response, next: Next
       ? (reasonRaw as (typeof CoinTransactionReason)[keyof typeof CoinTransactionReason])
       : CoinTransactionReason.ADMIN_ADJUSTMENT;
 
-    const result = await coinService.addCoins(
-      id,
-      amount,
-      resolvedReason,
-      adminId
-    );
+    const result = await coinService.addCoins(id, amount, resolvedReason, adminId);
 
     try {
       await auditService.logAction({
@@ -1428,10 +1387,17 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
+    const where = {
+      paymentId: {
+        not: null,
+      },
+    } as const;
+
     const [transactions, total] = await Promise.all([
       prisma.coinTransaction.findMany({
         skip,
         take: limitNum,
+        where,
         include: {
           user: {
             select: {
@@ -1444,7 +1410,7 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.coinTransaction.count(),
+      prisma.coinTransaction.count({ where }),
     ]);
 
     return sendSuccess(res, {

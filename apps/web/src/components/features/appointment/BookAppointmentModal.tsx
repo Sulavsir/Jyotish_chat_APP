@@ -29,7 +29,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import appointmentService from '@/services/appointment.service';
 import type { Astrologer, AstrologerSlot, BookingType } from '@/types/appointment.types';
 import { AstrologerCategory } from '@/types/appointment.types';
-import { ASTROLOGER_CATEGORY, QUERY_KEYS } from '@/constants';
+import { ASTROLOGER_CATEGORY, QUERY_KEYS, ROUTES } from '@/constants';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
 
@@ -216,9 +216,14 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
       appointmentCoinCost > 0 &&
       coinBalance < appointmentCoinCost
     ) {
+      const remaining = appointmentCoinCost - coinBalance;
+      const safeRemaining = remaining > 0 ? remaining : appointmentCoinCost;
       toast.error(
-        `Insufficient balance. You need ${appointmentCoinCost} NRs. Your balance: ${coinBalance} NRs. Please top up.`
+        `Insufficient balance. Redirecting to add at least ${safeRemaining} NRs to your wallet.`
       );
+      if (typeof window !== 'undefined') {
+        window.location.href = `${ROUTES.PAYMENT}?amount=${safeRemaining}&coins=${safeRemaining}`;
+      }
       return;
     }
     setBookingSlotId(selectedSlot.id);
@@ -246,10 +251,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     onClose();
   };
 
-  const isConfirmDisabled =
-    !selectedSlot ||
-    bookAppointmentMutation.isPending ||
-    (appointmentCoinCost != null && appointmentCoinCost > 0 && coinBalance < appointmentCoinCost);
+  const isConfirmDisabled = !selectedSlot || bookAppointmentMutation.isPending;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
