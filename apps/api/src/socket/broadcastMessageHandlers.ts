@@ -189,8 +189,23 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         message:
           'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
       };
+
+      const clientName =
+        result.message.client?.name || result.message.client?.phone || 'Client';
+
+      const acceptedByPayload = {
+        messageId: result.message.id,
+        acceptedBy: {
+          id: result.message.acceptedAstrologer?.id ?? userId,
+          name: result.message.acceptedAstrologer?.name,
+        },
+        acceptedAt: result.message.acceptedAt,
+        clientName,
+      };
+
       otherEligibleAstrologers.forEach((a) => {
         io.to(`user:${a.id}`).emit('notification:requestAccepted', requestAcceptedPayload);
+        io.to(`user:${a.id}`).emit('broadcast:messageAcceptedByAstrologer', acceptedByPayload);
       });
     } catch (error: unknown) {
       const err = error as Error;
