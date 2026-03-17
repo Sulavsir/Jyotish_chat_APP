@@ -100,8 +100,21 @@ export interface BroadcastQuestionPricingResponse {
   tiers: BroadcastQuestionPricingTier[];
 }
 
+export interface BroadcastPriceBreakdownEntry {
+  position: number;
+  price: number;
+  isDiscounted: boolean;
+  tierApplied: boolean;
+}
+
 export interface PrepareBroadcastQuestionsResponse {
   totalNr: number;
+  /** Full price without first-broadcast discount */
+  originalTotalNr: number;
+  /** Overall discount percentage applied (0 if none) */
+  discountPercentApplied: number;
+  /** Per-question price list */
+  breakdown: BroadcastPriceBreakdownEntry[];
   balanceNr: number;
   coveredByBalance: number;
   remainingNr: number;

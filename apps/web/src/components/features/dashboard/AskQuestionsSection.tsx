@@ -79,6 +79,9 @@ export function AskQuestionsSection() {
   const [showSelectedDirectQuestionsModal, setShowSelectedDirectQuestionsModal] = useState(false);
   const [prepareResult, setPrepareResult] = useState<{
     totalNr: number;
+    originalTotalNr: number;
+    discountPercentApplied: number;
+    breakdown: import('@/types/broadcast').BroadcastPriceBreakdownEntry[];
     remainingNr: number;
     questions: { id: string; text: string }[];
   } | null>(null);
@@ -165,17 +168,26 @@ export function AskQuestionsSection() {
     enabled: mode === 'broadcast',
   });
   const pricingTiers = pricingData?.tiers ?? [];
+  /**
+   * Per-position pricing preview (mirrors backend logic, without first-broadcast
+   * discount since we don't know that on the frontend).
+   * Q1 = BROADCAST_SEND; Q_n = tier[n] if exists, else BROADCAST_SEND.
+   */
   const getTotalNrForCount = (count: number): number => {
     if (count <= 0) return 0;
-    if (!pricingTiers.length) return 0;
-    const tier = pricingTiers.find((t) => t.questionCount === count);
-    if (tier) return tier.amountNr;
-    const lower = pricingTiers
-      .filter((t) => t.questionCount <= count)
-      .sort((a, b) => b.questionCount - a.questionCount)[0];
-    if (lower) return Math.round((lower.amountNr / lower.questionCount) * count);
-    const first = pricingTiers[0];
-    return first ? Math.round((first.amountNr / first.questionCount) * count) : 0;
+    const broadcastSendRate = coinRates?.BROADCAST_SEND ?? 0;
+    if (!broadcastSendRate && !pricingTiers.length) return 0;
+    const tierMap = new Map(pricingTiers.map((t) => [t.questionCount, t.amountNr]));
+    let total = 0;
+    for (let pos = 1; pos <= count; pos++) {
+      if (pos === 1) {
+        total += broadcastSendRate;
+      } else {
+        const tierPrice = tierMap.get(pos);
+        total += tierPrice !== undefined ? tierPrice : broadcastSendRate;
+      }
+    }
+    return total;
   };
 
   const prepareMutation = useMutation({
@@ -451,6 +463,9 @@ export function AskQuestionsSection() {
         setPendingBroadcastBirthDetails(birthDetailsObj);
         setPrepareResult({
           totalNr: result.totalNr,
+          originalTotalNr: result.originalTotalNr,
+          discountPercentApplied: result.discountPercentApplied,
+          breakdown: result.breakdown,
           remainingNr: result.remainingNr,
           questions: result.questions,
         });
@@ -993,6 +1008,9 @@ export function AskQuestionsSection() {
           payload={{
             questionItems: prepareResult.questions,
             totalNr: prepareResult.totalNr,
+            originalTotalNr: prepareResult.originalTotalNr,
+            discountPercentApplied: prepareResult.discountPercentApplied,
+            breakdown: prepareResult.breakdown,
             birthDetails: pendingBroadcastBirthDetails,
           }}
         />

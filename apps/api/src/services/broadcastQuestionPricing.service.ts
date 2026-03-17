@@ -36,11 +36,39 @@ export async function getPricingTiers(): Promise<BroadcastQuestionPricingTier[]>
   }));
 }
 
+export interface PerQuestionPriceEntry {
+  /** 1-based question position */
+  position: number;
+  /** Price in NRs for this question */
+  price: number;
+  /** True when the first-broadcast discount was applied (only possible on position 1) */
+  isDiscounted: boolean;
+  /** True when a custom pricing tier exists for this position */
+  tierApplied: boolean;
+}
+
 /**
- * Get base total amount in NRs for a given question count from pricing tiers.
- * Ignores any first-broadcast discount logic (used internally).
+ * Public re-export of buildPerQuestionPrices.
+ * Used by broadcastMessage.service to store accurate per-message refund amounts.
  */
-async function getBaseTotalNrForQuestionCount(questionCount: number): Promise<number> {
+export async function getPerQuestionBreakdown(
+  questionCount: number,
+  clientId?: string
+): Promise<PerQuestionPriceEntry[]> {
+  return buildPerQuestionPrices(questionCount, clientId);
+}
+
+/**
+ * Build the per-question price list for N questions.
+ *
+ * - Position 1: BROADCAST_SEND rate, with optional first-broadcast discount.
+ * - Positions 2+: custom tier for that position if set, otherwise BROADCAST_SEND.
+ * - Works correctly when no custom tiers exist (all positions fall back to BROADCAST_SEND).
+ */
+async function buildPerQuestionPrices(
+  questionCount: number,
+  clientId?: string
+): Promise<PerQuestionPriceEntry[]> {
   if (questionCount < 1 || questionCount > MAX_QUESTION_COUNT) {
     throw new AppError(
       `Question count must be between 1 and ${MAX_QUESTION_COUNT}`,
@@ -49,90 +77,69 @@ async function getBaseTotalNrForQuestionCount(questionCount: number): Promise<nu
     );
   }
 
-  const tier = await prisma.broadcastQuestionPricing.findUnique({
-    where: { questionCount },
-  });
+  const [broadcastSend, allTiers] = await Promise.all([
+    getRate('BROADCAST_SEND'),
+    prisma.broadcastQuestionPricing.findMany({ orderBy: { questionCount: 'asc' } }),
+  ]);
 
-  if (tier) {
-    return tier.amountNr;
+  // Determine first-broadcast discount for Q1
+  let discountPercent = 0;
+  let isFirstBroadcast = false;
+  if (clientId) {
+    const hasUsed = await hasUserUsedBroadcast(clientId);
+    if (!hasUsed) {
+      discountPercent = await getRate('FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType);
+      isFirstBroadcast = true;
+    }
   }
+  const clampedDiscount = Math.max(0, Math.min(100, discountPercent));
 
-  // No exact tier: use highest tier with questionCount <= count, or lowest tier
-  const allTiers = await prisma.broadcastQuestionPricing.findMany({
-    orderBy: { questionCount: 'desc' },
-  });
+  // Build lookup: position → tier price
+  const tierMap = new Map<number, number>(allTiers.map((t) => [t.questionCount, t.amountNr]));
 
-  const lowerOrEqual = allTiers.find((t) => t.questionCount <= questionCount);
-  if (lowerOrEqual) {
-    // Linear interpolation: (amount per question) * questionCount
-    const amountPerQuestion = lowerOrEqual.amountNr / lowerOrEqual.questionCount;
-    return Math.round(amountPerQuestion * questionCount);
+  const result: PerQuestionPriceEntry[] = [];
+  for (let pos = 1; pos <= questionCount; pos++) {
+    if (pos === 1) {
+      const applyDiscount = isFirstBroadcast && clampedDiscount > 0 && broadcastSend > 0;
+      const price = applyDiscount
+        ? clampedDiscount >= 100
+          ? 0
+          : Math.round((broadcastSend * (100 - clampedDiscount)) / 100)
+        : broadcastSend;
+      result.push({ position: pos, price, isDiscounted: applyDiscount, tierApplied: false });
+    } else {
+      const tierPrice = tierMap.get(pos);
+      const price = tierPrice !== undefined ? tierPrice : broadcastSend;
+      result.push({
+        position: pos,
+        price,
+        isDiscounted: false,
+        tierApplied: tierPrice !== undefined,
+      });
+    }
   }
-
-  const smallest = allTiers[allTiers.length - 1];
-  if (smallest) {
-    const amountPerQuestion = smallest.amountNr / smallest.questionCount;
-    return Math.round(amountPerQuestion * questionCount);
-  }
-
-  throw new AppError(
-    'Broadcast question pricing is not configured. Please contact support.',
-    HTTP_STATUS.BAD_REQUEST,
-    ERROR_CODES.VALIDATION_ERROR
-  );
+  return result;
 }
 
 /**
- * Get total amount in NRs for a given question count, including optional
- * first-broadcast discount for multi-question flow.
+ * Get base total (no first-broadcast discount) for N questions.
+ * Used to calculate the original price for discount display purposes.
+ */
+async function getBaseTotalNrForQuestionCount(questionCount: number): Promise<number> {
+  const entries = await buildPerQuestionPrices(questionCount); // no clientId → no discount
+  return entries.reduce((sum, e) => sum + e.price, 0);
+}
+
+/**
+ * Get total amount in NRs for N questions, including optional first-broadcast
+ * discount on question 1 when the client hasn't used broadcast before.
  */
 export async function getTotalNrForQuestionCount(
   questionCount: number,
   clientId?: string
 ): Promise<number> {
-  if (questionCount < 1 || questionCount > MAX_QUESTION_COUNT) {
-    throw new AppError(
-      `Question count must be between 1 and ${MAX_QUESTION_COUNT}`,
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
-  }
-
-  // Base total from admin-managed tiers (used for all non-first-broadcast flows)
-  const baseTotal = await getBaseTotalNrForQuestionCount(questionCount);
-
-  if (!clientId) {
-    return baseTotal;
-  }
-
-  const hasUsed = await hasUserUsedBroadcast(clientId);
-  if (hasUsed) {
-    return baseTotal;
-  }
-
-  // First-time broadcast with multiple questions: apply admin-configured
-  // FIRST_BROADCAST_DISCOUNT to one BROADCAST_SEND unit, remaining questions
-  // use full BROADCAST_SEND. This ties the "first question" discount directly
-  // to the broadcast send fee rather than to tier curves.
-  const [broadcastSend, discountPercent] = await Promise.all([
-    getRate('BROADCAST_SEND'),
-    getRate('FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType),
-  ]);
-
-  const clampedDiscount = Math.max(0, Math.min(100, discountPercent));
-  if (clampedDiscount <= 0 || broadcastSend <= 0) {
-    return baseTotal;
-  }
-
-  const discountedFirst =
-    clampedDiscount >= 100 ? 0 : Math.round((broadcastSend * (100 - clampedDiscount)) / 100);
-
-  const remainingCount = questionCount - 1;
-  const remainingTotal = remainingCount > 0 ? remainingCount * broadcastSend : 0;
-
-  const discountedTotal = discountedFirst + remainingTotal;
-
-  return discountedTotal;
+  const entries = await buildPerQuestionPrices(questionCount, clientId);
+  return entries.reduce((sum, e) => sum + e.price, 0);
 }
 
 /**
@@ -194,12 +201,11 @@ export async function upsertTiers(
 export async function replaceTiers(
   tiers: { questionCount: number; amountNr: number }[]
 ): Promise<BroadcastQuestionPricingTier[]> {
+  // Allow empty array — clearing all custom tiers means every question falls
+  // back to the BROADCAST_SEND rate; this is a valid admin configuration.
   if (tiers.length === 0) {
-    throw new AppError(
-      'At least one pricing tier is required.',
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
+    await prisma.broadcastQuestionPricing.deleteMany();
+    return [];
   }
 
   const counts = tiers.map((t) => t.questionCount);
@@ -247,6 +253,12 @@ export async function replaceTiers(
 
 export interface PrepareBroadcastQuestionsResult {
   totalNr: number;
+  /** Full price without first-broadcast discount (for strikethrough display) */
+  originalTotalNr: number;
+  /** Percentage discount applied on the first question (0 if none) */
+  discountPercentApplied: number;
+  /** Per-question price breakdown — one entry per selected question */
+  breakdown: PerQuestionPriceEntry[];
   balanceNr: number;
   coveredByBalance: number;
   remainingNr: number;
@@ -289,13 +301,26 @@ export async function prepareBroadcastQuestions(
   }
 
   const questionCount = questions.length;
-  const totalNr = await getTotalNrForQuestionCount(questionCount, clientId);
-  const balanceNr = await getCoinBalance(clientId);
+
+  const [breakdown, baseEntries, balanceNr] = await Promise.all([
+    buildPerQuestionPrices(questionCount, clientId),
+    buildPerQuestionPrices(questionCount), 
+    getCoinBalance(clientId),
+  ]);
+
+  const totalNr = breakdown.reduce((sum, e) => sum + e.price, 0);
+  const originalTotalNr = baseEntries.reduce((sum, e) => sum + e.price, 0);
+  const discountPercentApplied =
+    originalTotalNr > 0 ? Math.round(((originalTotalNr - totalNr) / originalTotalNr) * 100) : 0;
+
   const coveredByBalance = Math.min(balanceNr, totalNr);
   const remainingNr = Math.max(0, totalNr - coveredByBalance);
 
   return {
     totalNr,
+    originalTotalNr,
+    discountPercentApplied,
+    breakdown,
     balanceNr,
     coveredByBalance,
     remainingNr,

@@ -26,7 +26,7 @@ import {
 } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
-import { getTotalNrForQuestionCount } from './broadcastQuestionPricing.service';
+import { getTotalNrForQuestionCount, getPerQuestionBreakdown } from './broadcastQuestionPricing.service';
 import { hasUserUsedBroadcast } from './broadcastUsage.service';
 import { randomUUID } from 'node:crypto';
 
@@ -371,10 +371,16 @@ export async function createMultipleBroadcastMessages(
   }
 
   await deductCoinsForBroadcastQuestions(clientId, totalNr);
+  let perQuestionPrices: number[];
+  try {
+    const breakdown = await getPerQuestionBreakdown(count, clientId);
+    perQuestionPrices = breakdown.map((e) => Math.max(0, e.price));
+  } catch {
+    const fallback = Math.max(1, Math.round(totalNr / count));
+    perQuestionPrices = Array(count).fill(fallback);
+  }
 
   const batchId = randomUUID();
-  const rawAmountPerMessage = Math.round(totalNr / count);
-  const amountPerMessage = Math.max(1, rawAmountPerMessage);
   const metadataBase =
     hasBirthDetails && Object.keys(birthDetails!).length > 0 ? { birthDetails } : undefined;
 
@@ -387,7 +393,7 @@ export async function createMultipleBroadcastMessages(
       batchId,
       batchIndex: i,
       totalInBatch: count,
-      amountRefundNr: amountPerMessage,
+      amountRefundNr: perQuestionPrices[i] ?? Math.max(1, Math.round(totalNr / count)),
     };
     const message = await prisma.broadcastMessage.create({
       data: {
