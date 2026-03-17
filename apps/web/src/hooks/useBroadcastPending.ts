@@ -18,6 +18,15 @@ import type { BroadcastMessage } from '@/types';
 
 const SENDING_PLACEHOLDER_ID = 'sending';
 
+function isMultiQuestionBatch(message: BroadcastMessage): boolean {
+  const metadata = (message.metadata ?? {}) as {
+    batchId?: string;
+    totalInBatch?: number;
+  };
+
+  return !!metadata.batchId && typeof metadata.totalInBatch === 'number' && metadata.totalInBatch > 1;
+}
+
 function extractRequiredCoins(errorMessage: string): number {
   const match = errorMessage.match(/Required:\s*(\d+)/i);
   return match ? parseInt(match[1], 10) : 1;
@@ -46,6 +55,10 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
   const cancelBroadcastMutation = useMutation({
     mutationFn: async (messageIdOrFetch: string | null) => {
       if (messageIdOrFetch && messageIdOrFetch !== SENDING_PLACEHOLDER_ID) {
+        const message = await broadcastMessageService.getMessage(messageIdOrFetch);
+        if (!message || isMultiQuestionBatch(message)) {
+          return null;
+        }
         return broadcastMessageService.cancelMessage(messageIdOrFetch);
       }
       // User cancelled before broadcast:messageSent arrived; find latest PENDING and cancel via API
@@ -55,6 +68,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
         .filter(
           (m) =>
             m.status === 'PENDING' &&
+            !isMultiQuestionBatch(m) &&
             new Date(m.createdAt).getTime() + BROADCAST_MESSAGE_EXPIRY_MS > now
         )
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
@@ -204,6 +218,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
         const pending = messages.find(
           (m) =>
             m.status === 'PENDING' &&
+            !isMultiQuestionBatch(m) &&
             new Date(m.createdAt).getTime() + BROADCAST_MESSAGE_EXPIRY_MS > Date.now()
         );
         if (pending) {
