@@ -222,14 +222,14 @@ export default function DashboardPage() {
             route: ADMIN_ROUTES.CHATS,
           },
           {
-            title: 'Total Earnings',
+            title: 'Total Earnings (Astrologers)',
             value: `Nrs.${stats.totalEarnings}`,
             icon: <MoneyIcon className="w-8 h-8 text-yellow-400" />,
             color: 'from-yellow-400 to-orange-500',
             route: ADMIN_ROUTES.EARNINGS,
           },
           {
-            title: "Today's Earnings",
+            title: "Today's Earnings (Astrologers)",
             value: `Nrs.${stats.todayEarnings}`,
             icon: <MoneyIcon className="w-8 h-8 text-emerald-300" />,
             color: 'from-emerald-300 to-lime-400',
