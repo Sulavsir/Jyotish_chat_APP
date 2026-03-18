@@ -1295,10 +1295,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
         },
       }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
-      // Astrologer earnings — use netEarning so stats match the earnings table
-      prisma.astrologerEarnings.aggregate({
-        _sum: { netEarning: true },
-        where: { status: 'PAID' },
+      prisma.astrologerCoinEarning.aggregate({
+        _sum: { astrologerCoinsEarned: true },
       }),
       prisma.astrologerEarnings.aggregate({
         _sum: { amount: true },
@@ -1319,10 +1317,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
           },
         },
       }),
-      prisma.astrologerEarnings.aggregate({
-        _sum: { netEarning: true },
+      // Today's astrologer coin earnings (by createdAt) from AstrologerCoinEarning
+      prisma.astrologerCoinEarning.aggregate({
+        _sum: { astrologerCoinsEarned: true },
         where: {
-          status: 'PAID',
           createdAt: {
             gte: today,
           },
@@ -1347,11 +1345,13 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       totalUsers,
       totalAstrologers,
       activeChats,
-      totalEarnings: totalEarnings._sum.netEarning || 0,
+      // Total Earnings (Astrologers) — lifetime coins earned across all astrologers
+      totalEarnings: totalEarnings._sum.astrologerCoinsEarned || 0,
       pendingPayouts: pendingEarnings._sum.amount || 0,
       todayConsultations,
       newUsersToday,
-      todayEarnings: todayEarnings._sum.netEarning || 0,
+      // Today's Earnings (Astrologers) — coins earned today
+      todayEarnings: todayEarnings._sum.astrologerCoinsEarned || 0,
       platformTotalLoaded: platformTotalLoaded._sum.amount || 0,
       platformTodayLoaded: platformTodayLoaded._sum.amount || 0,
     };
