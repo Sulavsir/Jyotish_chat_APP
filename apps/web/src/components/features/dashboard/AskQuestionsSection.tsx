@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Eye, MessageSquare, ChevronDown, Tag, Info } from 'lucide-react';
+import { Eye, MessageSquare } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -28,7 +28,7 @@ import { useBroadcastPending } from '@/hooks/useBroadcastPending';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
-import { CoinPurchaseModal, BroadcastRemainingPayModal } from '@/components/modals';
+import { CoinPurchaseModal, BroadcastPaymentDetailsModal } from '@/components/modals';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { QuestionnaireCategory } from '@jyotish/shared';
 import { questionnaireService } from '@/services/questionnaire.service';
@@ -78,12 +78,12 @@ export function AskQuestionsSection() {
   const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
   const [showSelectedDirectQuestionsModal, setShowSelectedDirectQuestionsModal] = useState(false);
   const [isBatchBroadcast, setIsBatchBroadcast] = useState(false);
-  const [showPricingGuide, setShowPricingGuide] = useState(false);
 
   const [prepareResult, setPrepareResult] = useState<{
     totalNr: number;
     originalTotalNr: number;
     discountPercentApplied: number;
+    firstBroadcastDiscountPct: number;
     breakdown: import('@/types/broadcast').BroadcastPriceBreakdownEntry[];
     remainingNr: number;
     questions: { id: string; text: string }[];
@@ -438,7 +438,9 @@ export function AskQuestionsSection() {
 
     // Guard: prevent sending when a broadcast is already pending
     if (isWaitingForAcceptance) {
-      toast.error('You already have a pending broadcast. Please wait for it to be accepted or expire before sending another one.');
+      toast.error(
+        'You already have a pending broadcast. Please wait for it to be accepted or expire before sending another one.'
+      );
       return;
     }
 
@@ -497,22 +499,13 @@ export function AskQuestionsSection() {
           totalNr: result.totalNr,
           originalTotalNr: result.originalTotalNr,
           discountPercentApplied: result.discountPercentApplied,
+          firstBroadcastDiscountPct: result.firstBroadcastDiscountPct,
           breakdown: result.breakdown,
           remainingNr: result.remainingNr,
           questions: result.questions,
         });
-        if (result.remainingNr > 0) {
-          setShowRemainingPayModal(true);
-        } else {
-          // Show the waiting modal immediately — before the network request completes
-          setIsBatchBroadcast(true);
-          markSending();
-          await sendQuestionsMutation.mutateAsync({
-            questionItems: result.questions,
-            totalNr: result.totalNr,
-            birthDetails: birthDetailsObj,
-          });
-        }
+        // Always show "Your Payment Details" modal so user can review before publishing
+        setShowRemainingPayModal(true);
       } catch {
         // prepareMutation already toasts onError
       } finally {
@@ -579,24 +572,6 @@ export function AskQuestionsSection() {
    * Derived values for the Pricing Guide panel.
    * Shows: Q1 (with optional first-broadcast discount), each custom tier, and the standard rate.
    */
-  const pricingGuideData = React.useMemo(() => {
-    const baseRate = coinRates?.BROADCAST_SEND ?? 0;
-    const clampedDiscount = Math.max(0, Math.min(100, firstBroadcastDiscountPct));
-    const q1Price =
-      hasFirstBroadcastDiscount && clampedDiscount > 0
-        ? clampedDiscount >= 100
-          ? 0
-          : Math.round((baseRate * (100 - clampedDiscount)) / 100)
-        : baseRate;
-
-    return {
-      baseRate,
-      q1Price,
-      tiers: [...pricingTiers].sort((a, b) => a.questionCount - b.questionCount),
-      hasTiers: pricingTiers.length > 0,
-      hasAnyInfo: pricingTiers.length > 0 || (hasFirstBroadcastDiscount && clampedDiscount > 0),
-    };
-  }, [coinRates, pricingTiers, hasFirstBroadcastDiscount, firstBroadcastDiscountPct]);
 
   // If waiting for acceptance, show matching modal (portal-rendered full-screen overlay)
   if (isWaitingForAcceptance && pendingMessage) {
@@ -899,13 +874,12 @@ export function AskQuestionsSection() {
                       const baseLabelClasses =
                         'flex items-start gap-2 cursor-pointer rounded px-2 py-1.5 text-sm transition-colors';
 
+                      // Q1 with first-broadcast discount → amber/gold; all other selected → green
                       const paletteClasses = !isSelected
                         ? 'text-gray-200 hover:bg-white/5'
-                        : selectedIndex === 0
-                          ? // First selected question (free) – keep current subtle style
-                            'text-gray-100 bg-white/10 border border-orange-400/40'
-                          : // Additional (payable) questions – highlight in green
-                            'text-emerald-50 bg-emerald-600/20 border border-emerald-400/60';
+                        : selectedIndex === 0 && hasFirstBroadcastDiscount
+                          ? 'text-amber-50 bg-amber-600/20 border border-amber-400/60'
+                          : 'text-emerald-50 bg-emerald-600/20 border border-emerald-400/60';
 
                       return (
                         <label
@@ -925,117 +899,10 @@ export function AskQuestionsSection() {
                       );
                     })}
                   </div>
-                  {/* Pricing Guide — collapsible panel showing per-position prices */}
-                  {pricingGuideData.hasAnyInfo && (
-                    <div className="rounded-lg border border-slate-700/70 bg-slate-800/40 overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => setShowPricingGuide((v) => !v)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-slate-700/30 transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5 text-slate-300">
-                          <Tag className="h-3 w-3 text-orange-400" />
-                          <span className="font-medium">Pricing Guide</span>
-                          {hasFirstBroadcastDiscount && firstBroadcastDiscountPct > 0 && (
-                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] text-emerald-300 font-medium">
-                              🎁 {firstBroadcastDiscountPct}% off Q1
-                            </span>
-                          )}
-                        </span>
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${showPricingGuide ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-
-                      {showPricingGuide && (
-                        <div className="border-t border-slate-700/50 px-3 pt-2 pb-3 space-y-1">
-                          {/* Q1 row */}
-                          <div className="flex items-center justify-between py-1">
-                            <span className="text-[11px] text-slate-400">Q1 (first question)</span>
-                            <div className="flex items-center gap-2">
-                              {hasFirstBroadcastDiscount && firstBroadcastDiscountPct > 0 ? (
-                                <>
-                                  <span className="text-[11px] text-slate-500 line-through">
-                                    {pricingGuideData.baseRate} NRs
-                                  </span>
-                                  <span className="text-[11px] font-bold text-emerald-400">
-                                    {pricingGuideData.q1Price} NRs
-                                  </span>
-                                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                                    🎁 First broadcast
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-[11px] text-slate-200">
-                                  {pricingGuideData.baseRate} NRs
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Custom tier rows */}
-                          {pricingGuideData.tiers.map((tier) => (
-                            <div
-                              key={tier.questionCount}
-                              className="flex items-center justify-between py-1"
-                            >
-                              <span className="text-[11px] text-slate-400">
-                                Q{tier.questionCount}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] font-bold text-sky-300">
-                                  {tier.amountNr} NRs
-                                </span>
-                                <span className="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                                  Custom tier
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-
-                          {/* Standard rate catch-all */}
-                          <div className="flex items-center justify-between py-1 border-t border-slate-700/40 mt-1 pt-2">
-                            <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                              <Info className="h-3 w-3" />
-                              All other questions
-                            </span>
-                            <span className="text-[11px] text-slate-300">
-                              {pricingGuideData.baseRate} NRs each
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Selected count + price bar */}
-                  {selectedCount > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-xs text-orange-200 flex items-center gap-2 flex-wrap">
-                        <span className="flex items-center gap-2">
-                          <span>
-                            {selectedCount} question{selectedCount === 1 ? '' : 's'}
-                          </span>
-                          {hasDiscount && originalTotalNr !== null && (
-                            <span className="text-[11px] text-orange-200/80 line-through">
-                              NRs {originalTotalNr.toLocaleString()}
-                            </span>
-                          )}
-                          <span className="text-xs font-semibold text-amber-200">
-                            NRs {displayTotalNr.toLocaleString()}
-                          </span>
-                        </span>
-                        {selectedBroadcastQuestionsDetailed.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setShowSelectedQuestionsModal(true)}
-                            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-200 hover:text-amber-50 hover:bg-amber-500/10 border border-amber-400/40 transition-colors"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>View your questions</span>
-                          </button>
-                        )}
-                      </p>
+                  {/* First-broadcast discount hint */}
+                  {hasFirstBroadcastDiscount && firstBroadcastDiscountPct > 0 && (
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-400/30 text-[11px] text-amber-200">
+                      🎁 Your first broadcast Q1 gets {firstBroadcastDiscountPct}% off
                     </div>
                   )}
                 </div>
@@ -1144,9 +1011,9 @@ export function AskQuestionsSection() {
         confirmLabel={t('startChat')}
       />
 
-      {/* Pay remaining NRs for multi-question broadcast */}
-      {prepareResult && prepareResult.remainingNr > 0 && (
-        <BroadcastRemainingPayModal
+      {/* Your Payment Details — always shown before publishing */}
+      {prepareResult && (
+        <BroadcastPaymentDetailsModal
           isOpen={showRemainingPayModal}
           onClose={() => {
             setShowRemainingPayModal(false);
@@ -1159,9 +1026,22 @@ export function AskQuestionsSection() {
             totalNr: prepareResult.totalNr,
             originalTotalNr: prepareResult.originalTotalNr,
             discountPercentApplied: prepareResult.discountPercentApplied,
+            firstBroadcastDiscountPct: prepareResult.firstBroadcastDiscountPct,
             breakdown: prepareResult.breakdown,
             birthDetails: pendingBroadcastBirthDetails,
           }}
+          onPublish={() => {
+            setShowRemainingPayModal(false);
+            setPrepareResult(null);
+            setIsBatchBroadcast(true);
+            markSending();
+            sendQuestionsMutation.mutate({
+              questionItems: prepareResult.questions,
+              totalNr: prepareResult.totalNr,
+              birthDetails: pendingBroadcastBirthDetails,
+            });
+          }}
+          isPublishing={sendQuestionsMutation.isPending}
         />
       )}
     </>

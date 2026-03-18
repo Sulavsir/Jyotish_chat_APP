@@ -1,6 +1,11 @@
 /**
- * Modal shown when user needs to pay remaining NRs for selected broadcast questions.
- * Shows per-question price breakdown, first-broadcast discount, and balance coverage.
+ * BroadcastPaymentDetailsModal
+ * "Your Payment Details" — always shown before publishing broadcast questions.
+ * Displays per-question breakdown, discount info, totals.
+ * - Balance sufficient  (remainingNr === 0) → "Publish Now" button calls onPublish()
+ * - Balance insufficient (remainingNr  >  0) → "Pay X NRs" button stores payload + redirects to payment
+ *
+ * Also exports storage helpers used by payment-success page to auto-send after top-up.
  */
 
 'use client';
@@ -15,8 +20,11 @@ import {
   Button,
   LoadingButton,
 } from '@jyotish/ui';
+import { CheckCircle2, Zap } from 'lucide-react';
 import { ROUTES } from '@/constants';
 import type { BroadcastPriceBreakdownEntry } from '@/types/broadcast';
+
+// ─── Session-storage helpers (used by payment-success page) ─────────────────
 
 const PENDING_BROADCAST_KEY = 'pendingBroadcastQuestions';
 
@@ -25,6 +33,8 @@ export interface PendingBroadcastPayload {
   totalNr: number;
   originalTotalNr?: number;
   discountPercentApplied?: number;
+  /** Actual admin-configured Q1 discount rate (e.g. 50 for "50% off Q1") */
+  firstBroadcastDiscountPct?: number;
   breakdown?: BroadcastPriceBreakdownEntry[];
   birthDetails?: {
     dateOfBirth?: string;
@@ -60,80 +70,113 @@ export function clearPendingBroadcastQuestions(): void {
   }
 }
 
-interface BroadcastRemainingPayModalProps {
+// ─── Component ───────────────────────────────────────────────────────────────
+
+interface BroadcastPaymentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Pre-calculated remaining amount; 0 = balance is sufficient */
   remainingNr: number;
   questions: { id: string; text: string }[];
+  /** Full payload used when redirecting to payment page */
   payload: PendingBroadcastPayload;
+  /** Called when user clicks "Publish Now" (sufficient balance path) */
+  onPublish: () => void | Promise<void>;
+  /** Whether the publish action is in progress */
+  isPublishing?: boolean;
 }
 
-export function BroadcastRemainingPayModal({
+/** @deprecated Use BroadcastPaymentDetailsModal instead */
+export function BroadcastRemainingPayModal(props: BroadcastPaymentDetailsModalProps) {
+  return <BroadcastPaymentDetailsModal {...props} />;
+}
+
+export function BroadcastPaymentDetailsModal({
   isOpen,
   onClose,
   remainingNr,
   questions,
   payload,
-}: BroadcastRemainingPayModalProps) {
+  onPublish,
+  isPublishing = false,
+}: BroadcastPaymentDetailsModalProps) {
+  const hasSufficientBalance = remainingNr === 0;
+
+  const breakdown = payload.breakdown ?? [];
+  const hasBreakdown = breakdown.length > 0;
+  // Prefer the actual Q1 discount rate; fall back to overall discount pct for display
+  const displayDiscountPct = payload.firstBroadcastDiscountPct ?? payload.discountPercentApplied ?? 0;
+  const hasDiscount = displayDiscountPct > 0;
+  const originalTotal = payload.originalTotalNr ?? payload.totalNr;
+  const savedAmount = hasDiscount ? originalTotal - payload.totalNr : 0;
+
   const handlePay = () => {
     storePendingBroadcastQuestions(payload);
     onClose();
     window.location.href = `${ROUTES.PAYMENT}?amount=${remainingNr}&coins=${remainingNr}`;
   };
 
-  const breakdown = payload.breakdown ?? [];
-  const hasBreakdown = breakdown.length > 0;
-  const hasDiscount =
-    payload.discountPercentApplied != null && payload.discountPercentApplied > 0;
-  const originalTotal = payload.originalTotalNr ?? payload.totalNr;
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Pay remaining NRs</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 text-white">
+            {hasSufficientBalance ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            ) : (
+              <Zap className="h-5 w-5 text-amber-400" />
+            )}
+            Your Payment Details
+          </DialogTitle>
           <DialogDescription className="text-slate-400">
-            Your balance covers part of the cost. Pay the remaining amount to publish these
-            questions to all Jyotish.
+            {hasSufficientBalance
+              ? 'Review your order below, then publish your questions to all Jyotish.'
+              : 'Your balance covers part of the cost. Pay the remaining amount to publish.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* Question list */}
-          <div className="rounded-lg bg-slate-800/50 border border-slate-600 p-3 max-h-36 overflow-y-auto">
-            <p className="text-xs text-slate-400 mb-2">Questions ({questions.length}):</p>
-            <ul className="list-disc list-inside text-sm text-slate-200 space-y-1">
-              {questions.slice(0, 10).map((q) => (
-                <li key={q.id} className="truncate">
-                  {q.text}
-                </li>
-              ))}
-              {questions.length > 10 && (
-                <li className="text-slate-400">... and {questions.length - 10} more</li>
-              )}
-            </ul>
-          </div>
+          {questions.length > 0 && (
+            <div className="rounded-lg bg-slate-800/60 border border-slate-600/60 p-3 max-h-36 overflow-y-auto">
+              <p className="text-xs font-medium text-slate-400 mb-2">
+                Questions ({questions.length}):
+              </p>
+              <ul className="list-disc list-inside text-sm text-slate-200 space-y-1">
+                {questions.slice(0, 10).map((q) => (
+                  <li key={q.id} className="truncate">
+                    {q.text}
+                  </li>
+                ))}
+                {questions.length > 10 && (
+                  <li className="text-slate-400">… and {questions.length - 10} more</li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* Per-question price breakdown */}
           {hasBreakdown && (
-            <div className="rounded-lg bg-slate-800/50 border border-slate-600 p-3 space-y-1">
-              <p className="text-xs text-slate-400 mb-2">Price breakdown:</p>
+            <div className="rounded-lg bg-slate-800/60 border border-slate-600/60 p-3 space-y-1.5">
+              <p className="text-xs font-medium text-slate-400 mb-2">Price breakdown:</p>
               {breakdown.map((entry) => (
                 <div key={entry.position} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-300">
+                  <span className="text-slate-300 flex items-center gap-1.5">
                     Question {entry.position}
                     {entry.isDiscounted && (
-                      <span className="ml-1.5 text-xs text-emerald-400 font-medium">
-                        (first broadcast discount)
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        🎁 First broadcast
                       </span>
                     )}
                     {entry.tierApplied && !entry.isDiscounted && (
-                      <span className="ml-1.5 text-xs text-sky-400 font-medium">(custom tier)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                        Custom tier
+                      </span>
                     )}
                   </span>
                   <span
                     className={
-                      entry.isDiscounted ? 'text-emerald-300 font-semibold' : 'text-slate-200'
+                      entry.isDiscounted ? 'font-semibold text-emerald-300' : 'text-slate-200'
                     }
                   >
                     {entry.price} NRs
@@ -152,8 +195,8 @@ export function BroadcastRemainingPayModal({
                   <span className="line-through">{originalTotal} NRs</span>
                 </div>
                 <div className="flex items-center justify-between text-sm text-emerald-300">
-                  <span>First question discount ({payload.discountPercentApplied}% on Q1)</span>
-                  <span>−{originalTotal - payload.totalNr} NRs</span>
+                  <span>First question discount ({displayDiscountPct}% off Q1)</span>
+                  <span>−{savedAmount} NRs</span>
                 </div>
               </>
             )}
@@ -161,23 +204,49 @@ export function BroadcastRemainingPayModal({
               <span>Total</span>
               <span className="font-semibold">{payload.totalNr} NRs</span>
             </div>
-            <div className="flex items-center justify-between text-base font-semibold text-white border-t border-slate-600 pt-2 mt-1">
-              <span>Remaining to pay</span>
-              <span className="text-amber-400">{remainingNr} NRs</span>
-            </div>
+
+            {!hasSufficientBalance && (
+              <div className="flex items-center justify-between text-base font-semibold text-white border-t border-slate-600 pt-2 mt-1">
+                <span>Remaining to pay</span>
+                <span className="text-amber-400">{remainingNr} NRs</span>
+              </div>
+            )}
+
+            {hasSufficientBalance && (
+              <div className="flex items-center justify-between text-sm text-emerald-300 border-t border-slate-600 pt-2 mt-1">
+                <span>Your balance covers the full cost</span>
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+            )}
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" className="border-slate-600" onClick={onClose}>
+          <Button
+            variant="outline"
+            className="border-slate-600 text-slate-300 hover:bg-slate-700"
+            onClick={onClose}
+            disabled={isPublishing}
+          >
             Cancel
           </Button>
-          <LoadingButton
-            onClick={handlePay}
-            className="bg-gradient-to-r from-orange-600 to-red-600 hover:opacity-90"
-          >
-            Pay {remainingNr} NRs
-          </LoadingButton>
+
+          {hasSufficientBalance ? (
+            <LoadingButton
+              onClick={onPublish}
+              loading={isPublishing}
+              className="bg-gradient-to-r from-orange-600 to-red-600 hover:opacity-90 text-white"
+            >
+              Publish {questions.length > 0 ? `${questions.length} Question${questions.length !== 1 ? 's' : ''}` : 'Now'}
+            </LoadingButton>
+          ) : (
+            <LoadingButton
+              onClick={handlePay}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-90 text-white"
+            >
+              Pay {remainingNr} NRs
+            </LoadingButton>
+          )}
         </div>
       </DialogContent>
     </Dialog>

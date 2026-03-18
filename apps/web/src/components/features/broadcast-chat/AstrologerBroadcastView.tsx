@@ -73,7 +73,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
   useEffect(() => {
     if (!socket || !isConnected || user?.role !== 'ASTROLOGER') return;
 
-    // New broadcast message received
+    // New broadcast message received — toast is shown in BroadcastMessageBar (with batch dedup)
     socket.on('broadcast:newMessage', (message: BroadcastMessage) => {
       setMessages((prev) => {
         // Check if message already exists
@@ -82,7 +82,6 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
         }
         return [message, ...prev];
       });
-      toast.info(`New broadcast from ${message.client?.name || message.client?.phone || 'Client'}`);
     });
 
     // Message was accepted by an astrologer - remove immediately from list

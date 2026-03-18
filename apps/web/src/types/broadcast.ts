@@ -112,8 +112,10 @@ export interface PrepareBroadcastQuestionsResponse {
   totalNr: number;
   /** Full price without first-broadcast discount */
   originalTotalNr: number;
-  /** Overall discount percentage applied (0 if none) */
+  /** Overall discount as % of total (e.g. 17% when 50 NRs saved on a 300 NRs order) */
   discountPercentApplied: number;
+  /** Actual admin-set Q1 discount rate (e.g. 50 for "50% off Q1") */
+  firstBroadcastDiscountPct: number;
   /** Per-question price list */
   breakdown: BroadcastPriceBreakdownEntry[];
   balanceNr: number;

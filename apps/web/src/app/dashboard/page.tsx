@@ -4,14 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { QUERY_KEYS, ROUTES } from '@/constants';
-import {
-
-  Alert,
-  AlertTitle,
-  AlertDescription,
-  Button,
-  Skeleton,
-} from '@jyotish/ui';
+import { Alert, AlertTitle, AlertDescription, Button, Skeleton } from '@jyotish/ui';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES } from '@/constants';
 import { LoadingScreenWithBackground } from '@/components/ui';
@@ -523,7 +516,9 @@ export default function DashboardPage() {
 
         {/* User's rashi horoscope + Tip for today side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-4">
-          <DashboardRashiHoroscopeCard userZodiacSign={(user as { zodiacSign?: string })?.zodiacSign} />
+          <DashboardRashiHoroscopeCard
+            userZodiacSign={(user as { zodiacSign?: string })?.zodiacSign}
+          />
           <DashboardTip audience="CLIENT" />
         </div>
 
@@ -624,16 +619,16 @@ export default function DashboardPage() {
 
                   <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-                      <p className="text-sm font-semibold text-yellow-300">{t('instantGuidance')}</p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {t('instantGuidanceDesc')}
+                      <p className="text-sm font-semibold text-yellow-300">
+                        {t('instantGuidance')}
                       </p>
+                      <p className="text-sm text-gray-400 mt-1">{t('instantGuidanceDesc')}</p>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors">
-                      <p className="text-sm font-semibold text-yellow-300">{t('personalizedInsights')}</p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {t('personalizedInsightsDesc')}
+                      <p className="text-sm font-semibold text-yellow-300">
+                        {t('personalizedInsights')}
                       </p>
+                      <p className="text-sm text-gray-400 mt-1">{t('personalizedInsightsDesc')}</p>
                     </div>
                   </div>
                 </div>
@@ -645,9 +640,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-white font-semibold mt-1">
                         {t('completeProfileTip')}
                       </p>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {t('completeProfileTipDesc')}
-                      </p>
+                      <p className="text-sm text-gray-400 mt-1">{t('completeProfileTipDesc')}</p>
                       <Button
                         onClick={() => router.push(ROUTES.PROFILE)}
                         variant="outline"
@@ -675,9 +668,7 @@ export default function DashboardPage() {
             <div className="flex items-end justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-white">{t('services')}</h2>
-                <p className="text-gray-400 text-sm mb-2">
-                  {t('servicesDesc')}
-                </p>
+                <p className="text-gray-400 text-sm mb-2">{t('servicesDesc')}</p>
               </div>
             </div>
 

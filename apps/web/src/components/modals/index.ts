@@ -4,7 +4,7 @@
 
 export * from './LogoutModal';
 export * from './CoinPurchaseModal';
-export * from './BroadcastRemainingPayModal';
+export * from './BroadcastRemainingPayModal'; // exports both BroadcastRemainingPayModal and BroadcastPaymentDetailsModal
 export * from './RemoveProfileModal';
 export * from './ClientDetailsModal';
 export * from './AddFamilyMemberModal';

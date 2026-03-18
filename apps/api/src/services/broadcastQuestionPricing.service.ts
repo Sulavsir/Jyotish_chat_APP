@@ -233,7 +233,11 @@ export async function replaceTiers(
         );
       }
       if (t.amountNr < 0) {
-        throw new AppError('Amount must be non-negative', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+        throw new AppError(
+          'Amount must be non-negative',
+          HTTP_STATUS.BAD_REQUEST,
+          ERROR_CODES.VALIDATION_ERROR
+        );
       }
       const row = await tx.broadcastQuestionPricing.create({
         data: { questionCount: t.questionCount, amountNr: t.amountNr },
@@ -250,13 +254,14 @@ export async function replaceTiers(
   });
 }
 
-
 export interface PrepareBroadcastQuestionsResult {
   totalNr: number;
   /** Full price without first-broadcast discount (for strikethrough display) */
   originalTotalNr: number;
-  /** Percentage discount applied on the first question (0 if none) */
+  /** Overall discount as % of the original total (e.g. 17% when 50 NRs saved on a 300 NRs order) */
   discountPercentApplied: number;
+  /** Actual admin-set first-broadcast discount rate applied to Q1 (e.g. 50 for "50% off Q1") */
+  firstBroadcastDiscountPct: number;
   /** Per-question price breakdown — one entry per selected question */
   breakdown: PerQuestionPriceEntry[];
   balanceNr: number;
@@ -304,7 +309,7 @@ export async function prepareBroadcastQuestions(
 
   const [breakdown, baseEntries, balanceNr] = await Promise.all([
     buildPerQuestionPrices(questionCount, clientId),
-    buildPerQuestionPrices(questionCount), 
+    buildPerQuestionPrices(questionCount),
     getCoinBalance(clientId),
   ]);
 
@@ -313,6 +318,14 @@ export async function prepareBroadcastQuestions(
   const discountPercentApplied =
     originalTotalNr > 0 ? Math.round(((originalTotalNr - totalNr) / originalTotalNr) * 100) : 0;
 
+  // Actual admin-configured Q1 discount rate (e.g. 50 for "50% off Q1")
+  const discountedQ1 = breakdown.find((e) => e.isDiscounted && e.position === 1);
+  const baseQ1 = baseEntries.find((e) => e.position === 1);
+  const firstBroadcastDiscountPct =
+    discountedQ1 && baseQ1 && baseQ1.price > 0
+      ? Math.round((1 - discountedQ1.price / baseQ1.price) * 100)
+      : 0;
+
   const coveredByBalance = Math.min(balanceNr, totalNr);
   const remainingNr = Math.max(0, totalNr - coveredByBalance);
 
@@ -320,6 +333,7 @@ export async function prepareBroadcastQuestions(
     totalNr,
     originalTotalNr,
     discountPercentApplied,
+    firstBroadcastDiscountPct,
     breakdown,
     balanceNr,
     coveredByBalance,

@@ -543,9 +543,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                 Sending a broadcast message will cost{' '}
                 <span className="font-semibold inline-flex items-center gap-1">
                   <Banknote className="h-3 w-3" />
-                  {broadcastSendCoins != null
-                    ? `${broadcastSendCoins} NRs`
-                    : '…'}
+                  {broadcastSendCoins != null ? `${broadcastSendCoins} NRs` : '…'}
                 </span>
                 . This will be deducted when you send the message.
               </p>

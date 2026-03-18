@@ -189,6 +189,8 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
         setIsSending(false);
         setIsWaitingForAcceptance(false);
         setPendingMessage(null);
+        // Refresh balance immediately — chat deduction happens server-side on acceptance
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
         // Toast is shown from the consumer (BroadcastChatWindow / RequestInstantChatButton) to avoid duplicate toasts
         if (options.onAccepted) {
           options.onAccepted(data);

@@ -71,31 +71,42 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
           message.id
         );
 
-        // Create notifications for eligible astrologers only (confidential - no message content shown)
-        const astrologers = eligibleAstrologers;
+        // Build a display name for the client (name → phone → email fallback)
+        const clientDisplayName =
+          (message.client as any)?.name ||
+          (message.client as any)?.phone ||
+          (message.client as any)?.email ||
+          'A client';
+        const astrologerNotifMessage = `${clientDisplayName} is requesting to chat with an astrologer`;
 
-        // Create notifications for each astrologer
-        const notificationPromises = astrologers.map((astrologer) =>
+        // Create notifications for each eligible in-house astrologer
+        const notificationPromises = eligibleAstrologers.map((astrologer) =>
           notificationService.createNotification({
-            astrologerId: astrologer.id, // Use astrologerId instead of userId
+            astrologerId: astrologer.id,
             type: NotificationType.BROADCAST_MESSAGE,
             title: 'New Chat Request',
-            message: 'A client is requesting to chat with an astrologer',
+            message: astrologerNotifMessage,
             metadata: {
               broadcastMessageId: message.id,
               clientId: message.clientId,
-              isConfidential: true, // Don't show message content
+              isConfidential: true,
             },
           })
         );
 
         await Promise.all(notificationPromises);
 
-        // Notify all astrologers via socket about the new notification
-        io.to('astrologers').emit('notification:new', {
-          type: 'BROADCAST_MESSAGE',
-          title: 'New Chat Request',
-          message: 'A client is requesting to chat with an astrologer',
+        // Notify each eligible astrologer via socket (per-astrologer so the name is included)
+        eligibleAstrologers.forEach((astrologer) => {
+          io.to(`user:${astrologer.id}`).emit('notification:new', {
+            type: 'BROADCAST_MESSAGE',
+            title: 'New Chat Request',
+            message: astrologerNotifMessage,
+            metadata: {
+              broadcastMessageId: message.id,
+              clientId: message.clientId,
+            },
+          });
         });
       } catch (error: unknown) {
         const err = error as any;
@@ -155,7 +166,36 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         message: result.message,
         chat: result.chat,
         astrologer: result.message.acceptedAstrologer,
-        initialMessages: result.initialMessages, // Include the auto-generated messages
+        initialMessages: result.initialMessages,
+      });
+
+      // Persist a notification for the client so it appears in their notification bell
+      const astrologerDisplayName =
+        (result.message.acceptedAstrologer as any)?.name || 'An astrologer';
+      const clientAcceptedMsg = `Your request has been accepted by ${astrologerDisplayName}. Starting your chat now.`;
+
+      notificationService
+        .createNotification({
+          userId: result.message.clientId,
+          type: NotificationType.BROADCAST_ACCEPTED,
+          title: 'Chat Request Accepted',
+          message: clientAcceptedMsg,
+          metadata: {
+            broadcastMessageId: result.message.id,
+            chatId: result.chat.id,
+            astrologerId: userId,
+          },
+        })
+        .catch((e) => console.error('Failed to create client acceptance notification:', e));
+
+      io.to(`user:${result.message.clientId}`).emit('notification:new', {
+        type: 'BROADCAST_ACCEPTED',
+        title: 'Chat Request Accepted',
+        message: clientAcceptedMsg,
+        metadata: {
+          broadcastMessageId: result.message.id,
+          chatId: result.chat.id,
+        },
       });
 
       // Get other in-house astrologers (exclude the acceptor)

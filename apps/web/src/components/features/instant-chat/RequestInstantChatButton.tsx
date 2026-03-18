@@ -47,6 +47,7 @@ export const RequestInstantChatButton: React.FC = () => {
     pendingMessage,
     timeRemaining,
     markSending,
+    clearWaiting,
     handleCancelRequest,
   } = useBroadcastPending({
     onAccepted: (data) => {
@@ -76,19 +77,17 @@ export const RequestInstantChatButton: React.FC = () => {
 
     // Guard: prevent sending when a broadcast is already pending
     if (isWaitingForAcceptance) {
-      toast.error('You already have a pending broadcast. Please wait for it to be accepted or expire before sending another one.');
+      toast.error(
+        'You already have a pending broadcast. Please wait for it to be accepted or expire before sending another one.'
+      );
       return;
     }
 
-    if (
-      broadcastSendCoins != null &&
-      broadcastSendCoins > 0 &&
-      balance < broadcastSendCoins
-    ) {
+    if (broadcastSendCoins != null && broadcastSendCoins > 0 && balance < broadcastSendCoins) {
       setRequiredCoins(broadcastSendCoins);
       setShowCoinPurchaseModal(true);
       toast.error('Insufficient balance', {
-        description: `Request Instant Chat requires ${broadcastSendCoins} NRs. Please top up your balance.`,
+        description: `Request Instant Chat requires minimum ${broadcastSendCoins} NRs. Please top up your balance.`,
         duration: 5000,
       });
       return;
@@ -172,6 +171,7 @@ export const RequestInstantChatButton: React.FC = () => {
         isSending={isSending}
         setIsSending={setIsSending}
         coinCost={broadcastSendCoins}
+        clearWaiting={clearWaiting}
       />
 
       <ProfileIncompleteDialog
