@@ -23,7 +23,12 @@ import {
   Textarea,
   LoadingButton,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn, KundaliMatchStatusFilter, type KundaliMatchFilterValue } from '@/components/admin';
+import {
+  AdminTable,
+  type AdminTableColumn,
+  KundaliMatchStatusFilter,
+  type KundaliMatchFilterValue,
+} from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
 import { generatePageNumbers } from '@/utils/helpers';
@@ -105,7 +110,7 @@ export default function KundaliMatchPage() {
       ),
     },
     {
-      header: 'Requested',
+      header: 'Date of Issue',
       accessor: (r) => <span className="text-sm text-slate-400">{formatDate(r.createdAt)}</span>,
     },
     {

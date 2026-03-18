@@ -198,48 +198,56 @@ export default function DashboardPage() {
             value: stats.totalUsers,
             icon: <UsersIcon className="w-8 h-8 text-red-400" />,
             color: 'from-purple-500 to-pink-500',
+            route: ADMIN_ROUTES.USERS,
           },
           {
             title: 'New Users Today',
             value: stats.newUsersToday,
             icon: <UsersIcon className="w-8 h-8 text-emerald-400" />,
             color: 'from-emerald-400 to-teal-500',
+            route: ADMIN_ROUTES.USERS,
           },
           {
             title: 'Total Astrologers',
             value: stats.totalAstrologers,
             icon: <StarIcon className="w-8 h-8 text-purple-400" />,
             color: 'from-pink-500 to-purple-500',
+            route: ADMIN_ROUTES.ASTROLOGERS,
           },
           {
             title: 'Active Chats',
             value: stats.activeChats,
             icon: <ChatIcon className="w-8 h-8 text-green-400" />,
             color: 'from-green-400 to-emerald-500',
+            route: ADMIN_ROUTES.CHATS,
           },
           {
             title: 'Total Earnings (Astrologers)',
             value: `Nrs.${stats.totalEarnings}`,
             icon: <MoneyIcon className="w-8 h-8 text-yellow-400" />,
             color: 'from-yellow-400 to-orange-500',
+            route: ADMIN_ROUTES.EARNINGS,
           },
           {
             title: "Today's Earnings (Astrologers)",
             value: `Nrs.${stats.todayEarnings}`,
             icon: <MoneyIcon className="w-8 h-8 text-emerald-300" />,
             color: 'from-emerald-300 to-lime-400',
+            route: ADMIN_ROUTES.EARNINGS,
           },
           {
             title: 'Total Loaded (Platform)',
             value: `Nrs.${stats.platformTotalLoaded}`,
             icon: <MoneyIcon className="w-8 h-8 text-blue-300" />,
             color: 'from-blue-300 to-indigo-400',
+            route: ADMIN_ROUTES.TRANSACTIONS,
           },
           {
             title: "Today's Loaded (Platform)",
             value: `Nrs.${stats.platformTodayLoaded}`,
             icon: <MoneyIcon className="w-8 h-8 text-teal-300" />,
             color: 'from-teal-300 to-cyan-400',
+            route: ADMIN_ROUTES.TRANSACTIONS,
           },
           {
             title: 'Pending Payouts',
@@ -260,6 +268,7 @@ export default function DashboardPage() {
               </svg>
             ),
             color: 'from-red-400 to-rose-500',
+            route: ADMIN_ROUTES.EARNINGS,
           },
           {
             title: "Today's Consultations",
@@ -280,6 +289,7 @@ export default function DashboardPage() {
               </svg>
             ),
             color: 'from-blue-400 to-cyan-500',
+            route: ADMIN_ROUTES.APPOINTMENTS,
           },
         ];
 
@@ -392,9 +402,11 @@ export default function DashboardPage() {
                 </div>
               ))
             : statCards.map((stat, index) => (
-                <div
+                <button
                   key={index}
-                  className="cosmic-card rounded-xl p-6 hover:scale-105 transition-transform cursor-pointer"
+                  type="button"
+                  onClick={() => stat.route && router.push(stat.route)}
+                  className="cosmic-card rounded-xl p-6 hover:scale-105 transition-transform cursor-pointer text-left w-full"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-slate-400 text-sm font-medium">{stat.title}</h3>
@@ -405,7 +417,7 @@ export default function DashboardPage() {
                   >
                     {stat.value}
                   </p>
-                </div>
+                </button>
               ))}
         </div>
 
