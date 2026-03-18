@@ -213,7 +213,8 @@ export function AskQuestionsSection() {
   };
 
   const prepareMutation = useMutation({
-    mutationFn: (questionIds: string[]) => broadcastMessageService.prepareQuestions(questionIds),
+    mutationFn: (params: { questionIds: string[]; customTexts?: string[] }) =>
+      broadcastMessageService.prepareQuestions(params),
     onError: (err) =>
       toast.error(err instanceof Error ? err.message : 'Failed to prepare questions'),
   });
@@ -492,7 +493,13 @@ export function AskQuestionsSection() {
     if (selectedBroadcastQuestionIds.length > 0) {
       try {
         setIsSending(true);
-        const result = await prepareMutation.mutateAsync(selectedBroadcastQuestionIds);
+        // Pass any typed text as a custom question alongside the predefined selections
+        const customTexts =
+          broadcastMessage.trim() ? [broadcastMessage.trim()] : [];
+        const result = await prepareMutation.mutateAsync({
+          questionIds: selectedBroadcastQuestionIds,
+          customTexts,
+        });
         const birthDetailsObj =
           birthDetails && Object.keys(birthDetails).length > 0
             ? (birthDetails as Record<string, string>)
@@ -944,10 +951,14 @@ export function AskQuestionsSection() {
                 </div>
               )}
 
-              {/* Custom Message Input */}
+              {/* Custom Message Input — always visible; becomes "add a custom question" when predefined ones are selected */}
               <div className="w-full animate-in fade-in slide-in-from-bottom-4 delay-400">
                 <label className="text-sm text-gray-300 mb-2 block">
-                  {broadcastQuestion ? t('orEditBeforePublish') : t('orTypeToAll')}
+                  {selectedBroadcastQuestionIds.length > 0
+                    ? 'Also add your own question (optional)'
+                    : broadcastQuestion
+                      ? t('orEditBeforePublish')
+                      : t('orTypeToAll')}
                 </label>
                 <textarea
                   value={broadcastMessage}

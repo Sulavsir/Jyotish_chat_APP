@@ -89,8 +89,9 @@ export function FormPasswordInput({
           aria-label={showPassword ? 'Hide password' : 'Show password'}
           tabIndex={-1}
           className={cn(
-            'absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8',
-            'text-gray-400 hover:text-gray-300 hover:bg-white/10',
+        'absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8',
+        // Make the eye icon clearly visible in password inputs
+        'text-black hover:bg-white/10',
             'focus-visible:ring-0 focus-visible:ring-offset-0'
           )}
         >

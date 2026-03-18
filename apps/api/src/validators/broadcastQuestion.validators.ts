@@ -5,17 +5,30 @@
 
 import { z } from 'zod';
 
+// A question item can be a real DB question (uuid id) or a custom typed question (custom:N id)
 const questionItemSchema = z.object({
-  id: z.string().uuid('Invalid question ID'),
+  id: z.string().min(1, 'Question ID is required'),
   text: z.string().min(1, 'Question text is required').max(2000),
+  isCustom: z.boolean().optional(),
 });
 
-export const prepareBroadcastQuestionsBodySchema = z.object({
-  questionIds: z
-    .array(z.string().uuid('Invalid question ID'))
-    .min(1, 'Select at least one question')
-    .max(50, 'Maximum 50 questions per batch'),
-});
+export const prepareBroadcastQuestionsBodySchema = z
+  .object({
+    questionIds: z
+      .array(z.string().uuid('Invalid question ID'))
+      .max(50, 'Maximum 50 questions per batch')
+      .default([]),
+    customTexts: z
+      .array(z.string().min(1, 'Custom question text cannot be empty').max(2000))
+      .max(50, 'Maximum 50 custom questions per batch')
+      .default([]),
+  })
+  .refine((data) => data.questionIds.length + data.customTexts.length >= 1, {
+    message: 'Select at least one question or type a custom question',
+  })
+  .refine((data) => data.questionIds.length + data.customTexts.length <= 50, {
+    message: 'Maximum 50 questions per batch',
+  });
 
 export const sendBroadcastQuestionsBodySchema = z.object({
   questionItems: z

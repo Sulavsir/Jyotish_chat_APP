@@ -396,12 +396,16 @@ export async function prepareQuestions(req: AuthRequest, res: Response) {
       );
     }
 
-    const { questionIds } = req.body as { questionIds: string[] };
+    const { questionIds = [], customTexts = [] } = req.body as {
+      questionIds?: string[];
+      customTexts?: string[];
+    };
     const clientId = req.user!.id;
 
     const result = await broadcastQuestionPricingService.prepareBroadcastQuestions(
       clientId,
-      questionIds
+      questionIds,
+      customTexts
     );
     return sendSuccess(res, result);
   } catch (error: unknown) {

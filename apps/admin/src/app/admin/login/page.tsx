@@ -104,9 +104,7 @@ export default function AdminLoginPage() {
 
         {/* Title */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-purple-400 mb-2">
-            Cosmic Control Center
-          </h1>
+          <h1 className="text-3xl font-bold text-purple-400 mb-2">Cosmic Control Center</h1>
           <p className="text-slate-400">Admin Panel - Jyotish Platform</p>
         </div>
 

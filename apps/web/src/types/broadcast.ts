@@ -106,6 +106,8 @@ export interface BroadcastPriceBreakdownEntry {
   price: number;
   isDiscounted: boolean;
   tierApplied: boolean;
+  /** True when this position maps to a user-typed custom question */
+  isCustom?: boolean;
 }
 
 export interface PrepareBroadcastQuestionsResponse {
@@ -122,11 +124,11 @@ export interface PrepareBroadcastQuestionsResponse {
   coveredByBalance: number;
   remainingNr: number;
   questionCount: number;
-  questions: { id: string; text: string }[];
+  questions: { id: string; text: string; isCustom?: boolean }[];
 }
 
 export interface SendBroadcastQuestionsRequest {
-  questionItems: { id: string; text: string }[];
+  questionItems: { id: string; text: string; isCustom?: boolean }[];
   totalNr: number;
   birthDetails?: {
     dateOfBirth?: string;

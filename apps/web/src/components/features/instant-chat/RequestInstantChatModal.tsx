@@ -117,8 +117,8 @@ export function RequestInstantChatModal({
   const selectedCategoryData = questionCategories.find((c) => c.id === categoryId);
 
   const prepareMutation = useMutation({
-    mutationFn: (questionIds: string[]) =>
-      broadcastMessageService.prepareQuestions(questionIds),
+    mutationFn: (params: { questionIds: string[]; customTexts?: string[] }) =>
+      broadcastMessageService.prepareQuestions(params),
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to prepare questions. Please try again.');
     },
@@ -202,10 +202,15 @@ export function RequestInstantChatModal({
     }
 
     if (hasQuestionsSelected) {
-      // Multi-question: call prepare API for exact pricing & breakdown
+      // Multi-question (+ optional typed custom): call prepare API for exact pricing & breakdown
       try {
         setIsSending(true);
-        const result = await prepareMutation.mutateAsync(selectedQuestionIds);
+        // Include any free-typed text as an additional custom question
+        const customTexts = messageText.trim() ? [messageText.trim()] : [];
+        const result = await prepareMutation.mutateAsync({
+          questionIds: selectedQuestionIds,
+          customTexts,
+        });
         setPaymentInfo({
           questions: result.questions,
           totalNr: result.totalNr,
@@ -409,13 +414,14 @@ export function RequestInstantChatModal({
                   </div>
                 )}
 
-                {/* Free-text message (shown only when no questions are selected) */}
-                {!hasQuestionsSelected && (
-                  <div>
+                {/* Free-text message — always visible; becomes additive when questions are selected */}
+                <div>
                     <Label className="text-sm text-gray-300 block mb-1">
-                      {selectedCategoryData
-                        ? 'Or type your own question'
-                        : 'Type your question'}
+                      {hasQuestionsSelected
+                        ? 'Also add your own question (optional)'
+                        : selectedCategoryData
+                          ? 'Or type your own question'
+                          : 'Type your question'}
                     </Label>
                     <Textarea
                       value={messageText}
@@ -423,7 +429,11 @@ export function RequestInstantChatModal({
                         setMessageError('');
                         setMessageText(e.target.value);
                       }}
-                      placeholder="Type your question..."
+                      placeholder={
+                        hasQuestionsSelected
+                          ? 'Type an additional custom question...'
+                          : 'Type your question...'
+                      }
                       rows={3}
                       maxLength={500}
                       className="min-h-[80px] resize-none"
@@ -433,7 +443,6 @@ export function RequestInstantChatModal({
                     )}
                     <p className="text-xs text-gray-500 mt-0.5">{messageText.length}/500</p>
                   </div>
-                )}
               </div>
 
               <div className="flex gap-2">

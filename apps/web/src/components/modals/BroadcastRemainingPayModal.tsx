@@ -29,7 +29,7 @@ import type { BroadcastPriceBreakdownEntry } from '@/types/broadcast';
 const PENDING_BROADCAST_KEY = 'pendingBroadcastQuestions';
 
 export interface PendingBroadcastPayload {
-  questionItems: { id: string; text: string }[];
+  questionItems: { id: string; text: string; isCustom?: boolean }[];
   totalNr: number;
   originalTotalNr?: number;
   discountPercentApplied?: number;
@@ -77,7 +77,7 @@ interface BroadcastPaymentDetailsModalProps {
   onClose: () => void;
   /** Pre-calculated remaining amount; 0 = balance is sufficient */
   remainingNr: number;
-  questions: { id: string; text: string }[];
+  questions: { id: string; text: string; isCustom?: boolean }[];
   /** Full payload used when redirecting to payment page */
   payload: PendingBroadcastPayload;
   /** Called when user clicks "Publish Now" (sufficient balance path) */
@@ -142,14 +142,20 @@ export function BroadcastPaymentDetailsModal({
               <p className="text-xs font-medium text-slate-400 mb-2">
                 Questions ({questions.length}):
               </p>
-              <ul className="list-disc list-inside text-sm text-slate-200 space-y-1">
-                {questions.slice(0, 10).map((q) => (
-                  <li key={q.id} className="truncate">
-                    {q.text}
+              <ul className="list-none text-sm text-slate-200 space-y-1">
+                {questions.slice(0, 10).map((q, i) => (
+                  <li key={q.id} className="flex items-start gap-1.5">
+                    <span className="text-slate-500 shrink-0 text-xs mt-0.5">Q{i + 1}.</span>
+                    <span className="flex-1 truncate">{q.text}</span>
+                    {q.isCustom && (
+                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                        Custom
+                      </span>
+                    )}
                   </li>
                 ))}
                 {questions.length > 10 && (
-                  <li className="text-slate-400">… and {questions.length - 10} more</li>
+                  <li className="text-slate-400 pl-5">… and {questions.length - 10} more</li>
                 )}
               </ul>
             </div>
@@ -168,9 +174,14 @@ export function BroadcastPaymentDetailsModal({
                         🎁 First broadcast
                       </span>
                     )}
-                    {entry.tierApplied && !entry.isDiscounted && (
+                    {entry.tierApplied && !entry.isDiscounted && !entry.isCustom && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
                         Custom tier
+                      </span>
+                    )}
+                    {entry.isCustom && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30">
+                        Your question
                       </span>
                     )}
                   </span>

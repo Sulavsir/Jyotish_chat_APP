@@ -104,12 +104,20 @@ const broadcastMessageService = {
   },
 
   /**
-   * Prepare multi-question broadcast: validate questions, get total/balance/remaining
+   * Prepare broadcast: validate questions, get total/balance/remaining.
+   * Accepts predefined question IDs and/or free-typed custom texts (both optional,
+   * but at least one must be non-empty).
    */
-  async prepareQuestions(questionIds: string[]): Promise<PrepareBroadcastQuestionsResponse> {
+  async prepareQuestions(params: {
+    questionIds: string[];
+    customTexts?: string[];
+  }): Promise<PrepareBroadcastQuestionsResponse> {
     const response = await apiClient.post<PrepareBroadcastQuestionsResponse>(
       API_ENDPOINTS.BROADCAST.PREPARE_QUESTIONS,
-      { questionIds }
+      {
+        questionIds: params.questionIds,
+        customTexts: params.customTexts ?? [],
+      }
     );
     return response;
   },

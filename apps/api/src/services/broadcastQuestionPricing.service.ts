@@ -268,44 +268,59 @@ export interface PrepareBroadcastQuestionsResult {
   coveredByBalance: number;
   remainingNr: number;
   questionCount: number;
-  questions: { id: string; text: string }[];
+  questions: { id: string; text: string; isCustom: boolean }[];
 }
 
 /**
- * Prepare multi-question broadcast: validate question IDs, compute total and balance breakdown.
+ * Prepare multi-question broadcast.
+ * Accepts predefined question IDs (validated against DB) and/or free-typed custom texts.
+ * Total item count drives all pricing (tiers, Q1 first-broadcast discount, etc.).
  */
 export async function prepareBroadcastQuestions(
   clientId: string,
-  questionIds: string[]
+  questionIds: string[],
+  customTexts: string[] = []
 ): Promise<PrepareBroadcastQuestionsResult> {
-  if (questionIds.length === 0) {
+  const totalCount = questionIds.length + customTexts.length;
+
+  if (totalCount === 0) {
     throw new AppError(
-      'Select at least one question',
+      'Select at least one question or type a custom question',
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );
   }
 
-  const questions = await prisma.questionItem.findMany({
-    where: {
-      id: { in: questionIds },
-      isActive: true,
-      category: { isActive: true },
-    },
-    select: { id: true, text: true },
-  });
+  // Validate predefined question IDs against the DB (custom texts skip this)
+  let dbQuestions: { id: string; text: string }[] = [];
+  if (questionIds.length > 0) {
+    dbQuestions = await prisma.questionItem.findMany({
+      where: {
+        id: { in: questionIds },
+        isActive: true,
+        category: { isActive: true },
+      },
+      select: { id: true, text: true },
+    });
 
-  if (questions.length !== questionIds.length) {
-    const foundIds = new Set(questions.map((q) => q.id));
-    const missing = questionIds.filter((id) => !foundIds.has(id));
-    throw new AppError(
-      `Invalid or inactive question(s): ${missing.join(', ')}`,
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
+    if (dbQuestions.length !== questionIds.length) {
+      const foundIds = new Set(dbQuestions.map((q) => q.id));
+      const missing = questionIds.filter((id) => !foundIds.has(id));
+      throw new AppError(
+        `Invalid or inactive question(s): ${missing.join(', ')}`,
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
   }
 
-  const questionCount = questions.length;
+  // Merge: DB questions first (preserving selection order), then custom typed texts
+  const allItems: { id: string; text: string; isCustom: boolean }[] = [
+    ...dbQuestions.map((q) => ({ id: q.id, text: q.text, isCustom: false })),
+    ...customTexts.map((t, i) => ({ id: `custom:${i}`, text: t, isCustom: true })),
+  ];
+
+  const questionCount = allItems.length;
 
   const [breakdown, baseEntries, balanceNr] = await Promise.all([
     buildPerQuestionPrices(questionCount, clientId),
@@ -339,6 +354,6 @@ export async function prepareBroadcastQuestions(
     coveredByBalance,
     remainingNr,
     questionCount,
-    questions: questions.map((q) => ({ id: q.id, text: q.text })),
+    questions: allItems,
   };
 }

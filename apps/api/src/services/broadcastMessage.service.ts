@@ -40,6 +40,8 @@ export interface CreateBroadcastMessageData {
 export interface BroadcastQuestionItem {
   id: string;
   text: string;
+  /** True for questions the user typed themselves rather than selecting from the questionnaire */
+  isCustom?: boolean;
 }
 
 export interface AcceptBroadcastMessageData {
