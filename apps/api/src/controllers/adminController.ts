@@ -1295,8 +1295,9 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
         },
       }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
+      // Astrologer earnings — use netEarning so stats match the earnings table
       prisma.astrologerEarnings.aggregate({
-        _sum: { amount: true },
+        _sum: { netEarning: true },
         where: { status: 'PAID' },
       }),
       prisma.astrologerEarnings.aggregate({
@@ -1319,7 +1320,7 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
         },
       }),
       prisma.astrologerEarnings.aggregate({
-        _sum: { amount: true },
+        _sum: { netEarning: true },
         where: {
           status: 'PAID',
           createdAt: {
@@ -1346,11 +1347,11 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       totalUsers,
       totalAstrologers,
       activeChats,
-      totalEarnings: totalEarnings._sum.amount || 0,
+      totalEarnings: totalEarnings._sum.netEarning || 0,
       pendingPayouts: pendingEarnings._sum.amount || 0,
       todayConsultations,
       newUsersToday,
-      todayEarnings: todayEarnings._sum.amount || 0,
+      todayEarnings: todayEarnings._sum.netEarning || 0,
       platformTotalLoaded: platformTotalLoaded._sum.amount || 0,
       platformTodayLoaded: platformTodayLoaded._sum.amount || 0,
     };

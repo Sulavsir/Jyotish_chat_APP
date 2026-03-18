@@ -87,6 +87,8 @@ export function AskQuestionsSection() {
     breakdown: import('@/types/broadcast').BroadcastPriceBreakdownEntry[];
     remainingNr: number;
     questions: { id: string; text: string }[];
+    isTextOnly?: boolean;
+    textMessage?: string;
   } | null>(null);
   const [pendingBroadcastBirthDetails, setPendingBroadcastBirthDetails] = useState<
     Record<string, string> | undefined
@@ -117,7 +119,8 @@ export function AskQuestionsSection() {
   const { data: balanceData } = useQuery({
     queryKey: QUERY_KEYS.COINS.BALANCE,
     queryFn: () => coinService.getBalance(),
-    enabled: mode === 'direct' && !!selectedAstrologerId,
+    // Balance is needed for both direct and broadcast flows to compute "remaining to pay"
+    enabled: !!user,
   });
   const coinBalance = balanceData?.balance ?? 0;
   const [selectedAstrologerFee, setSelectedAstrologerFee] = useState<number | null>(null);
@@ -537,21 +540,54 @@ export function AskQuestionsSection() {
       // Ignore; allow user to proceed
     }
 
-    try {
-      setIsSending(true);
-      // Show the waiting modal immediately — server confirms via broadcast:messageSent
-      // If the server rejects, broadcast:error resets the state automatically
-      markSending();
-      socket.emit('broadcast:sendMessage', {
-        content: messageToSend,
-        type: 'TEXT',
-        ...(birthDetails && Object.keys(birthDetails).length > 0 && { birthDetails }),
-      });
-    } catch (error) {
-      console.error('Error sending broadcast message:', error);
-      toast.error('Failed to send message');
-      clearWaiting();
-    }
+    // For text-only broadcasts, show the unified "Your Payment Details" modal as well.
+    // Pricing mirrors backend createBroadcastMessage: BROADCAST_SEND with first-broadcast discount once.
+    const broadcastSendRate = coinRates?.BROADCAST_SEND ?? 0;
+    const clampedDiscount = hasFirstBroadcastDiscount
+      ? Math.max(0, Math.min(100, firstBroadcastDiscountPct))
+      : 0;
+    const discountedCost =
+      clampedDiscount > 0
+        ? clampedDiscount >= 100
+          ? 0
+          : Math.round((broadcastSendRate * (100 - clampedDiscount)) / 100)
+        : broadcastSendRate;
+    const totalNr = discountedCost;
+    const originalTotalNr = broadcastSendRate;
+    const discountPercentApplied = clampedDiscount;
+
+    const balance = coinBalance ?? 0;
+    const coveredByBalance = Math.min(balance, totalNr);
+    const remainingNr = Math.max(0, totalNr - coveredByBalance);
+
+    const birthDetailsObj =
+      birthDetails && Object.keys(birthDetails).length > 0
+        ? (birthDetails as Record<string, string>)
+        : undefined;
+    setPendingBroadcastBirthDetails(birthDetailsObj);
+
+    setPrepareResult({
+      totalNr,
+      originalTotalNr,
+      discountPercentApplied,
+      firstBroadcastDiscountPct: clampedDiscount,
+      breakdown:
+        broadcastSendRate > 0
+          ? [
+              {
+                position: 1,
+                price: discountedCost,
+                isDiscounted: clampedDiscount > 0,
+                tierApplied: false,
+              },
+            ]
+          : [],
+      remainingNr,
+      questions: [{ id: 'text', text: messageToSend }],
+      isTextOnly: true,
+      textMessage: messageToSend,
+    });
+    setShowRemainingPayModal(true);
   };
 
   const finalBroadcastMessage = broadcastMessage.trim() || broadcastQuestion.trim();
@@ -1032,14 +1068,41 @@ export function AskQuestionsSection() {
           }}
           onPublish={() => {
             setShowRemainingPayModal(false);
+            const current = prepareResult;
             setPrepareResult(null);
-            setIsBatchBroadcast(true);
-            markSending();
-            sendQuestionsMutation.mutate({
-              questionItems: prepareResult.questions,
-              totalNr: prepareResult.totalNr,
-              birthDetails: pendingBroadcastBirthDetails,
-            });
+            if (!current) return;
+
+            if (current.isTextOnly) {
+              if (!socket || !isConnected) {
+                toast.error('Not connected. Please refresh the page.');
+                return;
+              }
+              try {
+                setIsSending(true);
+                // Show waiting modal; server will confirm via broadcast:messageSent
+                markSending();
+                socket.emit('broadcast:sendMessage', {
+                  content: current.textMessage ?? '',
+                  type: 'TEXT',
+                  ...(pendingBroadcastBirthDetails &&
+                    Object.keys(pendingBroadcastBirthDetails).length > 0 && {
+                      birthDetails: pendingBroadcastBirthDetails,
+                    }),
+                });
+              } catch (error) {
+                console.error('Error sending broadcast message:', error);
+                toast.error('Failed to send message');
+                clearWaiting();
+              }
+            } else {
+              setIsBatchBroadcast(true);
+              markSending();
+              sendQuestionsMutation.mutate({
+                questionItems: current.questions,
+                totalNr: current.totalNr,
+                birthDetails: pendingBroadcastBirthDetails,
+              });
+            }
           }}
           isPublishing={sendQuestionsMutation.isPending}
         />

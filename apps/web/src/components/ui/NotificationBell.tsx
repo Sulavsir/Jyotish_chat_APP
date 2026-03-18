@@ -338,7 +338,6 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
   // ─── Click handler ───────────────────────────────────────────────────────
 
   const handleNotificationClick = async (notification: Notification) => {
-    // Astrologer + pending broadcast → show accept dialog
     if (isAstrologer && notification.type === 'BROADCAST_MESSAGE') {
       const status = getBroadcastStatus(notification);
       if (status === 'PENDING') {
