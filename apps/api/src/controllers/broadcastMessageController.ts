@@ -199,8 +199,11 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
         message: result.message,
         chat: result.chat,
         astrologer: result.message.acceptedAstrologer,
-        initialMessages: result.initialMessages, // Include the auto-generated messages
+        initialMessages: result.initialMessages,
       });
+
+      // Notify the accepting astrologer themselves — same as socket path (broadcast:messageAccepted)
+      io.to(`user:${astrologerId}`).emit('broadcast:messageAccepted', result);
 
       // Notify only ORDINARY and PROFESSIONAL astrologers (PREMIUM should not see broadcast toasts)
       const allAcceptedIds = result.allAcceptedMessageIds ?? [result.message.id];
@@ -215,9 +218,12 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
         where: { category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] } },
         select: { id: true },
       });
-      eligibleAstrologers.forEach((a) => {
-        io.to(`user:${a.id}`).emit('broadcast:messageAcceptedByAstrologer', payload);
-      });
+      // Exclude the accepting astrologer — they receive broadcast:messageAccepted (ACCEPTED_BY_YOU)
+      eligibleAstrologers
+        .filter((a) => a.id !== astrologerId)
+        .forEach((a) => {
+          io.to(`user:${a.id}`).emit('broadcast:messageAcceptedByAstrologer', payload);
+        });
     }
 
     return sendSuccess(res, result);

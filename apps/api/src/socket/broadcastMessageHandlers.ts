@@ -232,6 +232,10 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         allAcceptedMessageIds: allAcceptedIds,
         message:
           'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
+        acceptedBy: {
+          id: result.message.acceptedAstrologer?.id ?? userId,
+          name: result.message.acceptedAstrologer?.name,
+        },
       };
 
       const clientName =

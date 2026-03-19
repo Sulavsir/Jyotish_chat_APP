@@ -53,11 +53,47 @@ export class NotificationService {
       prisma.notification.count({ where: unreadWhere }),
     ]);
 
+    // Enrich BROADCAST_MESSAGE notifications with acceptedByCurrentUser (astrologer badge)
+    const enrichedNotifications = await this.enrichBroadcastStatuses(notifications, userId);
+
     return {
-      notifications,
+      notifications: enrichedNotifications,
       total,
       unreadCount,
     };
+  }
+
+  /**
+   * Enrich BROADCAST_MESSAGE notifications with acceptedByCurrentUser for correct badge display.
+   * When the current user (astrologer) accepted the broadcast, we set acceptedByCurrentUser: true
+   * so the frontend shows "Accepted by you" instead of "Accepted by others".
+   */
+  private async enrichBroadcastStatuses(
+    notifications: NotificationEntity[],
+    userId: string
+  ): Promise<NotificationEntity[]> {
+    const broadcastMsgIds = notifications
+      .filter((n) => n.type === 'BROADCAST_MESSAGE')
+      .map((n) => (n.metadata as Record<string, unknown>)?.broadcastMessageId as string)
+      .filter((id): id is string => typeof id === 'string');
+
+    if (broadcastMsgIds.length === 0) return notifications;
+
+    const messages = await (prisma as any).broadcastMessage.findMany({
+      where: { id: { in: broadcastMsgIds } },
+      select: { id: true, status: true, acceptedBy: true },
+    });
+    const acceptedByMe = new Set(
+      messages.filter((m: { acceptedBy: string | null }) => m.acceptedBy === userId).map((m: { id: string }) => m.id)
+    );
+
+    return notifications.map((n) => {
+      if (n.type !== 'BROADCAST_MESSAGE') return n;
+      const msgId = (n.metadata as Record<string, unknown>)?.broadcastMessageId as string | undefined;
+      if (!msgId) return n;
+      const meta = { ...(n.metadata as Record<string, unknown> || {}), acceptedByCurrentUser: acceptedByMe.has(msgId) };
+      return { ...n, metadata: meta };
+    });
   }
 
   /**

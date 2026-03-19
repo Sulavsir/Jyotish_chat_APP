@@ -194,9 +194,12 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
               // Socket event already gave a definitive status — preserve it
               if (next.has(msgId)) return;
 
+              const acceptedByMe =
+                n.metadata?.acceptedByCurrentUser === true || myAccepted.has(msgId);
+
               if (pendingIds.has(msgId)) {
                 next.set(msgId, 'PENDING');
-              } else if (myAccepted.has(msgId)) {
+              } else if (acceptedByMe) {
                 next.set(msgId, 'ACCEPTED_BY_YOU');
               } else if (isBroadcastExpired(n.createdAt)) {
                 next.set(msgId, 'EXPIRED');
@@ -248,12 +251,16 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
     };
 
     // Astrologer accepted a message themselves → mark as ACCEPTED_BY_YOU + navigate
-    const handleAcceptedByMe = (data: { message?: { id?: string }; chat?: { id: string } }) => {
-      const msgId = data.message?.id;
-      if (msgId) {
-        markBroadcastIds([msgId], 'ACCEPTED_BY_YOU');
+    const handleAcceptedByMe = (data: {
+      message?: { id?: string };
+      chat?: { id: string };
+      allAcceptedMessageIds?: string[];
+    }) => {
+      const ids = data.allAcceptedMessageIds ?? (data.message?.id ? [data.message.id] : []);
+      if (ids.length) {
+        markBroadcastIds(ids, 'ACCEPTED_BY_YOU');
         const uid = userIdRef.current;
-        if (uid) addMyAcceptedId(uid, msgId);
+        if (uid) ids.forEach((id) => addMyAcceptedId(uid, id));
       }
       // Navigation is handled by BroadcastMessageBar — do NOT double-navigate here.
     };
@@ -262,18 +269,34 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
     const handleAcceptedByOthers = (data: {
       messageId?: string;
       allAcceptedMessageIds?: string[];
+      acceptedBy?: { id: string };
     }) => {
       const ids = data.allAcceptedMessageIds ?? (data.messageId ? [data.messageId] : []);
-      if (ids.length) markBroadcastIds(ids, 'ACCEPTED_BY_OTHERS');
+      if (!ids.length) return;
+      // If this event was triggered by the current user accepting, mark as ACCEPTED_BY_YOU
+      const currentUserId = userIdRef.current;
+      const status: BroadcastStatus =
+        currentUserId && data.acceptedBy?.id === currentUserId
+          ? 'ACCEPTED_BY_YOU'
+          : 'ACCEPTED_BY_OTHERS';
+      markBroadcastIds(ids, status);
     };
 
     // requestAccepted notification from server (sent to other astrologers)
     const handleRequestAccepted = (data: {
       messageId?: string;
       allAcceptedMessageIds?: string[];
+      acceptedBy?: { id: string };
     }) => {
       const ids = data.allAcceptedMessageIds ?? (data.messageId ? [data.messageId] : []);
-      if (ids.length) markBroadcastIds(ids, 'ACCEPTED_BY_OTHERS');
+      if (ids.length) {
+        const currentUserId = userIdRef.current;
+        const status: BroadcastStatus =
+          currentUserId && data.acceptedBy?.id === currentUserId
+            ? 'ACCEPTED_BY_YOU'
+            : 'ACCEPTED_BY_OTHERS';
+        markBroadcastIds(ids, status);
+      }
       // Reload notifications to get the latest state
       void loadNotifications();
     };
