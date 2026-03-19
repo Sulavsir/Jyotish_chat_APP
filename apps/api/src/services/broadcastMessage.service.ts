@@ -819,6 +819,9 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
             id: { in: chatIds },
             status: 'ACTIVE',
             isLocked: false,
+            // Reopened chats should be treated as direct/instant continuation
+            // and must not block fresh broadcast acceptance limits.
+            reopenedAfterEnded: false,
           },
         })
       : 0;
@@ -873,10 +876,9 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       data: {
         isLocked: false,
         status: 'ACTIVE',
-        reopenedAfterEnded: true, // Reopened chat uses instant chat fee, not broadcast
+        reopenedAfterEnded: false,
         endedBy: null,
         endedAt: null,
-        // Broadcast acceptance should always start in pending/waiting state for client.
         turnBasedEnabled: true,
         waitingForReply: true,
         lastClientMessageAt: new Date(),

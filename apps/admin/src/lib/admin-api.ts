@@ -116,6 +116,7 @@ export interface AdminSidebarCountsResponse {
     newUsersToday: number;
     totalAstrologers: number;
     pendingAstrologerRegistrations: number;
+    platformTransactions: number;
   };
 }
 

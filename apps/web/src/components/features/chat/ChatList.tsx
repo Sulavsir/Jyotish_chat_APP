@@ -315,7 +315,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       {otherUser.role === UserRole.ASTROLOGER ? 'Astrologer' : 'Client'}
                     </Badge>
                     {/* Broadcast vs Direct badge */}
-                    {chat.isBroadcastChat ? (
+                    {chat.chatSource === 'BROADCAST' || chat.isBroadcastChat || chat.isInstantChat ? (
                       <Badge className="text-xs px-1.5 py-0.5 bg-violet-500/20 text-violet-300 border border-violet-500/30 flex items-center gap-1">
                         <Radio className="h-2.5 w-2.5" />
                         Broadcast

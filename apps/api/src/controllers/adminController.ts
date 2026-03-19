@@ -2085,6 +2085,7 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       newUsersToday,
       totalAstrologers,
       pendingAstrologerRegistrations,
+      platformTransactions,
     ] = await prisma.$transaction([
       prisma.chat.count({
         where: {
@@ -2122,6 +2123,12 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
           accountStatus: 'PENDING',
         },
       }),
+      prisma.coinTransaction.count({
+        where: {
+          type: 'ADD',
+          reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
+        },
+      }),
     ]);
 
     return sendSuccess(res, {
@@ -2134,6 +2141,7 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
         newUsersToday,
         totalAstrologers,
         pendingAstrologerRegistrations,
+        platformTransactions,
       },
     });
   } catch (error) {

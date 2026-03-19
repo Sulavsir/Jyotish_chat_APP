@@ -58,6 +58,7 @@ type SidebarBadgeKey =
   | 'complaints'
   | 'appointments'
   | 'kundali-match'
+  | 'transactions'
   | 'users'
   | 'astrologers-all'
   | 'astrologer-registrations';
@@ -103,6 +104,8 @@ function getSidebarBadgeKeyForRoute(href: string): SidebarBadgeKey | null {
       return 'appointments';
     case ADMIN_ROUTES.KUNDALI_MATCH:
       return 'kundali-match';
+    case ADMIN_ROUTES.TRANSACTIONS:
+      return 'transactions';
     case ADMIN_ROUTES.USERS:
       return 'users';
     case ADMIN_ROUTES.ASTROLOGERS:
@@ -154,6 +157,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     pendingComplaints: 0,
     pendingAppointments: 0,
     pendingKundaliMatch: 0,
+    platformTransactions: 0,
     totalUsers: 0,
     newUsersToday: 0,
     totalAstrologers: 0,
@@ -173,6 +177,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         return sidebarCounts.pendingAppointments;
       case 'kundali-match':
         return sidebarCounts.pendingKundaliMatch;
+      case 'transactions':
+        return sidebarCounts.platformTransactions;
       case 'users':
         return sidebarCounts.newUsersToday;
       case 'astrologers-all':
@@ -723,6 +729,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               const isComplaints = item.href === ADMIN_ROUTES.COMPLAINTS;
               const isAppointments = item.href === ADMIN_ROUTES.APPOINTMENTS;
               const isKundaliMatch = item.href === ADMIN_ROUTES.KUNDALI_MATCH;
+              const isTransactions = item.href === ADMIN_ROUTES.TRANSACTIONS;
               const isUsers = item.href === ADMIN_ROUTES.USERS;
 
               return (
@@ -760,6 +767,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                               ? 'bg-sky-500'
                               : isKundaliMatch
                                 ? 'bg-purple-500'
+                                : isTransactions
+                                  ? 'bg-indigo-500'
                                 : isUsers
                                   ? 'bg-emerald-500'
                                   : 'bg-emerald-500';

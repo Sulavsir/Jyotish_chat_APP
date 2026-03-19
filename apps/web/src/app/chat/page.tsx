@@ -974,6 +974,7 @@ export default function ChatPage() {
                 showBroadcastChat={true}
                 isBroadcastChatActive={isBroadcastChatActive}
                 onSelectBroadcastChat={handleSelectBroadcastChat}
+                showStatusFilter
               />
             </div>
 

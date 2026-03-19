@@ -12,6 +12,8 @@ import {
   MessageType,
   Prisma,
   AppointmentStatus,
+  BroadcastMessageStatus,
+  InstantChatRequestStatus,
 } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -485,13 +487,30 @@ export const getUserChats = async (userId: string) => {
 
   const chatIds = chats.map((c) => c.id);
 
-  // Fetch broadcast-linked chat IDs in one query
+  // Fetch broadcast-linked chat IDs in one query (accepted only)
   const broadcastLinkedChatIds =
     chatIds.length > 0
       ? await (prisma as any).broadcastMessage.findMany({
-          where: { chatId: { in: chatIds } },
+          where: {
+            chatId: { in: chatIds },
+            status: BroadcastMessageStatus.ACCEPTED,
+          },
           select: { chatId: true },
         }).then((rows: { chatId: string }[]) => new Set(rows.map((r) => r.chatId)))
+      : new Set<string>();
+
+  // Fetch instant-chat-linked chat IDs in one query (accepted only)
+  const instantLinkedChatIds =
+    chatIds.length > 0
+      ? await prisma.instantChatRequest
+          .findMany({
+            where: {
+              chatId: { in: chatIds },
+              status: InstantChatRequestStatus.ACCEPTED,
+            },
+            select: { chatId: true },
+          })
+          .then((rows) => new Set(rows.map((r) => r.chatId).filter((id): id is string => !!id)))
       : new Set<string>();
 
   // Add unread count and broadcast flag for each chat
@@ -505,10 +524,23 @@ export const getUserChats = async (userId: string) => {
         },
       });
 
+      // Unified source classification with reopen override:
+      // - Once a chat is reopened after ending, it is a direct continuation.
+      // - Otherwise, any accepted broadcast/instant-origin chat is BROADCAST.
+      const chatSource = chat.reopenedAfterEnded
+        ? 'DIRECT'
+        : broadcastLinkedChatIds.has(chat.id) || instantLinkedChatIds.has(chat.id)
+          ? 'BROADCAST'
+          : 'DIRECT';
+      const isBroadcastChat = chatSource === 'BROADCAST';
+      const isInstantChat = instantLinkedChatIds.has(chat.id);
+
       return {
         ...chat,
         unreadCount,
-        isBroadcastChat: broadcastLinkedChatIds.has(chat.id),
+        chatSource,
+        isBroadcastChat,
+        isInstantChat,
       };
     })
   );
