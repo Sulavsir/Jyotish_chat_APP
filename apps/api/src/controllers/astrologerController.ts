@@ -229,6 +229,72 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
 }
 
 /**
+ * Get jyotish dashboard stats: pending chats + monthly earnings
+ * GET /api/v1/astrologer/dashboard/stats
+ */
+export async function getDashboardStats(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const astrologerId = req.user?.id;
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const [pendingChatsCount, monthlyEarningsAgg, lastMonthEarningsAgg] = await Promise.all([
+      // Active chats where the astrologer is participant2 and waitingForReply is true
+      prisma.chat.count({
+        where: {
+          participant2Id: astrologerId,
+          status: 'ACTIVE',
+          isLocked: false,
+          waitingForReply: true,
+        },
+      }),
+      // Current month earnings from AstrologerCoinEarning
+      (prisma as any).astrologerCoinEarning.aggregate({
+        _sum: { astrologerCoinsEarned: true },
+        where: {
+          astrologerId,
+          createdAt: { gte: monthStart },
+        },
+      }),
+      // Last month earnings for % change calculation
+      (prisma as any).astrologerCoinEarning.aggregate({
+        _sum: { astrologerCoinsEarned: true },
+        where: {
+          astrologerId,
+          createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
+        },
+      }),
+    ]);
+
+    const monthlyAmount: number = monthlyEarningsAgg._sum?.astrologerCoinsEarned ?? 0;
+    const lastMonthAmount: number = lastMonthEarningsAgg._sum?.astrologerCoinsEarned ?? 0;
+    const changePercent =
+      lastMonthAmount > 0
+        ? Math.round(((monthlyAmount - lastMonthAmount) / lastMonthAmount) * 100)
+        : monthlyAmount > 0
+          ? 100
+          : 0;
+
+    return sendSuccess(res, {
+      pendingChats: pendingChatsCount,
+      monthlyEarnings: {
+        amount: monthlyAmount,
+        currency: 'NPR',
+        changePercent,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Get current astrologer's coin earnings (My Earnings)
  * GET /api/v1/astrologer/earnings
  */

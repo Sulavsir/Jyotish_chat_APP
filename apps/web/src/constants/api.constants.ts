@@ -145,6 +145,7 @@ export const API_ENDPOINTS = {
     PROFILE: (id: string) => `/api/v1/public/astrologers/${id}`,
     STATS: '/api/v1/public/astrologers/stats',
     EARNINGS: '/api/v1/astrologer/earnings',
+    DASHBOARD_STATS: '/api/v1/astrologer/dashboard/stats',
     SLOTS: '/api/v1/astrologer/slots',
     SLOTS_BULK: '/api/v1/astrologer/slots/bulk',
     SLOT_BY_ID: (id: string) => `/api/v1/astrologer/slots/${id}`,

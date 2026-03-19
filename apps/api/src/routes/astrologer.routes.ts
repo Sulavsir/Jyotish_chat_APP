@@ -71,6 +71,9 @@ router.post(
 );
 router.post('/toggle-online', asyncHandler(astrologerController.toggleOnlineStatus));
 
+// ==================== Dashboard Stats ====================
+router.get('/dashboard/stats', asyncHandler(astrologerController.getDashboardStats));
+
 // ==================== My Earnings (coin earnings from client deductions) ====================
 router.get(
   '/earnings',

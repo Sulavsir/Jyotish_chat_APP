@@ -111,14 +111,36 @@ export function chatHandlers(io: Server, socket: Socket) {
             return;
           }
 
-          // Client is trying to chat again - unlock the chat
+          // Client is trying to chat again - unlock and reset turn-based state
           chat = await prisma.chat.update({
             where: { id: chat.id },
             data: {
               isLocked: false,
               status: ChatStatus.ACTIVE,
+              reopenedAfterEnded: true,
               endedBy: null,
               endedAt: null,
+              waitingForReply: false,
+            },
+          });
+        }
+
+        // Handle ENDED (non-locked) chat: reactivate and reset stale turn-based state
+        if (chat && chat.status === ChatStatus.ENDED && !chat.isLocked) {
+          if (user.role === UserRole.ASTROLOGER) {
+            socket.emit('chat:error', {
+              message: 'This conversation has ended. Only the client can restart it.',
+            });
+            return;
+          }
+          chat = await prisma.chat.update({
+            where: { id: chat.id },
+            data: {
+              status: ChatStatus.ACTIVE,
+              reopenedAfterEnded: true,
+              endedBy: null,
+              endedAt: null,
+              waitingForReply: false,
             },
           });
         }
@@ -387,7 +409,8 @@ export function chatHandlers(io: Server, socket: Socket) {
                 where: { chatId: chat!.id },
                 select: { id: true },
               });
-              // Reopened chats (ended then reactivated) use instant chat fee, not broadcast
+              // Reopened chats (ended then reactivated) use instant chat fee, not broadcast.
+              // Source follows the rate used: BROADCAST_PER_MESSAGE → BROADCAST_MESSAGE, chatMessageFee → CHAT_MESSAGE.
               const isBroadcastChat =
                 !!broadcastMessage && !(chat as { reopenedAfterEnded?: boolean }).reopenedAfterEnded;
               const { deductCoinsForMessage } = await import('../services/coin.service');

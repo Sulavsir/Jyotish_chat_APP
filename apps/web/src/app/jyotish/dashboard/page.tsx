@@ -80,6 +80,7 @@ export default function JyotishDashboardPage() {
             gradient="bg-violet-500/20 text-violet-400"
             borderColor="purple"
             isLoading={isLoadingStats}
+            href={ROUTES.JYOTISH_CONSULTATIONS}
           />
           <StatsCard
             title="Total Consultations"
@@ -89,19 +90,21 @@ export default function JyotishDashboardPage() {
             gradient="bg-sky-500/20 text-sky-400"
             borderColor="blue"
             isLoading={isLoadingStats}
+            href={ROUTES.JYOTISH_CONSULTATIONS}
           />
           <StatsCard
-            title="Pending Chats"
+            title="Active Chats"
             value={stats?.pendingChats.total ?? 0}
             subtitle={
-              stats && stats.pendingChats.urgent > 0
-                ? `${stats.pendingChats.urgent} require urgent response`
+              stats && stats.pendingChats.total > 0
+                ? `${stats.pendingChats.total} awaiting your reply`
                 : 'All caught up'
             }
             icon={MessageSquare}
             gradient="bg-amber-500/20 text-amber-400"
             borderColor="orange"
             isLoading={isLoadingStats}
+            href={ROUTES.JYOTISH_CHAT}
           />
           <StatsCard
             title="This Month's Earnings"
@@ -111,14 +114,15 @@ export default function JyotishDashboardPage() {
                 : formatEarnings(0, 'NPR')
             }
             subtitle={
-              stats && stats.monthlyEarnings.changePercent > 0
-                ? `+${stats.monthlyEarnings.changePercent}% from last month`
-                : 'No change'
+              stats && stats.monthlyEarnings.changePercent !== 0
+                ? `${stats.monthlyEarnings.changePercent > 0 ? '+' : ''}${stats.monthlyEarnings.changePercent}% from last month`
+                : 'No change from last month'
             }
             icon={TrendingUp}
             gradient="bg-emerald-500/20 text-emerald-400"
             borderColor="green"
             isLoading={isLoadingStats}
+            href={ROUTES.JYOTISH_EARNINGS}
           />
         </div>
 

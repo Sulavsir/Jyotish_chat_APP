@@ -41,6 +41,7 @@ export interface Chat {
     role?: string;
   };
   unreadCount?: number;
+  isBroadcastChat?: boolean;
 }
 
 export interface Message {

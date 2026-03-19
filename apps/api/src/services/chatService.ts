@@ -132,6 +132,19 @@ export const findChatOnly = async (
         reopenedAfterEnded: true,
         endedBy: null,
         endedAt: null,
+        waitingForReply: false,
+      },
+      include: chatInclude,
+    });
+  } else if (chat.status === ChatStatus.ENDED && currentUserRole === UserRole.CLIENT) {
+    chat = await prisma.chat.update({
+      where: { id: chat.id },
+      data: {
+        status: ChatStatus.ACTIVE,
+        reopenedAfterEnded: true,
+        endedBy: null,
+        endedAt: null,
+        waitingForReply: false,
       },
       include: chatInclude,
     });
@@ -167,7 +180,7 @@ export const findOrCreateChat = async (
     include: chatInclude,
   });
 
-  // If chat exists and is locked
+  // If chat exists and is locked or ended, reactivate and reset turn-based state
   if (chat && chat.isLocked) {
     if (currentUserRole === UserRole.ASTROLOGER) {
       throw new Error('This chat is locked. Only the client can reopen the conversation.');
@@ -180,6 +193,19 @@ export const findOrCreateChat = async (
         reopenedAfterEnded: true,
         endedBy: null,
         endedAt: null,
+        waitingForReply: false,
+      },
+      include: chatInclude,
+    });
+  } else if (chat && chat.status === ChatStatus.ENDED && currentUserRole === UserRole.CLIENT) {
+    chat = await prisma.chat.update({
+      where: { id: chat.id },
+      data: {
+        status: ChatStatus.ACTIVE,
+        reopenedAfterEnded: true,
+        endedBy: null,
+        endedAt: null,
+        waitingForReply: false,
       },
       include: chatInclude,
     });
@@ -457,7 +483,18 @@ export const getUserChats = async (userId: string) => {
     ],
   });
 
-  // Add unread count for each chat
+  const chatIds = chats.map((c) => c.id);
+
+  // Fetch broadcast-linked chat IDs in one query
+  const broadcastLinkedChatIds =
+    chatIds.length > 0
+      ? await (prisma as any).broadcastMessage.findMany({
+          where: { chatId: { in: chatIds } },
+          select: { chatId: true },
+        }).then((rows: { chatId: string }[]) => new Set(rows.map((r) => r.chatId)))
+      : new Set<string>();
+
+  // Add unread count and broadcast flag for each chat
   const chatsWithUnread = await Promise.all(
     chats.map(async (chat) => {
       const unreadCount = await prisma.message.count({
@@ -471,6 +508,7 @@ export const getUserChats = async (userId: string) => {
       return {
         ...chat,
         unreadCount,
+        isBroadcastChat: broadcastLinkedChatIds.has(chat.id),
       };
     })
   );

@@ -6,11 +6,13 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
-import { MessageCircle, Search, User } from 'lucide-react';
+import { MessageCircle, Search, User, Radio } from 'lucide-react';
 import { getImageUrl } from '@/utils/image.utils';
 import { UserRole } from '@/types';
 import { useStore } from '@/store';
 import { Chat } from '@/types/chat';
+
+type StatusFilter = 'all' | 'active' | 'ended';
 
 interface ChatListProps {
   chats: Chat[];
@@ -23,6 +25,8 @@ interface ChatListProps {
   onSelectBroadcastChat?: () => void;
   /** When 'jyotish', uses dark glass styling to match Jyotish portal */
   variant?: 'default' | 'jyotish';
+  /** Show the Active/Ended filter tabs (for Jyotish portal) */
+  showStatusFilter?: boolean;
 }
 
 export const ChatList: React.FC<ChatListProps> = ({
@@ -35,43 +39,46 @@ export const ChatList: React.FC<ChatListProps> = ({
   isBroadcastChatActive = false,
   onSelectBroadcastChat,
   variant = 'default',
+  showStatusFilter = false,
 }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('all');
   const onlineUsers = useStore((state) => state.onlineUsers);
   const isJyotish = variant === 'jyotish';
 
   // Ensure chats is always an array
   const chatList = Array.isArray(chats) ? chats : [];
 
-  // Filter chats based on search term
+  // Filter chats based on search term AND status
   const filteredChats = chatList.filter((chat) => {
     // Skip chats with missing data
     if (!chat?.clientParticipant || !chat?.astrologerParticipant) {
       return false;
     }
 
+    // Status filter
+    if (statusFilter === 'active' && chat.status !== 'ACTIVE') return false;
+    if (statusFilter === 'ended' && chat.status !== 'ENDED') return false;
+
+    // If no search term, include in results
+    if (!searchTerm) return true;
+
     // Determine other user based on current user ID
     const otherUser =
-      chat.clientParticipant.id === currentUserId 
-        ? chat.astrologerParticipant 
+      chat.clientParticipant.id === currentUserId
+        ? chat.astrologerParticipant
         : chat.clientParticipant;
-
-    // If no search term, show all chats
-    if (!searchTerm) {
-      return true;
-    }
 
     // Search by name, email, or phone (handle null names)
     const name = otherUser?.name || '';
     const email = otherUser?.email || '';
     const phone = otherUser?.phone || '';
-
     const searchLower = searchTerm.toLowerCase();
 
     return (
       name.toLowerCase().includes(searchLower) ||
       email.toLowerCase().includes(searchLower) ||
-      phone.includes(searchTerm) // Phone search without toLowerCase
+      phone.includes(searchTerm)
     );
   });
 
@@ -87,9 +94,15 @@ export const ChatList: React.FC<ChatListProps> = ({
     );
   }
 
+  const STATUS_TABS: { key: StatusFilter; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active' },
+    { key: 'ended', label: 'Ended' },
+  ];
+
   return (
     <div className="flex flex-col h-full">
-      <div className={isJyotish ? 'p-3 border-b border-white/[0.06]' : 'p-4 border-b border-white/10'}>
+      <div className={isJyotish ? 'p-3 border-b border-white/[0.06] space-y-2' : 'p-4 border-b border-white/10 space-y-2'}>
         <div className="relative">
           <Search
             className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${
@@ -108,6 +121,33 @@ export const ChatList: React.FC<ChatListProps> = ({
             }
           />
         </div>
+        {/* Status filter tabs */}
+        {showStatusFilter && (
+          <div className="flex gap-1">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${
+                  statusFilter === tab.key
+                    ? isJyotish
+                      ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                      : 'bg-purple-600/40 text-purple-200 border border-purple-500/50'
+                    : isJyotish
+                      ? 'text-white/50 hover:text-white/70 hover:bg-white/[0.04]'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                }`}
+              >
+                {tab.label}
+                {tab.key !== 'all' && (
+                  <span className="ml-1 opacity-70">
+                    ({chatList.filter((c) => (tab.key === 'active' ? c.status === 'ACTIVE' : c.status === 'ENDED')).length})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Chat list */}
@@ -260,7 +300,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                     )}
                   </div>
 
-                  <div className="mt-1">
+                  <div className="mt-1 flex items-center gap-1 flex-wrap">
                     <Badge
                       className={`text-xs px-2 py-0.5 ${
                         isJyotish
@@ -274,6 +314,23 @@ export const ChatList: React.FC<ChatListProps> = ({
                     >
                       {otherUser.role === UserRole.ASTROLOGER ? 'Astrologer' : 'Client'}
                     </Badge>
+                    {/* Broadcast vs Direct badge */}
+                    {chat.isBroadcastChat ? (
+                      <Badge className="text-xs px-1.5 py-0.5 bg-violet-500/20 text-violet-300 border border-violet-500/30 flex items-center gap-1">
+                        <Radio className="h-2.5 w-2.5" />
+                        Broadcast
+                      </Badge>
+                    ) : (
+                      <Badge className="text-xs px-1.5 py-0.5 bg-sky-500/15 text-sky-400 border border-sky-500/25">
+                        Direct
+                      </Badge>
+                    )}
+                    {/* Ended badge */}
+                    {chat.status === 'ENDED' && (
+                      <Badge className="text-xs px-1.5 py-0.5 bg-red-500/15 text-red-400 border border-red-500/25">
+                        Ended
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </button>

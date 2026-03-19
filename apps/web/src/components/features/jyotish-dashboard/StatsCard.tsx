@@ -5,6 +5,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { Skeleton } from '@jyotish/ui';
 import { LucideIcon } from 'lucide-react';
@@ -17,6 +18,7 @@ interface StatsCardProps {
   gradient: string;
   borderColor: string;
   isLoading?: boolean;
+  href?: string;
 }
 
 export function StatsCard({
@@ -27,6 +29,7 @@ export function StatsCard({
   gradient,
   borderColor,
   isLoading = false,
+  href,
 }: StatsCardProps) {
   if (isLoading) {
     return (
@@ -42,13 +45,11 @@ export function StatsCard({
     );
   }
 
-  return (
-    <Card className="group bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden hover:bg-black/50 hover:border-white/[0.18] transition-all duration-200 shadow-lg shadow-black/20">
+  const cardContent = (
+    <>
       <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-sm font-medium text-white/80">{title}</CardTitle>
-        <div
-          className={`p-2 rounded-lg transition-colors ${gradient}`}
-        >
+        <div className={`p-2 rounded-lg transition-colors ${gradient}`}>
           <Icon className="h-4 w-4" />
         </div>
       </CardHeader>
@@ -58,6 +59,22 @@ export function StatsCard({
           <p className="text-xs text-white/60 mt-1 leading-relaxed">{subtitle}</p>
         )}
       </CardContent>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        <Card className="group bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden hover:bg-black/50 hover:border-white/[0.18] transition-all duration-200 shadow-lg shadow-black/20 cursor-pointer">
+          {cardContent}
+        </Card>
+      </Link>
+    );
+  }
+
+  return (
+    <Card className="group bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden hover:bg-black/50 hover:border-white/[0.18] transition-all duration-200 shadow-lg shadow-black/20">
+      {cardContent}
     </Card>
   );
 }

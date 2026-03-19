@@ -204,6 +204,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   const alreadyUsedBroadcast = await hasUserUsedBroadcast(data.clientId);
   const isFirstBroadcast = !alreadyUsedBroadcast;
 
+  let amountPaidNr = 0;
   try {
     if (isFirstBroadcast) {
       // Get base broadcast cost and admin-configured discount percentage
@@ -216,11 +217,13 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       const effectiveCost =
         clampedDiscount >= 100 ? 0 : Math.round((baseCost * (100 - clampedDiscount)) / 100);
 
+      amountPaidNr = effectiveCost;
       if (effectiveCost > 0) {
         await deductCoinsForBroadcastMessage(data.clientId, effectiveCost);
       }
       // If effectiveCost is 0, treat as free but still mark as first broadcast
     } else {
+      amountPaidNr = await getRate('BROADCAST_SEND');
       await deductCoinsForBroadcastMessage(data.clientId);
     }
   } catch (error: unknown) {
@@ -245,6 +248,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       type: data.type || MessageType.TEXT,
       metadata: {
         ...baseMetadata,
+        amountRefundNr: amountPaidNr,
       } as Prisma.InputJsonValue,
       status: BroadcastMessageStatus.PENDING,
     },
@@ -1058,6 +1062,47 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
 
   // Collect all accepted messageIds (primary + siblings) for downstream events
   const allAcceptedMessageIds = [messageId, ...acceptedSiblings.map((s) => s.id)];
+
+  // ── Record astrologer coin earnings for the broadcast fee paid by the client ─────────────
+  // The client paid upfront when sending the broadcast; we record the astrologer's share now.
+  try {
+    const astrologerForEarning = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { commissionRate: true },
+    });
+    if (astrologerForEarning && astrologerForEarning.commissionRate > 0) {
+      const broadcastRate = await getRate('BROADCAST_SEND');
+      const allAccepted = [message, ...acceptedSiblings];
+      for (const acceptedMsg of allAccepted) {
+        const msgMeta = (acceptedMsg.metadata as Record<string, unknown>) || {};
+        const clientCoinsDeducted =
+          typeof msgMeta.amountRefundNr === 'number' && msgMeta.amountRefundNr > 0
+            ? msgMeta.amountRefundNr
+            : broadcastRate;
+        if (clientCoinsDeducted > 0) {
+          const astrologerCoinsEarned = Math.floor(
+            (clientCoinsDeducted * astrologerForEarning.commissionRate) / 100
+          );
+          if (astrologerCoinsEarned > 0) {
+            await (prisma as any).astrologerCoinEarning.create({
+              data: {
+                astrologerId,
+                broadcastMessageId: acceptedMsg.id,
+                chatId: chat.id,
+                source: 'BROADCAST_MESSAGE',
+                clientCoinsDeducted,
+                commissionPercent: astrologerForEarning.commissionRate,
+                astrologerCoinsEarned,
+              },
+            });
+          }
+        }
+      }
+    }
+  } catch (earningErr) {
+    console.error('[acceptBroadcastMessage] Failed to create AstrologerCoinEarning:', earningErr);
+    // Non-fatal — do not block the acceptance flow
+  }
 
   // ── Create automatic messages in the chat ─────────────────────────────────
   // 1. Primary broadcast question

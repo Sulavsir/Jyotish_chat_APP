@@ -81,7 +81,10 @@ export function setupSocketHandlers(io: Server) {
     // Store online user
     onlineUsers.set(user.id, socket.id);
 
-    // Update isOnline status in database
+    // On connect: restore the astrologer's explicit online preference from DB.
+    // The DB value = what the astrologer last set via the toggle button.
+    // We do NOT change the DB here — only the toggle API may do that.
+    // For clients, mark them online (no explicit preference concept).
     try {
       if (user.role === UserRole.CLIENT) {
         await prisma.user.update({
@@ -89,22 +92,25 @@ export function setupSocketHandlers(io: Server) {
           data: { isOnline: true },
         });
       } else if (user.role === UserRole.ASTROLOGER) {
-        const astrologer = await prisma.astrologer.update({
+        // Restore the persisted preference (not forced true, not forced false)
+        const astrologer = await prisma.astrologer.findUnique({
           where: { id: user.id },
-          data: { isOnline: true },
-          select: { name: true },
+          select: { name: true, isOnline: true },
         });
-        console.log(`✅ Astrologer ${user.id} marked as online in database`);
-
-        // Emit astrologer-specific event when connecting
-        io.emit('astrologer:status_changed', {
-          astrologerId: user.id,
-          name: astrologer.name,
-          isOnline: true,
-        });
+        if (astrologer) {
+          console.log(
+            `✅ Astrologer ${user.id} reconnected (restoring isOnline=${astrologer.isOnline})`
+          );
+          // Sync all clients with the current persisted preference
+          io.emit('astrologer:status_changed', {
+            astrologerId: user.id,
+            name: astrologer.name,
+            isOnline: astrologer.isOnline,
+          });
+        }
       }
     } catch (error) {
-      console.error(`Error updating online status for ${user.id}:`, error);
+      console.error(`Error restoring online status for ${user.id}:`, error);
     }
 
     // Send list of currently online users to the newly connected user
@@ -147,30 +153,34 @@ export function setupSocketHandlers(io: Server) {
       onlineUsers.delete(user.id);
       io.emit('user:status', { userId: user.id, status: 'offline' });
 
-      // Update isOnline status in database
       try {
         if (user.role === UserRole.CLIENT) {
+          // Clients have no explicit toggle — always sync DB
           await prisma.user.update({
             where: { id: user.id },
             data: { isOnline: false },
           });
         } else if (user.role === UserRole.ASTROLOGER) {
-          const astrologer = await prisma.astrologer.update({
+          // For astrologers: do NOT update the DB.
+          // The DB holds their explicit preference (set via the toggle button).
+          // When they reconnect (refresh/navigate) we restore that preference.
+          // Emit transient offline signal so other clients see them as offline
+          // while the socket is disconnected.
+          const astrologer = await prisma.astrologer.findUnique({
             where: { id: user.id },
-            data: { isOnline: false },
             select: { name: true },
           });
-          console.log(`✅ Astrologer ${user.id} marked as offline in database`);
-
-          // Emit astrologer-specific event when disconnecting
-          io.emit('astrologer:status_changed', {
-            astrologerId: user.id,
-            name: astrologer.name,
-            isOnline: false,
-          });
+          console.log(`🔌 Astrologer ${user.id} socket disconnected (preference preserved in DB)`);
+          if (astrologer) {
+            io.emit('astrologer:status_changed', {
+              astrologerId: user.id,
+              name: astrologer.name,
+              isOnline: false,
+            });
+          }
         }
       } catch (error) {
-        console.error(`Error updating offline status for ${user.id}:`, error);
+        console.error(`Error handling disconnect for ${user.id}:`, error);
       }
     });
   });

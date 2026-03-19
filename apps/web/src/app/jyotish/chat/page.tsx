@@ -746,7 +746,7 @@ export default function JyotishChatPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="bg-black/50 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden shadow-lg">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium text-white/90">Active Chats</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/90">Chats</CardTitle>
               <div className="p-2 rounded-lg bg-amber-500/30 text-amber-300">
                 <MessageSquare className="h-4 w-4" />
               </div>
@@ -754,7 +754,7 @@ export default function JyotishChatPage() {
             <CardContent>
               <div className="text-2xl font-semibold text-white tracking-tight">{totalChats}</div>
               <p className="text-xs text-white/70 mt-1">
-                {isConnected ? 'Connected' : 'Offline'}
+                {chats.filter((c) => c.status === 'ACTIVE').length} active · {chats.filter((c) => c.status === 'ENDED').length} ended
               </p>
             </CardContent>
           </Card>
@@ -798,6 +798,8 @@ export default function JyotishChatPage() {
                   currentUserId={user?.id || ''}
                   onSelectChat={handleSelectChat}
                   isLoading={isLoadingChats}
+                  variant="jyotish"
+                  showStatusFilter
                 />
               </div>
             </div>

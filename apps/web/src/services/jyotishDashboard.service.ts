@@ -1,14 +1,13 @@
 /**
  * Jyotish Dashboard Service
- * Aggregates data from various services for the astrologer dashboard
+ * Fetches real stats from the backend for the astrologer dashboard
  */
 
+import { apiClient } from '@/lib/api-client';
+import { API_ENDPOINTS } from '@/constants';
 import { getConversations } from './chat.service';
 import appointmentService from './appointment.service';
 import { consultationService } from './consultationService';
-import type { Chat } from '@/types/chat';
-import type { Appointment, AppointmentStatus } from '@/types/appointment.types';
-import type { Consultation, ConsultationType } from '@jyotish/shared';
 
 export interface JyotishDashboardStats {
   todaysConsultations: {
@@ -38,22 +37,29 @@ export interface RecentActivity {
   avatar?: string | null;
 }
 
+interface BackendDashboardStats {
+  pendingChats: number;
+  monthlyEarnings: {
+    amount: number;
+    currency: string;
+    changePercent: number;
+  };
+}
+
 class JyotishDashboardService {
-  /**
-   * Get dashboard statistics
-   */
   async getDashboardStats(): Promise<JyotishDashboardStats> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Fetch data in parallel
-    const [appointments, consultations, chats] = await Promise.all([
+    const [appointments, consultations, backendStats] = await Promise.all([
       appointmentService.getMyAppointments(),
       consultationService.getMyConsultations(),
-      getConversations(),
+      apiClient.get<BackendDashboardStats>(API_ENDPOINTS.ASTROLOGER.DASHBOARD_STATS).catch(() => ({
+        pendingChats: 0,
+        monthlyEarnings: { amount: 0, currency: 'NPR', changePercent: 0 },
+      } as BackendDashboardStats)),
     ]);
 
-    // Filter today's appointments
     const todaysAppointments = appointments.filter((apt) => {
       const aptDate = new Date(apt.scheduledAt);
       aptDate.setHours(0, 0, 0, 0);
@@ -67,48 +73,22 @@ class JyotishDashboardService {
       (apt) => apt.status === 'PENDING' || apt.status === 'CONFIRMED'
     ).length;
 
-    // Get pending chats (chats with unread messages or recent activity)
-    const pendingChats = chats.filter((chat) => {
-      const hasUnread = chat.participant2Read === false; // For astrologer (participant2)
-      const isRecent = chat.lastMessageAt
-        ? new Date(chat.lastMessageAt).getTime() > Date.now() - 24 * 60 * 60 * 1000
-        : false;
-      return hasUnread || isRecent;
-    });
-
-    // Calculate monthly earnings (placeholder - would need earnings API)
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const monthlyEarnings = {
-      amount: 0, // Would need earnings service
-      currency: 'NPR',
-      changePercent: 12, // Placeholder
-    };
-
     return {
       todaysConsultations: {
         total: todaysAppointments.length,
         completed: todaysCompleted,
         upcoming: todaysUpcoming,
       },
-      totalConsultations: consultations.length + appointments.filter((apt) => apt.status === 'COMPLETED').length,
+      totalConsultations:
+        consultations.length + appointments.filter((apt) => apt.status === 'COMPLETED').length,
       pendingChats: {
-        total: pendingChats.length,
-        urgent: pendingChats.filter((chat) => {
-          // Urgent: unread messages from last 2 hours
-          if (!chat.lastMessageAt) return false;
-          const lastMessageTime = new Date(chat.lastMessageAt).getTime();
-          const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-          return lastMessageTime > twoHoursAgo && chat.participant2Read === false;
-        }).length,
+        total: backendStats.pendingChats,
+        urgent: 0,
       },
-      monthlyEarnings,
+      monthlyEarnings: backendStats.monthlyEarnings,
     };
   }
 
-  /**
-   * Get recent activity
-   */
   async getRecentActivity(limit = 5): Promise<RecentActivity[]> {
     const [appointments, consultations, chats] = await Promise.all([
       appointmentService.getMyAppointments(),
@@ -118,7 +98,6 @@ class JyotishDashboardService {
 
     const activities: RecentActivity[] = [];
 
-    // Add recent appointments
     appointments
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit)
@@ -127,14 +106,13 @@ class JyotishDashboardService {
           id: apt.id,
           type: 'appointment',
           title: 'New appointment booked',
-          description: `Appointment scheduled`,
+          description: 'Appointment scheduled',
           clientName: apt.client?.name || apt.client?.phone || 'Client',
           timestamp: new Date(apt.createdAt),
           avatar: apt.client?.profilePhoto || null,
         });
       });
 
-    // Add recent consultations
     consultations
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit)
@@ -149,7 +127,6 @@ class JyotishDashboardService {
         });
       });
 
-    // Add recent chat messages
     chats
       .filter((chat) => chat.lastMessageAt)
       .sort((a, b) => {
@@ -170,10 +147,7 @@ class JyotishDashboardService {
         });
       });
 
-    // Sort all activities by timestamp and return top N
-    return activities
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, limit);
+    return activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, limit);
   }
 }
 

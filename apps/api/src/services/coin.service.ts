@@ -198,6 +198,7 @@ export const deductCoinsForMessage = async (
 
   const balanceBefore = user.coins;
   const balanceAfter = balanceBefore - coinCost;
+  // Source mirrors the rate used: broadcast per-message rate → BROADCAST_MESSAGE, direct chatMessageFee → CHAT_MESSAGE
   const source = isBroadcastChat ? 'BROADCAST_MESSAGE' : 'CHAT_MESSAGE';
 
   const updatedUser = await prisma.$transaction(async (tx) => {
