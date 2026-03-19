@@ -66,7 +66,7 @@ export const deductCoinsForMessage = async (
   userId: string,
   astrologerCategory: AstrologerCategory | string,
   chatId: string,
-  isBroadcastChat: boolean = false
+  _isBroadcastChat: boolean = false
 ): Promise<CoinBalance> => {
   // Convert to shared enum if needed
   const category = astrologerCategory as AstrologerCategory;
@@ -79,56 +79,69 @@ export const deductCoinsForMessage = async (
     return { userId, balance };
   }
 
-  if (!isBroadcastChat) {
-    const chat = await prisma.chat.findUnique({
-      where: { id: chatId },
-      select: {
-        appointmentId: true,
-        participant1Id: true,
-        participant2Id: true,
-      },
-    });
+  // Always load the chat and its broadcast linkage so we can reliably
+  // decide whether this message belongs to a broadcast-originated session
+  // or a pure/direct chat session.
+  const chat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: {
+      appointmentId: true,
+      participant1Id: true,
+      participant2Id: true,
+      reopenedAfterEnded: true,
+    },
+  });
 
-    if (chat) {
-      const now = new Date();
 
-      let appointment: {
-        scheduledAt: Date;
-        duration: number;
-      } | null = null;
+  const broadcastMessage = chat
+    ? await (prisma as any).broadcastMessage.findFirst({
+        where: { chatId },
+        select: { id: true },
+      })
+    : null;
 
-      if (chat.appointmentId) {
-        appointment = await prisma.appointment.findUnique({
-          where: { id: chat.appointmentId },
-          select: { scheduledAt: true, duration: true },
-        });
-      } else {
-        appointment = await prisma.appointment.findFirst({
-          where: {
-            clientId: chat.participant1Id,
-            astrologerId: chat.participant2Id,
-            scheduledAt: { lte: now },
-            status: {
-              in: [
-                AppointmentStatus.CONFIRMED,
-                AppointmentStatus.IN_PROGRESS,
-                AppointmentStatus.COMPLETED,
-              ],
-            },
+  const isBroadcastSession =
+    !!broadcastMessage && !(chat as { reopenedAfterEnded?: boolean } | null)?.reopenedAfterEnded;
+
+  if (!isBroadcastSession && chat) {
+    const now = new Date();
+
+    let appointment: {
+      scheduledAt: Date;
+      duration: number;
+    } | null = null;
+
+    if (chat.appointmentId) {
+      appointment = await prisma.appointment.findUnique({
+        where: { id: chat.appointmentId },
+        select: { scheduledAt: true, duration: true },
+      });
+    } else {
+      appointment = await prisma.appointment.findFirst({
+        where: {
+          clientId: chat.participant1Id,
+          astrologerId: chat.participant2Id,
+          scheduledAt: { lte: now },
+          status: {
+            in: [
+              AppointmentStatus.CONFIRMED,
+              AppointmentStatus.IN_PROGRESS,
+              AppointmentStatus.COMPLETED,
+            ],
           },
-          orderBy: { scheduledAt: 'desc' },
-          select: { scheduledAt: true, duration: true },
-        });
-      }
+        },
+        orderBy: { scheduledAt: 'desc' },
+        select: { scheduledAt: true, duration: true },
+      });
+    }
 
-      if (appointment) {
-        const startMs = new Date(appointment.scheduledAt).getTime();
-        const endMs = startMs + appointment.duration * 60 * 1000;
-        const nowMs = now.getTime();
-        if (nowMs >= startMs && nowMs < endMs) {
-          const balance = await getCoinBalance(userId);
-          return { userId, balance };
-        }
+    if (appointment) {
+      const startMs = new Date(appointment.scheduledAt).getTime();
+      const endMs = startMs + appointment.duration * 60 * 1000;
+      const nowMs = now.getTime();
+      if (nowMs >= startMs && nowMs < endMs) {
+        const balance = await getCoinBalance(userId);
+        return { userId, balance };
       }
     }
   }
@@ -137,7 +150,7 @@ export const deductCoinsForMessage = async (
   let coinCost: number;
   let transactionReason: CoinTransactionReason;
 
-  if (isBroadcastChat) {
+  if (isBroadcastSession) {
     coinCost = await getRate('BROADCAST_PER_MESSAGE');
     transactionReason = CoinTransactionReason.CHAT_ORDINARY;
   } else {
@@ -154,10 +167,6 @@ export const deductCoinsForMessage = async (
     }
 
     // Determine dynamic per-Jyotish chat fee
-    const chat = await prisma.chat.findUnique({
-      where: { id: chatId },
-      select: { participant2Id: true },
-    });
     let perMessageFee = 0;
     if (chat?.participant2Id) {
       const astrologer = await prisma.astrologer.findUnique({
@@ -198,8 +207,10 @@ export const deductCoinsForMessage = async (
 
   const balanceBefore = user.coins;
   const balanceAfter = balanceBefore - coinCost;
-  // Source mirrors the rate used: broadcast per-message rate → BROADCAST_MESSAGE, direct chatMessageFee → CHAT_MESSAGE
-  const source = isBroadcastChat ? 'BROADCAST_MESSAGE' : 'CHAT_MESSAGE';
+  // Source mirrors the rate used AND the session type:
+  // - broadcast-originated, not yet reopened → BROADCAST_MESSAGE
+  // - pure/direct chats and reopened-after-ended chats → CHAT_MESSAGE
+  const source = isBroadcastSession ? 'BROADCAST_MESSAGE' : 'CHAT_MESSAGE';
 
   const updatedUser = await prisma.$transaction(async (tx) => {
     const coinTx = await tx.coinTransaction.create({

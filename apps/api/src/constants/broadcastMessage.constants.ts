@@ -3,14 +3,14 @@
  */
 
 /**
- * Broadcast message expiry time in milliseconds (5 minutes)
+ * Broadcast message expiry time in milliseconds (10 minutes)
  */
-export const BROADCAST_MESSAGE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+export const BROADCAST_MESSAGE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
  * Broadcast message expiry time in minutes
  */
-export const BROADCAST_MESSAGE_EXPIRY_MINUTES = 5;
+export const BROADCAST_MESSAGE_EXPIRY_MINUTES = 10;
 
 /**
  * Maximum number of concurrent broadcast messages an astrologer can accept

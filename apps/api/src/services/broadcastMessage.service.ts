@@ -876,6 +876,10 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         reopenedAfterEnded: true, // Reopened chat uses instant chat fee, not broadcast
         endedBy: null,
         endedAt: null,
+        // Broadcast acceptance should always start in pending/waiting state for client.
+        turnBasedEnabled: true,
+        waitingForReply: true,
+        lastClientMessageAt: new Date(),
       },
     });
     console.log(`✅ Chat ${chat.id} reactivated successfully`);
@@ -968,6 +972,17 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
     AdminStatsEmitter.emitNewChat();
   }
+
+  // Ensure accepted broadcast chats are always in pending state (client waits for astrologer reply),
+  // including reused existing chats.
+  chat = await prisma.chat.update({
+    where: { id: chat.id },
+    data: {
+      turnBasedEnabled: true,
+      waitingForReply: true,
+      lastClientMessageAt: new Date(),
+    },
+  });
 
   // Update broadcast message status
   const updatedMessage = await prisma.broadcastMessage.update({
@@ -1227,7 +1242,7 @@ export async function getBroadcastMessageById(messageId: string) {
 /**
  * Expire old pending broadcast messages (called by worker/cron)
  */
-export async function expireOldBroadcastMessages(olderThanMinutes: number = 30) {
+export async function expireOldBroadcastMessages(olderThanMinutes: number = 10) {
   const expiryTime = new Date();
   expiryTime.setMinutes(expiryTime.getMinutes() - olderThanMinutes);
 

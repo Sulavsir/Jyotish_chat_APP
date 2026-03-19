@@ -431,7 +431,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                 </p>
               </div>
               <p className="text-xs text-red-600 dark:text-red-300 mt-1">
-                No astrologer accepted within 5 minutes
+                No astrologer accepted within 10 minutes
               </p>
             </div>
           </div>
