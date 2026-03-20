@@ -60,6 +60,11 @@ export const API_ENDPOINTS = {
     MESSAGES: (chatId: string) => `/api/v1/admin/chats/${chatId}/messages`,
     ABANDON: (chatId: string) => `/api/v1/admin/chats/${chatId}/abandon`,
     UNBLOCK: (chatId: string) => `/api/v1/admin/chats/${chatId}/unblock`,
+    REOPEN: (chatId: string) => `/api/v1/admin/chats/${chatId}/reopen`,
+  },
+
+  PAYMENT_HISTORY: {
+    LIST: '/api/v1/admin/coin-transactions',
   },
 
   EARNINGS: {

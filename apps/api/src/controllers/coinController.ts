@@ -115,7 +115,7 @@ export const addCoins = async (req: AuthRequest, res: Response, next: NextFuncti
 /**
  * Get coin transaction history
  * GET /api/v1/coins/transactions
- * Query params are validated by transactionHistoryQuerySchema middleware
+ * Query: limit, offset, page, filter (payment_success | admin_added | app_used)
  */
 export const getTransactionHistory = async (
   req: AuthRequest,
@@ -124,9 +124,15 @@ export const getTransactionHistory = async (
 ) => {
   try {
     const userId = req.user!.id;
-    const { limit, offset } = req.query as unknown as { limit: number; offset: number };
+    const { limit, offset, page, filter } = req.query as unknown as {
+      limit: number;
+      offset: number;
+      page?: number;
+      filter?: 'payment_success' | 'admin_added' | 'app_used';
+    };
 
-    const result = await coinService.getTransactionHistory(userId, limit, offset);
+    const skip = page != null ? (page - 1) * limit : offset;
+    const result = await coinService.getTransactionHistory(userId, limit, skip, filter);
 
     return sendSuccess(res, result);
   } catch (error) {

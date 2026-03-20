@@ -21,6 +21,7 @@ import {
 } from '@jyotish/shared';
 import type {
   Admin,
+  AdminPaymentHistoryResponse,
   Astrologer,
   PlatformCoinRateRow,
   UpdatePlatformCoinRatesBody,
@@ -591,6 +592,11 @@ export const adminApi = {
       const response = await apiClient.post(API_ENDPOINTS.CHATS.UNBLOCK(chatId));
       return response;
     },
+
+    reopen: async (chatId: string) => {
+      const response = await apiClient.post(API_ENDPOINTS.CHATS.REOPEN(chatId));
+      return response;
+    },
   },
 
   /**
@@ -873,39 +879,12 @@ export const adminApi = {
     },
   },
 
-  transactions: {
+  paymentHistory: {
     list: async (params?: { page?: number; limit?: number }) => {
-      const response = await apiClient.get(
-        API_ENDPOINTS.EARNINGS.LIST.replace('/earnings', '/coin-transactions'),
+      return apiClient.get<AdminPaymentHistoryResponse>(
+        API_ENDPOINTS.PAYMENT_HISTORY.LIST,
         { params }
       );
-      return response as {
-        transactions: {
-          id: string;
-          userId: string;
-          amount: number;
-          type: 'DEDUCT' | 'ADD' | 'REFUND';
-          reason: string;
-          balanceBefore: number;
-          balanceAfter: number;
-          chatId?: string | null;
-          paymentId?: string | null;
-          adminId?: string | null;
-          createdAt: string;
-          user?: {
-            id: string;
-            name: string | null;
-            email: string | null;
-            phone: string;
-          } | null;
-        }[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-        };
-      };
     },
   },
 

@@ -6,209 +6,152 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
   Button,
-  Search,
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@jyotish/ui';
-import { Banknote, RefreshCw, UsersIcon } from 'lucide-react';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import { Banknote, RefreshCw, CreditCard } from 'lucide-react';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { generatePageNumbers } from '@/utils/helpers';
-
-interface TransactionUser {
-  id: string;
-  name: string | null;
-  email: string | null;
-  phone: string;
-}
-
-interface CoinTransactionRow {
-  id: string;
-  userId: string;
-  amount: number;
-  type: 'DEDUCT' | 'ADD' | 'REFUND';
-  reason: string;
-  balanceBefore: number;
-  balanceAfter: number;
-  chatId?: string | null;
-  paymentId?: string | null;
-  adminId?: string | null;
-  createdAt: string;
-  user?: TransactionUser | null;
-}
-
-interface TransactionsResponse {
-  transactions: CoinTransactionRow[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+import { PaymentMethodCell } from '@/components/transactions';
+import type { AdminPaymentHistoryItem } from '@/types';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
-export default function TransactionsPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+export default function PaymentHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const {
-    data: transactionsResponse,
+    data: response,
     isLoading,
     refetch,
-  } = useQuery<TransactionsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.EARNINGS.LIST(), 'transactions', currentPage, searchTerm],
-    queryFn: async () => {
-      const response = await adminApi.transactions.list({
+    isFetching,
+  } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.PAYMENT_HISTORY.LIST({ page: currentPage, limit: ITEMS_PER_PAGE }),
+    queryFn: () =>
+      adminApi.paymentHistory.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-      });
-
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const filtered = response.transactions.filter((tx) => {
-          const u = tx.user;
-          return (
-            tx.id.toLowerCase().includes(term) ||
-            (u?.name && u.name.toLowerCase().includes(term)) ||
-            (u?.email && u.email.toLowerCase().includes(term)) ||
-            (u?.phone && u.phone.toLowerCase().includes(term))
-          );
-        });
-        return {
-          transactions: filtered,
-          pagination: response.pagination,
-        };
-      }
-
-      return response;
-    },
+      }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 
-  const transactions = transactionsResponse?.transactions ?? [];
-  const pagination = transactionsResponse?.pagination ?? {
+  const transactions = response?.transactions ?? [];
+  const pagination = response?.pagination ?? {
     page: 1,
     limit: ITEMS_PER_PAGE,
     total: 0,
-    totalPages: 0,
+    totalPages: 1,
   };
-
-  const columns: AdminTableColumn<CoinTransactionRow>[] = [
-    {
-      header: 'User',
-      accessor: (tx) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-white">
-            {tx.user?.name || tx.user?.phone || 'Unknown'}
-          </span>
-          <span className="text-xs text-slate-400">{tx.user?.email || tx.user?.phone}</span>
-        </div>
-      ),
-    },
-    {
-      header: 'Amount (NRs)',
-      accessor: (tx) => (
-        <div className="flex items-center gap-2">
-          <Banknote className="h-4 w-4 text-emerald-400" />
-          <span className="text-emerald-400 font-semibold">
-            NRs {Number(tx.amount ?? 0).toLocaleString()}
-          </span>
-        </div>
-      ),
-    },
-    {
-      header: 'Type',
-      accessor: (tx) => (
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-            tx.type === 'ADD'
-              ? 'bg-emerald-500/20 text-emerald-300'
-              : tx.type === 'DEDUCT'
-                ? 'bg-red-500/20 text-red-300'
-                : 'bg-yellow-500/20 text-yellow-300'
-          }`}
-        >
-          {tx.type}
-        </span>
-      ),
-    },
-    {
-      header: 'Reason',
-      accessor: (tx) => <span className="text-slate-200 text-sm">{tx.reason}</span>,
-    },
-    {
-      header: 'Balance (Before → After)',
-      accessor: (tx) => (
-        <div className="text-xs text-slate-300">
-          <span className="line-through mr-1">
-            NRs {Number(tx.balanceBefore ?? 0).toLocaleString()}
-          </span>
-          <span>→</span>{' '}
-          <span className="font-semibold">
-            NRs {Number(tx.balanceAfter ?? 0).toLocaleString()}
-          </span>
-        </div>
-      ),
-    },
-    {
-      header: 'Date',
-      accessor: (tx) => (
-        <span className="text-xs text-slate-300">
-          {new Date(tx.createdAt).toLocaleString()}
-        </span>
-      ),
-    },
-  ];
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-white">Balance Transactions</h2>
+            <h2 className="text-3xl font-bold text-white">Payment History</h2>
             <p className="text-slate-400 mt-1">
-              View all user balance transactions across the platform
+              Successful payments only – GetPay, Fonepay QR, Fonepay Card
             </p>
           </div>
           <Button
             onClick={() => refetch()}
             variant="outline"
             size="sm"
-            disabled={isLoading}
+            disabled={isLoading || isFetching}
             className="border-slate-700 text-white hover:bg-slate-800"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        <Search
-          placeholder="Search by user name, email, phone, or transaction ID..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-
         <div className="cosmic-card rounded-xl overflow-hidden">
-          <AdminTable
-            data={transactions}
-            columns={columns}
-            loading={isLoading}
-            keyExtractor={(tx) => tx.id}
-            emptyState={{
-              icon: <UsersIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No transactions found' : 'No transactions yet',
-              description: searchTerm
-                ? 'Try adjusting your search terms'
-                : 'Transactions will appear here once users start using the platform',
-            }}
-          />
+          {isLoading ? (
+            <div className="p-6 space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <CreditCard className="w-16 h-16 text-slate-600 mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">No payments yet</h3>
+              <p className="text-slate-400 max-w-sm">
+                Successful payments will appear here once users start topping up their balance.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-800/80 hover:bg-slate-800/80">
+                    <TableHead className="text-slate-200 border-slate-700/60">S.N.</TableHead>
+                    <TableHead className="text-slate-200 border-slate-700/60">Transaction ID</TableHead>
+                    <TableHead className="text-slate-200 border-slate-700/60">User</TableHead>
+                    <TableHead className="text-slate-200 border-slate-700/60">Amount (NRs.)</TableHead>
+                    <TableHead className="text-slate-200 border-slate-700/60">Payment Method</TableHead>
+                    <TableHead className="text-slate-200 border-slate-700/60">Balance (Before → After)</TableHead>
+                    <TableHead className="text-slate-200 border-slate-700/60">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx: AdminPaymentHistoryItem, idx: number) => (
+                    <TableRow key={tx.id} className="border-slate-700/40">
+                      <TableCell className="text-slate-300 whitespace-nowrap">
+                        {(pagination.page - 1) * pagination.limit + idx + 1}
+                      </TableCell>
+                      <TableCell className="text-slate-300 whitespace-nowrap font-mono text-sm">
+                        {tx.transactionId ?? '—'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-white">
+                            {tx.user?.name || tx.user?.phone || 'Unknown'}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {tx.user?.email || tx.user?.phone}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Banknote className="h-4 w-4 text-emerald-400" />
+                          <span className="text-emerald-400 font-semibold">
+                            NRs {Number(tx.amount ?? 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <PaymentMethodCell paymentMethod={tx.paymentMethod} />
+                      </TableCell>
+                      <TableCell className="text-slate-300 whitespace-nowrap">
+                        {Number(tx.balanceBefore ?? 0).toLocaleString()} →{' '}
+                        {Number(tx.balanceAfter ?? 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-slate-300 whitespace-nowrap">
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
 
         {!isLoading && pagination.totalPages > 0 && (
@@ -230,7 +173,7 @@ export default function TransactionsPage() {
                 <PaginationContent>
                   <PaginationItem>
                     <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
                     />
                   </PaginationItem>
@@ -249,7 +192,7 @@ export default function TransactionsPage() {
                           {page}
                         </PaginationLink>
                       ) : (
-                        <PaginationEllipsis />
+                        <span className="px-2">…</span>
                       )}
                     </PaginationItem>
                   ))}
@@ -257,7 +200,7 @@ export default function TransactionsPage() {
                   <PaginationItem>
                     <PaginationNext
                       onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                        setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))
                       }
                       disabled={currentPage === pagination.totalPages}
                     />
@@ -271,4 +214,3 @@ export default function TransactionsPage() {
     </AdminLayout>
   );
 }
-

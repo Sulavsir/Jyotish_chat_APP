@@ -1146,13 +1146,13 @@ export async function abandonChat(req: AuthRequest, res: Response, next: NextFun
           status: 'ENDED',
         };
 
-        // Notify client
+        // Notify client and astrologer
         io.to(`user:${chat.participant1Id}`).emit('chat:abandoned', abandonData);
-
-        // Notify astrologer
         io.to(`user:${chat.participant2Id}`).emit('chat:abandoned', abandonData);
+        // Notify admin panel for real-time list update
+        io.to('admin').emit('chat:abandoned', abandonData);
 
-        console.log(`✅ Notified both parties about chat abandonment: ${chatId}`);
+        console.log(`✅ Notified both parties and admins about chat abandonment: ${chatId}`);
       }
     } catch (socketError) {
       console.error('Error broadcasting chat abandonment:', socketError);
@@ -1244,13 +1244,13 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
           status: 'ACTIVE',
         };
 
-        // Notify client
+        // Notify client and astrologer
         io.to(`user:${chat.participant1Id}`).emit('chat:unblocked', unblockData);
-
-        // Notify astrologer
         io.to(`user:${chat.participant2Id}`).emit('chat:unblocked', unblockData);
+        // Notify admin panel for real-time list update
+        io.to('admin').emit('chat:unblocked', unblockData);
 
-        console.log(`✅ Notified both parties about chat unblock: ${chatId}`);
+        console.log(`✅ Notified both parties and admins about chat unblock: ${chatId}`);
       }
     } catch (socketError) {
       console.error('Error broadcasting chat unblock:', socketError);
@@ -1258,6 +1258,91 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
 
     return sendSuccess(res, {
       message: 'Chat unblocked successfully',
+      chat: updatedChat,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function reopenChat(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const { chatId } = req.params;
+    const adminId = req.user!.id;
+
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: {
+        clientParticipant: { select: { id: true, name: true, phone: true } },
+        astrologerParticipant: { select: { id: true, name: true, phone: true } },
+      },
+    });
+
+    if (!chat) {
+      throw new AppError('Chat not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    if (chat.status === ChatStatus.ACTIVE && !chat.isLocked) {
+      throw new AppError(
+        'Chat is already active',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    const updatedChat = await prisma.chat.update({
+      where: { id: chatId },
+      data: {
+        status: ChatStatus.ACTIVE,
+        isLocked: false,
+        reopenedAfterEnded: true,
+        endedBy: null,
+        endedAt: null,
+        waitingForReply: false,
+      },
+    });
+
+    await auditService.logAction({
+      adminId,
+      action: AuditAction.ADMIN_ACTION,
+      resource: 'Chat',
+      resourceId: chatId,
+      details: {
+        chatId,
+        clientId: chat.participant1Id,
+        astrologerId: chat.participant2Id,
+        action: 'CHAT_REOPENED',
+      },
+      ipAddress: getClientIp(req),
+      userAgent: req.get('user-agent'),
+    });
+
+    try {
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
+    } catch (_) {}
+
+    try {
+      const { getSocketInstance } = require('../utils/socket-instance');
+      const io = getSocketInstance();
+      if (io) {
+        const payload = {
+          chatId,
+          status: 'ACTIVE',
+          isLocked: false,
+          chat: updatedChat,
+        };
+        io.to(`user:${chat.participant1Id}`).emit('chat:reopened', payload);
+        io.to(`user:${chat.participant2Id}`).emit('chat:reopened', payload);
+        io.to('admin').emit('chat:reopened', payload);
+        console.log(`✅ Notified both parties and admins about chat reopen: ${chatId}`);
+      }
+    } catch (socketError) {
+      console.error('Error broadcasting chat reopen:', socketError);
+    }
+
+    return sendSuccess(res, {
+      message: 'Chat reopened successfully. Both parties can now send messages.',
       chat: updatedChat,
     });
   } catch (error) {
@@ -1395,16 +1480,15 @@ export async function listAstrologersWithCoinEarnings(
 }
 
 /**
- * Get platform coin transactions (admin view)
+ * Get platform payment history (admin view) – successful payments only
  * GET /api/v1/admin/coin-transactions
+ * Returns PAYMENT_SUCCESS coin transactions with paymentMethod from Payment table
  */
 export async function getPlatformTransactions(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page = '1', limit = '20' } = req.query;
-
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
+    const page = Number(req.query.page) || 1;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const skip = (page - 1) * limit;
 
     const where = {
       type: 'ADD',
@@ -1414,9 +1498,16 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
     const [transactions, total] = await Promise.all([
       prisma.coinTransaction.findMany({
         skip,
-        take: limitNum,
+        take: limit,
         where,
-        include: {
+        select: {
+          id: true,
+          userId: true,
+          amount: true,
+          balanceBefore: true,
+          balanceAfter: true,
+          paymentId: true,
+          createdAt: true,
           user: {
             select: {
               id: true,
@@ -1431,13 +1522,32 @@ export async function getPlatformTransactions(req: AuthRequest, res: Response, n
       prisma.coinTransaction.count({ where }),
     ]);
 
+    const paymentIds = [...new Set(transactions.map((t) => t.paymentId).filter(Boolean))] as string[];
+    const payments =
+      paymentIds.length > 0
+        ? await prisma.payment.findMany({
+            where: { id: { in: paymentIds } },
+            select: { id: true, paymentMethod: true, transactionId: true },
+          })
+        : [];
+    const paymentById = new Map(payments.map((p) => [p.id, p]));
+
+    const transactionsWithPayment = transactions.map((t) => {
+      const payment = t.paymentId ? paymentById.get(t.paymentId) : undefined;
+      return {
+        ...t,
+        paymentMethod: payment?.paymentMethod ?? null,
+        transactionId: payment?.transactionId ?? null,
+      };
+    });
+
     return sendSuccess(res, {
-      transactions,
+      transactions: transactionsWithPayment,
       pagination: {
-        page: pageNum,
-        limit: limitNum,
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / limitNum),
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     });
   } catch (error) {

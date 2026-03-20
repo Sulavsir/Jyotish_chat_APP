@@ -46,22 +46,18 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response, next: Nex
     });
 
     if (chat) {
-      // Emit real-time event to both participants when chat is active/reopened
       try {
         const io = getSocketInstance();
         if (io && chat.status === 'ACTIVE' && !chat.isLocked) {
-          io.to(`user:${chat.participant1Id}`).emit('chat:reopened', {
+          const payload = {
             chatId: chat.id,
             status: chat.status,
             isLocked: chat.isLocked,
             chat: chat,
-          });
-          io.to(`user:${chat.participant2Id}`).emit('chat:reopened', {
-            chatId: chat.id,
-            status: chat.status,
-            isLocked: chat.isLocked,
-            chat: chat,
-          });
+          };
+          io.to(`user:${chat.participant1Id}`).emit('chat:reopened', payload);
+          io.to(`user:${chat.participant2Id}`).emit('chat:reopened', payload);
+          io.to('admin').emit('chat:reopened', payload);
         }
       } catch (socketError) {
         console.error('Error broadcasting chat reopen:', socketError);

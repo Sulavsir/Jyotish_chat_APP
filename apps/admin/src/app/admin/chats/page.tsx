@@ -16,11 +16,17 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn, ChatStatusFilter, type ChatStatusFilterValue } from '@/components/admin';
+import {
+  AdminTable,
+  type AdminTableColumn,
+  ChatStatusFilter,
+  type ChatStatusFilterValue,
+} from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { Chat } from '@/types';
 import ChatDetailModal from '@/components/chat/ChatDetailModal';
 import { useAdminSocket } from '@/hooks';
+import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 import { Ban, RefreshCw } from 'lucide-react';
 import { generatePageNumbers } from '@/utils/helpers';
 
@@ -93,11 +99,13 @@ export default function ChatsPage() {
     const handleNewChat = (newChat: Chat) => {
       console.log('💬 New chat created:', newChat);
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
     };
 
     const handleChatUpdate = (updatedChat: Chat) => {
       console.log('💬 Chat updated:', updatedChat);
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
     };
 
     const handleChatAbandoned = (data: {
@@ -107,23 +115,33 @@ export default function ChatsPage() {
     }) => {
       console.log('🚫 Chat abandoned:', data);
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
     };
 
     const handleChatUnblocked = (data: { chatId: string }) => {
       console.log('🔓 Chat unblocked:', data);
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
+    };
+
+    const handleChatReopened = (data: { chatId: string }) => {
+      console.log('🔓 Chat reopened:', data);
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
     };
 
     on('chat:new', handleNewChat);
     on('chat:update', handleChatUpdate);
     on('chat:abandoned', handleChatAbandoned);
     on('chat:unblocked', handleChatUnblocked);
+    on(ADMIN_SOCKET_EVENTS.CHAT.REOPENED, handleChatReopened);
 
     return () => {
       off('chat:new', handleNewChat);
       off('chat:update', handleChatUpdate);
       off('chat:abandoned', handleChatAbandoned);
       off('chat:unblocked', handleChatUnblocked);
+      off(ADMIN_SOCKET_EVENTS.CHAT.REOPENED, handleChatReopened);
     };
   }, [isConnected, on, off, queryClient]);
 

@@ -811,39 +811,99 @@ export const refundCoins = async (
 };
 
 /**
+ * Build where clause for transaction filter
+ * - payment_success: type=ADD, reason=PAYMENT_SUCCESS
+ * - admin_added: type=ADD, reason=ADMIN_ADJUSTMENT
+ * - app_used: type=DEDUCT
+ */
+function buildTransactionFilter(filter?: 'payment_success' | 'admin_added' | 'app_used') {
+  if (!filter) return {};
+  switch (filter) {
+    case 'payment_success':
+      return { type: CoinTransactionType.ADD, reason: CoinTransactionReason.PAYMENT_SUCCESS };
+    case 'admin_added':
+      return { type: CoinTransactionType.ADD, reason: CoinTransactionReason.ADMIN_ADJUSTMENT };
+    case 'app_used':
+      return { type: CoinTransactionType.DEDUCT };
+    default:
+      return {};
+  }
+}
+
+/**
  * Get coin transaction history for a user
+ * Supports filter: payment_success | admin_added | app_used
  */
 export const getTransactionHistory = async (
   userId: string,
   limit = 50,
-  offset = 0
-): Promise<{ transactions: CoinTransaction[]; total: number }> => {
+  offset = 0,
+  filter?: 'payment_success' | 'admin_added' | 'app_used'
+): Promise<{
+  transactions: CoinTransaction[];
+  total: number;
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> => {
+  const where = { userId, ...buildTransactionFilter(filter) };
+
   const [transactions, total] = await Promise.all([
     prisma.coinTransaction.findMany({
-      where: { userId },
+      where,
+      select: {
+        id: true,
+        userId: true,
+        amount: true,
+        type: true,
+        reason: true,
+        balanceBefore: true,
+        balanceAfter: true,
+        chatId: true,
+        paymentId: true,
+        adminId: true,
+        createdAt: true,
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,
     }),
-    prisma.coinTransaction.count({ where: { userId } }),
+    prisma.coinTransaction.count({ where }),
   ]);
+
+  const paymentIds = [...new Set(transactions.map((t) => t.paymentId).filter(Boolean))] as string[];
+  const payments =
+    paymentIds.length > 0
+      ? await prisma.payment.findMany({
+          where: { id: { in: paymentIds } },
+          select: { id: true, paymentMethod: true, transactionId: true },
+        })
+      : [];
+  const paymentById = new Map(payments.map((p) => [p.id, p]));
+
+  const page = Math.floor(offset / limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return {
     transactions: transactions.map(
-      (t): CoinTransaction => ({
-        id: t.id,
-        userId: t.userId,
-        amount: t.amount,
-        type: t.type as CoinTransactionType,
-        reason: t.reason as CoinTransactionReason,
-        balanceBefore: t.balanceBefore,
-        balanceAfter: t.balanceAfter,
-        chatId: t.chatId || undefined,
-        paymentId: t.paymentId || undefined,
-        adminId: t.adminId || undefined,
-        createdAt: t.createdAt,
-      })
+      (t): CoinTransaction & { paymentMethod?: string; transactionId?: string | null } => {
+        const payment = t.paymentId ? paymentById.get(t.paymentId) : undefined;
+        return {
+          id: t.id,
+          userId: t.userId,
+          amount: t.amount,
+          type: t.type as CoinTransactionType,
+          reason: t.reason as CoinTransactionReason,
+          balanceBefore: t.balanceBefore,
+          balanceAfter: t.balanceAfter,
+          chatId: t.chatId || undefined,
+          paymentId: t.paymentId || undefined,
+          adminId: t.adminId || undefined,
+          createdAt: t.createdAt,
+          paymentMethod: payment?.paymentMethod,
+          transactionId: payment?.transactionId ?? null,
+        };
+      }
     ),
     total,
+    pagination: { page, limit, total, totalPages },
   };
 };

@@ -32,6 +32,7 @@ export interface AdminSocketEvents {
     abandonedBy: string;
   }) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.UNBLOCKED]: (data: { chatId: string }) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.REOPENED]: (data: { chatId: string }) => void;
 
   // User events
   [ADMIN_SOCKET_EVENTS.USER.NEW]: (data: any) => void;

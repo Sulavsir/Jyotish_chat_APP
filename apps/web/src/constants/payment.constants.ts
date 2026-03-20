@@ -8,5 +8,4 @@ export const PAYMENT_METHOD = {
   FONEPAY_QR: 'fonepay_qr',
 } as const;
 
-export type PaymentMethod =
-  | (typeof PAYMENT_METHOD)[keyof typeof PAYMENT_METHOD];
+export type PaymentMethod = (typeof PAYMENT_METHOD)[keyof typeof PAYMENT_METHOD];

@@ -159,7 +159,7 @@ export const QUERY_KEYS = {
   COINS: {
     BALANCE: ['coins', 'balance'] as const,
     RATES: ['coins', 'rates'] as const,
-    TRANSACTIONS: (params?: { limit?: number; offset?: number }) =>
+    TRANSACTIONS: (params?: { page?: number; limit?: number; filter?: string }) =>
       params ? (['coins', 'transactions', params] as const) : (['coins', 'transactions'] as const),
     TRANSACTION_HISTORY: ['coins', 'transactions', 'history'] as const,
   },

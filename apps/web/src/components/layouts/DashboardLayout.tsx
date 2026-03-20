@@ -113,7 +113,11 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
     { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: <CalendarCheck className="h-4 w-4" /> },
     { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: <Star className="h-4 w-4" /> },
     { name: 'Pricing', href: ROUTES.PRICING, icon: <Wallet className="h-4 w-4" /> },
-    { name: 'Payment History', href: ROUTES.MY_PAYMENTS, icon: <Wallet className="h-4 w-4" /> },
+    {
+      name: 'Transactions History',
+      href: ROUTES.TRANSACTIONS,
+      icon: <Wallet className="h-4 w-4" />,
+    },
     { name: 'Support', href: ROUTES.SUPPORT, icon: <HelpCircle className="h-4 w-4" /> },
     {
       name: 'Profile',
@@ -137,170 +141,173 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
 
   return (
     <ClientDashboardProvider>
-    <div className={cn('min-h-screen relative', hideBackground && 'bg-black')}>
-      {!hideBackground && (
-        <div
-          className="fixed inset-0 z-0 bg-[#0a0a0f]"
-          style={{
-            background: 'linear-gradient(180deg, #0a0a0f 0%, #1a0a1f 30%, #0d0d14 60%, #0a0a0f 100%)',
-          }}
-          aria-hidden
-        />
-      )}
+      <div className={cn('min-h-screen relative', hideBackground && 'bg-black')}>
+        {!hideBackground && (
+          <div
+            className="fixed inset-0 z-0 bg-[#0a0a0f]"
+            style={{
+              background:
+                'linear-gradient(180deg, #0a0a0f 0%, #1a0a1f 30%, #0d0d14 60%, #0a0a0f 100%)',
+            }}
+            aria-hidden
+          />
+        )}
 
-      <div className="relative z-50 flex flex-col h-screen overflow-hidden">
-        <div className="flex-shrink-0 h-14 lg:h-16" aria-hidden />
+        <div className="relative z-50 flex flex-col h-screen overflow-hidden">
+          <div className="flex-shrink-0 h-14 lg:h-16" aria-hidden />
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          <div className="hidden lg:block flex-shrink-0 h-full min-h-0">
-            <AppSidebar
-              items={sidebarItems}
-              currentPath={pathname}
-              themeColor="purple"
-              onLogout={handleLogoutClick}
-              logoutLabel="Logout"
-              logoutIcon={<LogOut className="h-4 w-4" />}
-              renderLink={({ href, className, children }) => (
-                <Link href={href} className={className}>
-                  {children}
-                </Link>
-              )}
-            />
-          </div>
-
-          <main className="flex-1 min-h-0 overflow-auto">
-            <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-8">{children}</div>
-          </main>
-        </div>
-      </div>
-
-      {/* Header + mobile menu portaled to body with z-[100000] so they sit above the fake cursor (z-99999) */}
-      {typeof document !== 'undefined' &&
-        createPortal(
-          <div className="fixed inset-x-0 top-0 z-[100000] pointer-events-none">
-            <div className="pointer-events-auto">
-              <header className="flex-shrink-0 border-b border-white/10 bg-black/10 backdrop-blur-md">
-                <div className="flex items-center h-14 lg:h-16 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setMobileMenuOpen((o) => !o)}
-                    className="lg:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                    aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-                  >
-                    {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                  </button>
-                  <div className="flex-shrink-0 flex items-center gap-2 pl-2 lg:pl-6 min-w-0">
-                    <AppLogo
-                      href={ROUTES.DASHBOARD}
-                      height={32}
-                      blendWithDarkBackground
-                      className="flex-shrink-0"
-                    />
-                    <span className="hidden sm:inline whitespace-nowrap">
-                      <span className="text-lg font-semibold text-purple-400">Client</span>
-                      <span className="text-xs font-medium text-slate-400 uppercase tracking-wider ml-1">
-                        Portal
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0" />
-                  <div className="flex items-center justify-end gap-2 pr-2 lg:pr-6 flex-shrink-0">
-                    <LanguageDropdown />
-                    <CoinDisplay themeColor="purple" />
-                    <NotificationBell themeColor="purple" />
-                    <ProfileDropdown
-                      user={user}
-                      profileRoute={ROUTES.PROFILE}
-                      settingsRoute={ROUTES.SETTINGS}
-                      onLogout={handleLogoutClick}
-                      themeColor="purple"
-                    />
-                  </div>
-                </div>
-              </header>
+          <div className="flex-1 flex min-h-0 overflow-hidden">
+            <div className="hidden lg:block flex-shrink-0 h-full min-h-0">
+              <AppSidebar
+                items={sidebarItems}
+                currentPath={pathname}
+                themeColor="purple"
+                onLogout={handleLogoutClick}
+                logoutLabel="Logout"
+                logoutIcon={<LogOut className="h-4 w-4" />}
+                renderLink={({ href, className, children }) => (
+                  <Link href={href} className={className}>
+                    {children}
+                  </Link>
+                )}
+              />
             </div>
-            {mobileMenuOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-[100000] bg-black/50 backdrop-blur-sm lg:hidden pointer-events-auto"
-                  aria-hidden
-                  onClick={() => setMobileMenuOpen(false)}
-                />
-                <aside
-                  className="fixed top-0 left-0 bottom-0 z-[100001] w-72 max-w-[85vw] bg-[#0f0e14]/95 border-r border-white/10 shadow-xl lg:hidden flex flex-col pointer-events-auto"
-                  aria-label="Mobile menu"
-                >
-                  <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+
+            <main className="flex-1 min-h-0 overflow-auto">
+              <div className="px-4 sm:px-6 lg:px-8 py-6 lg:py-8 pb-8">{children}</div>
+            </main>
+          </div>
+        </div>
+
+        {/* Header + mobile menu portaled to body with z-[100000] so they sit above the fake cursor (z-99999) */}
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <div className="fixed inset-x-0 top-0 z-[100000] pointer-events-none">
+              <div className="pointer-events-auto">
+                <header className="flex-shrink-0 border-b border-white/10 bg-black/10 backdrop-blur-md">
+                  <div className="flex items-center h-14 lg:h-16 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMobileMenuOpen((o) => !o)}
+                      className="lg:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                      aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                    >
+                      {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                    </button>
+                    <div className="flex-shrink-0 flex items-center gap-2 pl-2 lg:pl-6 min-w-0">
                       <AppLogo
                         href={ROUTES.DASHBOARD}
                         height={32}
                         blendWithDarkBackground
                         className="flex-shrink-0"
                       />
-                      <span className="whitespace-nowrap">
-                        <span className="text-sm font-semibold text-purple-400">Client</span>
+                      <span className="hidden sm:inline whitespace-nowrap">
+                        <span className="text-lg font-semibold text-purple-400">Client</span>
                         <span className="text-xs font-medium text-slate-400 uppercase tracking-wider ml-1">
                           Portal
                         </span>
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
-                      aria-label="Close menu"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
+                    <div className="flex-1 min-w-0" />
+                    <div className="flex items-center justify-end gap-2 pr-2 lg:pr-6 flex-shrink-0">
+                      <LanguageDropdown />
+                      <CoinDisplay themeColor="purple" />
+                      <NotificationBell themeColor="purple" />
+                      <ProfileDropdown
+                        user={user}
+                        profileRoute={ROUTES.PROFILE}
+                        settingsRoute={ROUTES.SETTINGS}
+                        onLogout={handleLogoutClick}
+                        themeColor="purple"
+                      />
+                    </div>
                   </div>
-                  <nav className="p-3 flex-1 overflow-auto space-y-1">
-                    {sidebarItems.map((item) => {
-                      const isActive = pathname === item.href;
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={cn(
-                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border',
-                            isActive
-                              ? 'bg-purple-500/15 text-purple-400 border-purple-500/20'
-                              : 'text-gray-300 hover:text-white hover:bg-white/[0.04] border-transparent'
-                          )}
-                        >
-                          {item.icon && <span className="h-4 w-4 flex-shrink-0">{item.icon}</span>}
-                          <span>{item.name}</span>
-                          {item.badge}
-                        </Link>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMobileMenuOpen(false);
-                        handleLogoutClick();
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.04] text-sm font-medium transition-colors border border-transparent"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span>Logout</span>
-                    </button>
-                  </nav>
-                </aside>
-              </>
-            )}
-          </div>,
-          document.body
-        )}
+                </header>
+              </div>
+              {mobileMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-[100000] bg-black/50 backdrop-blur-sm lg:hidden pointer-events-auto"
+                    aria-hidden
+                    onClick={() => setMobileMenuOpen(false)}
+                  />
+                  <aside
+                    className="fixed top-0 left-0 bottom-0 z-[100001] w-72 max-w-[85vw] bg-[#0f0e14]/95 border-r border-white/10 shadow-xl lg:hidden flex flex-col pointer-events-auto"
+                    aria-label="Mobile menu"
+                  >
+                    <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <AppLogo
+                          href={ROUTES.DASHBOARD}
+                          height={32}
+                          blendWithDarkBackground
+                          className="flex-shrink-0"
+                        />
+                        <span className="whitespace-nowrap">
+                          <span className="text-sm font-semibold text-purple-400">Client</span>
+                          <span className="text-xs font-medium text-slate-400 uppercase tracking-wider ml-1">
+                            Portal
+                          </span>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+                        aria-label="Close menu"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    <nav className="p-3 flex-1 overflow-auto space-y-1">
+                      {sidebarItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border',
+                              isActive
+                                ? 'bg-purple-500/15 text-purple-400 border-purple-500/20'
+                                : 'text-gray-300 hover:text-white hover:bg-white/[0.04] border-transparent'
+                            )}
+                          >
+                            {item.icon && (
+                              <span className="h-4 w-4 flex-shrink-0">{item.icon}</span>
+                            )}
+                            <span>{item.name}</span>
+                            {item.badge}
+                          </Link>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          handleLogoutClick();
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/[0.04] text-sm font-medium transition-colors border border-transparent"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Logout</span>
+                      </button>
+                    </nav>
+                  </aside>
+                </>
+              )}
+            </div>,
+            document.body
+          )}
 
-      <LogoutModal
-        isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
-        onConfirm={handleLogoutConfirm}
-        isLoading={isLoggingOut}
-      />
-    </div>
+        <LogoutModal
+          isOpen={isLogoutModalOpen}
+          onClose={() => setIsLogoutModalOpen(false)}
+          onConfirm={handleLogoutConfirm}
+          isLoading={isLoggingOut}
+        />
+      </div>
     </ClientDashboardProvider>
   );
 }

@@ -3,6 +3,7 @@
  */
 
 export * from './api.constants';
+export * from './payment.constants';
 export * from './routes.constants';
 export * from './validators.constants';
 export * from './app.constants';

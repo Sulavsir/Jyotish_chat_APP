@@ -21,21 +21,36 @@ interface LogActionParams {
 export class AuditService {
   /**
    * Log an action to the audit log
+   * Resolves adminId: only includes it if the Admin record exists (avoids FK violation when
+   * caller is a User with role ADMIN who has no Admin table record).
    */
   async logAction(params: LogActionParams) {
-    // Only set userId/astrologerId/adminId if they are provided (to avoid foreign key violations)
+    let resolvedAdminId: string | undefined = params.adminId;
+    let metadata = { ...(params.metadata || {}) };
+
+    if (params.adminId) {
+      const adminExists = await prisma.admin.findUnique({
+        where: { id: params.adminId },
+        select: { id: true },
+      });
+      if (!adminExists) {
+        resolvedAdminId = undefined;
+        metadata = { ...metadata, adminIdentifier: params.adminId };
+      }
+    }
+
     const auditLog = await prisma.auditLog.create({
       data: {
         ...(params.userId ? { userId: params.userId } : {}),
         ...(params.astrologerId ? { astrologerId: params.astrologerId } : {}),
-        ...(params.adminId ? { adminId: params.adminId } : {}),
+        ...(resolvedAdminId ? { adminId: resolvedAdminId } : {}),
         action: params.action,
         resource: params.resource,
         resourceId: params.resourceId,
         details: params.details || {},
         ipAddress: params.ipAddress,
         userAgent: params.userAgent,
-        metadata: params.metadata || {},
+        metadata: Object.keys(metadata).length ? metadata : {},
       },
       include: {
         user: {

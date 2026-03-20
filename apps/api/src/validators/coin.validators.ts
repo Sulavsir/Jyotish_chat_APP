@@ -47,6 +47,16 @@ export const adminAddCoinsSchema = z.object({
 });
 
 /**
+ * Transaction filter: payment_success | admin_added | app_used
+ * - payment_success: ADD + PAYMENT_SUCCESS
+ * - admin_added: ADD + ADMIN_ADJUSTMENT
+ * - app_used: DEDUCT (chat, broadcast, purchase, etc.)
+ */
+export const transactionFilterSchema = z
+  .enum(['payment_success', 'admin_added', 'app_used'])
+  .optional();
+
+/**
  * Validator for transaction history query parameters
  */
 export const transactionHistoryQuerySchema = z.object({
@@ -60,6 +70,12 @@ export const transactionHistoryQuerySchema = z.object({
     .optional()
     .transform((val) => (val ? parseInt(val, 10) : 0))
     .pipe(z.number().int().min(0)),
+  page: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 1))
+    .pipe(z.number().int().min(1)),
+  filter: transactionFilterSchema,
 });
 
 const coinRateValue = z.number().int().min(0).max(10000);

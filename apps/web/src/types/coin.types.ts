@@ -39,3 +39,33 @@ export interface AddCoinsResponse {
   planActivated?: boolean;
   isUnlimited?: boolean;
 }
+
+/** Transaction filter for history */
+export type TransactionFilter = 'payment_success' | 'admin_added' | 'app_used';
+
+export interface TransactionHistoryItem {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'ADD' | 'DEDUCT' | 'REFUND';
+  reason: string;
+  balanceBefore: number;
+  balanceAfter: number;
+  chatId?: string;
+  paymentId?: string;
+  adminId?: string;
+  createdAt: string;
+  paymentMethod?: string;
+  transactionId?: string | null;
+}
+
+export interface TransactionHistoryResponse {
+  transactions: TransactionHistoryItem[];
+  total: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

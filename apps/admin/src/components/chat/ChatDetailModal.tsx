@@ -7,7 +7,16 @@ import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { Chat, Message } from '@/types';
 import { Button, Avatar, AvatarImage, AvatarFallback, Spinner } from '@jyotish/ui';
 import { LoadingButton, ConfirmDialog } from '@/components/ui';
-import { X, Download, FileText, Image as ImageIcon, Mic, Ban, Unlock } from 'lucide-react';
+import {
+  X,
+  Download,
+  FileText,
+  Image as ImageIcon,
+  Mic,
+  Ban,
+  Unlock,
+  RotateCcw,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ChatDetailModalProps {
@@ -25,6 +34,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
   const [hasMore, setHasMore] = useState(true);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = useState(false);
   const [abandonReason, setAbandonReason] = useState('');
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -55,15 +65,32 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
     },
     onSuccess: () => {
       toast.success('Chat unblocked successfully. Both parties can now resume conversation.');
-      // Invalidate and refetch chat list
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
       setShowUnblockConfirm(false);
-      onClose(); // Close modal after unblocking
+      onClose();
     },
     onError: (error: any) => {
       console.error('Failed to unblock chat:', error);
       toast.error(error?.response?.data?.error?.message || 'Failed to unblock chat');
+    },
+  });
+
+  // TanStack Query mutation for reopening chat (ended/locked)
+  const reopenChatMutation = useMutation({
+    mutationFn: async (chatId: string) => {
+      return await adminApi.chats.reopen(chatId);
+    },
+    onSuccess: () => {
+      toast.success('Chat reopened successfully. Both parties can now send messages.');
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.LIST() });
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHATS.ALL });
+      setShowReopenConfirm(false);
+      onClose();
+    },
+    onError: (error: any) => {
+      console.error('Failed to reopen chat:', error);
+      toast.error(error?.response?.data?.error?.message || 'Failed to reopen chat');
     },
   });
 
@@ -131,6 +158,11 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
   const handleUnblockChat = () => {
     if (!chat || unblockChatMutation.isPending) return;
     unblockChatMutation.mutate(chat.id);
+  };
+
+  const handleReopenChat = () => {
+    if (!chat || reopenChatMutation.isPending) return;
+    reopenChatMutation.mutate(chat.id);
   };
 
   const getImageUrl = (url?: string) => {
@@ -294,16 +326,30 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
                   Unblock Chat
                 </LoadingButton>
               ) : (
-                <LoadingButton
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAbandonConfirm(true)}
-                  isLoading={abandonChatMutation.isPending}
-                  className="flex items-center gap-2  text-red-200 border-red-500/30"
-                >
-                  <Ban className="h-4 w-4" />
-                  Abandon Conversation
-                </LoadingButton>
+                <>
+                  {(chat.status === 'ENDED' || chat.isLocked) && (
+                    <LoadingButton
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowReopenConfirm(true)}
+                      isLoading={reopenChatMutation.isPending}
+                      className="flex items-center gap-2 text-green-200 border-green-500/30"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Reopen Chat
+                    </LoadingButton>
+                  )}
+                  <LoadingButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAbandonConfirm(true)}
+                    isLoading={abandonChatMutation.isPending}
+                    className="flex items-center gap-2 text-red-200 border-red-500/30"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Abandon Conversation
+                  </LoadingButton>
+                </>
               )}
             </div>
           </div>
@@ -516,6 +562,25 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
         <p className="text-sm text-slate-300 mb-2">
           Both the client and astrologer will be able to send messages again. They will be notified
           that the conversation has been reopened.
+        </p>
+      </ConfirmDialog>
+
+      {/* Reopen Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showReopenConfirm}
+        onClose={() => setShowReopenConfirm(false)}
+        onConfirm={handleReopenChat}
+        title="Reopen Conversation"
+        description="Are you sure you want to reopen this conversation?"
+        confirmText="Yes, Reopen"
+        cancelText="Cancel"
+        isDestructive={false}
+        isLoading={reopenChatMutation.isPending}
+        icon={<RotateCcw className="w-6 h-6 text-green-400" />}
+      >
+        <p className="text-sm text-slate-300 mb-2">
+          Both the client and astrologer will be able to send messages again. They will receive a
+          real-time notification that the conversation has been reopened.
         </p>
       </ConfirmDialog>
     </>

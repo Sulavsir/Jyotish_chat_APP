@@ -217,6 +217,8 @@ router.post('/chats/:chatId/abandon', adminController.abandonChat);
 
 router.post('/chats/:chatId/unblock', adminController.unblockChat);
 
+router.post('/chats/:chatId/reopen', adminController.reopenChat);
+
 router.post(
   '/chats/messages/:messageId/flag',
   auditLogger(AuditAction.MESSAGE_FLAG, 'Message'),

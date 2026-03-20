@@ -16,6 +16,7 @@ export const ADMIN_SOCKET_EVENTS = {
     ENDED: 'chat:ended',
     ABANDONED: 'chat:abandoned',
     UNBLOCKED: 'chat:unblocked',
+    REOPENED: 'chat:reopened',
   },
   USER: {
     NEW: 'user:new',
@@ -57,4 +58,3 @@ export const ADMIN_SOCKET_EVENTS = {
     SEND: 'admin-chat:send',
   },
 } as const;
-

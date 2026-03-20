@@ -340,3 +340,32 @@ export interface BroadcastQuestionPricingTier {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Admin payment history – successful payments only (PAYMENT_SUCCESS) */
+export interface AdminPaymentHistoryItem {
+  id: string;
+  userId: string;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  paymentId: string | null;
+  paymentMethod: string | null;
+  transactionId: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    phone: string;
+  };
+}
+
+export interface AdminPaymentHistoryResponse {
+  transactions: AdminPaymentHistoryItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}

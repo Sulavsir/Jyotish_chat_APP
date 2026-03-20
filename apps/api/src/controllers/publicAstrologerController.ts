@@ -12,11 +12,7 @@ import { AstrologerCategory } from '@jyotish/database';
  * Get public astrologer profile by ID
  * GET /api/v1/public/astrologers/:id
  */
-export async function getPublicAstrologerProfile(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+export async function getPublicAstrologerProfile(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
 
@@ -220,4 +216,3 @@ export async function getAstrologerStats(req: Request, res: Response, next: Next
     next(error);
   }
 }
-

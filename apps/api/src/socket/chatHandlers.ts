@@ -133,6 +133,19 @@ export function chatHandlers(io: Server, socket: Socket) {
               waitingForReply: false,
             },
           });
+          // Notify admin panel for real-time list update
+          try {
+            const { getSocketInstance } = require('../utils/socket-instance');
+            const socketIo = getSocketInstance();
+            if (socketIo) {
+              socketIo.to('admin').emit('chat:reopened', {
+                chatId: chat.id,
+                status: 'ACTIVE',
+                isLocked: false,
+                chat,
+              });
+            }
+          } catch (_) {}
         }
 
         // Handle ENDED (non-locked) chat: reactivate and reset stale turn-based state
@@ -153,6 +166,19 @@ export function chatHandlers(io: Server, socket: Socket) {
               waitingForReply: false,
             },
           });
+          // Notify admin panel for real-time list update
+          try {
+            const { getSocketInstance } = require('../utils/socket-instance');
+            const socketIo = getSocketInstance();
+            if (socketIo) {
+              socketIo.to('admin').emit('chat:reopened', {
+                chatId: chat.id,
+                status: 'ACTIVE',
+                isLocked: false,
+                chat,
+              });
+            }
+          } catch (_) {}
         }
 
         // Check if chat is abandoned by admin

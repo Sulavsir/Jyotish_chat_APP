@@ -9,7 +9,7 @@ import {
   Button,
   LoadingButton,
 } from '@jyotish/ui';
-import { X } from 'lucide-react';
+import { X, Banknote } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth-store';
 import { clientProfileService } from '@/services/clientProfile.service';
@@ -22,11 +22,14 @@ export interface SelectProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (selectedProfileId: string) => void;
-  /** Current selection so the modal shows it as selected when opened (e.g. from Change Profile in chat) */
   defaultSelectedProfileId?: string;
   title?: string;
   confirmLabel?: string;
   isLoading?: boolean;
+  /** Only for "chat with specific jyotish" - do NOT pass for Request Instant Chat */
+  feePerMessageNr?: number;
+  /** Only for "chat with specific jyotish" - do NOT pass for Request Instant Chat */
+  astrologerName?: string;
 }
 
 export function SelectProfileModal({
@@ -37,6 +40,8 @@ export function SelectProfileModal({
   title = 'Select profile',
   confirmLabel = 'Continue',
   isLoading = false,
+  feePerMessageNr,
+  astrologerName,
 }: SelectProfileModalProps) {
   const user = useAuthStore((s) => s.user);
   const [selectedProfileId, setSelectedProfileId] = useState<string>(defaultSelectedProfileId);
@@ -82,6 +87,31 @@ export function SelectProfileModal({
               </button>
             </DialogTitle>
           </DialogHeader>
+
+          {feePerMessageNr != null && feePerMessageNr > 0 && (
+            <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 flex items-start gap-3">
+              <Banknote className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-100">
+                  {astrologerName
+                    ? `${astrologerName} charges NRs ${feePerMessageNr.toLocaleString()} per message`
+                    : `NRs ${feePerMessageNr.toLocaleString()} per message`}
+                </p>
+                <p className="text-xs text-amber-200/80 mt-0.5">
+                  This amount will be deducted when you send your first message.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {feePerMessageNr === 0 && astrologerName && (
+            <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-start gap-3">
+              <Banknote className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-emerald-100">
+                {astrologerName} is appointment-only. No per-message fee for chat.
+              </p>
+            </div>
+          )}
 
           <p className="text-sm text-gray-400 mb-3">
             Whose birth details should be shared with the Jyotish?

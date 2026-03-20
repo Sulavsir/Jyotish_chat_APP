@@ -36,6 +36,7 @@ export const ROUTES = {
   PAYMENT_FAIL: '/payment-fail',
   MY_PAYMENTS: '/my-payments',
   COIN_TRANSACTIONS: '/coins/transactions',
+  TRANSACTIONS: '/transactions',
   ASTROLOGERS: '/astrologers',
   ASTROLOGER_PROFILE: '/astrologers/[id]',
   MY_BOOKINGS: '/my-bookings',

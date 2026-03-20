@@ -1,0 +1,1 @@
+export { PaymentMethodCell } from './PaymentMethodCell';

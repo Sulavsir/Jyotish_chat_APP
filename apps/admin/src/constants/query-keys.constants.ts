@@ -55,6 +55,14 @@ export const ADMIN_QUERY_KEYS = {
         : (['admin', 'earnings', 'astrologers-with-coins'] as const),
   },
 
+  // Payment History (successful payments only)
+  PAYMENT_HISTORY: {
+    LIST: (params?: { page?: number; limit?: number }) =>
+      params
+        ? (['admin', 'payment-history', 'list', params] as const)
+        : (['admin', 'payment-history', 'list'] as const),
+  },
+
   // Coin Rates (Coin Settings)
   COIN_RATES: {
     ALL: ['admin', 'coin-rates'] as const,
@@ -70,15 +78,31 @@ export const ADMIN_QUERY_KEYS = {
   // Horoscopes
   HOROSCOPES: {
     ALL: ['admin', 'horoscopes'] as const,
-    LIST: (params?: { category?: string; zodiacSign?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
-      params ? (['admin', 'horoscopes', 'list', params] as const) : (['admin', 'horoscopes', 'list'] as const),
+    LIST: (params?: {
+      category?: string;
+      zodiacSign?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      page?: number;
+      limit?: number;
+    }) =>
+      params
+        ? (['admin', 'horoscopes', 'list', params] as const)
+        : (['admin', 'horoscopes', 'list'] as const),
     DETAIL: (id: string) => ['admin', 'horoscopes', 'detail', id] as const,
   },
 
   // Tips (Daily Predictions)
   TIPS: {
     ALL: ['admin', 'tips'] as const,
-    LIST: (params?: { language?: string; audience?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
+    LIST: (params?: {
+      language?: string;
+      audience?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      page?: number;
+      limit?: number;
+    }) =>
       params ? (['admin', 'tips', 'list', params] as const) : (['admin', 'tips', 'list'] as const),
     DETAIL: (id: string) => ['admin', 'tips', 'detail', id] as const,
   },
@@ -86,8 +110,16 @@ export const ADMIN_QUERY_KEYS = {
   // Subha Sahit (Auspicious Dates)
   SUBHA_SAHIT: {
     ALL: ['admin', 'subha-sahit'] as const,
-    LIST: (params?: { occasion?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) =>
-      params ? (['admin', 'subha-sahit', 'list', params] as const) : (['admin', 'subha-sahit', 'list'] as const),
+    LIST: (params?: {
+      occasion?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      page?: number;
+      limit?: number;
+    }) =>
+      params
+        ? (['admin', 'subha-sahit', 'list', params] as const)
+        : (['admin', 'subha-sahit', 'list'] as const),
     OCCASIONS: (language?: string) =>
       language
         ? (['admin', 'subha-sahit', 'occasions', language] as const)
@@ -113,23 +145,28 @@ export const ADMIN_QUERY_KEYS = {
   // Jyotish Bookings
   JYOTISH_BOOKINGS: {
     LIST: (filters?: { type?: string; status?: string }) =>
-      filters ? (['admin', 'jyotish-bookings', 'list', filters] as const) : (['admin', 'jyotish-bookings', 'list'] as const),
+      filters
+        ? (['admin', 'jyotish-bookings', 'list', filters] as const)
+        : (['admin', 'jyotish-bookings', 'list'] as const),
   },
 
   // Kundali Match
   KUNDALI_MATCH: {
     ALL: ['admin', 'kundali-match'] as const,
-    LIST: (page?: number) => (page ? ['admin', 'kundali-match', 'list', page] as const : ['admin', 'kundali-match', 'list'] as const),
+    LIST: (page?: number) =>
+      page
+        ? (['admin', 'kundali-match', 'list', page] as const)
+        : (['admin', 'kundali-match', 'list'] as const),
     DETAIL: (id: string) => ['admin', 'kundali-match', 'detail', id] as const,
   },
 
   // Complaints
   COMPLAINTS: {
     ALL: ['admin', 'complaints'] as const,
-    LIST: (filters?: { status?: string; category?: string; priority?: string }) => 
-      filters 
-        ? ['admin', 'complaints', 'list', filters] as const
-        : ['admin', 'complaints', 'list'] as const,
+    LIST: (filters?: { status?: string; category?: string; priority?: string }) =>
+      filters
+        ? (['admin', 'complaints', 'list', filters] as const)
+        : (['admin', 'complaints', 'list'] as const),
     STATS: () => ['admin', 'complaints', 'stats'] as const,
   },
 
@@ -141,8 +178,7 @@ export const ADMIN_QUERY_KEYS = {
     UNREAD_COUNT: () => ['admin', 'admin-chat', 'unread-count'] as const,
     MESSAGES: (id: string, params?: { page?: number; limit?: number }) =>
       params
-        ? ['admin', 'admin-chat', 'messages', id, params] as const
-        : ['admin', 'admin-chat', 'messages', id] as const,
+        ? (['admin', 'admin-chat', 'messages', id, params] as const)
+        : (['admin', 'admin-chat', 'messages', id] as const),
   },
 } as const;
-

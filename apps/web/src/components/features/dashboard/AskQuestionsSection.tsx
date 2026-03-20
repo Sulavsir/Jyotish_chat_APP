@@ -60,6 +60,10 @@ export function AskQuestionsSection() {
   const { socket, isConnected } = useSocket();
   const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
   const [selectedAstrologerId, setSelectedAstrologerId] = useState<string>('');
+  const [selectedAstrologer, setSelectedAstrologer] =
+    useState<{ name: string; category: AstrologerCategory; chatMessageFee?: number | null } | null>(
+      null
+    );
   const [selectedAstrologerCategory, setSelectedAstrologerCategory] =
     useState<AstrologerCategory | null>(null);
   const { setShowExtraInfoCards } = useAskQuestionsLayoutStore();
@@ -296,9 +300,12 @@ export function AskQuestionsSection() {
 
   const handleAstrologerSelect = (
     astrologerId: string,
-    astrologer?: { category: AstrologerCategory; chatMessageFee?: number | null }
+    astrologer?: { name: string; category: AstrologerCategory; chatMessageFee?: number | null }
   ) => {
     setSelectedAstrologerId(astrologerId);
+    setSelectedAstrologer(
+      astrologer ? { name: astrologer.name, category: astrologer.category, chatMessageFee: astrologer.chatMessageFee } : null
+    );
     setSelectedAstrologerCategory(astrologer?.category ?? null);
     setSelectedAstrologerFee(
       astrologer && astrologer.chatMessageFee && astrologer.chatMessageFee > 0
@@ -312,6 +319,7 @@ export function AskQuestionsSection() {
 
   const handleAstrologerClear = () => {
     setSelectedAstrologerId('');
+    setSelectedAstrologer(null);
     setSelectedAstrologerCategory(null);
     setSelectedAstrologerFee(null);
     setDirectCategory('');
@@ -1068,6 +1076,8 @@ export function AskQuestionsSection() {
         onConfirm={handleDirectProfileConfirm}
         title={t('selectProfile')}
         confirmLabel={t('startChat')}
+        feePerMessageNr={requiredCoinsDirect}
+        astrologerName={selectedAstrologer?.name}
       />
 
       {/* Your Payment Details — always shown before publishing */}

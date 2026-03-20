@@ -10,6 +10,7 @@ import type {
   AddCoinsRequest,
   AddCoinsResponse,
   PlatformCoinRates,
+  TransactionHistoryResponse,
 } from '@/types/coin.types';
 
 class CoinService {
@@ -37,24 +38,14 @@ class CoinService {
   }
 
   /**
-   * Get transaction history
+   * Get transaction history with optional filter
+   * Filter: payment_success | admin_added | app_used
    */
-  async getTransactionHistory(params?: { limit?: number; offset?: number }): Promise<{
-    transactions: Array<{
-      id: string;
-      userId: string;
-      amount: number;
-      type: string;
-      reason: string;
-      balanceBefore: number;
-      balanceAfter: number;
-      chatId?: string;
-      paymentId?: string;
-      adminId?: string;
-      createdAt: Date;
-    }>;
-    total: number;
-  }> {
+  async getTransactionHistory(params?: {
+    page?: number;
+    limit?: number;
+    filter?: 'payment_success' | 'admin_added' | 'app_used';
+  }): Promise<TransactionHistoryResponse> {
     return apiClient.get(API_ENDPOINTS.COINS.TRANSACTIONS, { params });
   }
 }

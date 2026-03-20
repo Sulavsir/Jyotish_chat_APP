@@ -724,7 +724,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               // Only the LAST message of each batch should render the birth-details card.
               // For non-batch messages let MessageBubble decide (undefined = auto).
               let showBirthDetails: boolean | undefined = undefined;
-              const msgMeta = (regularMessage.metadata as Record<string, unknown> | undefined) ?? {};
+              const msgMeta =
+                (regularMessage.metadata as Record<string, unknown> | undefined) ?? {};
               const batchId = typeof msgMeta.batchId === 'string' ? msgMeta.batchId : null;
               const isOriginalBroadcast = msgMeta.originalBroadcast === true;
 
