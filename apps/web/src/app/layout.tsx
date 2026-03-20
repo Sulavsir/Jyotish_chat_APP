@@ -8,13 +8,14 @@ import { AuthProvider } from '@/providers/auth-provider';
 import { NepaliDateProvider } from '@/providers/nepali-date-provider';
 import { AdminChatWidget } from '@/components/widgets/AdminChatWidget';
 import { PaymentRedirectHandler } from '@/components/payment/PaymentRedirectHandler';
+import { JsonLd } from '@/components/seo/JsonLd';
 
 const inter = Inter({ subsets: ['latin'] });
 
 // Define metadataBase as a constant to ensure it's always available
 const getMetadataBase = (): URL => {
-  if (process.env.NEXT_PUBLIC_WEB_URL) {
-    return new URL(process.env.NEXT_PUBLIC_WEB_URL);
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL);
   }
   if (process.env.NEXT_PUBLIC_API_URL) {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL.replace('/api', '');
@@ -23,44 +24,62 @@ const getMetadataBase = (): URL => {
   return new URL('http://localhost:3000');
 };
 
+const SITE_NAME = 'Chat Jyotishi';
+const SITE_TITLE = 'Chat Jyotishi (CJ) - Online Astrology Consultation Nepal';
+const SITE_DESCRIPTION =
+  'Chat Jyotishi - Connect with verified Nepali astrologers for real-time chat, horoscope, kundali, and astrology consultation. Best jyotish chat platform in Nepal.';
+
 export const metadata: Metadata = {
   title: {
-    default: 'Chat Jyotishi (CJ) - Astrology Consultation Platform',
+    default: SITE_TITLE,
     template: '%s | Chat Jyotishi',
   },
-  description:
-    'Chat Jyotishi (CJ) lets you connect with professional astrologers for real-time consultations, instant chat, and personalized horoscopes.',
+  description: SITE_DESCRIPTION,
   keywords: [
-    'Chat Jyotishi',
-    'CJ',
-    'online astrology',
-    'astrologer chat',
-    'horoscope',
-    'kundli',
-    'jyotish consultation',
-    'Chat Jyotishi',
+    'chatjyotishi',
+    'chat jyotishi',
+    'jyotish chat nepal',
+    'jyotishchat nepal',
     'jyotish chat',
+    'online astrology nepal',
+    'astrologer chat nepal',
+    'nepali astrologer',
+    'horoscope nepal',
+    'rashifal',
+    'kundali nepal',
+    'kundli match',
     'jyotish consultation',
-    'jyotish chat',
-    'Chat Jyotishi autonomous technology',
-    'autonomous technology',
-    'Autonomous Technology',
+    'astrology consultation nepal',
+    'chat with astrologer',
+    'best astrology app nepal',
+    'verified astrologers nepal',
   ],
-  applicationName: 'Chat Jyotishi',
+  applicationName: SITE_NAME,
   metadataBase: getMetadataBase(),
   openGraph: {
-    title: 'Chat Jyotishi (CJ) - Astrology Consultation Platform',
-    description:
-      'Talk to verified astrologers in real-time, get instant guidance, and manage your consultations in one place.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: '/',
-    siteName: 'Chat Jyotishi',
+    siteName: SITE_NAME,
     type: 'website',
+    locale: 'en_NP',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Chat Jyotishi (CJ) - Astrology Consultation Platform',
-    description:
-      'Talk to verified astrologers in real-time, get instant guidance, and manage your consultations in one place.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  verification: {
+    // Add when you have them: google: 'your-google-verification-code',
+    // yandex: 'your-yandex-verification-code',
   },
   icons: {
     icon: [
@@ -75,6 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={inter.className}>
+        <JsonLd />
         <QueryProvider>
           <AuthProvider>
             <NepaliDateProvider>

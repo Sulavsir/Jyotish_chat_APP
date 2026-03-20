@@ -1,11 +1,7 @@
-# Allow all crawlers
+# Static fallback - dynamic robots.ts in app/ takes precedence when built
+# See apps/web/src/app/robots.ts for dynamic rules and sitemap
 User-agent: *
 Allow: /
-
-# Disallow admin pages
 Disallow: /admin/
 Disallow: /api/
-
-# Sitemap
-Sitemap: https://yourdomain.com/sitemap.xml
 
