@@ -91,7 +91,7 @@ export function AskQuestionsSection() {
     firstBroadcastDiscountPct: number;
     breakdown: import('@/types/broadcast').BroadcastPriceBreakdownEntry[];
     remainingNr: number;
-    questions: { id: string; text: string }[];
+    questions: { id: string; text: string; isCustom?: boolean }[];
     isTextOnly?: boolean;
     textMessage?: string;
   } | null>(null);
