@@ -35,7 +35,4 @@ CREATE INDEX "KundaliMatchRequest_createdAt_idx" ON "KundaliMatchRequest"("creat
 ALTER TABLE "KundaliMatchRequest" ADD CONSTRAINT "KundaliMatchRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "KundaliMatchRequest" ADD CONSTRAINT "KundaliMatchRequest_reviewedByAdminId_fkey" FOREIGN KEY ("reviewedByAdminId") REFERENCES "Admin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Insert default KUNDALI_MATCH coin rate (300)
-INSERT INTO "PlatformCoinRate" ("id", "rateType", "coins", "description", "createdAt", "updatedAt")
-VALUES (gen_random_uuid(), 'KUNDALI_MATCH', 300, 'Coins for Kundali Match request', NOW(), NOW())
-ON CONFLICT ("rateType") DO NOTHING;
+-- Note: INSERT for KUNDALI_MATCH moved to next migration (PostgreSQL enum ADD VALUE must commit first).

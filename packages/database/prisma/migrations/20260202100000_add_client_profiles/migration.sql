@@ -1,3 +1,6 @@
+-- CreateEnum (Gender was missing - used by ClientProfile and User/Astrologer)
+CREATE TYPE "Gender" AS ENUM ('MALE', 'FEMALE', 'OTHER');
+
 -- CreateTable
 CREATE TABLE "ClientProfile" (
     "id" TEXT NOT NULL,

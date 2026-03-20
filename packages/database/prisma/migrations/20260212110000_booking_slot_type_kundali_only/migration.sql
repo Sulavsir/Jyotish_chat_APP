@@ -3,7 +3,8 @@
 UPDATE "Appointment" SET "bookingType" = 'KUNDALI_REVIEW' WHERE "bookingType" = 'APPOINTMENT';
 UPDATE "AstrologerSlot" SET "slotType" = 'KUNDALI_REVIEW' WHERE "slotType" = 'APPOINTMENT';
 
--- Step 2: BookingType - convert to text, drop enum, create new enum, convert back.
+-- Step 2: BookingType - drop default, convert to text, drop enum, create new enum, convert back.
+ALTER TABLE "Appointment" ALTER COLUMN "bookingType" DROP DEFAULT;
 ALTER TABLE "Appointment" ALTER COLUMN "bookingType" TYPE text;
 DROP TYPE "BookingType";
 CREATE TYPE "BookingType" AS ENUM ('KUNDALI_REVIEW');

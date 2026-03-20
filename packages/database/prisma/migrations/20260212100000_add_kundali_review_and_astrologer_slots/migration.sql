@@ -48,7 +48,5 @@ ALTER TABLE "AstrologerSlot" ADD CONSTRAINT "AstrologerSlot_astrologerId_fkey" F
 -- AddForeignKey: AstrologerSlot -> Appointment
 ALTER TABLE "AstrologerSlot" ADD CONSTRAINT "AstrologerSlot_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "Appointment"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Insert default KUNDALI_REVIEW coin rate
-INSERT INTO "PlatformCoinRate" ("id", "rateType", "coins", "description", "createdAt", "updatedAt")
-VALUES (gen_random_uuid(), 'KUNDALI_REVIEW', 500, 'Coins for Full Kundali Review', NOW(), NOW())
-ON CONFLICT ("rateType") DO NOTHING;
+-- Note: INSERT for KUNDALI_REVIEW moved to 20260212100001 - PostgreSQL cannot use
+-- a newly added enum value in the same transaction (ADD VALUE must commit first).

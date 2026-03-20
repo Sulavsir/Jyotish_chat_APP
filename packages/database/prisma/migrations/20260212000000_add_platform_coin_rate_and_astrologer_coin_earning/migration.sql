@@ -1,8 +1,37 @@
 -- CreateEnum
+CREATE TYPE "CoinTransactionType" AS ENUM ('DEDUCT', 'ADD', 'REFUND');
+CREATE TYPE "CoinTransactionReason" AS ENUM ('CHAT_ORDINARY', 'CHAT_PREMIUM', 'PURCHASE', 'REFUND', 'ADMIN_ADJUSTMENT', 'PAYMENT_SUCCESS');
+
+-- CreateEnum
 CREATE TYPE "PlatformCoinRateType" AS ENUM ('CHAT_PER_MESSAGE', 'BROADCAST_PER_MESSAGE', 'BROADCAST_SEND', 'APPOINTMENT');
 
 -- CreateEnum
 CREATE TYPE "AstrologerCoinEarningSource" AS ENUM ('CHAT_MESSAGE', 'BROADCAST_MESSAGE', 'APPOINTMENT');
+
+-- CreateTable (CoinTransaction was missing - required for coin ledger)
+CREATE TABLE "CoinTransaction" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "amount" INTEGER NOT NULL,
+    "type" "CoinTransactionType" NOT NULL,
+    "reason" "CoinTransactionReason" NOT NULL,
+    "balanceBefore" INTEGER NOT NULL,
+    "balanceAfter" INTEGER NOT NULL,
+    "chatId" TEXT,
+    "paymentId" TEXT,
+    "adminId" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CoinTransaction_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "CoinTransaction_userId_idx" ON "CoinTransaction"("userId");
+CREATE INDEX "CoinTransaction_type_idx" ON "CoinTransaction"("type");
+CREATE INDEX "CoinTransaction_reason_idx" ON "CoinTransaction"("reason");
+CREATE INDEX "CoinTransaction_createdAt_idx" ON "CoinTransaction"("createdAt");
+CREATE INDEX "CoinTransaction_chatId_idx" ON "CoinTransaction"("chatId");
+CREATE INDEX "CoinTransaction_paymentId_idx" ON "CoinTransaction"("paymentId");
+ALTER TABLE "CoinTransaction" ADD CONSTRAINT "CoinTransaction_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- CreateTable
 CREATE TABLE "PlatformCoinRate" (

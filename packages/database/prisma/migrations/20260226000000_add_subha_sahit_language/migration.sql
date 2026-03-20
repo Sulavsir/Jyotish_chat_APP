@@ -1,19 +1,19 @@
--- Add SubhaSahitLanguage enum and language column to SubhaSahitDate
+-- CreateEnum
+CREATE TYPE "SubhaSahitLanguage" AS ENUM ('EN', 'NE', 'HI');
 
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'SubhaSahitLanguage') THEN
-    CREATE TYPE "SubhaSahitLanguage" AS ENUM ('EN', 'NE', 'HI');
-  END IF;
-END$$;
+-- CreateTable (SubhaSahitDate was missing - this migration originally only added language)
+CREATE TABLE "SubhaSahitDate" (
+    "id" TEXT NOT NULL,
+    "date" DATE NOT NULL,
+    "language" "SubhaSahitLanguage" NOT NULL DEFAULT 'EN',
+    "occasion" TEXT NOT NULL,
+    "description" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-ALTER TABLE "SubhaSahitDate"
-  ADD COLUMN IF NOT EXISTS "language" "SubhaSahitLanguage" NOT NULL DEFAULT 'EN';
-
--- Update existing indexes to include language dimension
-DROP INDEX IF EXISTS "SubhaSahitDate_date_isActive_idx";
-DROP INDEX IF EXISTS "SubhaSahitDate_occasion_idx";
-DROP INDEX IF EXISTS "SubhaSahitDate_date_occasion_isActive_idx";
+    CONSTRAINT "SubhaSahitDate_pkey" PRIMARY KEY ("id")
+);
 
 CREATE INDEX "SubhaSahitDate_date_language_isActive_idx" ON "SubhaSahitDate"("date", "language", "isActive");
 CREATE INDEX "SubhaSahitDate_occasion_language_idx" ON "SubhaSahitDate"("occasion", "language");
