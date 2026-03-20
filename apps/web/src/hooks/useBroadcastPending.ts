@@ -41,6 +41,8 @@ export interface UseBroadcastPendingOptions {
     astrologer?: { name?: string };
   }) => void;
   onInsufficientCoins?: (requiredCoins: number) => void;
+  /** When false (from dashboard stats), skip initial my-messages fetch on mount */
+  hasPendingBroadcast?: boolean;
 }
 
 export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
@@ -277,10 +279,10 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
     return () => clearInterval(interval);
   }, [pendingMessage]);
 
-  // Sync pending state on mount
+  // Sync pending state on mount (skip when stats says no pending - avoids redundant my-messages call)
   useEffect(() => {
-    // userId comes from auth; we need to run when connected. We don't have userId in deps easily, so rely on isConnected.
     if (!isConnected) return;
+    if (options.hasPendingBroadcast === false) return;
     let cancelled = false;
     broadcastMessageService
       .getMyMessages()
@@ -302,7 +304,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected]);
+  }, [isConnected, options.hasPendingBroadcast]);
 
   return {
     isSending,

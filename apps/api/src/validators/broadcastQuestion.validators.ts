@@ -8,7 +8,10 @@ import { z } from 'zod';
 // A question item can be a real DB question (uuid id) or a custom typed question (custom:N id)
 const questionItemSchema = z.object({
   id: z.string().min(1, 'Question ID is required'),
-  text: z.string().min(1, 'Question text is required').max(2000),
+  text: z
+    .string()
+    .min(1, 'Question text is required')
+    .max(300, 'Question text cannot exceed 300 characters'),
   isCustom: z.boolean().optional(),
 });
 
@@ -16,11 +19,16 @@ export const prepareBroadcastQuestionsBodySchema = z
   .object({
     questionIds: z
       .array(z.string().uuid('Invalid question ID'))
-      .max(50, 'Maximum 50 questions per batch')
+      .max(40, 'Maximum 40 questions per batch')
       .default([]),
     customTexts: z
-      .array(z.string().min(1, 'Custom question text cannot be empty').max(2000))
-      .max(50, 'Maximum 50 custom questions per batch')
+      .array(
+        z
+          .string()
+          .min(1, 'Custom question text cannot be empty')
+          .max(60, 'Question cannot exceed 60 characters')
+      )
+      .max(10, 'Maximum 10 custom questions per batch')
       .default([]),
   })
   .refine((data) => data.questionIds.length + data.customTexts.length >= 1, {
@@ -34,7 +42,7 @@ export const sendBroadcastQuestionsBodySchema = z.object({
   questionItems: z
     .array(questionItemSchema)
     .min(1, 'At least one question is required')
-    .max(50, 'Maximum 50 questions per batch'),
+    .max(40, 'Maximum 40 questions per batch'),
   totalNr: z.number().int().min(0, 'Total NRs must be non-negative'),
   birthDetails: z
     .object({

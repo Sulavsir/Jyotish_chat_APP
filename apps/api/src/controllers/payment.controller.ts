@@ -143,6 +143,33 @@ export async function verifyPayment(req: AuthRequest, res: Response, next: NextF
 }
 
 /**
+ * GET /api/v1/payments/my-payments
+ * Client: list only successful payments (SUCCESS only; excludes pending/failed/refunded).
+ */
+export async function getMySuccessfulPayments(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Unauthorized', HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    const query = req.query as { page?: number; limit?: number };
+    const page = query.page;
+    const limit = query.limit;
+
+    const result = await paymentService.getMySuccessfulPayments(userId, { page, limit });
+
+    return sendSuccess(res, {
+      payments: result.payments,
+      pagination: result.pagination,
+      message: 'Successful payments retrieved successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * POST /api/v1/payments/create-fonepay-qr-order
  * Create Fonepay QR order (Payment PENDING + generate QR). Returns prn, qrMessage, websocketUrl.
  */

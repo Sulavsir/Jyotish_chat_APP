@@ -69,3 +69,25 @@ export interface CreateFonepayCardOrderResponse {
   orderId: string;
   redirectUrl: string;
 }
+
+export interface SuccessfulPaymentItem {
+  id: string;
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  transactionId: string | null;
+  status: string;
+  createdAt: string;
+  metadata: unknown;
+}
+
+export interface MySuccessfulPaymentsResponse {
+  payments: SuccessfulPaymentItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  message?: string;
+}

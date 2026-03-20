@@ -427,7 +427,7 @@ export function RequestInstantChatModal({
                       value={messageText}
                       onChange={(e) => {
                         setMessageError('');
-                        setMessageText(e.target.value);
+                        setMessageText(e.target.value.slice(0, 300));
                       }}
                       placeholder={
                         hasQuestionsSelected
@@ -435,13 +435,15 @@ export function RequestInstantChatModal({
                           : 'Type your question...'
                       }
                       rows={3}
-                      maxLength={500}
+                      maxLength={300}
                       className="min-h-[80px] resize-none"
                     />
                     {messageError && (
                       <p className="text-xs text-red-400 mt-1">{messageError}</p>
                     )}
-                    <p className="text-xs text-gray-500 mt-0.5">{messageText.length}/500</p>
+                    <p className={`text-xs mt-0.5 text-right ${messageText.length >= 280 ? 'text-red-400' : 'text-gray-500'}`}>
+                      {messageText.length}/300
+                    </p>
                   </div>
               </div>
 

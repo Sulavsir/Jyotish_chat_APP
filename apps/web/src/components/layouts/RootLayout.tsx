@@ -13,7 +13,7 @@ interface RootLayoutProps {
 
 export function RootLayout({ children }: RootLayoutProps) {
   const { isAuthenticated } = useAuth();
-  
+
   // Initialize WebSocket connection if authenticated
   useSocket();
 
@@ -23,4 +23,3 @@ export function RootLayout({ children }: RootLayoutProps) {
 
   return <>{children}</>;
 }
-

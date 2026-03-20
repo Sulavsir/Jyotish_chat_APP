@@ -78,23 +78,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <AuthProvider>
             <NepaliDateProvider>
-            <Suspense fallback={null}>
-              <PaymentRedirectHandler />
-            </Suspense>
-            {children}
-            <AdminChatWidget />
-            <Toaster position="top-right" richColors />
-            {/* Fixed portal root for dropdowns (e.g. Language select) so they stay visible when scrolling */}
-            <div
-              id="dropdown-portal-root"
-              aria-hidden
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 99999,
-                pointerEvents: 'none',
-              }}
-            />
+              <Suspense fallback={null}>
+                <PaymentRedirectHandler />
+              </Suspense>
+              {children}
+              <AdminChatWidget />
+              <Toaster position="top-right" richColors />
+              {/* Fixed portal root for dropdowns (e.g. Language select) so they stay visible when scrolling */}
+              <div
+                id="dropdown-portal-root"
+                aria-hidden
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 99999,
+                  pointerEvents: 'none',
+                }}
+              />
             </NepaliDateProvider>
           </AuthProvider>
         </QueryProvider>

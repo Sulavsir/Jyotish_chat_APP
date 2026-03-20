@@ -157,6 +157,7 @@ function AstrologerProfileContent() {
                     <SendMessageButton
                       astrologerId={astrologer.id}
                       astrologerName={astrologer.name}
+                      chatMessageFee={astrologer.chatMessageFee}
                       className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-500 hover:via-pink-500 hover:to-red-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                     />
                     {/* Show Book Appointment only for PROFESSIONAL and PREMIUM astrologers (not ORDINARY) */}

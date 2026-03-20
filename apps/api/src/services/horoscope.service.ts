@@ -31,6 +31,88 @@ export class HoroscopeService {
     };
   }
 
+  private horoscopesBatchCache = new Map<
+    string,
+    { expiresAt: number; value: HoroscopeResponse[] }
+  >();
+
+  private getNoHoroscopeMessage(category: HoroscopeCategory): string {
+    switch (category) {
+      case HoroscopeCategory.DAILY:
+        return 'No horoscope available for this date. Check back later.';
+      case HoroscopeCategory.WEEKLY:
+        return 'No weekly horoscope available for this period. Check back later.';
+      case HoroscopeCategory.MONTHLY:
+        return 'No monthly horoscope available for this month. Check back later.';
+      case HoroscopeCategory.YEARLY:
+        return 'No yearly horoscope available for this year. Check back later.';
+      default:
+        return 'No horoscope available for this period. Check back later.';
+    }
+  }
+
+  /**
+   * Get horoscopes for all zodiac signs in one DB query.
+   * This removes the 12x per-filter client request pattern.
+   */
+  async getHoroscopesBatch(
+    category: HoroscopeCategory,
+    date?: Date,
+    language?: QuestionnaireLanguage
+  ): Promise<HoroscopeResponse[]> {
+    const targetDate = date ? new Date(date) : new Date();
+    const canonical = getCanonicalDateForCategory(category, targetDate);
+    const lang = language ?? DEFAULT_HOROSCOPE_LANGUAGE;
+
+    const signs = HOROSCOPE_CONFIG.VALID_ZODIAC_SIGNS.map((s) => s.toUpperCase());
+    const canonicalKey =
+      canonical instanceof Date ? canonical.toISOString().slice(0, 10) : new Date(canonical).toISOString().slice(0, 10);
+    const cacheKey = `${category}:${canonicalKey}:${lang}`;
+
+    const cached = this.horoscopesBatchCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+    const rows = await prisma.horoscope.findMany({
+      where: {
+        zodiacSign: { in: signs as any },
+        category,
+        date: canonical,
+        language: lang,
+      },
+      select: {
+        zodiacSign: true,
+        date: true,
+        content: true,
+        category: true,
+      },
+    });
+
+    const contentBySign = new Map<string, { date: Date; content: string; category: HoroscopeCategory }>();
+    for (const row of rows) {
+      contentBySign.set(row.zodiacSign as string, {
+        date: row.date,
+        content: row.content,
+        category: row.category as HoroscopeCategory,
+      });
+    }
+
+    const noMessage = this.getNoHoroscopeMessage(category);
+    const result = signs.map((sign) => {
+      const hit = contentBySign.get(sign);
+      if (hit) {
+        return this.toResponse(sign, hit.date, hit.content, hit.category);
+      }
+      return this.toResponse(sign, canonical, noMessage, category);
+    });
+
+    this.horoscopesBatchCache.set(cacheKey, {
+      expiresAt: Date.now() + 5000,
+      value: result,
+    });
+
+    return result;
+  }
+
   /**
    * Get daily horoscope for a zodiac sign (from DB), optionally by language
    */

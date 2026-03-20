@@ -34,11 +34,13 @@ export const ROUTES = {
   PAYMENT: '/payment',
   PAYMENT_SUCCESS: '/payment-success',
   PAYMENT_FAIL: '/payment-fail',
+  MY_PAYMENTS: '/my-payments',
   COIN_TRANSACTIONS: '/coins/transactions',
   ASTROLOGERS: '/astrologers',
   ASTROLOGER_PROFILE: '/astrologers/[id]',
   MY_BOOKINGS: '/my-bookings',
   APPOINTMENTS: '/appointments',
+  SUPPORT: '/support',
 
   // Jyotish (Astrologer) Routes
   JYOTISH_DASHBOARD: '/jyotish/dashboard',

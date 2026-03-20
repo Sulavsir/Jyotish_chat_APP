@@ -20,3 +20,4 @@ export * as tipController from './tip.controller';
 export * as adminHoroscopeController from './adminHoroscope.controller';
 export * as subhaSahitController from './subha-sahit.controller';
 export * as nepaliDateController from './nepali-date.controller';
+export * as clientDashboardController from './clientDashboardController';

@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
 import { useTranslations } from '@/hooks/useTranslations';
+import { useClientDashboard } from '@/providers/ClientDashboardProvider';
 import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
@@ -135,6 +136,7 @@ export function AskQuestionsSection() {
   const showInsufficientCoinsBanner =
     !!selectedAstrologerId && requiredCoinsDirect > 0 && coinBalance < requiredCoinsDirect;
 
+  const { stats } = useClientDashboard() ?? {};
   const {
     isSending,
     setIsSending,
@@ -145,6 +147,7 @@ export function AskQuestionsSection() {
     clearWaiting,
     handleCancelRequest,
   } = useBroadcastPending({
+    hasPendingBroadcast: stats?.hasPendingBroadcast,
     onAccepted: (data) => {
       setBroadcastMessage('');
       setBroadcastQuestion('');
@@ -158,11 +161,13 @@ export function AskQuestionsSection() {
     },
   });
 
-  // Load question categories and questions from backend (admin-managed), filtered by selected language
+  // Load question categories when user interacts with Ask Questions (direct or broadcast tab)
+  const needsQuestionnaires = mode === 'direct' || mode === 'broadcast';
   const { data: questionnairesData } = useQuery({
     queryKey: [QUERY_KEYS.PUBLIC_QUESTIONNAIRES(questionnaireLanguage)],
     queryFn: () => questionnaireService.listPublic(questionnaireLanguage),
     staleTime: 5 * 60 * 1000,
+    enabled: needsQuestionnaires,
   });
 
   const questionCategories: QuestionnaireCategory[] = React.useMemo(
@@ -244,10 +249,13 @@ export function AskQuestionsSection() {
     },
   });
 
-  // Client profiles (Me + family/friends) for profile selection in direct and broadcast
+  // Client profiles - defer until user needs to select (broadcast tab or direct + about to send)
+  const needsProfiles =
+    mode === 'broadcast' || (mode === 'direct' && !!selectedAstrologerId);
   const { data: profilesData } = useQuery({
     queryKey: QUERY_KEYS.USERS.PROFILES,
     queryFn: () => clientProfileService.list(),
+    enabled: needsProfiles,
   });
   const familyProfiles = profilesData?.profiles ?? [];
 
@@ -964,13 +972,17 @@ export function AskQuestionsSection() {
                   value={broadcastMessage}
                   onChange={(e) => {
                     setBroadcastMessageError('');
-                    handleBroadcastMessageChange(e.target.value);
+                    handleBroadcastMessageChange(e.target.value.slice(0, 300));
                   }}
                   placeholder={
                     broadcastQuestion ? broadcastQuestion : t('typeQuestionToPublishPlaceholder')
                   }
+                  maxLength={300}
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
                 />
+                <p className={`text-xs mt-0.5 text-right ${broadcastMessage.length >= 280 ? 'text-red-400' : 'text-gray-500'}`}>
+                  {broadcastMessage.length}/300
+                </p>
                 {broadcastMessageError && (
                   <p className="text-xs text-red-400 mt-1">{broadcastMessageError}</p>
                 )}

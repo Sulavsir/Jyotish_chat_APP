@@ -19,11 +19,18 @@ const FALLBACK_TIPS = [
 ];
 
 interface DashboardTipProps {
-  audience?: TipAudience; // 'JYOTISH' | 'CLIENT'
+  tipText?: string;
+  skipFetch?: boolean;
+  audience?: TipAudience;
   className?: string;
 }
 
-export function DashboardTip({ audience = 'JYOTISH', className }: DashboardTipProps) {
+export function DashboardTip({
+  tipText: tipTextProp,
+  skipFetch = false,
+  audience = 'JYOTISH',
+  className,
+}: DashboardTipProps) {
   const language = useQuestionnaireLanguageStore((s) => s.language);
 
   const { data, isLoading, isError } = useQuery({
@@ -31,9 +38,10 @@ export function DashboardTip({ audience = 'JYOTISH', className }: DashboardTipPr
     queryFn: () => tipService.getTodayTips(audience, language),
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    enabled: !tipTextProp && !skipFetch,
   });
 
-  const apiTip = data?.tips?.[0]?.text;
+  const apiTip = tipTextProp ?? data?.tips?.[0]?.text;
   const fallbackTip =
     !apiTip && !isError ? FALLBACK_TIPS[new Date().getDate() % FALLBACK_TIPS.length] : undefined;
   const tipText = apiTip || fallbackTip;
@@ -43,7 +51,12 @@ export function DashboardTip({ audience = 'JYOTISH', className }: DashboardTipPr
   }
 
   return (
-    <Card className={cn('bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/20 rounded-xl overflow-hidden', className)}>
+    <Card
+      className={cn(
+        'bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-500/20 rounded-xl overflow-hidden',
+        className
+      )}
+    >
       <CardContent className="p-4 md:p-5">
         <div className="flex gap-3">
           <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
@@ -54,7 +67,7 @@ export function DashboardTip({ audience = 'JYOTISH', className }: DashboardTipPr
               <Sparkles className="h-3.5 w-3.5" />
               Tip for today
             </p>
-            {isLoading ? (
+            {!tipTextProp && !skipFetch && isLoading ? (
               <div className="flex items-center gap-2 text-amber-300/80 text-sm">
                 <Spinner className="h-4 w-4" />
                 Loading daily tip...

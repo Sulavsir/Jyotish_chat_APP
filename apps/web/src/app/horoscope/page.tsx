@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { DateInput, Spinner } from '@jyotish/ui';
 import { QUERY_KEYS, ROUTES } from '@/constants';
@@ -60,24 +60,24 @@ export default function HoroscopePage() {
   const dateParam = useMemo(() => toDateParam(category, periodDate), [category, periodDate]);
   const periodLabel = formatPeriodLabel(category, periodDate);
 
-  // Fetch all horoscopes for grid display
-  const queries = useQueries({
-    queries: ZODIAC_SIGNS.map((sign) => ({
-      queryKey: QUERY_KEYS.HOROSCOPE.GET(sign.value, category, dateParam, language),
-      queryFn: () =>
-        horoscopeService.getHoroscope({
-          zodiacSign: sign.value,
-          category,
-          date: dateParam,
-          language,
-        }),
-      staleTime: 5 * 60 * 1000,
-    })),
+  // Fetch all horoscopes for grid display in one call.
+  const { data: batchData, isLoading } = useQuery({
+    queryKey: QUERY_KEYS.HOROSCOPE.BATCH(category, dateParam, language),
+    queryFn: () =>
+      horoscopeService.getHoroscopesBatch({
+        category,
+        date: dateParam,
+        language,
+      }),
+    staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = queries.some((q) => q.isLoading);
-  const selectedIndex = selectedSign ? ZODIAC_SIGNS.findIndex((s) => s.value === selectedSign) : -1;
-  const selectedHoroscope = selectedIndex >= 0 ? queries[selectedIndex]?.data?.horoscope : null;
+  const horoscopesBySign = useMemo(() => {
+    const list = batchData?.horoscopes ?? [];
+    return new Map(list.map((h) => [h.zodiacSign, h]));
+  }, [batchData]);
+
+  const selectedHoroscope = selectedSign ? horoscopesBySign.get(selectedSign) ?? null : null;
   const selectedSignMeta = useMemo(
     () => (selectedSign ? ZODIAC_SIGNS.find((s) => s.value === selectedSign) : null),
     [selectedSign]
@@ -234,9 +234,8 @@ export default function HoroscopePage() {
 
             {!isLoading && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {ZODIAC_SIGNS.map((sign, i) => {
-                  const { data, isFetching } = queries[i] ?? {};
-                  const prediction = data?.horoscope?.prediction ?? '';
+                {ZODIAC_SIGNS.map((sign) => {
+                  const prediction = horoscopesBySign.get(sign.value)?.prediction ?? '';
                   const label = getRashiDisplayName(sign.value, language);
                   const isSelected = selectedSign === sign.value;
 
@@ -263,28 +262,21 @@ export default function HoroscopePage() {
                           </div>
                         </div>
 
-                        {isFetching ? (
-                          <div className="flex items-center gap-2 text-gray-500 py-4">
-                            <Spinner className="h-4 w-4" />
-                            <span className="text-sm">Loading...</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <p className="text-sm text-gray-300 leading-relaxed line-clamp-5">
-                              {prediction || (
-                                <span className="text-gray-500 italic">
-                                  No horoscope available for this period.
-                                </span>
-                              )}
-                            </p>
-                            {prediction && (
-                              <div className="flex items-center gap-2 text-xs text-purple-400">
-                                <Sun className="h-3.5 w-3.5" />
-                                <span>{category} Prediction</span>
-                              </div>
+                        <div className="space-y-3">
+                          <p className="text-sm text-gray-300 leading-relaxed line-clamp-5">
+                            {prediction || (
+                              <span className="text-gray-500 italic">
+                                No horoscope available for this period.
+                              </span>
                             )}
-                          </div>
-                        )}
+                          </p>
+                          {prediction && (
+                            <div className="flex items-center gap-2 text-xs text-purple-400">
+                              <Sun className="h-3.5 w-3.5" />
+                              <span>{category} Prediction</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </button>
                   );

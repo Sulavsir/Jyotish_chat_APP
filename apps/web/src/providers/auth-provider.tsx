@@ -9,6 +9,12 @@ import { LoadingScreen } from '@/components/ui';
 import { ROUTES, USER_ROLES } from '@/constants';
 import type { User } from '@/types/auth';
 
+// Dedupe the initial session validation fetch across strict-mode remounts.
+let sharedAuthInitPromise: Promise<void> | null = null;
+let sharedAuthInitKey: 'astro' | 'client' | null = null;
+let sharedAuthInitStartedAt = 0;
+const AUTH_INIT_DEDUPE_MS = 5000;
+
 // Public routes that don't need authentication check
 const PUBLIC_ROUTES = [
   ROUTES.HOME,
@@ -60,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check if this is an astrologer route
       const isAstrologerRoute = pathname?.startsWith('/jyotish');
+      const authInitKey: 'astro' | 'client' = isAstrologerRoute ? 'astro' : 'client';
 
       // If user is already in store, check if their role matches the route
       if (currentUser) {
@@ -96,21 +103,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // For protected routes, validate session by fetching user/astrologer profile
       try {
-        let fetchedUser;
+        const shouldReuseShared =
+          sharedAuthInitPromise &&
+          sharedAuthInitKey === authInitKey &&
+          Date.now() - sharedAuthInitStartedAt < AUTH_INIT_DEDUPE_MS;
 
-        if (isAstrologerRoute) {
-          // Fetch astrologer profile for jyotish routes
-          const astrologer = await authApi.getAstrologerProfile();
-          if (!isMounted) return;
-          fetchedUser = astrologer;
-          setAuth(astrologer);
-        } else {
-          // Fetch user profile for regular routes - but ONLY for client routes
-          const user = await authApi.getProfile();
-          if (!isMounted) return;
-          fetchedUser = user;
-          setAuth(user);
+        if (!shouldReuseShared) {
+          sharedAuthInitKey = authInitKey;
+          sharedAuthInitStartedAt = Date.now();
+
+          sharedAuthInitPromise = (async () => {
+            if (isAstrologerRoute) {
+              const astrologer = await authApi.getAstrologerProfile();
+              setAuth(astrologer);
+              return;
+            }
+            const user = await authApi.getProfile();
+            setAuth(user);
+          })().finally(() => {
+            sharedAuthInitPromise = null;
+            sharedAuthInitKey = null;
+            sharedAuthInitStartedAt = 0;
+          });
         }
+
+        await sharedAuthInitPromise;
+        if (!isMounted) return;
+
+        const fetchedUser = useAuthStore.getState().user;
 
         // After fetching, verify the role matches the route
         if (fetchedUser) {

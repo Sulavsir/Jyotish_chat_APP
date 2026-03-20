@@ -13,7 +13,42 @@ import type {
   NotificationType,
 } from '../types';
 
+const NOTIFICATION_CACHE_TTL_MS = 2500;
+
+type NotificationsCacheValue = NotificationResult;
+type UnreadCountCacheValue = number;
+
+const notificationsCache = new Map<string, { expiresAt: number; value: NotificationsCacheValue }>();
+const unreadCountCache = new Map<string, { expiresAt: number; value: UnreadCountCacheValue }>();
+
+function makeNotificationsCacheKey(
+  userId: string,
+  limit: number,
+  offset: number,
+  unreadOnly: boolean
+) {
+  return `notifications:${userId}:l${limit}:o${offset}:u${unreadOnly ? 1 : 0}`;
+}
+
+function makeUnreadCountCacheKey(userId: string) {
+  return `unread:${userId}`;
+}
+
 export class NotificationService {
+  /**
+   * Invalidate cached notifications/unread count for a specific user.
+   * Used to keep cached reads fresh when notifications change.
+   */
+  invalidateUserCache(userId: string) {
+    const prefixA = `notifications:${userId}:`;
+    for (const key of notificationsCache.keys()) {
+      if (key.startsWith(prefixA)) notificationsCache.delete(key);
+    }
+
+    const unreadKey = makeUnreadCountCacheKey(userId);
+    unreadCountCache.delete(unreadKey);
+  }
+
   /**
    * Get all notifications for a user (supports both userId and astrologerId)
    */
@@ -26,6 +61,12 @@ export class NotificationService {
       offset = NOTIFICATION_CONFIG.DEFAULT_OFFSET,
       unreadOnly = false,
     } = options || {};
+
+    const cacheKey = makeNotificationsCacheKey(userId, limit, offset, unreadOnly);
+    const cached = notificationsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
 
     // Query for both userId and astrologerId to support both clients and astrologers
     const where = {
@@ -56,11 +97,18 @@ export class NotificationService {
     // Enrich BROADCAST_MESSAGE notifications with acceptedByCurrentUser (astrologer badge)
     const enrichedNotifications = await this.enrichBroadcastStatuses(notifications, userId);
 
-    return {
+    const result: NotificationResult = {
       notifications: enrichedNotifications,
       total,
       unreadCount,
     };
+
+    notificationsCache.set(cacheKey, {
+      expiresAt: Date.now() + NOTIFICATION_CACHE_TTL_MS,
+      value: result,
+    });
+
+    return result;
   }
 
   /**
@@ -156,6 +204,11 @@ export class NotificationService {
           },
         });
 
+        const invalidateUserId =
+          (notification.userId ?? notification.astrologerId ?? data.userId ?? data.astrologerId) as
+            | string
+            | undefined;
+        if (invalidateUserId) this.invalidateUserCache(invalidateUserId);
         return notification;
       }
     }
@@ -182,6 +235,11 @@ export class NotificationService {
       data: notificationData,
     });
 
+    const invalidateUserId =
+      (notification.userId ?? notification.astrologerId ?? data.userId ?? data.astrologerId) as
+        | string
+        | undefined;
+    if (invalidateUserId) this.invalidateUserCache(invalidateUserId);
     return notification;
   }
 
@@ -202,6 +260,12 @@ export class NotificationService {
       })),
     });
 
+    const affectedUserIds = new Set(
+      notifications
+        .map((n) => n.userId ?? n.astrologerId)
+        .filter((id): id is string => typeof id === 'string')
+    );
+    for (const id of affectedUserIds) this.invalidateUserCache(id);
     return result.count;
   }
 
@@ -221,13 +285,16 @@ export class NotificationService {
       throw new Error('Unauthorized to modify this notification');
     }
 
-    return await prisma.notification.update({
+    const updated = await prisma.notification.update({
       where: { id: notificationId },
       data: {
         isRead: true,
         count: 1, // Reset count to 1 when marking as read
       },
     });
+
+    this.invalidateUserCache(userId);
+    return updated;
   }
 
   /**
@@ -247,6 +314,7 @@ export class NotificationService {
       },
     });
 
+    this.invalidateUserCache(userId);
     return result.count;
   }
 
@@ -269,6 +337,8 @@ export class NotificationService {
     await prisma.notification.delete({
       where: { id: notificationId },
     });
+
+    this.invalidateUserCache(userId);
   }
 
   /**
@@ -281,6 +351,7 @@ export class NotificationService {
       },
     });
 
+    this.invalidateUserCache(userId);
     return result.count;
   }
 
@@ -297,6 +368,7 @@ export class NotificationService {
       },
     });
 
+    this.invalidateUserCache(userId);
     return result.count;
   }
 
@@ -304,7 +376,13 @@ export class NotificationService {
    * Get unread notification count for a user (supports both userId and astrologerId)
    */
   async getUnreadCount(userId: string): Promise<number> {
-    return await prisma.notification.count({
+    const cacheKey = makeUnreadCountCacheKey(userId);
+    const cached = unreadCountCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    const count = await prisma.notification.count({
       where: {
         OR: [
           { userId, isRead: false },
@@ -312,6 +390,9 @@ export class NotificationService {
         ],
       },
     });
+
+    unreadCountCache.set(cacheKey, { expiresAt: Date.now() + NOTIFICATION_CACHE_TTL_MS, value: count });
+    return count;
   }
 
   /**

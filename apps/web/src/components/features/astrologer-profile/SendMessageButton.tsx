@@ -15,10 +15,12 @@ import { ROUTES } from '@/constants';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { UserRole } from '@/types';
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@jyotish/ui';
 
 interface SendMessageButtonProps {
   astrologerId: string;
   astrologerName?: string;
+  chatMessageFee?: number | null;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
   className?: string;
@@ -27,6 +29,7 @@ interface SendMessageButtonProps {
 export function SendMessageButton({
   astrologerId,
   astrologerName,
+  chatMessageFee,
   variant = 'default',
   size = 'default',
   className = '',
@@ -44,6 +47,7 @@ export function SendMessageButton({
   } = useChat();
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [showFeeConfirm, setShowFeeConfirm] = useState(false);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -65,6 +69,17 @@ export function SendMessageButton({
       }
     }
 
+    // Fee confirmation for direct chat (client-side UX only, backend validation remains).
+    if (user?.role === UserRole.CLIENT && (chatMessageFee ?? 0) > 0) {
+      setShowFeeConfirm(true);
+      return;
+    }
+
+    await startChat(astrologerId);
+  };
+
+  const confirmStartChat = async () => {
+    setShowFeeConfirm(false);
     await startChat(astrologerId);
   };
 
@@ -96,6 +111,32 @@ export function SendMessageButton({
         requiredCoins={requiredCoins}
         onPurchaseSuccess={retryChat}
       />
+
+      <Dialog open={showFeeConfirm} onOpenChange={setShowFeeConfirm}>
+        <DialogContent className="max-w-md border border-white/10 bg-slate-900/95 backdrop-blur-md text-white">
+          <DialogHeader>
+            <DialogTitle className="text-left">Direct Chat Confirmation</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-gray-300">
+            Are you sure you want to spend <span className="font-semibold">Nrs.{chatMessageFee ?? 0}</span> to
+            communicate with this Jyotish?
+          </p>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowFeeConfirm(false)} disabled={isStartingChat}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void confirmStartChat()}
+              disabled={isStartingChat}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+            >
+              Yes, start chat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

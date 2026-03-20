@@ -92,7 +92,6 @@ export const deductCoinsForMessage = async (
     },
   });
 
-
   const broadcastMessage = chat
     ? await (prisma as any).broadcastMessage.findFirst({
         where: { chatId },
@@ -207,10 +206,9 @@ export const deductCoinsForMessage = async (
 
   const balanceBefore = user.coins;
   const balanceAfter = balanceBefore - coinCost;
-  // Source mirrors the rate used AND the session type:
-  // - broadcast-originated, not yet reopened → BROADCAST_MESSAGE
-  // - pure/direct chats and reopened-after-ended chats → CHAT_MESSAGE
   const source = isBroadcastSession ? 'BROADCAST_MESSAGE' : 'CHAT_MESSAGE';
+
+  const astrologerIdForEarning = chat?.participant2Id;
 
   const updatedUser = await prisma.$transaction(async (tx) => {
     const coinTx = await tx.coinTransaction.create({
@@ -229,13 +227,9 @@ export const deductCoinsForMessage = async (
       data: { coins: { decrement: coinCost } },
       select: { id: true, coins: true },
     });
-    const chat = await tx.chat.findUnique({
-      where: { id: chatId },
-      select: { participant2Id: true },
-    });
-    if (chat) {
+    if (astrologerIdForEarning) {
       const astrologer = await tx.astrologer.findUnique({
-        where: { id: chat.participant2Id },
+        where: { id: astrologerIdForEarning },
         select: { commissionRate: true },
       });
       if (astrologer && astrologer.commissionRate > 0) {
@@ -243,7 +237,7 @@ export const deductCoinsForMessage = async (
         if (astrologerCoins > 0) {
           await (tx as any).astrologerCoinEarning.create({
             data: {
-              astrologerId: chat.participant2Id,
+              astrologerId: astrologerIdForEarning,
               coinTransactionId: coinTx.id,
               chatId,
               source,

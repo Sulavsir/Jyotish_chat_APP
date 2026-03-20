@@ -15,6 +15,7 @@ import type {
   VerifyFonepayQrResponse,
   CreateFonepayCardOrderRequest,
   CreateFonepayCardOrderResponse,
+  MySuccessfulPaymentsResponse,
 } from '@/types/payment.types';
 
 export const paymentService = {
@@ -49,6 +50,15 @@ export const paymentService = {
       API_ENDPOINTS.PAYMENTS.CREATE_FONEPAY_CARD_ORDER,
       body
     );
+  },
+
+  getMyPayments(params?: { page?: number; limit?: number }): Promise<MySuccessfulPaymentsResponse> {
+    const search = new URLSearchParams();
+    if (params?.page != null) search.set('page', String(params.page));
+    if (params?.limit != null) search.set('limit', String(params.limit));
+    const qs = search.toString();
+    const url = qs ? `${API_ENDPOINTS.PAYMENTS.MY_PAYMENTS}?${qs}` : API_ENDPOINTS.PAYMENTS.MY_PAYMENTS;
+    return apiClient.get<MySuccessfulPaymentsResponse>(url);
   },
 } as const;
 

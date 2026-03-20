@@ -28,6 +28,7 @@ export function Navbar() {
     { name: 'Astrologers', href: ROUTES.ASTROLOGERS },
     { name: 'Pricing', href: ROUTES.PRICING },
     { name: 'About', href: ROUTES.ABOUT },
+    { name: 'Support', href: ROUTES.SUPPORT },
   ];
 
   const isActive = (href: string) => pathname === href;

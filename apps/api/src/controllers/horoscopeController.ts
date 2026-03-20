@@ -29,6 +29,22 @@ export const getDailyHoroscope = async (req: AuthRequest, res: Response, next: N
 };
 
 /**
+ * Get horoscopes for all zodiac signs in one call (batch)
+ * GET /api/v1/horoscopes?category=DAILY|WEEKLY|MONTHLY|YEARLY&date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
+ */
+export const getHoroscopesBatch = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const category = req.query.category as any;
+  const date = req.query.date ? new Date(req.query.date as string) : undefined;
+  const language = req.query.language as string | undefined;
+
+  const horoscopes = await horoscopeService.getHoroscopesBatch(category, date, language as any);
+  return sendSuccess(res, {
+    horoscopes,
+    message: 'Horoscopes batch retrieved successfully',
+  });
+};
+
+/**
  * Get weekly horoscope for a zodiac sign
  * GET /api/v1/horoscopes/weekly/:zodiacSign?date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
  */

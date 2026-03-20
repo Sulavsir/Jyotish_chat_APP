@@ -20,31 +20,23 @@ import {
   DashboardTip,
 } from '@/components/features/jyotish-dashboard';
 import jyotishDashboardService from '@/services/jyotishDashboard.service';
+import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { CalendarDays, MessageSquare, TrendingUp, Clock, ArrowRight } from 'lucide-react';
 
 export default function JyotishDashboardPage() {
   const { user, isCheckingAccess } = useRequireAuth({
     requiredRole: USER_ROLES.ASTROLOGER,
   });
+  const language = useQuestionnaireLanguageStore((s) => s.language);
 
   const {
     data: stats,
     isLoading: isLoadingStats,
   } = useQuery({
-    queryKey: QUERY_KEYS.JYOTISH_DASHBOARD.STATS,
-    queryFn: () => jyotishDashboardService.getDashboardStats(),
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const {
-    data: recentActivity = [],
-    isLoading: isLoadingActivity,
-  } = useQuery({
-    queryKey: QUERY_KEYS.JYOTISH_DASHBOARD.RECENT_ACTIVITY(5),
-    queryFn: () => jyotishDashboardService.getRecentActivity(5),
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: true,
+    queryKey: [...QUERY_KEYS.JYOTISH_DASHBOARD.STATS, language],
+    queryFn: () => jyotishDashboardService.getDashboardStats(language),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   if (isCheckingAccess) {
@@ -132,7 +124,7 @@ export default function JyotishDashboardPage() {
         {/* Two columns: Tip + Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
-            <DashboardTip />
+            <DashboardTip tipText={stats?.todayTip?.text} skipFetch />
             {/* Quick link to Chats */}
             <Link
               href={ROUTES.JYOTISH_CHAT}
@@ -143,7 +135,7 @@ export default function JyotishDashboardPage() {
             </Link>
           </div>
           <div className="lg:col-span-2">
-            <RecentActivity activities={recentActivity} isLoading={isLoadingActivity} />
+            <RecentActivity activities={stats?.recentActivity ?? []} isLoading={isLoadingStats} />
           </div>
         </div>
       </div>

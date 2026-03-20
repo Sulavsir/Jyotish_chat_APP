@@ -107,16 +107,16 @@ export function BroadcastMessageBar() {
     };
   }, []);
 
-  // Load pending broadcast messages on mount
-  useEffect(() => {
-    if (user?.role === 'ASTROLOGER') {
-      loadPendingMessages();
-    }
-  }, [user]);
-
   // Setup socket listeners
   useEffect(() => {
     if (!socket || !isConnected || user?.role !== 'ASTROLOGER') return;
+
+    // Initial pending list (no HTTP polling)
+    socket.emit('broadcast:getPendingMessages');
+
+    socket.on('broadcast:pendingMessages', (messages: BroadcastMessage[]) => {
+      setPendingMessages(messages || []);
+    });
 
     // New broadcast message received
     socket.on('broadcast:newMessage', (message: BroadcastMessage) => {
@@ -188,7 +188,11 @@ export function BroadcastMessageBar() {
     // My acceptance was successful - remove entire batch immediately
     socket.on(
       'broadcast:messageAccepted',
-      (data: { message?: { id: string }; allAcceptedMessageIds?: string[]; chat?: { id: string } }) => {
+      (data: {
+        message?: { id: string };
+        allAcceptedMessageIds?: string[];
+        chat?: { id: string };
+      }) => {
         if (data.message?.id) {
           setPendingMessages((prev) => {
             const removeIds = new Set<string>(data.allAcceptedMessageIds ?? [data.message!.id]);
@@ -223,7 +227,7 @@ export function BroadcastMessageBar() {
         messageText.toLowerCase().includes('accepted') &&
         messageText.toLowerCase().includes('expired')
       ) {
-        void loadPendingMessages();
+        socket.emit('broadcast:getPendingMessages');
         toast.info(
           'This request has already been accepted or expired. Please watch out for new requests.'
         );
@@ -236,6 +240,7 @@ export function BroadcastMessageBar() {
     });
 
     return () => {
+      socket.off('broadcast:pendingMessages');
       socket.off('broadcast:newMessage');
       socket.off('broadcast:messageAcceptedByAstrologer');
       socket.off('broadcast:messageCancelled');
@@ -243,17 +248,6 @@ export function BroadcastMessageBar() {
       socket.off('broadcast:error');
     };
   }, [socket, isConnected, user, router]);
-
-  async function loadPendingMessages() {
-    try {
-      const messages = await broadcastMessageService.getPendingMessages();
-      setPendingMessages(messages || []); // Ensure we always have an array
-    } catch (error) {
-      console.error('Error loading pending broadcast messages:', error);
-      // Don't show error toast - table might not exist yet
-      setPendingMessages([]);
-    }
-  }
 
   async function handleAccept(messageId: string) {
     if (!socket || !isConnected) {
@@ -284,7 +278,7 @@ export function BroadcastMessageBar() {
     } catch (error: any) {
       console.error('Error dismissing broadcast message:', error);
       toast.error(error.message || 'Failed to dismiss request');
-      loadPendingMessages();
+      socket?.emit('broadcast:getPendingMessages');
     }
   }
 
@@ -314,7 +308,7 @@ export function BroadcastMessageBar() {
       Promise.all(batchMessages.map((m) => broadcastMessageService.dismissMessage(m.id))).catch(
         () => {
           // If anything fails, reload from server for consistency
-          loadPendingMessages();
+          socket?.emit('broadcast:getPendingMessages');
         }
       );
       return;
@@ -542,7 +536,7 @@ export function BroadcastMessageBar() {
                         showIcon={false}
                         onExpire={() => {
                           // Re-sync with server so expiration is driven by backend status
-                          void loadPendingMessages();
+                          socket?.emit('broadcast:getPendingMessages');
                         }}
                       />
                     </div>

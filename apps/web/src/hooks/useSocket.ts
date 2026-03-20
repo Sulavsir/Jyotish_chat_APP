@@ -1,127 +1,149 @@
 /**
- * useSocket Hook - WebSocket connection management
+ * useSocket Hook - Socket.IO connection management
+ *
+ * IMPORTANT:
+ * Many components call `useSocket()`. If each hook instance creates a new socket connection,
+ * you get polling spam + duplicated events + duplicated REST reloads.
+ *
+ * This file enforces a single shared socket instance (singleton) across the app.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@/store';
 import { useAuthStore } from '@/store/auth-store';
 import { WS_BASE_URL, WS_EVENTS, QUERY_KEYS } from '@/constants';
-import type { ChatMessage, Notification } from '@/types';
+import type { Notification } from '@/types';
 import { toast } from 'sonner';
 import type { AstrologerListResponse } from '@/types/astrologer';
 import type { ChatableUser } from '@/services/user.service';
 import type { PublicAstrologerProfile } from '@/types/astrologer';
 
-export function useSocket() {
-  const queryClient = useQueryClient();
-  const socketRef = useRef<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const addMessage = useStore((state) => state.addMessage);
-  const setUserTyping = useStore((state) => state.setUserTyping);
-  const addUserOnline = useStore((state) => state.addUserOnline);
-  const removeUserOnline = useStore((state) => state.removeUserOnline);
-  const addNotification = useStore((state) => state.addNotification);
+let sharedSocket: Socket | null = null;
+let sharedConsumers = 0;
+let sharedListenersAttached = false;
+let sharedIsConnected = false;
+let sharedQueryClient: ReturnType<typeof useQueryClient> | null = null;
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsConnected(false);
-      return;
-    }
+const isConnectedSubscribers = new Set<(connected: boolean) => void>();
 
-    // Connect to WebSocket
-    // Socket.io will automatically send httpOnly cookies with the handshake request
-    const socket = io(WS_BASE_URL, {
-      withCredentials: true, // IMPORTANT: Send httpOnly cookies with handshake
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5,
-    });
+function publishConnected(next: boolean) {
+  sharedIsConnected = next;
+  for (const cb of isConnectedSubscribers) cb(next);
+}
 
-    socketRef.current = socket;
+function getStoreActions() {
+  const state = useStore.getState();
+  return {
+    addMessage: state.addMessage as (chatId: string, message: any) => void,
+    setUserTyping: state.setUserTyping as (senderId: string, isTyping: boolean) => void,
+    addUserOnline: state.addUserOnline as (userId: string) => void,
+    removeUserOnline: state.removeUserOnline as (userId: string) => void,
+    addNotification: state.addNotification as (notification: Notification) => void,
+  };
+}
 
-    // Connection events
-    socket.on('connect', () => {
-      console.log('✅ WebSocket connected');
-      setIsConnected(true);
-    });
+function ensureSocket() {
+  if (sharedSocket) return sharedSocket;
 
-    socket.on('disconnect', () => {
-      console.log('❌ WebSocket disconnected');
-      setIsConnected(false);
-    });
+  // Force websocket transport to avoid "polling" HTTP spam under load.
+  sharedSocket = io(WS_BASE_URL, {
+    withCredentials: true,
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 5,
+    transports: ['websocket'],
+  });
 
-    socket.on('connect_error', (error) => {
-      console.error('❌ WebSocket connection error:', error);
-      setIsConnected(false);
-    });
+  sharedSocket.on('connect', () => {
+    console.log('✅ WebSocket connected');
+    publishConnected(true);
+  });
 
-    // Chat events
-    socket.on(WS_EVENTS.CHAT_RECEIVE, (message: any) => {
-      // Use actual chatId from message
-      const chatId = message.chatId || [message.senderId, message.receiverId].sort().join('-');
-      addMessage(chatId, message);
+  sharedSocket.on('disconnect', () => {
+    console.log('❌ WebSocket disconnected');
+    publishConnected(false);
+  });
 
-      // Show toast notification for new message
-      if (Notification.permission === 'granted') {
-        new Notification('New Message', {
-          body: message.content.substring(0, 50),
+  sharedSocket.on('connect_error', (error) => {
+    console.error('❌ WebSocket connection error:', error);
+    publishConnected(false);
+  });
+
+  return sharedSocket;
+}
+
+function attachListenersIfNeeded(socket: Socket) {
+  if (sharedListenersAttached) return;
+  sharedListenersAttached = true;
+
+  // Chat events
+  socket.on(WS_EVENTS.CHAT_RECEIVE, (message: any) => {
+    const { addMessage } = getStoreActions();
+    const chatId = message.chatId || [message.senderId, message.receiverId].sort().join('-');
+    addMessage(chatId, message);
+
+    // Browser notifications must only show for the actual receiver.
+    const currentUserId = useAuthStore.getState().user?.id;
+    if (currentUserId && message.receiverId === currentUserId) {
+      if (
+        typeof globalThis.Notification !== 'undefined' &&
+        globalThis.Notification.permission === 'granted'
+      ) {
+        new globalThis.Notification('New Message', {
+          body: String(message.content || '').substring(0, 50),
         });
       }
-    });
+    }
+  });
 
-    socket.on(WS_EVENTS.CHAT_SENT, (message: any) => {
-      // Use actual chatId from message
-      const chatId = message.chatId || [message.senderId, message.receiverId].sort().join('-');
-      addMessage(chatId, message);
-    });
+  socket.on(WS_EVENTS.CHAT_SENT, (message: any) => {
+    const { addMessage } = getStoreActions();
+    const chatId = message.chatId || [message.senderId, message.receiverId].sort().join('-');
+    addMessage(chatId, message);
+  });
 
-    socket.on(WS_EVENTS.CHAT_TYPING_INDICATOR, ({ senderId, isTyping }) => {
-      setUserTyping(senderId, isTyping);
-    });
+  socket.on(WS_EVENTS.CHAT_TYPING_INDICATOR, ({ senderId, isTyping }) => {
+    const { setUserTyping } = getStoreActions();
+    setUserTyping(senderId, isTyping);
+  });
 
-    socket.on('chat:error', ({ message }) => {
-      toast.error(message || 'Failed to send message');
-    });
+  socket.on('chat:error', ({ message }) => {
+    toast.error(message || 'Failed to send message');
+  });
 
-    // Initial online users list when connecting
-    socket.on('user:onlineList', ({ userIds }: { userIds: string[] }) => {
-      console.log('📋 Received online users list:', userIds.length, 'users online');
-      // Add all currently online users to the store
-      userIds.forEach((userId) => {
-        addUserOnline(userId);
-      });
-    });
+  // Initial online users list when connecting
+  socket.on('user:onlineList', ({ userIds }: { userIds: string[] }) => {
+    const { addUserOnline } = getStoreActions();
+    console.log('📋 Received online users list:', userIds.length, 'users online');
+    userIds.forEach((userId) => addUserOnline(userId));
+  });
 
-    // User status events (for real-time updates)
-    socket.on(WS_EVENTS.USER_STATUS, ({ userId, status }) => {
-      console.log('👤 User status changed:', userId, status);
-      if (status === 'online') {
-        addUserOnline(userId);
-      } else {
-        removeUserOnline(userId);
-      }
-    });
+  socket.on(WS_EVENTS.USER_STATUS, ({ userId, status }) => {
+    const { addUserOnline, removeUserOnline } = getStoreActions();
+    console.log('👤 User status changed:', userId, status);
+    if (status === 'online') addUserOnline(userId);
+    else removeUserOnline(userId);
+  });
 
-    // Astrologer online/offline status changes (real-time updates for all users)
-    socket.on(WS_EVENTS.ASTROLOGER_STATUS_CHANGED, ({ astrologerId, name, isOnline }) => {
-      // Update online users store immediately
-      if (isOnline) {
-        addUserOnline(astrologerId);
-      } else {
-        removeUserOnline(astrologerId);
-      }
+  // Astrologer online/offline status changes (real-time updates for all users)
+  socket.on(WS_EVENTS.ASTROLOGER_STATUS_CHANGED, ({ astrologerId, name, isOnline }) => {
+    const { addUserOnline, removeUserOnline } = getStoreActions();
+    if (isOnline) addUserOnline(astrologerId);
+    else removeUserOnline(astrologerId);
 
-      // Keep cached lists in sync without hammering `/users/chatable`.
-      queryClient.setQueryData<ChatableUser[] | undefined>(QUERY_KEYS.USERS.CHATABLE, (prev) => {
-        if (!prev) return prev;
-        return prev.map((u) => (u.id === astrologerId ? { ...u, isOnline } : u));
-      });
+    if (sharedQueryClient) {
+      sharedQueryClient.setQueryData<ChatableUser[] | undefined>(
+        QUERY_KEYS.USERS.CHATABLE,
+        (prev) => {
+          if (!prev) return prev;
+          return prev.map((u) => (u.id === astrologerId ? { ...u, isOnline } : u));
+        }
+      );
 
-      queryClient.setQueriesData<AstrologerListResponse | undefined>(
+      sharedQueryClient.setQueriesData<AstrologerListResponse | undefined>(
         { queryKey: ['astrologers', 'list'] },
         (prev) => {
           if (!prev) return prev;
@@ -133,38 +155,38 @@ export function useSocket() {
           };
         }
       );
-      
-      // Show toast notification
-      const user = useAuthStore.getState().user;
-      if (user?.role === 'ADMIN') {
-        toast.info(`${name} is now ${isOnline ? 'online' : 'offline'}`, {
-          duration: 3000,
-        });
-      }
-    });
+    }
 
-    // Astrologer profile updates (name/photo/etc) for real-time UI updates
-    socket.on(
-      WS_EVENTS.ASTROLOGER_UPDATED,
-      (payload: { astrologerId: string; name?: string | null; profilePhoto?: string | null }) => {
-        const { astrologerId, name, profilePhoto } = payload;
+    const user = useAuthStore.getState().user;
+    if (user?.role === 'ADMIN') {
+      toast.info(`${name} is now ${isOnline ? 'online' : 'offline'}`, { duration: 3000 });
+    }
+  });
 
-        // Update chatable list cache
-        queryClient.setQueryData<ChatableUser[] | undefined>(QUERY_KEYS.USERS.CHATABLE, (prev) => {
-          if (!prev) return prev;
-          return prev.map((u) =>
-            u.id === astrologerId
-              ? {
-                  ...u,
-                  ...(name !== undefined ? { name } : {}),
-                  ...(profilePhoto !== undefined ? { profilePhoto } : {}),
-                }
-              : u
-          );
-        });
+  // Astrologer profile updates (name/photo/etc) for real-time UI updates
+  socket.on(
+    WS_EVENTS.ASTROLOGER_UPDATED,
+    (payload: { astrologerId: string; name?: string | null; profilePhoto?: string | null }) => {
+      const { astrologerId, name, profilePhoto } = payload;
 
-        // Update astrologer list caches
-        queryClient.setQueriesData<AstrologerListResponse | undefined>(
+      if (sharedQueryClient) {
+        sharedQueryClient.setQueryData<ChatableUser[] | undefined>(
+          QUERY_KEYS.USERS.CHATABLE,
+          (prev) => {
+            if (!prev) return prev;
+            return prev.map((u) =>
+              u.id === astrologerId
+                ? {
+                    ...u,
+                    ...(name !== undefined ? { name } : {}),
+                    ...(profilePhoto !== undefined ? { profilePhoto } : {}),
+                  }
+                : u
+            );
+          }
+        );
+
+        sharedQueryClient.setQueriesData<AstrologerListResponse | undefined>(
           { queryKey: ['astrologers', 'list'] },
           (prev) => {
             if (!prev) return prev;
@@ -183,8 +205,7 @@ export function useSocket() {
           }
         );
 
-        // Update astrologer detail cache if present
-        queryClient.setQueryData<{ astrologer: PublicAstrologerProfile } | undefined>(
+        sharedQueryClient.setQueryData<{ astrologer: PublicAstrologerProfile } | undefined>(
           QUERY_KEYS.ASTROLOGERS.DETAIL(astrologerId),
           (prev) => {
             if (!prev) return prev;
@@ -198,86 +219,88 @@ export function useSocket() {
           }
         );
       }
-    );
+    }
+  );
 
-    // Notification events
-    socket.on(WS_EVENTS.NOTIFICATION_NEW, (notification: Notification) => {
-      addNotification(notification);
-    });
+  // Notification events
+  socket.on(WS_EVENTS.NOTIFICATION_NEW, (notification: Notification) => {
+    const { addNotification } = getStoreActions();
+    addNotification(notification);
+  });
+}
 
-    // Cleanup on unmount
+export function useSocket() {
+  const queryClient = useQueryClient();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  const [isConnected, setIsConnected] = useState(sharedIsConnected);
+
+  useEffect(() => {
+    sharedQueryClient = queryClient;
+    const cb = (connected: boolean) => setIsConnected(connected);
+    isConnectedSubscribers.add(cb);
+    cb(sharedIsConnected);
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      isConnectedSubscribers.delete(cb);
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    sharedConsumers += 1;
+
+    const socket = ensureSocket();
+    attachListenersIfNeeded(socket);
+
+    if (!socket.connected) socket.connect();
+
+    return () => {
+      sharedConsumers -= 1;
+      if (sharedConsumers <= 0 && sharedSocket) {
+        sharedSocket.disconnect();
+        sharedSocket = null;
+        sharedListenersAttached = false;
+        publishConnected(false);
+        sharedConsumers = 0;
       }
     };
-  }, [
-    isAuthenticated,
-    queryClient,
-    addMessage,
-    setUserTyping,
-    addUserOnline,
-    removeUserOnline,
-    addNotification,
-  ]);
+  }, [isAuthenticated]);
 
-  // Send message
-  const sendMessage = (
-    receiverId: string,
-    content: string,
-    type: string = 'TEXT',
-    metadata?: any
-  ) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit(WS_EVENTS.CHAT_SEND, {
-        receiverId,
-        content,
-        type,
-        metadata,
-      });
+  const sendMessage = (receiverId: string, content: string, type: string = 'TEXT', metadata?: any) => {
+    if (sharedSocket && isConnected) {
+      sharedSocket.emit(WS_EVENTS.CHAT_SEND, { receiverId, content, type, metadata });
       return true;
-    } else {
-      toast.error('Not connected to chat server');
-      return false;
+    }
+    toast.error('Not connected to chat server');
+    return false;
+  };
+
+  const sendTypingIndicator = (receiverId: string, typing: boolean) => {
+    if (sharedSocket && isConnected) {
+      sharedSocket.emit(WS_EVENTS.CHAT_TYPING, { receiverId, isTyping: typing });
     }
   };
 
-  // Send typing indicator
-  const sendTypingIndicator = (receiverId: string, isTyping: boolean) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit(WS_EVENTS.CHAT_TYPING, {
-        receiverId,
-        isTyping,
-      });
-    }
-  };
-
-  // Mark messages as read
   const markMessagesAsRead = (messageIds: string[]) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit(WS_EVENTS.CHAT_MARK_READ, {
-        messageIds,
-      });
+    if (sharedSocket && isConnected) {
+      sharedSocket.emit(WS_EVENTS.CHAT_MARK_READ, { messageIds });
     }
   };
 
-  // Join a chat room (for group chats in the future)
   const joinRoom = (roomId: string) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('chat:join-room', { roomId });
+    if (sharedSocket && isConnected) {
+      sharedSocket.emit('chat:join-room', { roomId });
     }
   };
 
-  // Leave a chat room
   const leaveRoom = (roomId: string) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('chat:leave-room', { roomId });
+    if (sharedSocket && isConnected) {
+      sharedSocket.emit('chat:leave-room', { roomId });
     }
   };
 
   return {
-    socket: socketRef.current,
+    socket: sharedSocket,
     isConnected,
     sendMessage,
     sendTypingIndicator,

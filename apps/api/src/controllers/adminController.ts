@@ -1266,6 +1266,28 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
 }
 
 // ==================== Dashboard ====================
+let lifetimeTotalsCache: { totalEarnings: number; platformTotalLoaded: number } | null = null;
+let lifetimeTotalsCachedAt = 0;
+const LIFETIME_CACHE_TTL_MS = 60_000;
+
+async function getLifetimeTotals() {
+  if (lifetimeTotalsCache && Date.now() - lifetimeTotalsCachedAt < LIFETIME_CACHE_TTL_MS) {
+    return lifetimeTotalsCache;
+  }
+  const [earningsAgg, platformAgg] = await Promise.all([
+    (prisma as any).astrologerCoinEarning.aggregate({ _sum: { astrologerCoinsEarned: true } }),
+    prisma.coinTransaction.aggregate({
+      _sum: { amount: true },
+      where: { reason: 'PAYMENT_SUCCESS' },
+    }),
+  ]);
+  lifetimeTotalsCache = {
+    totalEarnings: earningsAgg._sum.astrologerCoinsEarned ?? 0,
+    platformTotalLoaded: platformAgg._sum.amount ?? 0,
+  };
+  lifetimeTotalsCachedAt = Date.now();
+  return lifetimeTotalsCache;
+}
 
 /**
  * Get dashboard statistics
@@ -1277,69 +1299,39 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
     today.setHours(0, 0, 0, 0);
 
     const [
+      lifetimeTotals,
       totalUsers,
       totalAstrologers,
       activeChats,
-      totalEarnings,
       pendingEarnings,
       todayConsultations,
       newUsersToday,
       todayEarnings,
-      platformTotalLoaded,
       platformTodayLoaded,
     ] = await Promise.all([
+      getLifetimeTotals(),
       prisma.user.count({ where: { role: 'CLIENT' } }),
-      prisma.astrologer.count({
-        where: {
-          isDeleted: false,
-        },
-      }),
+      prisma.astrologer.count({ where: { isDeleted: false } }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
-      prisma.astrologerCoinEarning.aggregate({
-        _sum: { astrologerCoinsEarned: true },
-      }),
       prisma.astrologerEarnings.aggregate({
         _sum: { amount: true },
         where: { status: 'PENDING' },
       }),
-      prisma.consultation.count({
-        where: {
-          createdAt: {
-            gte: today,
-          },
-        },
-      }),
-      prisma.user.count({
-        where: {
-          role: 'CLIENT',
-          createdAt: {
-            gte: today,
-          },
-        },
-      }),
-      // Today's astrologer coin earnings (by createdAt) from AstrologerCoinEarning
-      prisma.astrologerCoinEarning.aggregate({
+      prisma.consultation.count({ where: { createdAt: { gte: today } } }),
+      prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: today } } }),
+      // Today's astrologer coin earnings
+      (prisma as any).astrologerCoinEarning.aggregate({
         _sum: { astrologerCoinsEarned: true },
-        where: {
-          createdAt: {
-            gte: today,
-          },
-        },
+        where: { createdAt: { gte: today } },
       }),
       prisma.coinTransaction.aggregate({
         _sum: { amount: true },
-        where: { reason: 'PAYMENT_SUCCESS' },
-      }),
-      prisma.coinTransaction.aggregate({
-        _sum: { amount: true },
-        where: {
-          reason: 'PAYMENT_SUCCESS',
-          createdAt: {
-            gte: today,
-          },
-        },
+        where: { reason: 'PAYMENT_SUCCESS', createdAt: { gte: today } },
       }),
     ]);
+
+    const totalEarnings = { _sum: { astrologerCoinsEarned: lifetimeTotals.totalEarnings } };
+    const platformTotalLoaded = { _sum: { amount: lifetimeTotals.platformTotalLoaded } };
 
     const stats = {
       totalUsers,
@@ -2086,48 +2078,17 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       totalAstrologers,
       pendingAstrologerRegistrations,
       platformTransactions,
-    ] = await prisma.$transaction([
-      prisma.chat.count({
-        where: {
-          status: ChatStatus.ACTIVE,
-        },
-      }),
-      prisma.complaint.count({
-        where: {
-          status: ComplaintStatus.PENDING,
-        },
-      }),
-      prisma.appointment.count({
-        where: {
-          status: AppointmentStatus.PENDING,
-        },
-      }),
-      prisma.kundaliMatchRequest.count({
-        where: {
-          status: KundaliMatchStatus.PENDING,
-        },
-      }),
+    ] = await Promise.all([
+      prisma.chat.count({ where: { status: ChatStatus.ACTIVE } }),
+      prisma.complaint.count({ where: { status: ComplaintStatus.PENDING } }),
+      prisma.appointment.count({ where: { status: AppointmentStatus.PENDING } }),
+      prisma.kundaliMatchRequest.count({ where: { status: KundaliMatchStatus.PENDING } }),
       prisma.user.count(),
-      prisma.user.count({
-        where: {
-          createdAt: { gte: today },
-        },
-      }),
-      prisma.astrologer.count({
-        where: {
-          isDeleted: false,
-        },
-      }),
-      prisma.astrologer.count({
-        where: {
-          accountStatus: 'PENDING',
-        },
-      }),
+      prisma.user.count({ where: { createdAt: { gte: today } } }),
+      prisma.astrologer.count({ where: { isDeleted: false } }),
+      prisma.astrologer.count({ where: { accountStatus: 'PENDING' } }),
       prisma.coinTransaction.count({
-        where: {
-          type: 'ADD',
-          reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
-        },
+        where: { type: 'ADD', reason: DbCoinTransactionReason.PAYMENT_SUCCESS },
       }),
     ]);
 

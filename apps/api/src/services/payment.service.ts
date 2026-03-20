@@ -37,6 +37,12 @@ import { CoinTransactionReason } from '../types/coin.types';
 import { addCoins } from './coin.service';
 import { pricingService } from './pricing.service';
 import { PurchaseMethod } from '../types/pricing.types';
+import {
+  makeMySuccessfulPaymentsCacheKey,
+  getMySuccessfulPaymentsCache,
+  setMySuccessfulPaymentsCache,
+  invalidateMySuccessfulPaymentsCache,
+} from './paymentCache';
 
 /**
  * Build callback URLs for GetPay. The bundle redirects to these after OTP.
@@ -153,6 +159,7 @@ export async function verifyPayment(
       where: { id: userId },
       select: { coins: true },
     });
+    invalidateMySuccessfulPaymentsCache(userId);
     return {
       success: true,
       message: 'Payment already confirmed.',
@@ -271,6 +278,7 @@ export async function verifyPayment(
       where: { id: userId },
       select: { coins: true },
     });
+    invalidateMySuccessfulPaymentsCache(userId);
     return {
       success: true,
       message: 'Payment already confirmed.',
@@ -296,11 +304,73 @@ export async function verifyPayment(
     select: { coins: true },
   });
 
+  invalidateMySuccessfulPaymentsCache(userId);
   return {
     success: true,
     message: 'Payment verified. Coins have been added to your account.',
     balance: balance?.coins ?? 0,
   };
+}
+
+/**
+ * Get only successful (gateway-success) payments for the current user.
+ * Excludes PENDING / FAILED / REFUNDED to prevent "pending" items in production UI.
+ */
+export async function getMySuccessfulPayments(
+  userId: string,
+  params: { page?: number; limit?: number }
+): Promise<{
+  payments: Array<{
+    id: string;
+    amount: number;
+    currency: string;
+    paymentMethod: string;
+    transactionId: string | null;
+    status: PaymentStatus;
+    createdAt: Date;
+    metadata: unknown;
+  }>;
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> {
+  const page = Math.max(1, Math.floor(params.page ?? 1));
+  const limit = Math.min(100, Math.max(1, Math.floor(params.limit ?? 10)));
+  const skip = (page - 1) * limit;
+
+  const cacheKey = makeMySuccessfulPaymentsCacheKey(userId, page, limit);
+  const cached = getMySuccessfulPaymentsCache(cacheKey);
+  if (cached) return cached;
+
+  const where = { userId, status: PaymentStatus.SUCCESS };
+
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        paymentMethod: true,
+        transactionId: true,
+        status: true,
+        createdAt: true,
+        metadata: true,
+      },
+    }),
+    prisma.payment.count({ where }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const result = {
+    payments,
+    pagination: { page, limit, total, totalPages },
+  };
+
+  setMySuccessfulPaymentsCache(cacheKey, result);
+  return result;
 }
 
 /**
@@ -395,6 +465,7 @@ export async function verifyFonepayQrPayment(
       where: { id: userId },
       select: { coins: true },
     });
+    invalidateMySuccessfulPaymentsCache(userId);
     return {
       success: true,
       message: 'Payment already verified.',
@@ -485,6 +556,7 @@ export async function verifyFonepayQrPayment(
       where: { id: userId },
       select: { coins: true },
     });
+    invalidateMySuccessfulPaymentsCache(userId);
     return {
       success: true,
       message: 'Payment already confirmed.',

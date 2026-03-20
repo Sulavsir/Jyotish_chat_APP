@@ -30,7 +30,8 @@ export function CoinDisplay({
     queryKey: QUERY_KEYS.COINS.BALANCE,
     queryFn: () => coinService.getBalance(),
     enabled: user?.role === UserRole.CLIENT,
-    refetchInterval: 20000, // Refetch every 20 seconds
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 
   const balance = balanceData?.balance ?? 0;

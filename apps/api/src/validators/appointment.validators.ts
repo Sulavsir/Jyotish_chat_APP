@@ -21,7 +21,7 @@ export const createAppointmentSchema = z.object({
     .min(15, 'Duration must be at least 15 minutes')
     .max(180, 'Duration cannot exceed 180 minutes')
     .optional(),
-  notes: z.string().max(500, 'Notes cannot exceed 500 characters').optional(),
+  notes: z.string().max(1000, 'Notes cannot exceed 1000 characters').optional(),
   slotId: z.string().uuid('Invalid slot ID').optional(),
   bookingType: bookingTypeEnum.optional(),
 }).refine(

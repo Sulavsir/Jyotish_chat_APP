@@ -339,8 +339,10 @@ model Chat {
   @@index([participant2Id])
   @@index([consultationId])
   @@index([appointmentId])
-  @@index([lastMessageAt])
   @@index([status])
+  @@index([participant1Id, status])
+  @@index([participant2Id, status])
+  @@index([lastMessageAt])
   @@index([isLocked])
   @@index([isMonitoredByAdmin])
   @@index([isAbandonedByAdmin])
@@ -372,6 +374,8 @@ model Message {
   @@index([receiverType])
   @@index([createdAt])
   @@index([flaggedByAdmin])
+  @@index([chatId, receiverId, isRead])
+  @@index([receiverId, isRead])
 }
 
 model Consultation {
@@ -445,6 +449,8 @@ model BroadcastMessage {
   @@index([acceptedBy])
   @@index([createdAt])
   @@index([status, createdAt])
+  @@index([clientId, status])
+  @@index([chatId])
 }
 
 // Track which astrologers have dismissed/rejected broadcast messages
@@ -580,6 +586,7 @@ model Horoscope {
   @@unique([zodiacSign, date, category, language])
   @@index([zodiacSign, date, category, language])
   @@index([date])
+  @@index([date, category, language])
 }
 
 model HoroscopeSubscription {
@@ -704,6 +711,10 @@ model Payment {
   @@index([userId])
   @@index([status])
   @@index([transactionId])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
 }
 
 // Fonepay – track both QR and Web redirect flows (separate gateways)
@@ -1239,6 +1250,9 @@ model CoinTransaction {
   @@index([createdAt])
   @@index([chatId])
   @@index([paymentId])
+  @@index([type, reason])
+  @@index([userId, type])
+  @@index([type, reason, createdAt])
 }
 
 enum CoinTransactionType {
@@ -1316,4 +1330,7 @@ model AstrologerCoinEarning {
   @@index([astrologerId])
   @@index([createdAt])
   @@index([astrologerId, createdAt])
+  @@index([chatId])
+  @@index([coinTransactionId])
+  @@index([broadcastMessageId])
 }

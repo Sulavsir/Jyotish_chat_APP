@@ -3,6 +3,7 @@
  */
 
 import { z } from 'zod';
+import { queryPaginationSchema } from './query.validators';
 
 export const createOrderSchema = z.object({
   amount: z
@@ -49,6 +50,12 @@ export const createFonepayCardOrderSchema = z.object({
   coins: z.number().int().nonnegative().max(100_000),
   planId: z.string().uuid().optional(),
 });
+
+/**
+ * Get my successful payments (SUCCESS only) query params.
+ * Supports pagination: page + limit.
+ */
+export const mySuccessfulPaymentsQuerySchema = queryPaginationSchema;
 
 export type CreateOrderBody = z.infer<typeof createOrderSchema>;
 export type VerifyPaymentBody = z.infer<typeof verifyPaymentSchema>;

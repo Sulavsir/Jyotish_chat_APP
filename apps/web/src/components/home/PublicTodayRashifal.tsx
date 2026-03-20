@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { getRashiDisplayName, HoroscopeCategory } from '@jyotish/shared';
 import { horoscopeService } from '@/services/horoscopeService';
 import { QUERY_KEYS } from '@/constants';
@@ -17,27 +17,23 @@ const PUBLIC_HOROSCOPE_LANGUAGE = 'ENGLISH';
 export function PublicTodayRashifal() {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const queries = useQueries({
-    queries: ZODIAC_SIGNS.map((sign) => ({
-      queryKey: QUERY_KEYS.HOROSCOPE.GET(
-        sign.value,
-        HoroscopeCategory.DAILY,
-        today,
-        PUBLIC_HOROSCOPE_LANGUAGE
-      ),
-      queryFn: () =>
-        horoscopeService.getHoroscope({
-          zodiacSign: sign.value,
-          category: HoroscopeCategory.DAILY,
-          date: today,
-          language: PUBLIC_HOROSCOPE_LANGUAGE,
-        }),
-      staleTime: 5 * 60 * 1000,
-    })),
+  const { data: batchData, isLoading } = useQuery({
+    queryKey: QUERY_KEYS.HOROSCOPE.BATCH(HoroscopeCategory.DAILY, today, PUBLIC_HOROSCOPE_LANGUAGE),
+    queryFn: () =>
+      horoscopeService.getHoroscopesBatch({
+        category: HoroscopeCategory.DAILY,
+        date: today,
+        language: PUBLIC_HOROSCOPE_LANGUAGE,
+      }),
+    staleTime: 5 * 60 * 1000,
   });
 
-  const isLoading = queries.some((q) => q.isLoading);
-  const hasData = queries.some((q) => q.data?.horoscope?.prediction);
+  const horoscopesBySign = useMemo(() => {
+    const list = batchData?.horoscopes ?? [];
+    return new Map(list.map((h) => [h.zodiacSign, h]));
+  }, [batchData]);
+
+  const hasData = (batchData?.horoscopes ?? []).some((h) => !!h.prediction);
 
   return (
     <div className="mt-16 pt-16 border-t border-purple-500/20">
@@ -56,9 +52,8 @@ export function PublicTodayRashifal() {
 
       {!isLoading && hasData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {ZODIAC_SIGNS.map((sign, i) => {
-            const { data, isFetching } = queries[i] ?? {};
-            const prediction = data?.horoscope?.prediction ?? '';
+          {ZODIAC_SIGNS.map((sign) => {
+            const prediction = horoscopesBySign.get(sign.value)?.prediction ?? '';
             const label = getRashiDisplayName(sign.value, PUBLIC_HOROSCOPE_LANGUAGE);
 
             return (
@@ -72,13 +67,9 @@ export function PublicTodayRashifal() {
                   </span>
                   <span className="font-semibold text-white">{label}</span>
                 </div>
-                {isFetching ? (
-                  <p className="text-sm text-gray-500">Loading...</p>
-                ) : (
-                  <p className="text-sm text-gray-300 leading-relaxed line-clamp-4">
-                    {prediction || 'No horoscope available for today.'}
-                  </p>
-                )}
+                <p className="text-sm text-gray-300 leading-relaxed line-clamp-4">
+                  {prediction || 'No horoscope available for today.'}
+                </p>
               </div>
             );
           })}

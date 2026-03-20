@@ -16,14 +16,16 @@ import { sendSuccess } from '../utils';
 import { HTTP_STATUS, ERROR_CODES, PASSWORD_RESET_ACTOR } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
-import { prisma } from '@jyotish/database';
 import { AstrologerCategory } from '@prisma/client';
+import { prisma } from '@jyotish/database';
 import { getSocketInstance } from '../utils/socket-instance';
 import {
   astrologerRegistrationSchema,
   canAcceptAppointments,
   canAcceptBroadcastMessages,
 } from '@jyotish/shared';
+import { getAstrologerDashboardStats } from '../services/astrologerDashboard.service';
+import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { getClientIp } from '../utils/request-utils';
 
 /**
@@ -229,7 +231,7 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
 }
 
 /**
- * Get jyotish dashboard stats: pending chats + monthly earnings
+ * Get jyotish dashboard stats: counts, tips, recent activity, monthly earnings
  * GET /api/v1/astrologer/dashboard/stats
  */
 export async function getDashboardStats(req: AuthRequest, res: Response, next: NextFunction) {
@@ -239,56 +241,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const language = req.query.language as QuestionnaireLanguage | undefined;
+    const stats = await getAstrologerDashboardStats(astrologerId, language);
 
-    const [pendingChatsCount, monthlyEarningsAgg, lastMonthEarningsAgg] = await Promise.all([
-      // Active chats where the astrologer is participant2 and waitingForReply is true
-      prisma.chat.count({
-        where: {
-          participant2Id: astrologerId,
-          status: 'ACTIVE',
-          isLocked: false,
-          waitingForReply: true,
-        },
-      }),
-      // Current month earnings from AstrologerCoinEarning
-      (prisma as any).astrologerCoinEarning.aggregate({
-        _sum: { astrologerCoinsEarned: true },
-        where: {
-          astrologerId,
-          createdAt: { gte: monthStart },
-        },
-      }),
-      // Last month earnings for % change calculation
-      (prisma as any).astrologerCoinEarning.aggregate({
-        _sum: { astrologerCoinsEarned: true },
-        where: {
-          astrologerId,
-          createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
-        },
-      }),
-    ]);
-
-    const monthlyAmount: number = monthlyEarningsAgg._sum?.astrologerCoinsEarned ?? 0;
-    const lastMonthAmount: number = lastMonthEarningsAgg._sum?.astrologerCoinsEarned ?? 0;
-    const changePercent =
-      lastMonthAmount > 0
-        ? Math.round(((monthlyAmount - lastMonthAmount) / lastMonthAmount) * 100)
-        : monthlyAmount > 0
-          ? 100
-          : 0;
-
-    return sendSuccess(res, {
-      pendingChats: pendingChatsCount,
-      monthlyEarnings: {
-        amount: monthlyAmount,
-        currency: 'NPR',
-        changePercent,
-      },
-    });
+    return sendSuccess(res, stats);
   } catch (error) {
     next(error);
   }

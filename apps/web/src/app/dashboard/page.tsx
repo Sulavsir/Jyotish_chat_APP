@@ -34,8 +34,7 @@ import {
   ScrollText,
   GitCompareArrows,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import dashboardRotatingCopyService from '@/services/dashboardRotatingCopy.service';
+import { useClientDashboard } from '@/providers/ClientDashboardProvider';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -55,12 +54,11 @@ export default function DashboardPage() {
     return !!user.profileCompleted || checkClientProfileCompletion(user).isComplete;
   }, [user]);
 
-  const { data: rotatingCopy = [], isLoading: isRotatingCopyLoading } = useQuery({
-    queryKey: QUERY_KEYS.DASHBOARD.ROTATING_COPY,
-    queryFn: dashboardRotatingCopyService.listPublic,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  const dashboardCtx = useClientDashboard();
+  const stats = dashboardCtx?.stats;
+  const isStatsLoading = dashboardCtx?.isLoading ?? false;
+  const rotatingCopy = stats?.rotatingCopy ?? [];
+  const isRotatingCopyLoading = isStatsLoading;
 
   const [copyIndex, setCopyIndex] = useState(0);
   const [typedTitle, setTypedTitle] = useState('');
@@ -518,8 +516,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-4">
           <DashboardRashiHoroscopeCard
             userZodiacSign={(user as { zodiacSign?: string })?.zodiacSign}
+            horoscope={stats?.myHoroscope}
+            isLoading={isStatsLoading}
           />
-          <DashboardTip audience="CLIENT" />
+          <DashboardTip
+            audience="CLIENT"
+            tipText={stats?.todayTip?.text}
+            skipFetch
+          />
         </div>
 
         {/* New Section: Online Astrologers & Ask Questions */}

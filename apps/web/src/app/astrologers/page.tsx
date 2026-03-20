@@ -5,7 +5,7 @@
  * Browse and filter astrologers (public page, enhanced when logged in)
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Filter, Search, Users, TrendingUp, RefreshCw, Star } from 'lucide-react';
@@ -43,6 +43,9 @@ import { AstrologerGridSkeleton } from '@/components/ui/AstrologerCardSkeleton';
 import { useAuthStore } from '@/store/auth-store';
 import { Navbar } from '@/components/ui';
 
+const ROWS_OPTIONS = [6, 12, 24, 48] as const;
+const DEBOUNCE_MS = 400;
+
 function AstrologersContent() {
   const router = useRouter();
   const [filters, setFilters] = useState<AstrologerListParams>({
@@ -52,6 +55,18 @@ function AstrologersContent() {
     sortOrder: 'desc',
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setFilters((prev) => ({ ...prev, search: searchTerm.trim() || undefined, page: 1 }));
+    }, DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchTerm]);
 
   // Fetch astrologers
   const {
@@ -61,20 +76,27 @@ function AstrologersContent() {
   } = useQuery({
     queryKey: QUERY_KEYS.ASTROLOGERS.LIST(filters),
     queryFn: () => astrologerService.listAstrologers(filters),
+    staleTime: 30_000,
   });
 
   // Fetch stats
   const { data: stats } = useQuery({
     queryKey: QUERY_KEYS.ASTROLOGERS.STATS,
     queryFn: () => astrologerService.getStats(),
+    staleTime: 60_000,
   });
 
-  const handleSearch = () => {
-    setFilters((prev) => ({ ...prev, search: searchTerm, page: 1 }));
-  };
+  const totalPages = astrologersData?.pagination?.totalPages ?? 1;
+  const currentPage = filters.page ?? 1;
 
   const handleFilterChange = (key: keyof AstrologerListParams, value: unknown) => {
-    setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
+    setFilters((prev) => ({ ...prev, [key]: value, page: key === 'page' ? (value as number) : 1 }));
+  };
+
+  const handlePageChange = (page: number) => {
+    const clamped = Math.max(1, Math.min(page, totalPages));
+    setFilters((prev) => ({ ...prev, page: clamped }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleClearFilters = () => {
@@ -85,6 +107,18 @@ function AstrologersContent() {
       sortOrder: 'desc',
     });
     setSearchTerm('');
+  };
+
+  const getPageNumbers = (): (number | 'ellipsis')[] => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages: (number | 'ellipsis')[] = [1];
+    if (currentPage > 3) pages.push('ellipsis');
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      pages.push(i);
+    }
+    if (currentPage < totalPages - 2) pages.push('ellipsis');
+    pages.push(totalPages);
+    return pages;
   };
 
   const handleViewProfile = (astrologerId: string) => {
@@ -182,17 +216,14 @@ function AstrologersContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div className="lg:col-span-2">
-              <div className="flex gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 <Input
                   placeholder="Search by name, specialization, or language..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 pl-9"
                 />
-                <Button onClick={handleSearch} className="bg-purple-600 hover:bg-purple-700">
-                  <Search className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
@@ -278,6 +309,21 @@ function AstrologersContent() {
                 }
                 className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
               />
+            </div>
+
+            {/* Rows per page */}
+            <div>
+              <select
+                value={filters.limit ?? 12}
+                onChange={(e) => handleFilterChange('limit', Number(e.target.value))}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white"
+              >
+                {ROWS_OPTIONS.map((n) => (
+                  <option key={n} value={n} className="bg-gray-900">
+                    {n} per page
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Action Buttons */}
@@ -413,8 +459,8 @@ function AstrologersContent() {
             ))}
           </div>
 
-          {/* Pagination - admin-style */}
-          {astrologersData?.pagination && astrologersData.pagination.totalPages > 1 && (
+          {/* Pagination */}
+          {astrologersData?.pagination && (
             <div className="mt-6 border-t border-white/10 pt-4">
               <div className="flex flex-col items-center gap-2 text-sm text-gray-300 mb-3">
                 <div>
@@ -422,57 +468,53 @@ function AstrologersContent() {
                   <span className="text-purple-400">
                     {astrologersData.pagination.total === 0
                       ? 0
-                      : (astrologersData.pagination.page - 1) * astrologersData.pagination.limit +
-                        1}
+                      : (currentPage - 1) * (filters.limit ?? 12) + 1}
                   </span>{' '}
                   to{' '}
                   <span className="text-purple-400">
-                    {Math.min(
-                      astrologersData.pagination.page * astrologersData.pagination.limit,
-                      astrologersData.pagination.total
-                    )}
+                    {Math.min(currentPage * (filters.limit ?? 12), astrologersData.pagination.total)}
                   </span>{' '}
                   of <span className="text-purple-400">{astrologersData.pagination.total}</span>{' '}
                   astrologers
                 </div>
               </div>
 
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        handleFilterChange('page', Math.max(1, (filters.page || 1) - 1))
-                      }
-                    />
-                  </PaginationItem>
-
-                  {Array.from(
-                    { length: astrologersData.pagination.totalPages },
-                    (_, i) => i + 1
-                  ).map((page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        isActive={page === (filters.page || 1)}
-                        onClick={() => handleFilterChange('page', page)}
-                      >
-                        {page}
-                      </PaginationLink>
+              {totalPages > 1 && (
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage <= 1}
+                      />
                     </PaginationItem>
-                  ))}
 
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        handleFilterChange(
-                          'page',
-                          Math.min(astrologersData.pagination.totalPages, (filters.page || 1) + 1)
-                        )
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+                    {getPageNumbers().map((page, idx) =>
+                      page === 'ellipsis' ? (
+                        <PaginationItem key={`ellipsis-${idx}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            isActive={page === currentPage}
+                            onClick={() => handlePageChange(page)}
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
             </div>
           )}
         </>

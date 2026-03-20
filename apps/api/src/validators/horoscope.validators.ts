@@ -67,6 +67,19 @@ export const periodHoroscopeQuerySchema = z.object({
 });
 
 /**
+ * Batch horoscopes query: fetch all zodiac signs in one call.
+ * GET /api/v1/horoscopes?category=DAILY&date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
+ */
+export const horoscopesBatchQuerySchema = z.object({
+  category: z.enum(VALID_HOROSCOPE_CATEGORIES, {
+    required_error: 'Category is required',
+    invalid_type_error: 'Category must be DAILY, WEEKLY, MONTHLY, or YEARLY',
+  }),
+  date: optionalDateSchema,
+  language: z.enum(VALID_LANGUAGES).optional(),
+});
+
+/**
  * Subscribe to horoscope schema
  */
 export const subscribeHoroscopeSchema = z.object({

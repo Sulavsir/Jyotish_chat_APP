@@ -7,12 +7,21 @@ import {
   zodiacSignParamSchema,
   dailyHoroscopeQuerySchema,
   periodHoroscopeQuerySchema,
+  horoscopesBatchQuerySchema,
   subscribeHoroscopeSchema,
   updateSubscriptionSchema,
   myHoroscopeQuerySchema,
 } from '../validators';
 
 const router = Router();
+
+// Get horoscopes for all zodiac signs in one call
+// GET /api/v1/horoscopes?category=DAILY|WEEKLY|MONTHLY|YEARLY&date=YYYY-MM-DD&language=NEPALI|HINDI|ENGLISH
+router.get(
+  '/',
+  validateQuery(horoscopesBatchQuerySchema),
+  asyncHandler(horoscopeController.getHoroscopesBatch)
+);
 
 // Get daily horoscope by zodiac sign
 router.get(

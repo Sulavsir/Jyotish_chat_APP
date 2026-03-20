@@ -17,6 +17,12 @@ export const QUERY_KEYS = {
     ROTATING_COPY: ['dashboard', 'rotating-copy'] as const,
   },
 
+  // Client Dashboard (consolidated stats)
+  CLIENT_DASHBOARD: {
+    STATS: (language?: string) =>
+      language ? (['client-dashboard', 'stats', language] as const) : (['client-dashboard', 'stats'] as const),
+  },
+
   // Jyotish Bookings
   JYOTISH_BOOKINGS: {
     ALL: ['jyotish-bookings'] as const,
@@ -82,6 +88,8 @@ export const QUERY_KEYS = {
   HOROSCOPE: {
     MY_HOROSCOPE: (language?: string) =>
       language ? (['horoscope', 'my-horoscope', language] as const) : (['horoscope', 'my-horoscope'] as const),
+    BATCH: (category: string, date?: string, language?: string) =>
+      ['horoscope', 'batch', category, date ?? '', language ?? ''] as const,
     GET: (sign: string, category: string, date?: string, language?: string) =>
       ['horoscope', sign, category, date ?? '', language ?? ''] as const,
   },
@@ -190,6 +198,14 @@ export const QUERY_KEYS = {
   // Fonepay QR payments
   FONEPAY: {
     STATUS: (prn: string) => ['fonepay', 'status', prn] as const,
+  },
+
+  // Client payments (SUCCESS only)
+  PAYMENTS: {
+    MY_SUCCESSFUL: (params?: { page?: number; limit?: number }) =>
+      params
+        ? (['payments', 'my-successful', params] as const)
+        : (['payments', 'my-successful'] as const),
   },
 
   // Subha Sahit (auspicious dates)

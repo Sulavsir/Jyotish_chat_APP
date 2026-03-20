@@ -8,6 +8,30 @@ import type { PlatformCoinRateType } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
+// ─── In-process rate cache (TTL: 60 s) ──────────────────────────────────────
+// Rates are admin-set and rarely change. Caching avoids a DB round-trip on
+// every single message send / broadcast creation / dashboard load.
+const CACHE_TTL_MS = 60_000;
+let rateCache: Map<PlatformCoinRateType, number> | null = null;
+let rateCacheAt = 0;
+
+function getCachedRate(rateType: PlatformCoinRateType): number | undefined {
+  if (!rateCache || Date.now() - rateCacheAt > CACHE_TTL_MS) return undefined;
+  return rateCache.get(rateType);
+}
+
+function setCachedRate(rateType: PlatformCoinRateType, value: number) {
+  if (!rateCache) rateCache = new Map();
+  rateCache.set(rateType, value);
+  rateCacheAt = Date.now();
+}
+
+/** Invalidate the entire rate cache (call after admin updates rates). */
+export function invalidateRateCache() {
+  rateCache = null;
+  rateCacheAt = 0;
+}
+
 export interface PlatformCoinRateRow {
   id: string;
   rateType: PlatformCoinRateType;
@@ -40,29 +64,33 @@ const RATE_TYPES: PlatformCoinRateType[] = [
   'FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType,
 ];
 
+const RATE_DEFAULTS: Record<string, number> = {
+  CHAT_PER_MESSAGE: 200,
+  BROADCAST_PER_MESSAGE: 100,
+  BROADCAST_SEND: 100,
+  APPOINTMENT: 300,
+  KUNDALI_REVIEW: 500,
+  KUNDALI_MATCH: 0,
+  COINS_PER_NPR: 1,
+  FIRST_BROADCAST_DISCOUNT: 0,
+};
+
 /**
- * Get coin rate for a single rate type (with fallback for missing rows)
+ * Get coin rate for a single rate type (with fallback for missing rows).
+ * Results are cached in-process for 60 s to avoid a DB round-trip on
+ * every message send / broadcast creation.
  */
 export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
+  const cached = getCachedRate(rateType);
+  if (cached !== undefined) return cached;
+
   const row = await prisma.platformCoinRate.findUnique({
     where: { rateType },
     select: { coins: true },
   });
-  if (!row) {
-    // Fallback defaults when admin has not set rates
-    const defaults: Record<PlatformCoinRateType, number> = {
-      CHAT_PER_MESSAGE: 200,
-      BROADCAST_PER_MESSAGE: 100,
-      BROADCAST_SEND: 100,
-      APPOINTMENT: 300,
-      KUNDALI_REVIEW: 500,
-      KUNDALI_MATCH: 0,
-      COINS_PER_NPR: 1,
-      FIRST_BROADCAST_DISCOUNT: 0,
-    } as Record<PlatformCoinRateType, number>;
-    return defaults[rateType] ?? 0;
-  }
-  return row.coins;
+  const value = row?.coins ?? (RATE_DEFAULTS[rateType as string] ?? 0);
+  setCachedRate(rateType, value);
+  return value;
 }
 
 /**
@@ -103,22 +131,12 @@ export async function getAllRates(): Promise<PlatformCoinRateRow[]> {
   });
   // Ensure all rate types exist (upsert missing)
   const existing = new Set(rows.map((r) => r.rateType));
-  const defaultCoins: Record<PlatformCoinRateType, number> = {
-    CHAT_PER_MESSAGE: 200,
-    BROADCAST_PER_MESSAGE: 100,
-    BROADCAST_SEND: 100,
-    APPOINTMENT: 300,
-    KUNDALI_REVIEW: 500,
-    KUNDALI_MATCH: 0,
-    COINS_PER_NPR: 1,
-    FIRST_BROADCAST_DISCOUNT: 0,
-  } as Record<PlatformCoinRateType, number>;
   for (const rateType of RATE_TYPES) {
     if (!existing.has(rateType)) {
       const created = await prisma.platformCoinRate.create({
         data: {
           rateType,
-          coins: defaultCoins[rateType],
+          coins: RATE_DEFAULTS[rateType] ?? 0,
           description: null,
         },
       });
@@ -159,5 +177,7 @@ export async function updateRates(
       })
     )
   );
+  // Invalidate cache so next getRate() fetches fresh values
+  invalidateRateCache();
   return getAllRates();
 }

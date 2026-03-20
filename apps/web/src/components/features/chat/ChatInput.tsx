@@ -43,8 +43,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [message]);
 
+  const MAX_MESSAGE_LENGTH = 1000;
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
+    const value = e.target.value.slice(0, MAX_MESSAGE_LENGTH);
     setMessage(value);
     onChangeMessage?.(value);
 
@@ -262,6 +264,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
+            maxLength={MAX_MESSAGE_LENGTH}
             className={
               isJyotish
                 ? 'w-full resize-none rounded-xl border border-white/[0.08] px-4 py-2.5 pr-12 bg-white/[0.04] text-[#fafaf9] placeholder:text-[#78716c] focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed max-h-32 overflow-y-auto text-sm leading-relaxed min-h-[42px]'
@@ -299,11 +302,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         <p className={`text-xs ${isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}>
           Press Enter to send, Shift + Enter for new line
         </p>
-        {attachment && (
-          <p className={`text-xs ${isJyotish ? 'text-[#78716c]' : 'text-gray-500'}`}>
-            Max size: {FILE_UPLOAD.MAX_SIZE_LABEL}
-          </p>
-        )}
+        <div className="flex items-center gap-2">
+          {attachment && (
+            <p className={`text-xs ${isJyotish ? 'text-[#78716c]' : 'text-gray-500'}`}>
+              Max size: {FILE_UPLOAD.MAX_SIZE_LABEL}
+            </p>
+          )}
+          {message.length > 800 && (
+            <p className={`text-xs ${message.length >= MAX_MESSAGE_LENGTH ? 'text-red-400' : isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}>
+              {message.length}/{MAX_MESSAGE_LENGTH}
+            </p>
+          )}
+        </div>
       </div>
     </form>
   );

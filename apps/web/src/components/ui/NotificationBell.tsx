@@ -28,7 +28,7 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types';
@@ -78,6 +78,17 @@ interface Notification {
   metadata?: any;
 }
 
+type NotificationsBundle = {
+  notifications: Notification[];
+  unreadCount: number;
+};
+
+// Prevent duplicate parallel REST calls when React mounts components more than once
+// (React Strict Mode) or when multiple instances are rendered.
+let sharedNotificationsFetch: Promise<NotificationsBundle> | null = null;
+let sharedNotificationsFetchedAt = 0;
+const NOTIF_FETCH_DEDUPE_MS = 1500;
+
 interface NotificationSettings {
   notificationsEnabled: boolean;
   chatNotifications?: boolean;
@@ -88,6 +99,12 @@ interface NotificationSettings {
   pushNotifications?: boolean;
   soundEnabled?: boolean;
 }
+
+// Dedupe the initial notification-settings fetch across strict-mode remounts.
+let sharedNotificationSettingsFetch: Promise<NotificationSettings> | null = null;
+let sharedNotificationSettingsFetchedAt = 0;
+let sharedNotificationSettingsCache: NotificationSettings | null = null;
+const NOTIF_SETTINGS_DEDUPE_MS = 5000;
 
 type BroadcastStatus = 'PENDING' | 'ACCEPTED_BY_YOU' | 'ACCEPTED_BY_OTHERS' | 'EXPIRED';
 
@@ -112,12 +129,14 @@ function isBroadcastExpired(createdAt: string): boolean {
 
 export function NotificationBell({ themeColor = 'purple' }: NotificationBellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const lastNotificationsLoadedAtRef = useRef<number>(0);
 
   // Status map: broadcastMessageId → status (astrologer only)
   const [broadcastStatuses, setBroadcastStatuses] = useState<Map<string, BroadcastStatus>>(
@@ -129,6 +148,13 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
 
   const { socket, isConnected } = useSocket();
   const isAstrologer = user?.role === UserRole.ASTROLOGER;
+  // Poll notifications only while user is actively in chat routes.
+  // This prevents `/api/v1/notifications*` spam on every dashboard page.
+  const shouldPollNotifications =
+    pathname === '/chat' ||
+    pathname?.startsWith('/chat?') ||
+    pathname === '/jyotish/chat' ||
+    pathname?.startsWith('/jyotish/chat?');
 
   // Keep a ref so socket-event closures always see the latest user id
   // even if the effect hasn't re-run since the user was hydrated.
@@ -167,27 +193,93 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
   const loadNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Core: fetch notification list + unread count — never fail silently
-      const [notifResponse, countResponse] = await Promise.all([
-        apiClient.get<any>('/api/v1/notifications?limit=5'),
-        apiClient.get<any>('/api/v1/notifications/unread-count'),
-      ]);
+      const now = Date.now();
 
-      const notifs: Notification[] = notifResponse?.notifications ?? [];
-      setNotifications(notifs);
-      setUnreadCount(countResponse?.count ?? 0);
+      // De-dupe parallel calls: if another mount/effect already started fetching,
+      // just await it instead of hitting the server again.
+      let bundle: NotificationsBundle | null = null;
+      if (sharedNotificationsFetch) {
+        bundle = await sharedNotificationsFetch;
+      } else if (now - sharedNotificationsFetchedAt < NOTIF_FETCH_DEDUPE_MS) {
+        // Recent fetch already completed; skip re-fetch to protect your server.
+        return;
+      } else {
+        sharedNotificationsFetch = (async () => {
+          // Prefer socket hydration (no HTTP polling).
+          if (socket && isConnected) {
+            const payload = await new Promise<{
+              notifications: unknown[];
+              unreadCount: number;
+            }>((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error('notifications:get timeout')), 4000);
+              socket.emit(
+                'notifications:get',
+                { limit: 5, offset: 0, unreadOnly: false },
+                (res: { notifications: unknown[]; unreadCount: number }) => {
+                  clearTimeout(timeout);
+                  resolve({
+                    notifications: res.notifications ?? [],
+                    unreadCount: res.unreadCount ?? 0,
+                  });
+                }
+              );
+            });
+
+            return {
+              notifications: (payload.notifications ?? []) as Notification[],
+              unreadCount: payload.unreadCount ?? 0,
+            };
+          }
+
+          // Fallback (should be rare): keep the existing HTTP behaviour.
+          const [notifResponse, countResponse] = await Promise.all([
+            apiClient.get<any>('/api/v1/notifications?limit=5'),
+            apiClient.get<any>('/api/v1/notifications/unread-count'),
+          ]);
+
+          const notifications = (notifResponse?.notifications ?? []) as Notification[];
+          const unreadCount = countResponse?.count ?? 0;
+          return { notifications, unreadCount };
+        })();
+
+        bundle = await sharedNotificationsFetch;
+      }
+
+      if (!bundle) return;
+
+      // Clear shared promise only when we created it.
+      if (sharedNotificationsFetch) sharedNotificationsFetch = null;
+      sharedNotificationsFetchedAt = now;
+
+      setNotifications(bundle.notifications);
+      setUnreadCount(bundle.unreadCount);
+      lastNotificationsLoadedAtRef.current = Date.now();
 
       // Astrologer-only: hydrate broadcast statuses from the live pending list.
-      // Run separately so that any failure here never breaks the core notification list.
-      if (isAstrologer && notifs.some((n) => n.type === 'BROADCAST_MESSAGE')) {
+      if (isAstrologer && bundle.notifications.some((n) => n.type === 'BROADCAST_MESSAGE')) {
         try {
-          const pendingMessages = await broadcastMessageService.getPendingMessages();
+          type PendingBroadcast = { id: string };
+          const pendingMessages: PendingBroadcast[] = await new Promise((resolve) => {
+            if (!socket || !isConnected) return resolve([]);
+            const timeout = setTimeout(() => resolve([]), 4000);
+            socket.once('broadcast:pendingMessages', (messages: unknown[]) => {
+              clearTimeout(timeout);
+              const safe = (messages ?? []).filter(Boolean) as unknown[];
+              resolve(
+                safe
+                  .map((m) => ({ id: (m as PendingBroadcast)?.id }))
+                  .filter((x) => typeof x.id === 'string')
+              );
+            });
+            socket.emit('broadcast:getPendingMessages');
+          });
+
           const pendingIds = new Set(pendingMessages.map((m) => m.id));
           const myAccepted = user?.id ? getMyAcceptedIds(user.id) : new Set<string>();
 
           setBroadcastStatuses((prev) => {
             const next = new Map(prev);
-            notifs.forEach((n) => {
+            bundle.notifications.forEach((n) => {
               if (n.type !== 'BROADCAST_MESSAGE') return;
               const msgId = n.metadata?.broadcastMessageId as string | undefined;
               if (!msgId) return;
@@ -218,23 +310,59 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
     } finally {
       setIsLoading(false);
     }
-  }, [isAstrologer, user?.id]);
+  }, [isAstrologer, user?.id, socket, isConnected]);
 
   // Check notification settings on mount
   useEffect(() => {
-    apiClient
-      .get<NotificationSettings>('/api/v1/notification-settings')
-      .then((s) => setNotificationsEnabled(s?.notificationsEnabled ?? true))
-      .catch(() => setNotificationsEnabled(true));
+    let isCancelled = false;
+    const run = async () => {
+      const now = Date.now();
+      if (sharedNotificationSettingsCache && now - sharedNotificationSettingsFetchedAt < NOTIF_SETTINGS_DEDUPE_MS) {
+        setNotificationsEnabled(sharedNotificationSettingsCache.notificationsEnabled ?? true);
+        return;
+      }
+
+      if (sharedNotificationSettingsFetch) {
+        const s = await sharedNotificationSettingsFetch;
+        if (isCancelled) return;
+        setNotificationsEnabled(s?.notificationsEnabled ?? true);
+        return;
+      }
+
+      sharedNotificationSettingsFetch = apiClient
+        .get<NotificationSettings>('/api/v1/notification-settings')
+        .then((s) => {
+          sharedNotificationSettingsCache = s;
+          sharedNotificationSettingsFetchedAt = Date.now();
+          return s;
+        })
+        .catch(() => {
+          const fallback: NotificationSettings = { notificationsEnabled: true };
+          sharedNotificationSettingsCache = fallback;
+          sharedNotificationSettingsFetchedAt = Date.now();
+          return fallback;
+        })
+        .finally(() => {
+          sharedNotificationSettingsFetch = null;
+        });
+
+      const s = await sharedNotificationSettingsFetch;
+      if (isCancelled) return;
+      setNotificationsEnabled(s?.notificationsEnabled ?? true);
+    };
+
+    void run();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
-  // Initial load + 30-second refresh
+  // Initial load (and optional polling) - we rely primarily on socket events for real-time updates.
   useEffect(() => {
     if (!notificationsEnabled) return;
+    if (!shouldPollNotifications) return;
     loadNotifications();
-    const id = setInterval(loadNotifications, 30_000);
-    return () => clearInterval(id);
-  }, [notificationsEnabled, loadNotifications]);
+  }, [notificationsEnabled, loadNotifications, shouldPollNotifications]);
 
   // ─── Socket listeners ────────────────────────────────────────────────────
 
@@ -503,7 +631,10 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
         open={isOpen}
         onOpenChange={(o) => {
           setIsOpen(o);
-          if (o) loadNotifications();
+          if (!o) return;
+          const shouldReload =
+            notifications.length === 0 || Date.now() - lastNotificationsLoadedAtRef.current > 60_000;
+          if (shouldReload) void loadNotifications();
         }}
       >
         <PopoverTrigger asChild>

@@ -13,6 +13,10 @@ import { horoscopeService } from '@/services/horoscopeService';
 
 interface DashboardRashiHoroscopeCardProps {
   userZodiacSign: string | null | undefined;
+  /** When provided from dashboard stats, skip fetch and use this */
+  horoscope?: { zodiacSign: string; prediction: string; category: string } | null;
+  /** When true, show loading state (e.g. from stats loading) */
+  isLoading?: boolean;
   className?: string;
 }
 
@@ -22,19 +26,22 @@ interface DashboardRashiHoroscopeCardProps {
  */
 export function DashboardRashiHoroscopeCard({
   userZodiacSign,
+  horoscope: horoscopeProp,
+  isLoading: isLoadingProp,
   className,
 }: DashboardRashiHoroscopeCardProps) {
   const router = useRouter();
   const language = useQuestionnaireLanguageStore((s) => s.language);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading: isQueryLoading, isError } = useQuery({
     queryKey: QUERY_KEYS.HOROSCOPE.MY_HOROSCOPE(language),
     queryFn: () => horoscopeService.getMyHoroscope(language),
     staleTime: 5 * 60 * 1000,
-    enabled: !!userZodiacSign,
+    enabled: !!userZodiacSign && !horoscopeProp,
   });
 
-  const horoscope = data?.horoscope;
+  const horoscope = horoscopeProp ?? data?.horoscope;
+  const isLoading = isLoadingProp ?? (!!userZodiacSign && !horoscopeProp && isQueryLoading);
   const rashiLabel = userZodiacSign ? getRashiDisplayName(userZodiacSign, language) : '';
 
   const cardClass = cn(

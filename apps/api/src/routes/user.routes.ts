@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { validateBody, validateParams } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { asyncHandler } from '../utils';
-import { userController, clientProfileController } from '../controllers';
+import { userController, clientProfileController, clientDashboardController } from '../controllers';
 import { authController } from '../controllers';
+import { getDashboardStatsQuerySchema } from '../validators/astrologer.validators';
 import {
   profileSetupSchema,
   createClientProfileSchema,
@@ -16,6 +17,14 @@ const router = Router();
 
 // Get current user profile
 router.get('/me', authenticate, asyncHandler(userController.getCurrentUser));
+
+// Client dashboard stats (balance, rates, tip, horoscope, rotating copy, pending broadcast)
+router.get(
+  '/dashboard/stats',
+  authenticate,
+  validateQuery(getDashboardStatsQuerySchema),
+  asyncHandler(clientDashboardController.getDashboardStats)
+);
 
 // Complete profile setup (for new users after account creation)
 router.post(

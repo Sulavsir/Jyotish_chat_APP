@@ -10,6 +10,7 @@ import {
 import { MessageType, UserRole, AstrologerCategory } from '@jyotish/shared';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import { ERROR_CODES } from '@/constants/http.constants';
+import { notificationService } from '../services/notification.service';
 
 export function chatHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
@@ -20,6 +21,15 @@ export function chatHandlers(io: Server, socket: Socket) {
     async (data: { receiverId: string; content: string; type?: MessageType; metadata?: any }) => {
       try {
         const { receiverId, content, type, metadata } = data;
+
+        if (!content || !content.trim()) {
+          socket.emit('chat:error', { message: 'Message cannot be empty' });
+          return;
+        }
+        if (content.trim().length > 1000) {
+          socket.emit('chat:error', { message: 'Message cannot exceed 1000 characters' });
+          return;
+        }
 
         // Determine client and astrologer IDs
         // participant1 is ALWAYS client (User), participant2 is ALWAYS astrologer
@@ -412,7 +422,8 @@ export function chatHandlers(io: Server, socket: Socket) {
               // Reopened chats (ended then reactivated) use instant chat fee, not broadcast.
               // Source follows the rate used: BROADCAST_PER_MESSAGE → BROADCAST_MESSAGE, chatMessageFee → CHAT_MESSAGE.
               const isBroadcastChat =
-                !!broadcastMessage && !(chat as { reopenedAfterEnded?: boolean }).reopenedAfterEnded;
+                !!broadcastMessage &&
+                !(chat as { reopenedAfterEnded?: boolean }).reopenedAfterEnded;
               const { deductCoinsForMessage } = await import('../services/coin.service');
               try {
                 await deductCoinsForMessage(
@@ -439,6 +450,8 @@ export function chatHandlers(io: Server, socket: Socket) {
         const receiverType =
           user.role === UserRole.CLIENT ? ParticipantType.ASTROLOGER : ParticipantType.CLIENT;
 
+        const actualReceiverId = user.role === UserRole.CLIENT ? astrologerId : clientId;
+
         // Save message to database
         const messageData: {
           chatId: string;
@@ -452,7 +465,7 @@ export function chatHandlers(io: Server, socket: Socket) {
         } = {
           chatId: chat.id,
           senderId: user.id,
-          receiverId,
+          receiverId: actualReceiverId,
           senderType,
           receiverType,
           content,
@@ -576,7 +589,7 @@ export function chatHandlers(io: Server, socket: Socket) {
           : null;
 
         // Send to receiver by room (works across API instances when using Redis adapter)
-        io.to(`user:${receiverId}`).emit('chat:receive', {
+        io.to(`user:${actualReceiverId}`).emit('chat:receive', {
           ...messageWithSender,
           turnState: turnStateInfo,
         });
@@ -612,13 +625,13 @@ export function chatHandlers(io: Server, socket: Socket) {
         // Determine notification fields based on receiver type
         const notificationWhere =
           receiverType === ParticipantType.CLIENT
-            ? { userId: receiverId, groupKey, isRead: false }
-            : { astrologerId: receiverId, groupKey, isRead: false };
+            ? { userId: actualReceiverId, groupKey, isRead: false }
+            : { astrologerId: actualReceiverId, groupKey, isRead: false };
 
         const notificationData =
           receiverType === ParticipantType.CLIENT
-            ? { userId: receiverId, recipientType: ParticipantType.CLIENT }
-            : { astrologerId: receiverId, recipientType: ParticipantType.ASTROLOGER };
+            ? { userId: actualReceiverId, recipientType: ParticipantType.CLIENT }
+            : { astrologerId: actualReceiverId, recipientType: ParticipantType.ASTROLOGER };
 
         // Check for existing unread notification
         const existingNotification = await prisma.notification.findFirst({
@@ -660,8 +673,9 @@ export function chatHandlers(io: Server, socket: Socket) {
           });
         }
 
-        // Send real-time notification to receiver by room (works across instances)
-        io.to(`user:${receiverId}`).emit('notification:new', notification);
+        notificationService.invalidateUserCache(actualReceiverId);
+
+        io.to(`user:${actualReceiverId}`).emit('notification:new', notification);
       } catch (error) {
         console.error('Error sending message:', error);
         socket.emit('chat:error', { message: 'Failed to send message' });

@@ -63,6 +63,7 @@ export const API_ENDPOINTS = {
   },
   USER: {
     ME: '/api/v1/users/me',
+    DASHBOARD_STATS: '/api/v1/users/dashboard/stats',
     UPDATE: '/api/v1/users/me',
     PROFILE_SETUP: '/api/v1/users/profile-setup',
     UPLOAD_PHOTO: '/api/v1/users/upload-photo',
@@ -116,6 +117,7 @@ export const API_ENDPOINTS = {
     WEEKLY: (zodiacSign: string) => `/api/v1/horoscopes/weekly/${encodeURIComponent(zodiacSign)}`,
     MONTHLY: (zodiacSign: string) => `/api/v1/horoscopes/monthly/${encodeURIComponent(zodiacSign)}`,
     YEARLY: (zodiacSign: string) => `/api/v1/horoscopes/yearly/${encodeURIComponent(zodiacSign)}`,
+    BATCH: '/api/v1/horoscopes',
     MY_HOROSCOPE: '/api/v1/horoscopes/my-horoscope',
     SUBSCRIBE: '/api/v1/horoscopes/subscribe',
     UNSUBSCRIBE: '/api/v1/horoscopes/unsubscribe',
@@ -193,6 +195,7 @@ export const API_ENDPOINTS = {
     CREATE_FONEPAY_QR_ORDER: '/api/v1/payments/create-fonepay-qr-order',
     VERIFY_FONEPAY_QR: '/api/v1/payments/verify-fonepay-qr',
     CREATE_FONEPAY_CARD_ORDER: '/api/v1/payments/create-fonepay-card-order',
+    MY_PAYMENTS: '/api/v1/payments/my-payments',
   },
   FONEPAY: {
     GENERATE_QR: '/api/v1/fonepay/generate-qr',

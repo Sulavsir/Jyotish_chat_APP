@@ -46,6 +46,8 @@ export default function JyotishChatPage() {
   const { sendMessage, sendTypingIndicator, isConnected, socket } = useSocket();
   const chatMessages = useStore((state) => state.messages);
 
+  const lastUrlSelectionKeyRef = useRef<string | null>(null);
+
   // Real-time conversation updates from socket
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
@@ -415,7 +417,7 @@ export default function JyotishChatPage() {
 
       // Load messages
       console.log('📨 Loading messages for:', otherUser.id);
-      await loadMessages(otherUser.id);
+      await loadMessages(otherUser.id, true, chat.id);
 
       console.log('✅ Chat opened successfully');
     } catch (error) {
@@ -433,7 +435,7 @@ export default function JyotishChatPage() {
     }
   };
 
-  const loadMessages = async (otherUserId: string, reset = true) => {
+  const loadMessages = async (otherUserId: string, reset = true, chatIdForMerge?: string | null) => {
     try {
       setIsLoadingMessages(true);
       if (reset) {
@@ -448,7 +450,94 @@ export default function JyotishChatPage() {
         offset: 0,
       });
 
-      setMessages(chatMessages);
+      // Merge with socket-received messages that might have arrived during the API fetch.
+      // Prevents “new message only appears after refresh”.
+      const chatIdToUse = chatIdForMerge ?? activeChatId;
+      type SocketMessageLike = {
+        id?: unknown;
+        chatId?: unknown;
+        senderId?: unknown;
+        receiverId?: unknown;
+        senderType?: unknown;
+        receiverType?: unknown;
+        content?: unknown;
+        type?: unknown;
+        metadata?: unknown;
+        createdAt?: unknown;
+        updatedAt?: unknown;
+        isRead?: unknown;
+        isDeleted?: unknown;
+        sender?: unknown;
+      };
+
+      const storeMessages = chatIdToUse ? useStore.getState().messages[chatIdToUse] : undefined;
+      const toTime = (v: unknown) => {
+        if (v instanceof Date) return v.getTime();
+        if (typeof v === 'string' || typeof v === 'number') {
+          const d = new Date(v);
+          return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+        }
+        return 0;
+      };
+
+      const byId = new Map<string, Message>();
+      for (const m of chatMessages as Message[]) {
+        byId.set(m.id, m);
+      }
+
+      if (Array.isArray(storeMessages) && storeMessages.length > 0) {
+        for (const raw of storeMessages) {
+          const m = raw as SocketMessageLike;
+          if (typeof m?.id !== 'string') continue;
+          // Convert store message shape into the local `Message` shape we render.
+          const parseDate = (v: unknown): Date => {
+            if (v instanceof Date) return v;
+            if (typeof v === 'string' || typeof v === 'number') {
+              const d = new Date(v);
+              return Number.isNaN(d.getTime()) ? new Date(0) : d;
+            }
+            return new Date(0);
+          };
+
+          const parseBool = (v: unknown, fallback: boolean) => {
+            if (typeof v === 'boolean') return v;
+            return fallback;
+          };
+
+          const senderLike = m.sender as
+            | { id?: unknown; name?: unknown; profilePhoto?: unknown; role?: unknown; email?: unknown }
+            | undefined;
+          const senderId = typeof senderLike?.id === 'string' ? senderLike.id : '';
+          const senderName = typeof senderLike?.name === 'string' ? senderLike.name : 'Unknown';
+          const senderProfilePhoto =
+            typeof senderLike?.profilePhoto === 'string' ? senderLike.profilePhoto : undefined;
+
+          byId.set(m.id, {
+            id: m.id,
+            chatId: typeof m.chatId === 'string' ? m.chatId : chatIdToUse || '',
+            senderId: typeof m.senderId === 'string' ? m.senderId : '',
+            receiverId: typeof m.receiverId === 'string' ? m.receiverId : '',
+            content: typeof m.content === 'string' ? m.content : '',
+            type: (typeof m.type === 'string' ? m.type : 'TEXT') as Message['type'],
+            metadata: m.metadata as unknown,
+            createdAt: parseDate(m.createdAt),
+            updatedAt: parseDate(m.updatedAt ?? m.createdAt),
+            isRead: parseBool(m.isRead, false),
+            isDeleted: parseBool(m.isDeleted, false),
+            sender: {
+              id: senderId,
+              name: senderName,
+              profilePhoto: senderProfilePhoto,
+            },
+          } as Message);
+        }
+      }
+
+      const merged = Array.from(byId.values()).sort(
+        (a, b) => toTime(a.createdAt) - toTime(b.createdAt)
+      );
+
+      setMessages(merged);
       setMessageOffset(30);
       setHasMore(total > 30 || chatMessages.length === 30);
     } catch (error) {
@@ -500,12 +589,9 @@ export default function JyotishChatPage() {
       return;
     }
 
-    // Clear messages first to prevent duplicates from store merge
-    setMessages([]);
-
     setActiveChat(selectedChat);
     setActiveChatId(chatId);
-    await loadMessages(otherUserId);
+    await loadMessages(otherUserId, true, chatId);
 
     // Mark messages as read
     try {
@@ -532,6 +618,9 @@ export default function JyotishChatPage() {
       const loadedChats = await loadConversations();
       await loadUnreadCount();
 
+      const urlKey = chatIdFromUrl ? `chat:${chatIdFromUrl}` : 'none';
+      lastUrlSelectionKeyRef.current = urlKey;
+
       // If we have a chatId in URL, try to select it
       if (chatIdFromUrl) {
         await loadAndSelectChatFromUrl(chatIdFromUrl, loadedChats);
@@ -546,6 +635,10 @@ export default function JyotishChatPage() {
   useEffect(() => {
     // Skip if still loading initial data or no user
     if (!user || !initializedRef.current) return;
+
+    const urlKey = chatIdFromUrl ? `chat:${chatIdFromUrl}` : 'none';
+    if (lastUrlSelectionKeyRef.current === urlKey) return;
+    lastUrlSelectionKeyRef.current = urlKey;
 
     // If chatId in URL changes, load that chat
     if (chatIdFromUrl) {

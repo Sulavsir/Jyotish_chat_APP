@@ -15,6 +15,7 @@ import { addCoins } from '../../../services/coin.service';
 import { pricingService } from '../../../services/pricing.service';
 import { PurchaseMethod } from '../../../types/pricing.types';
 import { CoinTransactionReason } from '../../../types/coin.types';
+import { invalidateMySuccessfulPaymentsCache } from '../../../services/paymentCache';
 import type { FonepayWebCallbackQuery } from '../../../types/fonepay.types';
 
 // Common Fonepay failure response codes
@@ -191,6 +192,10 @@ export async function verifyPayment(
         // Don't fail the redirect - payment was successful, we can reconcile later
       }
     }
+
+    // Payment SUCCESS is now reflected in the user's account (coins/plan).
+    // Invalidate the cached "my-successful" list so the sidebar shows fresh data.
+    invalidateMySuccessfulPaymentsCache(payment.userId);
     
     return {
       redirectTo: `${successUrl}?orderId=${encodeURIComponent(payment.id)}&source=fonepay-card`,

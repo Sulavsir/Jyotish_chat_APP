@@ -58,6 +58,7 @@ export default function ChatPage() {
   const [showCoinPurchaseModal, setShowCoinPurchaseModal] = useState(false);
   const [requiredCoins, setRequiredCoins] = useState(1);
   const initializedRef = useRef(false);
+  const lastUrlSelectionKeyRef = useRef<string | null>(null);
   const currentOtherUserId = useRef<string | null>(null);
   const pendingMessageSentRef = useRef<string | null>(null);
 
@@ -94,6 +95,14 @@ export default function ChatPage() {
       // Load all conversations first
       const loadedChats = await loadConversations();
 
+      const urlKey = chatIdFromUrl
+        ? `chat:${chatIdFromUrl}`
+        : otherUserIdFromUrl
+          ? `other:${otherUserIdFromUrl}`
+          : 'none';
+      // Prevent duplicate loadAndSelect calls coming from URL watcher effects.
+      lastUrlSelectionKeyRef.current = urlKey;
+
       // If we have a chatId in URL, try to select it
       if (chatIdFromUrl) {
         await loadAndSelectChatFromUrl(chatIdFromUrl, loadedChats);
@@ -119,6 +128,14 @@ export default function ChatPage() {
   // Handle URL changes after initial mount (when chatId or otherUserId query param changes)
   useEffect(() => {
     if (!initializedRef.current || !user) return;
+
+    const urlKey = chatIdFromUrl
+      ? `chat:${chatIdFromUrl}`
+      : otherUserIdFromUrl
+        ? `other:${otherUserIdFromUrl}`
+        : 'none';
+    if (lastUrlSelectionKeyRef.current === urlKey) return;
+    lastUrlSelectionKeyRef.current = urlKey;
 
     if (chatIdFromUrl) {
       if (activeChatId === chatIdFromUrl && !isBroadcastChatActive) return;
@@ -195,7 +212,15 @@ export default function ChatPage() {
     } catch {
       // Ignore parse errors or missing storage
     }
-  }, [otherUserIdFromUrl, activeChatId, isConnected, user, sendMessage]);
+  }, [
+    otherUserIdFromUrl,
+    activeChatId,
+    isConnected,
+    user,
+    sendMessage,
+    setSelectedProfileForChat,
+    setBirthDetailsForChat,
+  ]);
 
   // Real-time conversation updates from socket
   useEffect(() => {
@@ -478,9 +503,8 @@ export default function ChatPage() {
       return match ? parseInt(match[1], 10) : 1;
     };
 
-    // Listen to both receive and sent events
+    // Listen to receive events and handle sender updates via the "new mode" sent handler below.
     socket.on('chat:receive', handleNewMessage);
-    socket.on('chat:sent', handleNewMessage);
     // When we were in "new conversation" mode and our first message created the chat, switch to real chat
     const handleSentInNewMode = async (message: any) => {
       if (
@@ -501,6 +525,9 @@ export default function ChatPage() {
         await loadAndSelectChatFromUrl(realChatId, freshConversations);
       } else {
         handleNewMessage(message);
+        if (user?.role === UserRole.CLIENT) {
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+        }
       }
     };
 
@@ -511,7 +538,6 @@ export default function ChatPage() {
     socket.on('chat:error', handleChatError);
     socket.on('broadcast:yourMessageAccepted', handleYourBroadcastAccepted);
     socket.on('chat:sent', handleSentInNewMode);
-    socket.on('chat:receive', handleNewMessage);
 
     return () => {
       socket.off('chat:receive', handleNewMessage);

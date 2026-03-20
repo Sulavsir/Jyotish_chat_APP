@@ -25,6 +25,11 @@ export interface HoroscopeApiResponse {
   message: string;
 }
 
+export interface HoroscopesBatchApiResponse {
+  horoscopes: HoroscopeResponse[];
+  message: string;
+}
+
 export const horoscopeService = {
   /**
    * Get horoscope for zodiac sign and category (day/week/month/year)
@@ -47,6 +52,23 @@ export const horoscopeService = {
       ? `${API_ENDPOINTS.HOROSCOPE.MY_HOROSCOPE}?language=${encodeURIComponent(language)}`
       : API_ENDPOINTS.HOROSCOPE.MY_HOROSCOPE;
     return apiClient.get<HoroscopeApiResponse>(url);
+  },
+
+  /**
+   * Get horoscopes for ALL zodiac signs in a single request (batch).
+   * This prevents 12x per-filter network calls.
+   */
+  async getHoroscopesBatch(params: {
+    category: HoroscopeCategory;
+    date?: string;
+    language?: string;
+  }): Promise<HoroscopesBatchApiResponse> {
+    const { category, date, language } = params;
+    const search = new URLSearchParams();
+    search.set('category', category);
+    if (date) search.set('date', date);
+    if (language) search.set('language', language);
+    return apiClient.get<HoroscopesBatchApiResponse>(`${API_ENDPOINTS.HOROSCOPE.BATCH}?${search.toString()}`);
   },
 
   /**

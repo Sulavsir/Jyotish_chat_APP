@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -42,9 +42,13 @@ interface UsersResponse {
   };
 }
 
+const SEARCH_DEBOUNCE_MS = 400;
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
@@ -54,6 +58,18 @@ export default function UsersPage() {
     balance?: number;
   } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+      setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchTerm]);
 
   // Fetch users with TanStack Query (server-side pagination)
   const {
@@ -65,14 +81,14 @@ export default function UsersPage() {
       ...ADMIN_QUERY_KEYS.USERS.LIST(),
       currentPage,
       rowsPerPage,
-      searchTerm,
+      debouncedSearch,
       statusFilter,
     ],
     queryFn: async () => {
       const response: any = await adminApi.users.list({
         page: currentPage,
         limit: rowsPerPage,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
       });
       // Handle both response formats
@@ -119,10 +135,10 @@ export default function UsersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  // Reset to page 1 when search term or status filter changes
+  // Reset to page 1 when status filter or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter, rowsPerPage]);
+  }, [statusFilter, rowsPerPage]);
 
   const columns: AdminTableColumn<User>[] = [
     {

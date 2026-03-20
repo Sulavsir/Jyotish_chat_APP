@@ -7,6 +7,7 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateQuery } from '../middleware/validate';
 import { changePasswordSchema } from '@jyotish/shared';
 import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators';
+import { getDashboardStatsQuerySchema } from '../validators/astrologer.validators';
 import {
   createSlotsBulkSchema,
   listSlotsQuerySchema,
@@ -72,7 +73,11 @@ router.post(
 router.post('/toggle-online', asyncHandler(astrologerController.toggleOnlineStatus));
 
 // ==================== Dashboard Stats ====================
-router.get('/dashboard/stats', asyncHandler(astrologerController.getDashboardStats));
+router.get(
+  '/dashboard/stats',
+  validateQuery(getDashboardStatsQuerySchema),
+  asyncHandler(astrologerController.getDashboardStats)
+);
 
 // ==================== My Earnings (coin earnings from client deductions) ====================
 router.get(

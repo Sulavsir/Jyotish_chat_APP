@@ -35,6 +35,22 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
           return;
         }
 
+        const content = (data.content || '').trim();
+        if (!content) {
+          socket.emit('broadcast:error', {
+            message: 'Message cannot be empty',
+            code: 'VALIDATION_ERROR',
+          });
+          return;
+        }
+        if (content.length > 300) {
+          socket.emit('broadcast:error', {
+            message: 'Message cannot exceed 300 characters',
+            code: 'VALIDATION_ERROR',
+          });
+          return;
+        }
+
         const metadata =
           data.birthDetails &&
           (data.birthDetails.dateOfBirth ||
@@ -238,8 +254,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         },
       };
 
-      const clientName =
-        result.message.client?.name || result.message.client?.phone || 'Client';
+      const clientName = result.message.client?.name || result.message.client?.phone || 'Client';
 
       const acceptedByPayload = {
         messageId: result.message.id,

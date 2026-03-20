@@ -1,12 +1,10 @@
 /**
- * Loading Screen Component with Space Background
- * Matches the home page background for consistency
+ * Loading Screen Component with Space-like Gradient Background
+ * Uses CSS gradient instead of image for instant LCP (no 1.7MB image load)
  */
 
 'use client';
 
-import Image from 'next/image';
-import spaceImage from '@/assets/images/space.jpg';
 import { TwinklingStars } from './TwinklingStars';
 
 interface LoadingScreenWithBackgroundProps {
@@ -18,18 +16,17 @@ export function LoadingScreenWithBackground({
 }: LoadingScreenWithBackgroundProps) {
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background Image */}
+      {/* Gradient background - instant paint, no image LCP */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(180deg, #0a0a0f 0%, #1a0a1f 30%, #0d0d14 60%, #0a0a0f 100%)',
+        }}
+        aria-hidden
+      />
       <div className="absolute inset-0">
-        <Image
-          src={spaceImage}
-          alt="Cosmic Space"
-          fill
-          className="object-cover"
-          priority
-          quality={90}
-        />
         <TwinklingStars count={60} />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-purple-900/30 to-black/90"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-purple-900/30 to-black/90" />
       </div>
 
       {/* Loading Content */}

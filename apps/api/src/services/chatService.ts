@@ -452,7 +452,29 @@ export const getUserChats = async (userId: string) => {
         },
       ],
     },
-    include: {
+    select: {
+      id: true,
+      participant1Id: true,
+      participant2Id: true,
+      participant1Type: true,
+      participant2Type: true,
+      consultationId: true,
+      appointmentId: true,
+      status: true,
+      isLocked: true,
+      reopenedAfterEnded: true,
+      endedBy: true,
+      endedAt: true,
+      lastMessageAt: true,
+      lastMessageText: true,
+      participant1Read: true,
+      participant2Read: true,
+      isMonitoredByAdmin: true,
+      isAbandonedByAdmin: true,
+      waitingForReply: true,
+      turnBasedEnabled: true,
+      createdAt: true,
+      updatedAt: true,
       clientParticipant: {
         select: {
           id: true,
@@ -471,32 +493,23 @@ export const getUserChats = async (userId: string) => {
           profilePhoto: true,
         },
       },
-      messages: {
-        take: 1,
-        orderBy: {
-          createdAt: 'desc',
-        },
-      },
     },
-    orderBy: [
-      {
-        updatedAt: 'desc',
-      },
-    ],
+    orderBy: [{ updatedAt: 'desc' }],
   });
 
   const chatIds = chats.map((c) => c.id);
 
-  // Fetch broadcast-linked chat IDs in one query (accepted only)
   const broadcastLinkedChatIds =
     chatIds.length > 0
-      ? await (prisma as any).broadcastMessage.findMany({
-          where: {
-            chatId: { in: chatIds },
-            status: BroadcastMessageStatus.ACCEPTED,
-          },
-          select: { chatId: true },
-        }).then((rows: { chatId: string }[]) => new Set(rows.map((r) => r.chatId)))
+      ? await (prisma as any).broadcastMessage
+          .findMany({
+            where: {
+              chatId: { in: chatIds },
+              status: BroadcastMessageStatus.ACCEPTED,
+            },
+            select: { chatId: true },
+          })
+          .then((rows: { chatId: string }[]) => new Set(rows.map((r) => r.chatId)))
       : new Set<string>();
 
   // Fetch instant-chat-linked chat IDs in one query (accepted only)
@@ -513,37 +526,42 @@ export const getUserChats = async (userId: string) => {
           .then((rows) => new Set(rows.map((r) => r.chatId).filter((id): id is string => !!id)))
       : new Set<string>();
 
-  // Add unread count and broadcast flag for each chat
-  const chatsWithUnread = await Promise.all(
-    chats.map(async (chat) => {
-      const unreadCount = await prisma.message.count({
-        where: {
-          chatId: chat.id,
-          receiverId: userId,
-          isRead: false,
-        },
-      });
+  // Fetch all unread counts in a single groupBy query instead of N individual counts
+  const unreadGroups =
+    chatIds.length > 0
+      ? await prisma.message.groupBy({
+          by: ['chatId'],
+          where: {
+            chatId: { in: chatIds },
+            receiverId: userId,
+            isRead: false,
+          },
+          _count: { id: true },
+        })
+      : [];
+  const unreadMap = new Map(unreadGroups.map((g) => [g.chatId, g._count.id]));
 
-      // Unified source classification with reopen override:
-      // - Once a chat is reopened after ending, it is a direct continuation.
-      // - Otherwise, any accepted broadcast/instant-origin chat is BROADCAST.
-      const chatSource = chat.reopenedAfterEnded
-        ? 'DIRECT'
-        : broadcastLinkedChatIds.has(chat.id) || instantLinkedChatIds.has(chat.id)
-          ? 'BROADCAST'
-          : 'DIRECT';
-      const isBroadcastChat = chatSource === 'BROADCAST';
-      const isInstantChat = instantLinkedChatIds.has(chat.id);
+  // Unified source classification with reopen override:
+  // - Once a chat is reopened after ending, it is a direct continuation.
+  // - Otherwise, any accepted broadcast/instant-origin chat is BROADCAST.
+  const chatsWithUnread = chats.map((chat) => {
+    const unreadCount = unreadMap.get(chat.id) ?? 0;
+    const chatSource = chat.reopenedAfterEnded
+      ? 'DIRECT'
+      : broadcastLinkedChatIds.has(chat.id) || instantLinkedChatIds.has(chat.id)
+        ? 'BROADCAST'
+        : 'DIRECT';
+    const isBroadcastChat = chatSource === 'BROADCAST';
+    const isInstantChat = instantLinkedChatIds.has(chat.id);
 
-      return {
-        ...chat,
-        unreadCount,
-        chatSource,
-        isBroadcastChat,
-        isInstantChat,
-      };
-    })
-  );
+    return {
+      ...chat,
+      unreadCount,
+      chatSource,
+      isBroadcastChat,
+      isInstantChat,
+    };
+  });
 
   return chatsWithUnread;
 };
@@ -624,15 +642,22 @@ export const getChatHistory = async (
     }),
   ]);
 
-  // Fetch sender info for each message
-  const messagesWithSender = await Promise.all(
-    messages.map(async (message) => {
-      let sender;
+  // Batch-fetch all senders in 2 queries instead of N (one per message)
+  const clientSenderIds = [
+    ...new Set(
+      messages.filter((m) => m.senderType === ParticipantType.CLIENT).map((m) => m.senderId)
+    ),
+  ];
+  const astrologerSenderIds = [
+    ...new Set(
+      messages.filter((m) => m.senderType === ParticipantType.ASTROLOGER).map((m) => m.senderId)
+    ),
+  ];
 
-      // Fetch sender based on senderType
-      if (message.senderType === ParticipantType.CLIENT) {
-        sender = await prisma.user.findUnique({
-          where: { id: message.senderId },
+  const [clientSenders, astrologerSenders] = await Promise.all([
+    clientSenderIds.length > 0
+      ? prisma.user.findMany({
+          where: { id: { in: clientSenderIds } },
           select: {
             id: true,
             name: true,
@@ -642,45 +667,44 @@ export const getChatHistory = async (
             placeOfBirth: true,
             role: true,
           },
-        });
-      } else if (message.senderType === ParticipantType.ASTROLOGER) {
-        sender = await prisma.astrologer.findUnique({
-          where: { id: message.senderId },
-          select: {
-            id: true,
-            name: true,
-            profilePhoto: true,
-          },
-        });
-      }
+        })
+      : [],
+    astrologerSenderIds.length > 0
+      ? prisma.astrologer.findMany({
+          where: { id: { in: astrologerSenderIds } },
+          select: { id: true, name: true, profilePhoto: true },
+        })
+      : [],
+  ]);
 
-      const baseSender = sender || {
-        id: message.senderId,
-        name: 'Unknown User',
-        profilePhoto: null,
-      };
-      const meta = message.metadata as Record<string, unknown> | null | undefined;
-      const birthDetails = meta?.birthDetails as Record<string, unknown> | undefined;
-      const baseBirth = baseSender as Record<string, unknown>;
-      const mergedSender =
-        message.senderType === ParticipantType.CLIENT &&
-        birthDetails &&
-        typeof birthDetails === 'object'
-          ? {
-              ...baseSender,
-              dateOfBirth: birthDetails.dateOfBirth ?? baseBirth.dateOfBirth,
-              timeOfBirth: birthDetails.timeOfBirth ?? baseBirth.timeOfBirth,
-              placeOfBirth: birthDetails.placeOfBirth ?? baseBirth.placeOfBirth,
-              gender: birthDetails.gender ?? baseBirth.gender,
-            }
-          : baseSender;
+  const clientMap = new Map(clientSenders.map((u) => [u.id, u]));
+  const astrologerMap = new Map(astrologerSenders.map((a) => [a.id, a]));
 
-      return {
-        ...message,
-        sender: mergedSender,
-      };
-    })
-  );
+  const messagesWithSender = messages.map((message) => {
+    const sender =
+      message.senderType === ParticipantType.CLIENT
+        ? clientMap.get(message.senderId)
+        : astrologerMap.get(message.senderId);
+
+    const baseSender = sender || { id: message.senderId, name: 'Unknown User', profilePhoto: null };
+    const meta = message.metadata as Record<string, unknown> | null | undefined;
+    const birthDetails = meta?.birthDetails as Record<string, unknown> | undefined;
+    const baseBirth = baseSender as Record<string, unknown>;
+    const mergedSender =
+      message.senderType === ParticipantType.CLIENT &&
+      birthDetails &&
+      typeof birthDetails === 'object'
+        ? {
+            ...baseSender,
+            dateOfBirth: birthDetails.dateOfBirth ?? baseBirth.dateOfBirth,
+            timeOfBirth: birthDetails.timeOfBirth ?? baseBirth.timeOfBirth,
+            placeOfBirth: birthDetails.placeOfBirth ?? baseBirth.placeOfBirth,
+            gender: birthDetails.gender ?? baseBirth.gender,
+          }
+        : baseSender;
+
+    return { ...message, sender: mergedSender };
+  });
 
   return {
     messages: messagesWithSender.reverse(), // Reverse to show oldest first
@@ -792,8 +816,7 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
         where: { chatId },
         select: { id: true },
       });
-      const isBroadcastChat =
-        !!broadcastMessage && !chat.reopenedAfterEnded;
+      const isBroadcastChat = !!broadcastMessage && !chat.reopenedAfterEnded;
 
       // Import here to avoid circular dependency
       const { deductCoinsForMessage } = await import('./coin.service');

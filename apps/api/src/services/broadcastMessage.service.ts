@@ -30,6 +30,21 @@ import { getTotalNrForQuestionCount, getPerQuestionBreakdown } from './broadcast
 import { hasUserUsedBroadcast } from './broadcastUsage.service';
 import { randomUUID } from 'node:crypto';
 
+const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
+const pendingBroadcastMessagesCache = new Map<
+  string,
+  { expiresAt: number; messages: unknown[] }
+>();
+let lastPendingExpiryRunAt = 0;
+
+function invalidatePendingBroadcastCache() {
+  pendingBroadcastMessagesCache.clear();
+}
+
+function getPendingCacheKey(astrologerId?: string) {
+  return astrologerId ? `pending:${astrologerId}` : 'pending:all';
+}
+
 export interface CreateBroadcastMessageData {
   clientId: string;
   content: string;
@@ -280,6 +295,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   // Notify admin
   notifyBroadcastMessageSent(message);
 
+  invalidatePendingBroadcastCache();
   return message;
 }
 
@@ -572,6 +588,7 @@ export async function cancelBroadcastMessage(messageId: string, clientId: string
     },
   });
 
+  invalidatePendingBroadcastCache();
   return { message: updatedMessage, refundAmount };
 }
 
@@ -587,6 +604,12 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     return [];
   }
 
+  const cacheKey = getPendingCacheKey(astrologerId);
+  const cached = pendingBroadcastMessagesCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.messages as any;
+  }
+
   // If astrologer ID is provided, check if they are in-house and eligible
   if (astrologerId) {
     const astrologer = await prisma.astrologer.findUnique({
@@ -600,8 +623,14 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     }
   }
 
-  // First, expire old messages
-  await expireOldMessages();
+  // Expire old messages in the background — do not block the response
+  const now = Date.now();
+  if (now - lastPendingExpiryRunAt > 30_000) {
+    lastPendingExpiryRunAt = now;
+    expireOldMessages().catch((err) =>
+      console.error('[getPendingBroadcastMessages] Background expiry failed:', err)
+    );
+  }
 
   // If astrologer ID is provided, get their dismissed message IDs
   let dismissedMessageIds: string[] = [];
@@ -639,6 +668,11 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     orderBy: {
       createdAt: 'desc',
     },
+  });
+
+  pendingBroadcastMessagesCache.set(cacheKey, {
+    expiresAt: Date.now() + PENDING_BROADCAST_CACHE_TTL_MS,
+    messages,
   });
 
   return messages;
@@ -1204,6 +1238,9 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   // Notify admin
   notifyBroadcastMessageAccepted(messageId, message.clientId, astrologerId, chat.id);
 
+  // Pending list should change immediately after acceptance
+  invalidatePendingBroadcastCache();
+
   return {
     message: updatedMessage,
     chat,
@@ -1311,5 +1348,6 @@ export async function dismissBroadcastMessage(messageId: string, astrologerId: s
     },
   });
 
+  invalidatePendingBroadcastCache();
   return dismissal;
 }

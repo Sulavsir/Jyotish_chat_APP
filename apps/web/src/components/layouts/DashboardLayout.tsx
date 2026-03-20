@@ -9,7 +9,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -22,6 +21,7 @@ import {
   LogOut,
   Menu,
   X,
+  HelpCircle,
 } from 'lucide-react';
 import { AppSidebar } from '@jyotish/ui';
 import { AppLogo } from '@/components/ui/AppLogo';
@@ -32,9 +32,9 @@ import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { Popover, PopoverContent, PopoverTrigger } from '@jyotish/ui';
 import { ChevronDown } from 'lucide-react';
-import spaceImage from '@/assets/images/space.jpg';
 import { LogoutModal } from '@/components/modals';
 import { ProfileDropdown, NotificationBell, CoinDisplay } from '@/components/ui';
+import { ClientDashboardProvider } from '@/providers/ClientDashboardProvider';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -113,6 +113,8 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
     { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: <CalendarCheck className="h-4 w-4" /> },
     { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: <Star className="h-4 w-4" /> },
     { name: 'Pricing', href: ROUTES.PRICING, icon: <Wallet className="h-4 w-4" /> },
+    { name: 'Payment History', href: ROUTES.MY_PAYMENTS, icon: <Wallet className="h-4 w-4" /> },
+    { name: 'Support', href: ROUTES.SUPPORT, icon: <HelpCircle className="h-4 w-4" /> },
     {
       name: 'Profile',
       href: ROUTES.PROFILE,
@@ -134,12 +136,16 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
   };
 
   return (
+    <ClientDashboardProvider>
     <div className={cn('min-h-screen relative', hideBackground && 'bg-black')}>
       {!hideBackground && (
-        <div className="fixed inset-0 z-0">
-          <Image src={spaceImage} alt="" fill className="object-cover" quality={90} priority />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/70" />
-        </div>
+        <div
+          className="fixed inset-0 z-0 bg-[#0a0a0f]"
+          style={{
+            background: 'linear-gradient(180deg, #0a0a0f 0%, #1a0a1f 30%, #0d0d14 60%, #0a0a0f 100%)',
+          }}
+          aria-hidden
+        />
       )}
 
       <div className="relative z-50 flex flex-col h-screen overflow-hidden">
@@ -295,5 +301,6 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
         isLoading={isLoggingOut}
       />
     </div>
+    </ClientDashboardProvider>
   );
 }

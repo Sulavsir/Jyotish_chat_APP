@@ -5,13 +5,14 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { asyncHandler } from '../utils';
-import { validateBody } from '../middleware/validate';
+import { validateBody, validateQuery } from '../middleware/validate';
 import {
   createOrderSchema,
   verifyPaymentSchema,
   createFonepayQrOrderSchema,
   verifyFonepayQrSchema,
   createFonepayCardOrderSchema,
+  mySuccessfulPaymentsQuerySchema,
 } from '../validators/payment.validators';
 import * as paymentController from '../controllers/payment.controller';
 
@@ -26,6 +27,13 @@ router.get('/fonepay-card-callback', asyncHandler(paymentController.fonepayCardC
 router.post('/fonepay-card-callback', asyncHandler(paymentController.fonepayCardCallback));
 
 router.use(authenticate);
+
+// Client: list only successful payments (SUCCESS only; excludes pending/failed/refunded)
+router.get(
+  '/my-payments',
+  validateQuery(mySuccessfulPaymentsQuerySchema),
+  asyncHandler(paymentController.getMySuccessfulPayments)
+);
 
 router.post(
   '/create-order',
