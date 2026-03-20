@@ -946,6 +946,13 @@ cle   * Get all pending registration requests with pagination and search
       console.error('❌ Failed to send approval notifications:', error);
     }
 
+    try {
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
+    } catch (e) {
+      console.error('Failed to emit sidebar invalidate:', e);
+    }
+
     return updated;
   }
 
@@ -1017,6 +1024,13 @@ cle   * Get all pending registration requests with pagination and search
     } catch (error) {
       // Log error but don't fail the rejection process
       console.error('❌ Failed to send rejection notifications:', error);
+    }
+
+    try {
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
+    } catch (e) {
+      console.error('Failed to emit sidebar invalidate:', e);
     }
 
     return updated;

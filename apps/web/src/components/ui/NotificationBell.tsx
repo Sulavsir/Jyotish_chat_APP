@@ -211,7 +211,10 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
               notifications: unknown[];
               unreadCount: number;
             }>((resolve, reject) => {
-              const timeout = setTimeout(() => reject(new Error('notifications:get timeout')), 4000);
+              const timeout = setTimeout(
+                () => reject(new Error('notifications:get timeout')),
+                4000
+              );
               socket.emit(
                 'notifications:get',
                 { limit: 5, offset: 0, unreadOnly: false },
@@ -231,14 +234,9 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
             };
           }
 
-          // Fallback (should be rare): keep the existing HTTP behaviour.
-          const [notifResponse, countResponse] = await Promise.all([
-            apiClient.get<any>('/api/v1/notifications?limit=5'),
-            apiClient.get<any>('/api/v1/notifications/unread-count'),
-          ]);
-
-          const notifications = (notifResponse?.notifications ?? []) as Notification[];
-          const unreadCount = countResponse?.count ?? 0;
+          const res = await apiClient.get<any>('/api/v1/notifications?limit=5');
+          const notifications = (res?.notifications ?? []) as Notification[];
+          const unreadCount = res?.unreadCount ?? 0;
           return { notifications, unreadCount };
         })();
 
@@ -317,7 +315,10 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
     let isCancelled = false;
     const run = async () => {
       const now = Date.now();
-      if (sharedNotificationSettingsCache && now - sharedNotificationSettingsFetchedAt < NOTIF_SETTINGS_DEDUPE_MS) {
+      if (
+        sharedNotificationSettingsCache &&
+        now - sharedNotificationSettingsFetchedAt < NOTIF_SETTINGS_DEDUPE_MS
+      ) {
         setNotificationsEnabled(sharedNotificationSettingsCache.notificationsEnabled ?? true);
         return;
       }
@@ -633,7 +634,8 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
           setIsOpen(o);
           if (!o) return;
           const shouldReload =
-            notifications.length === 0 || Date.now() - lastNotificationsLoadedAtRef.current > 60_000;
+            notifications.length === 0 ||
+            Date.now() - lastNotificationsLoadedAtRef.current > 60_000;
           if (shouldReload) void loadNotifications();
         }}
       >

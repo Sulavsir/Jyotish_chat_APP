@@ -1951,6 +1951,8 @@ export async function updateComplaintStatus(req: AuthRequest, res: Response, nex
       if (io) {
         io.emit('complaint:update', updatedComplaint);
       }
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
     } catch (socketError) {
       console.error('Error emitting complaint:update event:', socketError);
     }
@@ -2046,6 +2048,8 @@ export async function resolveComplaint(req: AuthRequest, res: Response, next: Ne
           resolution,
         });
       }
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
     } catch (socketError) {
       console.error('Error emitting complaint:resolved event:', socketError);
     }
@@ -2178,6 +2182,8 @@ export async function dismissComplaint(req: AuthRequest, res: Response, next: Ne
       if (io) {
         io.emit('complaint:dismissed', updatedComplaint);
       }
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
     } catch (socketError) {
       console.error('Error emitting complaint:dismissed event:', socketError);
     }

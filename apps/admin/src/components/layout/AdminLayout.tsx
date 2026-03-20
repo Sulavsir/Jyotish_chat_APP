@@ -149,8 +149,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS(),
     queryFn: () => adminApi.getSidebarCounts(),
     enabled: isAuthenticated && _hasHydrated,
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 60_000,
   });
   const sidebarCounts = sidebarCountsData?.counts ?? {
     activeChats: 0,
@@ -257,6 +256,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
     return () => {
       off(ADMIN_SOCKET_EVENTS.ADMIN_CHAT.NEW_MESSAGE, handleNewAdminChatMessage);
+    };
+  }, [isConnected, on, off, queryClient]);
+
+  // Refetch sidebar counts when backend emits sidebar:invalidate (no polling)
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleSidebarInvalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS() });
+    };
+
+    on(ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE, handleSidebarInvalidate);
+
+    return () => {
+      off(ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE, handleSidebarInvalidate);
     };
   }, [isConnected, on, off, queryClient]);
 

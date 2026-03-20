@@ -20,22 +20,34 @@ export interface AdminSocketEvents {
   // Dashboard events
   [ADMIN_SOCKET_EVENTS.STATS.UPDATE]: (data: any) => void;
 
+  [ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE]: () => void;
+
   // Chat events
   [ADMIN_SOCKET_EVENTS.CHAT.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.UPDATE]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.ENDED]: (data: any) => void;
-  [ADMIN_SOCKET_EVENTS.CHAT.ABANDONED]: (data: { chatId: string; reason?: string; abandonedBy: string }) => void;
+  [ADMIN_SOCKET_EVENTS.CHAT.ABANDONED]: (data: {
+    chatId: string;
+    reason?: string;
+    abandonedBy: string;
+  }) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.UNBLOCKED]: (data: { chatId: string }) => void;
 
   // User events
   [ADMIN_SOCKET_EVENTS.USER.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.USER.UPDATE]: (data: any) => void;
-  [ADMIN_SOCKET_EVENTS.USER.STATUS]: (data: { userId: string; status: 'online' | 'offline' }) => void;
+  [ADMIN_SOCKET_EVENTS.USER.STATUS]: (data: {
+    userId: string;
+    status: 'online' | 'offline';
+  }) => void;
 
   // Astrologer events
   [ADMIN_SOCKET_EVENTS.ASTROLOGER.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.ASTROLOGER.UPDATE]: (data: any) => void;
-  [ADMIN_SOCKET_EVENTS.ASTROLOGER.STATUS_CHANGED]: (data: { astrologerId: string; isOnline: boolean }) => void;
+  [ADMIN_SOCKET_EVENTS.ASTROLOGER.STATUS_CHANGED]: (data: {
+    astrologerId: string;
+    isOnline: boolean;
+  }) => void;
 
   // Earning events
   [ADMIN_SOCKET_EVENTS.EARNING.NEW]: (data: any) => void;

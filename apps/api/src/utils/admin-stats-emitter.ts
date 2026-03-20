@@ -32,6 +32,7 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       io.to('admin').emit('user:new');
+      this.emitSidebarInvalidate();
       console.log('📊 Emitted user:new to admin clients');
     } catch (error) {
       console.error('❌ Failed to emit user:new:', error);
@@ -45,6 +46,7 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       io.to('admin').emit('astrologer:new');
+      this.emitSidebarInvalidate();
       console.log('📊 Emitted astrologer:new to admin clients');
     } catch (error) {
       console.error('❌ Failed to emit astrologer:new:', error);
@@ -58,6 +60,7 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       io.to('admin').emit('chat:new');
+      this.emitSidebarInvalidate();
       console.log('📊 Emitted chat:new to admin clients');
     } catch (error) {
       console.error('❌ Failed to emit chat:new:', error);
@@ -71,6 +74,7 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       io.to('admin').emit('chat:ended');
+      this.emitSidebarInvalidate();
       console.log('📊 Emitted chat:ended to admin clients');
     } catch (error) {
       console.error('❌ Failed to emit chat:ended:', error);
@@ -84,6 +88,7 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       io.to('admin').emit('earning:new', { amount });
+      this.emitSidebarInvalidate();
       console.log(`📊 Emitted earning:new to admin clients (amount: ${amount})`);
     } catch (error) {
       console.error('❌ Failed to emit earning:new:', error);
@@ -97,9 +102,23 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       io.to('admin').emit('consultation:new');
+      this.emitSidebarInvalidate();
       console.log('📊 Emitted consultation:new to admin clients');
     } catch (error) {
       console.error('❌ Failed to emit consultation:new:', error);
+    }
+  }
+
+  /**
+   * Emit sidebar counts invalidation - admin should refetch sidebar-counts.
+   * Call when any sidebar-relevant data changes (chat, complaint, appointment, etc.).
+   */
+  static emitSidebarInvalidate() {
+    try {
+      const io = this.getIo();
+      io.to('admin').emit('sidebar:invalidate');
+    } catch (error) {
+      console.error('❌ Failed to emit sidebar:invalidate:', error);
     }
   }
 

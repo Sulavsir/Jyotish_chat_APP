@@ -17,7 +17,8 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_BASE_URL, // Uses Next.js proxy in development (empty string)
+      baseURL: API_BASE_URL,
+      timeout: 25_000, // Fail fast in production; avoid long pending states
       headers: {
         'Content-Type': 'application/json',
       },

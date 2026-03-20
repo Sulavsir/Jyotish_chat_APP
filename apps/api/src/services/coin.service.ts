@@ -475,6 +475,15 @@ export const addCoins = async (
     }),
   ]);
 
+  if (reason === CoinTransactionReason.PAYMENT_SUCCESS) {
+    try {
+      const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+      AdminStatsEmitter.emitSidebarInvalidate();
+    } catch (e) {
+      console.error('Failed to emit sidebar invalidate:', e);
+    }
+  }
+
   return {
     userId: updatedUser.id,
     balance: updatedUser.coins,

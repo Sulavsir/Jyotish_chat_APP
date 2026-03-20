@@ -129,6 +129,9 @@ export async function createComplaint(req: AuthRequest, res: Response, next: Nex
       },
     });
 
+    const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+    AdminStatsEmitter.emitSidebarInvalidate();
+
     // Log audit action
     await auditService.logAction({
       userId,

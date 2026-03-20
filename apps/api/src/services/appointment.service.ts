@@ -370,6 +370,9 @@ export const updateAppointment = async (
     },
   });
 
+  const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+  AdminStatsEmitter.emitSidebarInvalidate();
+
   return appointment as AppointmentWithRelations;
 };
 

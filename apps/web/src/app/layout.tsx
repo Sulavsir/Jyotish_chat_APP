@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -6,9 +7,14 @@ import { Toaster } from 'sonner';
 import { QueryProvider } from '@/providers/query-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { NepaliDateProvider } from '@/providers/nepali-date-provider';
-import { AdminChatWidget } from '@/components/widgets/AdminChatWidget';
 import { PaymentRedirectHandler } from '@/components/payment/PaymentRedirectHandler';
 import { JsonLd } from '@/components/seo/JsonLd';
+
+// Lazy-load AdminChatWidget - reduces initial bundle, loads after hydration
+const AdminChatWidget = dynamic(
+  () => import('@/components/widgets/AdminChatWidget').then((m) => ({ default: m.AdminChatWidget })),
+  { ssr: false }
+);
 
 const inter = Inter({ subsets: ['latin'] });
 

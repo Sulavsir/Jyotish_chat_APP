@@ -65,6 +65,7 @@ model User {
   @@index([role])
   @@index([isOnline])
   @@index([zodiacSign])
+  @@index([createdAt])
 }
 
 enum GeographyType {

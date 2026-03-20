@@ -63,6 +63,8 @@ export async function createRequest(input: CreateKundaliMatchInput): Promise<Kun
       coinTransactionId,
     },
   });
+  const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+  AdminStatsEmitter.emitSidebarInvalidate();
   return request as KundaliMatchRequestRow;
 }
 
@@ -172,5 +174,7 @@ export async function submitReview(
       reviewedByAdmin: { select: { id: true, name: true } },
     },
   });
+  const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+  AdminStatsEmitter.emitSidebarInvalidate();
   return updated as KundaliMatchRequestRow;
 }

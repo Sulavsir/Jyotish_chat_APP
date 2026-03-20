@@ -7,6 +7,9 @@ export const ADMIN_SOCKET_EVENTS = {
   STATS: {
     UPDATE: 'stats:update',
   },
+  SIDEBAR: {
+    INVALIDATE: 'sidebar:invalidate',
+  },
   CHAT: {
     NEW: 'chat:new',
     UPDATE: 'chat:update',
