@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { useDebounce } from '@/hooks';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -84,6 +85,7 @@ function statusBadge(status: JyotishBookingStatus) {
 export default function PanditBookingsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
@@ -98,7 +100,7 @@ export default function PanditBookingsPage() {
     queryKey: [
       ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.PANDIT }),
       currentPage,
-      searchTerm,
+      debouncedSearch,
       statusFilter,
     ],
     queryFn: () =>
@@ -106,7 +108,7 @@ export default function PanditBookingsPage() {
         type: JyotishBookingType.PANDIT,
         page: currentPage,
         limit: PAGINATION_DEFAULTS.LIMIT,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
   });
@@ -122,7 +124,7 @@ export default function PanditBookingsPage() {
   // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (input: {
@@ -299,10 +301,10 @@ export default function PanditBookingsPage() {
                   />
                 </svg>
               ),
-              title: searchTerm
+              title: debouncedSearch
                 ? 'No Pandit Ji booking requests found'
                 : 'No Pandit Ji booking requests',
-              description: searchTerm
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Requests submitted by clients will appear here.',
             }}

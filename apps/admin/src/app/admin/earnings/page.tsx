@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useDebounce } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
@@ -28,22 +29,27 @@ const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 export default function EarningsPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.EARNINGS.ASTROLOGERS_WITH_COINS({
       page: currentPage,
       limit: ITEMS_PER_PAGE,
-      search: searchTerm || undefined,
+      search: debouncedSearch || undefined,
     }),
     queryFn: () =>
       adminApi.earnings.listAstrologersWithCoins({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
       }),
     placeholderData: keepPreviousData,
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   const astrologers = data?.astrologers ?? [];
   const pagination = data?.pagination ?? {
@@ -159,8 +165,8 @@ export default function EarningsPage() {
             keyExtractor={(row) => row.id}
             emptyState={{
               icon: <MoneyIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No astrologers found' : 'No astrologers',
-              description: searchTerm
+              title: debouncedSearch ? 'No astrologers found' : 'No astrologers',
+              description: debouncedSearch
                 ? 'Try adjusting your search'
                 : 'Astrologer earnings will appear here',
             }}

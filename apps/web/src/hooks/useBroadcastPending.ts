@@ -122,6 +122,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: ['client-dashboard', 'stats'] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       if (data != null) {
         const refundNr = data.refundAmount ?? 0;
@@ -178,6 +179,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       setIsWaitingForAcceptance(true);
       setPendingMessage(msg);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: ['client-dashboard', 'stats'] });
       // Toast is shown from the component that initiates the request (to avoid duplicates)
     });
 
@@ -232,6 +234,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
     socket.on('broadcast:messageExpired', (data: { messageId: string; refundAmount: number }) => {
       // Server confirmed expiry + refund; show exact amount to the client
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: ['client-dashboard', 'stats'] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       const refundNr = data.refundAmount ?? 0;
       if (refundNr > 0) {

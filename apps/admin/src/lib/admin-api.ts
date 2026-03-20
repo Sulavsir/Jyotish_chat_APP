@@ -568,7 +568,7 @@ export const adminApi = {
    * Chats
    */
   chats: {
-    list: async (params?: { page?: number; limit?: number; status?: string }) => {
+    list: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
       const response = await apiClient.get(API_ENDPOINTS.CHATS.LIST, { params });
       return response;
     },

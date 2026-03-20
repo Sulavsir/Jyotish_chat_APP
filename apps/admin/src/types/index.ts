@@ -10,7 +10,6 @@ export * from './kundaliMatch.types';
 export * from './horoscope.types';
 export * from './tip.types';
 export * from './subha-sahit.types';
-export * from './transaction.types';
 
 // Re-export commonly used types for convenience
 export type {

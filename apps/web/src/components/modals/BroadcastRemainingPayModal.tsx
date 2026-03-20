@@ -149,7 +149,7 @@ export function BroadcastPaymentDetailsModal({
                     <span className="flex-1 truncate">{q.text}</span>
                     {q.isCustom && (
                       <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                        Custom
+                        Custom questions
                       </span>
                     )}
                   </li>
@@ -181,7 +181,7 @@ export function BroadcastPaymentDetailsModal({
                     )}
                     {entry.isCustom && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300 border border-violet-500/30">
-                        Your question
+                        Custom questions
                       </span>
                     )}
                   </span>

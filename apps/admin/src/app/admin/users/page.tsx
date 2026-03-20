@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from '@/hooks';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
@@ -47,8 +48,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedSearch = useDebounce(searchTerm.trim(), SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
@@ -59,17 +59,10 @@ export default function UsersPage() {
   } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
 
-  // Debounce search input
+  // Reset to page 1 when debounced search changes
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setDebouncedSearch(searchTerm.trim());
-      setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchTerm]);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [debouncedSearch]);
 
   // Fetch users with TanStack Query (server-side pagination)
   const {

@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useDebounce } from '@/hooks';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -243,6 +244,7 @@ export default function RegistrationRequestsPage() {
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
   const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
 
   const viewing =
@@ -260,19 +262,19 @@ export default function RegistrationRequestsPage() {
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   const {
     data: requestsResponse,
     isLoading,
     refetch,
   } = useQuery<RegistrationRequestsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(), currentPage, searchTerm],
+    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(), currentPage, debouncedSearch],
     queryFn: async (): Promise<RegistrationRequestsResponse> => {
       const response = await adminApi.astrologers.getRegistrationRequests({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
       });
       return response;
     },
@@ -495,8 +497,8 @@ export default function RegistrationRequestsPage() {
             keyExtractor={(request) => request.id}
             emptyState={{
               icon: <UserIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No requests found' : 'No pending registration requests',
-              description: searchTerm
+              title: debouncedSearch ? 'No requests found' : 'No pending registration requests',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'All registration requests have been processed',
             }}

@@ -25,7 +25,7 @@ import {
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { Chat } from '@/types';
 import ChatDetailModal from '@/components/chat/ChatDetailModal';
-import { useAdminSocket } from '@/hooks';
+import { useAdminSocket, useDebounce } from '@/hooks';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 import { Ban, RefreshCw } from 'lucide-react';
 import { generatePageNumbers } from '@/utils/helpers';
@@ -43,6 +43,7 @@ interface ChatsResponse {
 export default function ChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -55,12 +56,13 @@ export default function ChatsPage() {
     isLoading,
     refetch,
   } = useQuery<ChatsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, searchTerm, statusFilter],
+    queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, statusFilter, debouncedSearch],
     queryFn: async () => {
       const response: any = await adminApi.chats.list({
         page: currentPage,
         limit: PAGINATION_DEFAULTS.LIMIT,
         status: statusFilter || undefined,
+        search: debouncedSearch || undefined,
       });
       // Handle both response formats
       if (response?.chats && response?.pagination) {
@@ -148,7 +150,7 @@ export default function ChatsPage() {
   // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   const isImageUrl = (text: string) => {
     if (!text) return false;
@@ -162,19 +164,6 @@ export default function ChatsPage() {
     if (text.startsWith('http') && text.includes('/uploads/')) return '📎 Attachment';
     return text;
   };
-
-  // Filter chats client-side (since backend may not support search)
-  const filteredChats = chats.filter((chat) => {
-    if (!searchTerm) return true;
-    const clientName = chat.clientParticipant?.name?.toLowerCase() || '';
-    const astrologerName = chat.astrologerParticipant?.name?.toLowerCase() || '';
-    const lastMessage = chat.lastMessageText?.toLowerCase() || '';
-    const search = searchTerm.toLowerCase();
-
-    return (
-      clientName.includes(search) || astrologerName.includes(search) || lastMessage.includes(search)
-    );
-  });
 
   const handleChatClick = (chat: Chat) => {
     setSelectedChat(chat);
@@ -277,15 +266,15 @@ export default function ChatsPage() {
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
-            data={filteredChats}
+            data={chats}
             columns={columns}
             loading={isLoading}
             keyExtractor={(chat) => chat.id}
             onRowClick={handleChatClick}
             emptyState={{
               icon: <ChatIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No chats found' : 'No active chats',
-              description: searchTerm
+              title: debouncedSearch ? 'No chats found' : 'No active chats',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Chat conversations will appear here once users start communicating with astrologers',
             }}

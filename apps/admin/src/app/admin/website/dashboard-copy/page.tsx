@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useDebounce } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { adminApi } from '@/lib/admin-api';
@@ -63,6 +64,7 @@ function toFormDefaults(item?: DashboardRotatingCopy): CopyFormState {
 export default function DashboardCopyManagementPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DashboardRotatingCopy | null>(null);
@@ -74,12 +76,12 @@ export default function DashboardCopyManagementPage() {
     refetch,
     isFetching,
   } = useQuery<DashboardRotatingCopyResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(), currentPage, searchTerm],
+    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(), currentPage, debouncedSearch],
     queryFn: () =>
       adminApi.dashboard.rotatingCopy.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
       }),
   });
 
@@ -94,7 +96,7 @@ export default function DashboardCopyManagementPage() {
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -298,8 +300,8 @@ export default function DashboardCopyManagementPage() {
                   />
                 </svg>
               ),
-              title: searchTerm ? 'No dashboard copy items found' : 'No dashboard copy items',
-              description: searchTerm
+              title: debouncedSearch ? 'No dashboard copy items found' : 'No dashboard copy items',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Create the first rotating title/subtitle to show on the client dashboard.',
               action: searchTerm ? undefined : { label: 'Add copy', onClick: openCreate },

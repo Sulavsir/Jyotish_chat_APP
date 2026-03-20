@@ -235,6 +235,7 @@ export function AskQuestionsSection() {
     }) => broadcastMessageService.sendQuestions(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: ['client-dashboard', 'stats'] });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       setSelectedBroadcastQuestionIds([]);
       setBroadcastMessage('');
@@ -602,11 +603,12 @@ export function AskQuestionsSection() {
                 price: discountedCost,
                 isDiscounted: clampedDiscount > 0,
                 tierApplied: false,
+                isCustom: true,
               },
             ]
           : [],
       remainingNr,
-      questions: [{ id: 'text', text: messageToSend }],
+      questions: [{ id: 'text', text: messageToSend, isCustom: true }],
       isTextOnly: true,
       textMessage: messageToSend,
     });
@@ -615,11 +617,14 @@ export function AskQuestionsSection() {
 
   const finalBroadcastMessage = broadcastMessage.trim() || broadcastQuestion.trim();
   const selectedCount = selectedBroadcastQuestionIds.length;
+  const hasCustomTextOnly = selectedCount === 0 && !!finalBroadcastMessage;
+  const effectiveQuestionCount = hasCustomTextOnly ? 1 : selectedCount;
 
   // Discounted total (Q1 gets first-broadcast % off when available)
-  const displayTotalNr = getTotalNrForCount(selectedCount, hasFirstBroadcastDiscount);
+  const displayTotalNr = getTotalNrForCount(effectiveQuestionCount, hasFirstBroadcastDiscount);
   // Undiscounted total (for strikethrough)
-  const originalTotalNr = selectedCount > 0 ? getTotalNrForCount(selectedCount, false) : null;
+  const originalTotalNr =
+    effectiveQuestionCount > 0 ? getTotalNrForCount(effectiveQuestionCount, false) : null;
   // Show strikethrough only when the discount actually lowers the price
   const hasDiscount =
     hasFirstBroadcastDiscount &&
@@ -1007,10 +1012,10 @@ export function AskQuestionsSection() {
                 className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
               >
                 <MessageSquare className="h-4 w-4" />
-                {selectedCount > 0 ? (
+                {effectiveQuestionCount > 0 ? (
                   hasDiscount && originalTotalNr !== null ? (
                     <>
-                      {t('sendMessageToAll')} {`(${selectedCount} · `}
+                      {t('sendMessageToAll')} {`(${effectiveQuestionCount} · `}
                       <span className="line-through mr-1">
                         NRs {originalTotalNr.toLocaleString()}
                       </span>
@@ -1018,7 +1023,7 @@ export function AskQuestionsSection() {
                       {')'}
                     </>
                   ) : (
-                    `${t('sendMessageToAll')} (${selectedCount} · NRs ${displayTotalNr.toLocaleString()})`
+                    `${t('sendMessageToAll')} (${effectiveQuestionCount} · NRs ${displayTotalNr.toLocaleString()})`
                   )
                 ) : (
                   t('sendMessageToAll')

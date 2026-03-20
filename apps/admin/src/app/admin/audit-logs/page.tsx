@@ -17,7 +17,7 @@ import {
 } from '@jyotish/ui';
 import { RefreshCw } from 'lucide-react';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { useAdminSocket } from '@/hooks';
+import { useAdminSocket, useDebounce } from '@/hooks';
 import { toast } from 'sonner';
 
 interface AuditLog {
@@ -46,6 +46,7 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const { on, off, isConnected } = useAdminSocket();
@@ -122,15 +123,16 @@ export default function AuditLogsPage() {
   };
 
   const filteredLogs = logs.filter((log) => {
-    const searchLower = searchTerm.toLowerCase();
+    if (!debouncedSearch) return true;
+    const searchLower = debouncedSearch.toLowerCase();
     return (
       log.action.toLowerCase().includes(searchLower) ||
       log.resource.toLowerCase().includes(searchLower) ||
       log.user?.name?.toLowerCase().includes(searchLower) ||
-      log.user?.phone?.includes(searchTerm) ||
+      log.user?.phone?.includes(debouncedSearch) ||
       log.astrologer?.name?.toLowerCase().includes(searchLower) ||
-      log.astrologer?.phone?.includes(searchTerm) ||
-      log.resourceId?.includes(searchTerm)
+      log.astrologer?.phone?.includes(debouncedSearch) ||
+      log.resourceId?.includes(debouncedSearch)
     );
   });
 
@@ -143,7 +145,7 @@ export default function AuditLogsPage() {
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   // Generate page numbers for pagination
   const getPageNumbers = () => {
@@ -266,8 +268,8 @@ export default function AuditLogsPage() {
             itemsPerPage={itemsPerPage}
             emptyState={{
               icon: <DocumentIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No logs found' : 'No audit logs',
-              description: searchTerm
+              title: debouncedSearch ? 'No logs found' : 'No audit logs',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Activity logs will appear here as actions are performed on the platform',
             }}

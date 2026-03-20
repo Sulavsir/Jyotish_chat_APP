@@ -164,20 +164,11 @@ export function setupSocketHandlers(io: Server) {
           // For astrologers: do NOT update the DB.
           // The DB holds their explicit preference (set via the toggle button).
           // When they reconnect (refresh/navigate) we restore that preference.
-          // Emit transient offline signal so other clients see them as offline
-          // while the socket is disconnected.
-          const astrologer = await prisma.astrologer.findUnique({
-            where: { id: user.id },
-            select: { name: true },
-          });
+          // Do NOT emit astrologer:status_changed on disconnect — that would incorrectly
+          // flip the astrologer's other tabs to "Offline". Real-time presence is handled
+          // by user:status (user:onlineList). The astrologer's explicit preference stays
+          // in DB until they toggle; other clients see them offline via user:status.
           console.log(`🔌 Astrologer ${user.id} socket disconnected (preference preserved in DB)`);
-          if (astrologer) {
-            io.emit('astrologer:status_changed', {
-              astrologerId: user.id,
-              name: astrologer.name,
-              isOnline: false,
-            });
-          }
         }
       } catch (error) {
         console.error(`Error handling disconnect for ${user.id}:`, error);

@@ -23,7 +23,7 @@ import {
 import { AdminTable, type AdminTableColumn, AdminChatStatusFilter, type AdminChatStatusFilterValue } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import type { AdminChat } from '@/lib/admin-api';
-import { useAdminSocket } from '@/hooks';
+import { useAdminSocket, useDebounce } from '@/hooks';
 import { RefreshCw, MessageSquare } from 'lucide-react';
 import { generatePageNumbers } from '@/utils/helpers';
 import AdminChatDetailModal from '@/components/admin-chat/AdminChatDetailModal';
@@ -44,6 +44,7 @@ interface AdminChatsResponse {
 export default function AdminChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<AdminChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null);
@@ -56,13 +57,13 @@ export default function AdminChatsPage() {
     isLoading,
     refetch,
   } = useQuery<AdminChatsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ADMIN_CHAT.LIST(), currentPage, statusFilter, searchTerm],
+    queryKey: [...ADMIN_QUERY_KEYS.ADMIN_CHAT.LIST(), currentPage, statusFilter, debouncedSearch],
     queryFn: async () => {
       const response = await adminApi.adminChat.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         status: statusFilter || undefined,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
       });
       return response;
     },
@@ -108,7 +109,7 @@ export default function AdminChatsPage() {
   // Reset to page 1 when search term or filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   const formatDate = (date: Date | string | null): string => {
     if (!date) return 'N/A';
@@ -250,8 +251,8 @@ export default function AdminChatsPage() {
             onRowClick={handleChatClick}
             emptyState={{
               icon: <MessageSquare className="w-20 h-20 text-slate-600" />,
-              title: searchTerm || statusFilter ? 'No chats found' : 'No admin chats yet',
-              description: searchTerm || statusFilter
+              title: debouncedSearch || statusFilter ? 'No chats found' : 'No admin chats yet',
+              description: debouncedSearch || statusFilter
                 ? 'Try adjusting your search terms or filters'
                 : 'Admin chat conversations will appear here when users contact support',
             }}

@@ -6,7 +6,7 @@ import { adminApi } from '@/lib/admin-api';
 import { Button, Search, ChatIcon, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@jyotish/ui';
 import { RefreshCw } from 'lucide-react';
 import { AdminTable, type AdminTableColumn, ChatAuditStatusFilter, ChatAuditTypeFilter, type ChatAuditStatusFilterValue, type ChatAuditTypeFilterValue } from '@/components/admin';
-import { useAdminSocket } from '@/hooks';
+import { useAdminSocket, useDebounce } from '@/hooks';
 import { toast } from 'sonner';
 import {
   ChatAuditLog,
@@ -34,6 +34,7 @@ export default function ChatAuditPage() {
   const [logs, setLogs] = useState<ChatAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState<number>(CHAT_AUDIT_DEFAULTS.PAGE);
   const [itemsPerPage] = useState<number>(CHAT_AUDIT_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<ChatAuditStatusFilterValue>('');
@@ -136,12 +137,13 @@ export default function ChatAuditPage() {
   };
 
   const filteredLogs = logs.filter((log) => {
-    const searchLower = searchTerm.toLowerCase();
+    if (!debouncedSearch) return true;
+    const searchLower = debouncedSearch.toLowerCase();
     return (
       log.client?.name?.toLowerCase().includes(searchLower) ||
-      log.client?.phone?.includes(searchTerm) ||
+      log.client?.phone?.includes(debouncedSearch) ||
       log.astrologer?.name?.toLowerCase().includes(searchLower) ||
-      log.astrologer?.phone?.includes(searchTerm)
+      log.astrologer?.phone?.includes(debouncedSearch)
     );
   });
 
@@ -154,7 +156,7 @@ export default function ChatAuditPage() {
   // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm]);
+  }, [debouncedSearch]);
 
   const pageNumbers = generatePageNumbers(
     currentPage,
@@ -311,8 +313,8 @@ export default function ChatAuditPage() {
             itemsPerPage={itemsPerPage}
             emptyState={{
               icon: <ChatIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No logs found' : 'No chat audit logs',
-              description: searchTerm
+              title: debouncedSearch ? 'No logs found' : 'No chat audit logs',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Chat activity logs will appear here as broadcast messages are sent',
             }}

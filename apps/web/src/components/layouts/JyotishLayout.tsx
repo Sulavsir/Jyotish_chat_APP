@@ -43,9 +43,6 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const { canAccessAppointments: hasAppointmentAccess, canAcceptBroadcastMessages } =
     getAstrologerPermissionsFromUser(user);
 
-  const shouldShowChatWidgets =
-    pathname === ROUTES.JYOTISH_CHAT || pathname?.startsWith(`${ROUTES.JYOTISH_CHAT}?`);
-
   const sidebarItems = [
     {
       name: 'Dashboard',
@@ -189,14 +186,12 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
         isLoading={isLoggingOut}
       />
 
-      {user?.role === USER_ROLES.ASTROLOGER &&
-        canAcceptBroadcastMessages &&
-        (shouldShowChatWidgets ? (
-          <>
-            <InstantChatRequestBar />
-            <BroadcastMessageBar />
-          </>
-        ) : null)}
+      {user?.role === USER_ROLES.ASTROLOGER && canAcceptBroadcastMessages && (
+        <>
+          <InstantChatRequestBar />
+          <BroadcastMessageBar />
+        </>
+      )}
     </div>
   );
 }

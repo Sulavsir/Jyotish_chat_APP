@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,7 @@ export function OnlineStatusToggle({ initialStatus }: OnlineStatusToggleProps) {
   const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = loading
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<boolean | null>(null);
+  const lastSocketUpdateRef = useRef<number>(0);
 
   // Fetch current astrologer profile to get online status
   const { data: profileData, isLoading: isLoadingProfile } = useQuery({
@@ -32,11 +33,12 @@ export function OnlineStatusToggle({ initialStatus }: OnlineStatusToggleProps) {
     refetchOnMount: 'always', // Always refetch on component mount
   });
 
-  // Update local state when profile data changes
+  // Update local state when profile data changes (ignore if socket updated recently)
   useEffect(() => {
-    if (profileData?.astrologer) {
-      setIsOnline(profileData.astrologer.isOnline || false);
-    }
+    if (!profileData?.astrologer) return;
+    const now = Date.now();
+    if (now - lastSocketUpdateRef.current < 2000) return; // Prefer socket over stale profile
+    setIsOnline(profileData.astrologer.isOnline || false);
   }, [profileData]);
 
   // Listen to socket events for real-time status updates
@@ -53,7 +55,7 @@ export function OnlineStatusToggle({ initialStatus }: OnlineStatusToggleProps) {
     }) => {
       // Only update if it's our own status
       if (astrologerId === currentUser.id) {
-        console.log(`🔄 Own status updated via socket: ${newStatus ? 'ONLINE' : 'OFFLINE'}`);
+        lastSocketUpdateRef.current = Date.now();
         setIsOnline(newStatus);
 
         // Also update the query cache immediately

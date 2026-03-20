@@ -41,7 +41,7 @@ import {
 } from '@/components/admin';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { DELETE_CONFIRM, ASTROLOGER_EDIT_PASSWORD } from '@/constants/app.constants';
-import { useAdminSocket } from '@/hooks';
+import { useAdminSocket, useDebounce } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 import { generatePageNumbers, getImageUrl } from '@/utils/helpers';
@@ -65,6 +65,7 @@ export default function AstrologersPage() {
   const queryClient = useQueryClient();
   const { on, off, isConnected } = useAdminSocket();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
@@ -92,12 +93,12 @@ export default function AstrologersPage() {
     isLoading,
     refetch,
   } = useQuery<AstrologersResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, searchTerm, statusFilter],
+    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, debouncedSearch, statusFilter],
     queryFn: async (): Promise<AstrologersResponse> => {
       const response = await adminApi.astrologers.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
       });
       if (
@@ -285,7 +286,7 @@ export default function AstrologersPage() {
   // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   const columns: AdminTableColumn<Astrologer>[] = [
     {
@@ -497,8 +498,8 @@ export default function AstrologersPage() {
             keyExtractor={(astrologer) => astrologer.id}
             emptyState={{
               icon: <StarIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No astrologers found' : 'No astrologers yet',
-              description: searchTerm
+              title: debouncedSearch ? 'No astrologers found' : 'No astrologers yet',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Get started by adding your first astrologer to the platform',
               action: {

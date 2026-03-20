@@ -47,10 +47,10 @@ export function ClientDashboardProvider({ children }: ClientDashboardProviderPro
     }
   }, [stats?.balance, queryClient]);
 
-  // Sync rates to COINS.RATES cache
+  // Sync rates to COINS.RATES cache (same shape as coinService.getRates returns: rates object)
   React.useEffect(() => {
     if (stats?.rates) {
-      queryClient.setQueryData(QUERY_KEYS.COINS.RATES, { rates: stats.rates });
+      queryClient.setQueryData(QUERY_KEYS.COINS.RATES, stats.rates);
     }
   }, [stats?.rates, queryClient]);
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useFieldArray, useForm } from 'react-hook-form';
+import { useDebounce } from '@/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -103,6 +104,7 @@ function toFormDefaults(item?: QuestionnaireCategory): QuestionnaireFormValues {
 export default function QuestionnairesManagementPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = React.useState('');
+  const debouncedSearch = useDebounce(searchTerm, 400);
   const [languageFilter, setLanguageFilter] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState(1);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -127,14 +129,14 @@ export default function QuestionnairesManagementPage() {
     queryKey: [
       ...ADMIN_QUERY_KEYS.WEBSITE.QUESTIONNAIRES(),
       currentPage,
-      searchTerm,
+      debouncedSearch,
       languageFilter,
     ],
     queryFn: () =>
       adminApi.website.questionnaires.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
         language: languageFilter || undefined,
       }),
   });
@@ -185,7 +187,7 @@ export default function QuestionnairesManagementPage() {
 
   React.useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [searchTerm, languageFilter]);
+  }, [debouncedSearch, languageFilter]);
 
   const createMutation = useMutation({
     mutationFn: (values: QuestionnaireFormValues) =>
@@ -430,8 +432,8 @@ export default function QuestionnairesManagementPage() {
                   />
                 </svg>
               ),
-              title: searchTerm ? 'No questionnaires found' : 'No questionnaires yet',
-              description: searchTerm
+              title: debouncedSearch ? 'No questionnaires found' : 'No questionnaires yet',
+              description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Create the first category to manage predefined questions for the client dashboard.',
               action: searchTerm ? undefined : { label: 'Add category', onClick: openCreate },
