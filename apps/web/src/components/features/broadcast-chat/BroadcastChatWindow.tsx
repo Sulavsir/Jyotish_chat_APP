@@ -309,8 +309,15 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     }
   }, [pendingMessage]);
 
+  const BROADCAST_MESSAGE_MAX_LENGTH = 60;
+
   async function handleSendMessage() {
     if (!inputText.trim() || isSending || !socket || !isConnected) return;
+
+    if (inputText.trim().length > BROADCAST_MESSAGE_MAX_LENGTH) {
+      toast.error(`Message cannot exceed ${BROADCAST_MESSAGE_MAX_LENGTH} characters`);
+      return;
+    }
 
     // Check if client profile is complete before sending message
     const profileCheck = checkClientProfileCompletion(user);
@@ -550,36 +557,42 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
             </div>
           </div>
         )}
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
+        <div className="flex flex-col gap-1">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value.slice(0, 60))}
+              maxLength={60}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder={
+                hasActiveChat
+                  ? 'End your current chat first...'
+                  : 'Type your message to all astrologers...'
               }
-            }}
-            placeholder={
-              hasActiveChat
-                ? 'End your current chat first...'
-                : 'Type your message to all astrologers...'
-            }
-            disabled={isSending || !isConnected || hasActiveChat}
-            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputText.trim() || isSending || !isConnected || hasActiveChat}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2 flex items-center gap-2 transition-all"
-          >
-            {isSending ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </button>
+              disabled={isSending || !isConnected || hasActiveChat}
+              className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={!inputText.trim() || isSending || !isConnected || hasActiveChat}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2 flex items-center gap-2 transition-all"
+            >
+              {isSending ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          <p className={`text-xs text-right ${inputText.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}>
+            {inputText.length}/60
+          </p>
         </div>
         {!isConnected && (
           <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">

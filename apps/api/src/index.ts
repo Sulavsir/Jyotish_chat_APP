@@ -16,6 +16,7 @@ import { setSocketInstance } from './utils/socket-instance';
 import { getSocketRedisAdapter, closeSocketRedisClients } from './config/socket-redis';
 import routes from './routes';
 import { setupRecurringJobs } from './workers';
+import { getVersion } from './controllers/version.controller';
 
 // Load environment variables from the API directory
 const envPath = path.resolve(__dirname, '../.env');
@@ -196,6 +197,10 @@ app.use('/uploads', cors(), express.static(path.join(__dirname, '../uploads')));
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Force-update endpoint for Flutter app (no /v1 - at /api/version)
+app.get('/api/version', getVersion);
+app.get('/api/version/', getVersion);
 
 // API Routes
 app.use('/api/v1', routes);

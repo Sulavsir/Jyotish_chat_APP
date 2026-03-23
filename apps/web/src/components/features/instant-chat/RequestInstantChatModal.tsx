@@ -180,6 +180,10 @@ export function RequestInstantChatModal({
       setMessageError('Please select a question or type your message.');
       return;
     }
+    if (messageText.trim().length > 60) {
+      setMessageError('Question cannot exceed 60 characters.');
+      return;
+    }
 
     try {
       const activeChat = await chatService.getActiveChat();
@@ -427,7 +431,7 @@ export function RequestInstantChatModal({
                       value={messageText}
                       onChange={(e) => {
                         setMessageError('');
-                        setMessageText(e.target.value.slice(0, 300));
+                        setMessageText(e.target.value.slice(0, 60));
                       }}
                       placeholder={
                         hasQuestionsSelected
@@ -435,14 +439,14 @@ export function RequestInstantChatModal({
                           : 'Type your question...'
                       }
                       rows={3}
-                      maxLength={300}
+                      maxLength={60}
                       className="min-h-[80px] resize-none"
                     />
                     {messageError && (
                       <p className="text-xs text-red-400 mt-1">{messageError}</p>
                     )}
-                    <p className={`text-xs mt-0.5 text-right ${messageText.length >= 280 ? 'text-red-400' : 'text-gray-500'}`}>
-                      {messageText.length}/300
+                    <p className={`text-xs mt-0.5 text-right ${messageText.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}>
+                      {messageText.length}/60
                     </p>
                   </div>
               </div>

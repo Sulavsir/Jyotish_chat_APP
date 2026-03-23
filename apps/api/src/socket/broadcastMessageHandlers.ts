@@ -43,9 +43,9 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
           });
           return;
         }
-        if (content.length > 300) {
+        if (content.length > 60) {
           socket.emit('broadcast:error', {
-            message: 'Message cannot exceed 300 characters',
+            message: 'Message cannot exceed 60 characters',
             code: 'VALIDATION_ERROR',
           });
           return;

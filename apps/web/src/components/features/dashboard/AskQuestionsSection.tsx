@@ -470,10 +470,18 @@ export function AskQuestionsSection() {
         setBroadcastMessageError(t('messageCannotBeEmpty'));
         return;
       }
+      if (broadcastMessage.trim().length > 60) {
+        setBroadcastMessageError('Question cannot exceed 60 characters.');
+        return;
+      }
       if (!socket || !isConnected) {
         toast.error('Not connected. Please refresh the page.');
         return;
       }
+    }
+    if (broadcastMessage.trim().length > 60) {
+      setBroadcastMessageError('Question cannot exceed 60 characters.');
+      return;
     }
     setBroadcastMessageError('');
     try {
@@ -985,16 +993,16 @@ export function AskQuestionsSection() {
                   value={broadcastMessage}
                   onChange={(e) => {
                     setBroadcastMessageError('');
-                    handleBroadcastMessageChange(e.target.value.slice(0, 300));
+                    handleBroadcastMessageChange(e.target.value.slice(0, 60));
                   }}
                   placeholder={
                     broadcastQuestion ? broadcastQuestion : t('typeQuestionToPublishPlaceholder')
                   }
-                  maxLength={300}
+                  maxLength={60}
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
                 />
-                <p className={`text-xs mt-0.5 text-right ${broadcastMessage.length >= 280 ? 'text-red-400' : 'text-gray-500'}`}>
-                  {broadcastMessage.length}/300
+                <p className={`text-xs mt-0.5 text-right ${broadcastMessage.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}>
+                  {broadcastMessage.length}/60
                 </p>
                 {broadcastMessageError && (
                   <p className="text-xs text-red-400 mt-1">{broadcastMessageError}</p>

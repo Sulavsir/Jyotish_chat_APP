@@ -7,7 +7,10 @@ import express from 'express';
 import { authenticate } from '@/middleware/auth';
 import { asyncHandler } from '@/utils';
 import { validateParams, validateBody } from '../middleware/validate';
-import { messageIdParamSchema } from '../validators/broadcastMessage.validators';
+import {
+  messageIdParamSchema,
+  createBroadcastMessageBodySchema,
+} from '../validators/broadcastMessage.validators';
 import {
   prepareBroadcastQuestionsBodySchema,
   sendBroadcastQuestionsBodySchema,
@@ -36,7 +39,11 @@ router.post(
 );
 
 // Create new broadcast message (client only)
-router.post('/', asyncHandler(broadcastMessageController.createBroadcastMessage));
+router.post(
+  '/',
+  validateBody(createBroadcastMessageBodySchema),
+  asyncHandler(broadcastMessageController.createBroadcastMessage)
+);
 
 // Get pending broadcast messages (astrologer only)
 router.get('/pending', asyncHandler(broadcastMessageController.getPendingMessages));
