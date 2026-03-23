@@ -134,12 +134,19 @@ export class NotificationService {
     const acceptedByMe = new Set(
       messages.filter((m: { acceptedBy: string | null }) => m.acceptedBy === userId).map((m: { id: string }) => m.id)
     );
+    const cancelledIds = new Set(
+      messages.filter((m: { status: string }) => m.status === 'CANCELLED').map((m: { id: string }) => m.id)
+    );
 
     return notifications.map((n) => {
       if (n.type !== 'BROADCAST_MESSAGE') return n;
       const msgId = (n.metadata as Record<string, unknown>)?.broadcastMessageId as string | undefined;
       if (!msgId) return n;
-      const meta = { ...(n.metadata as Record<string, unknown> || {}), acceptedByCurrentUser: acceptedByMe.has(msgId) };
+      const meta = {
+        ...(n.metadata as Record<string, unknown> || {}),
+        acceptedByCurrentUser: acceptedByMe.has(msgId),
+        broadcastStatus: cancelledIds.has(msgId) ? 'CANCELLED' : undefined,
+      };
       return { ...n, metadata: meta };
     });
   }

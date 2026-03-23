@@ -155,6 +155,9 @@ function attachListenersIfNeeded(socket: Socket) {
           };
         }
       );
+
+      void sharedQueryClient.invalidateQueries({ queryKey: ['astrologers', 'list'] });
+      void sharedQueryClient.invalidateQueries({ queryKey: QUERY_KEYS.ASTROLOGERS.STATS });
     }
 
     const user = useAuthStore.getState().user;
@@ -266,7 +269,12 @@ export function useSocket() {
     };
   }, [isAuthenticated]);
 
-  const sendMessage = (receiverId: string, content: string, type: string = 'TEXT', metadata?: any) => {
+  const sendMessage = (
+    receiverId: string,
+    content: string,
+    type: string = 'TEXT',
+    metadata?: any
+  ) => {
     if (sharedSocket && isConnected) {
       sharedSocket.emit(WS_EVENTS.CHAT_SEND, { receiverId, content, type, metadata });
       return true;

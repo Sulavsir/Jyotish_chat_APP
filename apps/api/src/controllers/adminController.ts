@@ -21,6 +21,7 @@ import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import {
   prisma,
+  Prisma,
   AuditAction,
   ChatStatus,
   AppointmentStatus,
@@ -30,6 +31,7 @@ import {
 import { KundaliMatchStatus } from '@prisma/client';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { getClientIp } from '../utils/request-utils';
+import { getSocketInstance } from '../utils/socket-instance';
 
 // ==================== Admin Authentication ====================
 
@@ -293,7 +295,7 @@ export async function updateAstrologer(req: AuthRequest, res: Response, next: Ne
     console.log('[updateAstrologer] raw body:', req.body);
 
     if ('inhouseAstrologer' in body) {
-      const raw = (req.body as any)?.inhouseAstrologer;
+      const raw = (req.body as Record<string, unknown>)?.inhouseAstrologer;
 
       // eslint-disable-next-line no-console
       console.log('[updateAstrologer] raw inhouseAstrologer field:', raw);
@@ -573,13 +575,14 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
   try {
     const { page = '1', limit = '10', search, isActive } = req.query;
 
-    const where: any = { role: 'CLIENT' }; // Only CLIENT users
+    const where: Prisma.UserWhereInput = { role: 'CLIENT' };
 
     if (search) {
+      const searchStr = search as string;
       where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string } },
-        { email: { contains: search as string, mode: 'insensitive' } },
+        { name: { contains: searchStr, mode: 'insensitive' } },
+        { phone: { contains: searchStr } },
+        { email: { contains: searchStr, mode: 'insensitive' } },
       ];
     }
 
@@ -786,10 +789,10 @@ export async function listAuditLogs(req: AuthRequest, res: Response, next: NextF
     const result = await auditService.list({
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 20,
-      userId: userId as string,
-      astrologerId: astrologerId as string,
-      action: action as any,
-      resource: resource as string,
+      userId: userId as string | undefined,
+      astrologerId: astrologerId as string | undefined,
+      action: action as AuditAction | undefined,
+      resource: resource as string | undefined,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
     });
@@ -869,7 +872,7 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
   try {
     const { page = '1', limit = '10', status, search } = req.query;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (status) {
       where.status = status;
@@ -1132,9 +1135,25 @@ export async function abandonChat(req: AuthRequest, res: Response, next: NextFun
       userAgent: req.get('user-agent'),
     });
 
+    // Create notifications for both client and astrologer
+    try {
+      const { createChatAbandonedNotifications } = await import(
+        '../services/chatNotification.service'
+      );
+      await createChatAbandonedNotifications(
+        {
+          id: chat.id,
+          participant1Id: chat.participant1Id,
+          participant2Id: chat.participant2Id,
+        },
+        reason
+      );
+    } catch (notifErr) {
+      console.error('Error creating chat-abandoned notifications:', notifErr);
+    }
+
     // Emit socket event to notify both parties
     try {
-      const { getSocketInstance } = require('../utils/socket-instance');
       const io = getSocketInstance();
       if (io) {
         const abandonData = {
@@ -1146,10 +1165,8 @@ export async function abandonChat(req: AuthRequest, res: Response, next: NextFun
           status: 'ENDED',
         };
 
-        // Notify client and astrologer
         io.to(`user:${chat.participant1Id}`).emit('chat:abandoned', abandonData);
         io.to(`user:${chat.participant2Id}`).emit('chat:abandoned', abandonData);
-        // Notify admin panel for real-time list update
         io.to('admin').emit('chat:abandoned', abandonData);
 
         console.log(`✅ Notified both parties and admins about chat abandonment: ${chatId}`);
@@ -1234,7 +1251,6 @@ export async function unblockChat(req: AuthRequest, res: Response, next: NextFun
 
     // Emit socket event to notify both parties
     try {
-      const { getSocketInstance } = require('../utils/socket-instance');
       const io = getSocketInstance();
       if (io) {
         const unblockData = {
@@ -1323,7 +1339,6 @@ export async function reopenChat(req: AuthRequest, res: Response, next: NextFunc
     } catch (_) {}
 
     try {
-      const { getSocketInstance } = require('../utils/socket-instance');
       const io = getSocketInstance();
       if (io) {
         const payload = {
@@ -1563,7 +1578,7 @@ export async function listEarnings(req: AuthRequest, res: Response, next: NextFu
   try {
     const { page = '1', limit = '10', status, astrologerId } = req.query;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (status) {
       where.status = status;
@@ -1685,8 +1700,8 @@ export async function getChatAudit(req: AuthRequest, res: Response, next: NextFu
     const take = parseInt(limit as string);
 
     // Build where clauses
-    const broadcastWhere: any = {};
-    const instantChatWhere: any = {};
+    const broadcastWhere: Record<string, unknown> = {};
+    const instantChatWhere: Record<string, unknown> = {};
 
     // Status filter
     if (status && status !== 'ALL') {
@@ -1889,7 +1904,7 @@ export async function getComplaints(req: AuthRequest, res: Response, next: NextF
   try {
     const { status, category, priority, astrologerId, limit = 50, offset = 0 } = req.query;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (status) where.status = status;
     if (category) where.category = category;
     if (priority) where.priority = priority;
@@ -1977,10 +1992,13 @@ export async function getComplaintStats(req: AuthRequest, res: Response, next: N
       byPriority: {
         high: highPriorityComplaints,
       },
-      byCategory: complaintsByCategory.reduce((acc: any, item: any) => {
-        acc[item.category] = item._count;
-        return acc;
-      }, {}),
+      byCategory: complaintsByCategory.reduce(
+        (acc: Record<string, number>, item: { category: string; _count: number }) => {
+          acc[item.category] = item._count;
+          return acc;
+        },
+        {}
+      ),
     };
 
     return sendSuccess(res, { stats });

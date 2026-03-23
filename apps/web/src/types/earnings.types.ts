@@ -15,6 +15,8 @@ export interface AstrologerCoinEarningRow {
   clientCoinsDeducted: number;
   commissionPercent: number;
   astrologerCoinsEarned: number;
+  /** e.g. "First broadcast discount" when earning is from a discounted first broadcast */
+  sourceDetail?: string;
   createdAt: string;
   clientName: string | null;
 }

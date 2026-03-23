@@ -505,12 +505,54 @@ export default function JyotishChatPage() {
           };
 
           const senderLike = m.sender as
-            | { id?: unknown; name?: unknown; profilePhoto?: unknown; role?: unknown; email?: unknown }
+            | {
+                id?: unknown;
+                name?: unknown;
+                profilePhoto?: unknown;
+                role?: unknown;
+                dateOfBirth?: unknown;
+                timeOfBirth?: unknown;
+                placeOfBirth?: unknown;
+              }
             | undefined;
           const senderId = typeof senderLike?.id === 'string' ? senderLike.id : '';
           const senderName = typeof senderLike?.name === 'string' ? senderLike.name : 'Unknown';
           const senderProfilePhoto =
             typeof senderLike?.profilePhoto === 'string' ? senderLike.profilePhoto : undefined;
+          const senderRole =
+            typeof senderLike?.role === 'string' ? senderLike.role : undefined;
+          const senderDateOfBirth = senderLike?.dateOfBirth ?? undefined;
+          const senderTimeOfBirth =
+            typeof senderLike?.timeOfBirth === 'string' ? senderLike.timeOfBirth : undefined;
+          const senderPlaceOfBirth =
+            typeof senderLike?.placeOfBirth === 'string' ? senderLike.placeOfBirth : undefined;
+
+          const existingMsg = byId.get(m.id) as Message | undefined;
+          const mergedSender: Message['sender'] = {
+            id: senderId,
+            name: senderName,
+            profilePhoto: senderProfilePhoto,
+            ...(senderRole && { role: senderRole as 'CLIENT' | 'ASTROLOGER' }),
+            ...(senderDateOfBirth != null && {
+              dateOfBirth:
+                senderDateOfBirth instanceof Date
+                  ? senderDateOfBirth
+                  : typeof senderDateOfBirth === 'string'
+                    ? senderDateOfBirth
+                    : existingMsg?.sender?.dateOfBirth,
+            }),
+            ...(senderTimeOfBirth && { timeOfBirth: senderTimeOfBirth }),
+            ...(senderPlaceOfBirth && { placeOfBirth: senderPlaceOfBirth }),
+          };
+          if (!mergedSender.dateOfBirth && existingMsg?.sender?.dateOfBirth) {
+            mergedSender.dateOfBirth = existingMsg.sender.dateOfBirth;
+          }
+          if (!mergedSender.timeOfBirth && existingMsg?.sender?.timeOfBirth) {
+            mergedSender.timeOfBirth = existingMsg.sender.timeOfBirth;
+          }
+          if (!mergedSender.placeOfBirth && existingMsg?.sender?.placeOfBirth) {
+            mergedSender.placeOfBirth = existingMsg.sender.placeOfBirth;
+          }
 
           byId.set(m.id, {
             id: m.id,
@@ -524,11 +566,7 @@ export default function JyotishChatPage() {
             updatedAt: parseDate(m.updatedAt ?? m.createdAt),
             isRead: parseBool(m.isRead, false),
             isDeleted: parseBool(m.isDeleted, false),
-            sender: {
-              id: senderId,
-              name: senderName,
-              profilePhoto: senderProfilePhoto,
-            },
+            sender: mergedSender,
           } as Message);
         }
       }
@@ -911,6 +949,7 @@ export default function JyotishChatPage() {
                 isLoadingMore={isLoadingMore}
                 hasMore={hasMore}
                 isConnected={isConnected}
+                variant="jyotish"
                 emptyStateTheme="dark"
                 draftValue={getDraftForChat(activeChatId)}
                 onDraftChange={handleDraftChange}

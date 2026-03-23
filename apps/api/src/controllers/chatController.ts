@@ -283,11 +283,20 @@ export const endChat = async (req: AuthRequest, res: Response, next: NextFunctio
 
     const updatedChat = await chatService.endChat(chatId, userId);
 
+    // Create notification for the OTHER participant (who did not end the chat)
+    try {
+      const { createChatEndedNotification } = await import(
+        '../services/chatNotification.service'
+      );
+      await createChatEndedNotification(updatedChat);
+    } catch (notifErr) {
+      console.error('Error creating chat-ended notification:', notifErr);
+    }
+
     // Emit real-time event to both participants
     try {
       const io = getSocketInstance();
       if (io) {
-        // Notify both participants that the chat ended
         io.to(`user:${updatedChat.participant1Id}`).emit('chat:ended', {
           chatId: updatedChat.id,
           status: updatedChat.status,
@@ -305,16 +314,16 @@ export const endChat = async (req: AuthRequest, res: Response, next: NextFunctio
       }
     } catch (socketError) {
       console.error('Error broadcasting chat end:', socketError);
-      // Don't fail the request if socket fails
     }
 
     return sendSuccess(res, updatedChat);
-  } catch (error: any) {
-    if (error.message === 'Chat not found') {
-      return sendError(res, error.message, 404);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    if (err.message === 'Chat not found') {
+      return sendError(res, err.message, 404);
     }
-    if (error.message === 'You are not a participant of this chat') {
-      return sendError(res, error.message, 403);
+    if (err.message === 'You are not a participant of this chat') {
+      return sendError(res, err.message, 403);
     }
     next(error);
   }

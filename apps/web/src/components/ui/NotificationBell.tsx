@@ -106,7 +106,12 @@ let sharedNotificationSettingsFetchedAt = 0;
 let sharedNotificationSettingsCache: NotificationSettings | null = null;
 const NOTIF_SETTINGS_DEDUPE_MS = 5000;
 
-type BroadcastStatus = 'PENDING' | 'ACCEPTED_BY_YOU' | 'ACCEPTED_BY_OTHERS' | 'EXPIRED';
+type BroadcastStatus =
+  | 'PENDING'
+  | 'ACCEPTED_BY_YOU'
+  | 'ACCEPTED_BY_OTHERS'
+  | 'CANCELLED_BY_USER'
+  | 'EXPIRED';
 
 interface AcceptTarget {
   notificationId: string;
@@ -289,6 +294,8 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
 
               if (pendingIds.has(msgId)) {
                 next.set(msgId, 'PENDING');
+              } else if (n.metadata?.broadcastStatus === 'CANCELLED') {
+                next.set(msgId, 'CANCELLED_BY_USER');
               } else if (acceptedByMe) {
                 next.set(msgId, 'ACCEPTED_BY_YOU');
               } else if (isBroadcastExpired(n.createdAt)) {
@@ -430,15 +437,22 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       void loadNotifications();
     };
 
+    const handleMessageCancelled = (data: { messageId?: string }) => {
+      const msgId = data?.messageId;
+      if (msgId) markBroadcastIds([msgId], 'CANCELLED_BY_USER');
+    };
+
     socket.on('notification:new', handleNew);
     socket.on('broadcast:messageAccepted', handleAcceptedByMe);
     socket.on('broadcast:messageAcceptedByAstrologer', handleAcceptedByOthers);
+    socket.on('broadcast:messageCancelled', handleMessageCancelled);
     socket.on('notification:requestAccepted', handleRequestAccepted);
 
     return () => {
       socket.off('notification:new', handleNew);
       socket.off('broadcast:messageAccepted', handleAcceptedByMe);
       socket.off('broadcast:messageAcceptedByAstrologer', handleAcceptedByOthers);
+      socket.off('broadcast:messageCancelled', handleMessageCancelled);
       socket.off('notification:requestAccepted', handleRequestAccepted);
     };
   }, [socket, isConnected, notificationsEnabled, markBroadcastIds, loadNotifications, router]);
@@ -585,6 +599,12 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
         className:
           'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-200 dark:border-orange-700',
         Icon: Users,
+      },
+      CANCELLED_BY_USER: {
+        label: 'Cancelled by user',
+        className:
+          'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-700',
+        Icon: XCircle,
       },
       EXPIRED: {
         label: 'Expired',

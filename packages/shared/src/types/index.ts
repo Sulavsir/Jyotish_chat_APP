@@ -245,6 +245,8 @@ export enum NotificationType {
   HOROSCOPE = 'HOROSCOPE',
   PAYMENT = 'PAYMENT',
   SYSTEM = 'SYSTEM',
+  CHAT_ENDED = 'CHAT_ENDED',
+  CHAT_ABANDONED = 'CHAT_ABANDONED',
 }
 
 // Payment types

@@ -11,6 +11,7 @@ export * from './useRedirectIfAuthenticated';
 export * from './useCoinRates';
 export * from './useTranslations';
 export * from './useNepaliDateConvert';
+export * from './useBirthDetailsNepaliDate';
 export * from './useBsMonthQuery';
 export * from './useLocationQueries';
 

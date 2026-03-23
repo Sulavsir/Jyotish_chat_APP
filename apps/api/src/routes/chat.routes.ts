@@ -5,7 +5,9 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { validateParams } from '../middleware/validate';
 import { chatUploadSingle } from '../middleware/chatUpload';
+import { chatIdParamSchema } from '../validators/query.validators';
 import * as chatController from '../controllers/chatController';
 
 const router = Router();
@@ -20,7 +22,7 @@ router.get('/conversations', chatController.getConversations);
 router.post('/chats', chatController.getOrCreateChat);
 
 // Get chat by ID
-router.get('/chats/:chatId', chatController.getChatById);
+router.get('/chats/:chatId', validateParams(chatIdParamSchema), chatController.getChatById);
 
 // Get chat history with a specific user
 router.get('/history/:otherUserId', chatController.getChatHistory);
@@ -32,7 +34,7 @@ router.post('/messages', chatController.sendMessage);
 router.post('/upload-file', chatUploadSingle('file'), chatController.uploadChatFile);
 
 // Mark messages as read
-router.put('/chats/:chatId/read', chatController.markAsRead);
+router.put('/chats/:chatId/read', validateParams(chatIdParamSchema), chatController.markAsRead);
 
 // Delete a message
 router.delete('/messages/:messageId', chatController.deleteMessage);
@@ -44,7 +46,7 @@ router.get('/unread-count', chatController.getUnreadCount);
 router.get('/search', chatController.searchMessages);
 
 // End a chat
-router.put('/chats/:chatId/end', chatController.endChat);
+router.put('/chats/:chatId/end', validateParams(chatIdParamSchema), chatController.endChat);
 
 // Get active chat for current user
 router.get('/active-chat', chatController.getActiveChat);

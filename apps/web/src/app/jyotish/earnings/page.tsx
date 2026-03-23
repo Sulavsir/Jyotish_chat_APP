@@ -85,9 +85,16 @@ export default function JyotishEarningsPage() {
           const SourceIcon = SOURCE_ICONS[row.source] ?? Banknote;
           const label = SOURCE_LABELS[row.source] ?? row.source;
           return (
-            <span className="inline-flex items-center gap-1.5">
-              <SourceIcon className="h-3.5 w-3.5 text-violet-400" />
-              {label}
+            <span className="inline-flex flex-col items-start gap-0.5">
+              <span className="inline-flex items-center gap-1.5">
+                <SourceIcon className="h-3.5 w-3.5 text-violet-400" />
+                {label}
+              </span>
+              {row.sourceDetail && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  {row.sourceDetail}
+                </span>
+              )}
             </span>
           );
         },

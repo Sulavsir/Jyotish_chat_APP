@@ -5,15 +5,16 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
-import { CheckCheck, Check, FileText, Download, User, Calendar, Clock, MapPin } from 'lucide-react';
+import { CheckCheck, Check, FileText, Download, User } from 'lucide-react';
 import { MessageBubbleProps } from '@/types/chat';
 import { getImageUrl } from '@/utils/image.utils';
 import { API_BASE_URL } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types/user.types';
 import { QUESTION_CATEGORIES } from '@/constants/questionCategories.constants';
+import { ProfileBirthDetails } from './ProfileBirthDetails';
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -25,7 +26,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onViewProfile,
 }) => {
   const user = useAuthStore((state) => state.user);
-  const isJyotish = variant === 'jyotish';
   const isAstrologerViewingClient =
     user?.role === UserRole.ASTROLOGER && !isOwn && message.sender?.role === UserRole.CLIENT;
   const clientId = message.senderId || message.sender?.id;
@@ -34,33 +34,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     !message.sender?.profilePhoto &&
     !message.sender?.name;
 
-  // Format date of birth
-  const formatDateOfBirth = (date: Date | string | null | undefined): string => {
-    if (!date) return 'Not provided';
-    try {
-      return format(new Date(date), 'dd MMM, yyyy');
-    } catch {
-      return 'Invalid date';
-    }
-  };
-
   // Birth details: prefer message metadata (selected profile) when present, else sender (user profile)
   const metaBirth = message.metadata as Record<string, unknown> | undefined;
-  const birthDetails =
-    metaBirth?.birthDetails && typeof metaBirth.birthDetails === 'object'
-      ? (metaBirth.birthDetails as {
-          dateOfBirth?: string;
-          timeOfBirth?: string;
-          placeOfBirth?: string;
-        })
+  const metaBirthDetails = metaBirth?.birthDetails;
+  const birthDetailsFromMeta =
+    metaBirthDetails && typeof metaBirthDetails === 'object'
+      ? (metaBirthDetails as { dateOfBirth?: string; timeOfBirth?: string; placeOfBirth?: string })
       : null;
-  const displayDob = birthDetails?.dateOfBirth ?? message.sender?.dateOfBirth;
-  const displayTob = birthDetails?.timeOfBirth ?? message.sender?.timeOfBirth;
-  const displayPob = birthDetails?.placeOfBirth ?? message.sender?.placeOfBirth;
+
+  const birthDetails = {
+    dateOfBirth: birthDetailsFromMeta?.dateOfBirth ?? message.sender?.dateOfBirth,
+    timeOfBirth: birthDetailsFromMeta?.timeOfBirth ?? message.sender?.timeOfBirth,
+    placeOfBirth: birthDetailsFromMeta?.placeOfBirth ?? message.sender?.placeOfBirth,
+  };
+
   const hasBirthDetails =
     (showBirthDetailsProp !== false) &&
     isAstrologerViewingClient &&
-    (displayDob || displayTob || displayPob);
+    (birthDetails.dateOfBirth || birthDetails.timeOfBirth || birthDetails.placeOfBirth);
 
   // Check if message has file attachment
   const metadata = message.metadata as Record<string, unknown> | undefined;
@@ -88,13 +79,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               alt={message.sender.name || 'User'}
             />
           ) : null}
-          <AvatarFallback
-            className={
-              isJyotish
-                ? 'font-bold bg-amber-500/30 text-amber-200'
-                : 'font-bold bg-purple-600 text-white'
-            }
-          >
+          <AvatarFallback className="font-bold bg-purple-600 text-white">
             {showClientIconFallback ? (
               <User className="h-4 w-4" />
             ) : (
@@ -117,11 +102,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               return (
                 <Badge
                   variant="outline"
-                  className={
-                    isJyotish
-                      ? 'text-xs bg-amber-500/15 border-amber-500/30 text-amber-200'
-                      : 'text-xs bg-purple-50 border-purple-200 text-purple-700'
-                  }
+                  className="text-xs bg-purple-50 border-purple-200 text-purple-700"
                 >
                   {category.emoji} {category.name}
                 </Badge>
@@ -133,13 +114,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           className={`rounded-2xl overflow-hidden ${
             hasFile && isImage ? 'p-1' : hasFile && !message.content?.trim() ? 'p-2' : 'px-4 py-2'
           } ${
-            isJyotish
-              ? isOwn
-                ? 'bg-amber-500/25 text-[#fafaf9] border border-amber-500/30 rounded-br-sm'
-                : 'bg-white/[0.08] text-[#fafaf9] border border-white/[0.1] rounded-bl-sm'
-              : isOwn
-                ? 'bg-indigo-600 text-white rounded-br-sm'
-                : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+            isOwn
+              ? 'bg-indigo-600 text-white rounded-br-sm'
+              : 'bg-gray-100 text-gray-900 rounded-bl-sm'
           }`}
         >
           {/* File Attachment */}
@@ -175,51 +152,37 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                    isJyotish
-                      ? isOwn
-                        ? 'bg-amber-500/20 hover:bg-amber-500/30'
-                        : 'bg-white/[0.1] hover:bg-white/[0.15] border border-white/[0.1]'
-                      : isOwn
-                        ? 'bg-indigo-700 hover:bg-indigo-800'
-                        : 'bg-white hover:bg-gray-50 border border-gray-200'
+                    isOwn
+                      ? 'bg-indigo-700 hover:bg-indigo-800'
+                      : 'bg-white hover:bg-gray-50 border border-gray-200'
                   }`}
                 >
                   <div
                     className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                      isJyotish
-                        ? isOwn
-                          ? 'bg-amber-500/30'
-                          : 'bg-white/[0.15]'
-                        : isOwn
-                          ? 'bg-indigo-800'
-                          : 'bg-indigo-100'
+                      isOwn ? 'bg-indigo-800' : 'bg-indigo-100'
                     }`}
                   >
                     <FileText
-                      className={`h-5 w-5 ${
-                        isJyotish ? 'text-amber-200' : isOwn ? 'text-white' : 'text-indigo-600'
-                      }`}
+                      className={`h-5 w-5 ${isOwn ? 'text-white' : 'text-indigo-600'}`}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm font-medium truncate ${
-                        isJyotish ? 'text-[#fafaf9]' : isOwn ? 'text-white' : 'text-gray-900'
+                        isOwn ? 'text-white' : 'text-gray-900'
                       }`}
                     >
                       {fileName}
                     </p>
                     <p
-                      className={`text-xs ${
-                        isJyotish ? 'text-[#a8a29e]' : isOwn ? 'text-indigo-200' : 'text-gray-500'
-                      }`}
+                      className={`text-xs ${isOwn ? 'text-indigo-200' : 'text-gray-500'}`}
                     >
                       {fileSize ? `${(fileSize / 1024).toFixed(1)} KB` : 'Download'}
                     </p>
                   </div>
                   <Download
                     className={`h-4 w-4 flex-shrink-0 ${
-                      isJyotish ? 'text-[#a8a29e]' : isOwn ? 'text-indigo-200' : 'text-gray-400'
+                      isOwn ? 'text-indigo-200' : 'text-gray-400'
                     }`}
                   />
                 </a>
@@ -233,52 +196,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Birth Details - only for astrologers viewing client messages (from selected profile or sender) */}
+        {/* Birth Details - only for astrologers viewing client messages (English + Nepali DOB) */}
         {hasBirthDetails && (
-          <div
-            className={`mt-2 px-3 py-2 rounded-lg text-xs ${
-              isJyotish
-                ? 'bg-sky-500/10 border border-sky-500/20'
-                : 'bg-blue-50/80 border border-blue-200/50'
-            }`}
-          >
-            <div className="grid grid-cols-1 gap-1.5">
-              {displayDob && (
-                <div className={isJyotish ? 'flex items-center gap-1.5 text-sky-200' : 'flex items-center gap-1.5 text-blue-900'}>
-                  <Calendar className={`h-3 w-3 flex-shrink-0 ${isJyotish ? 'text-sky-400' : 'text-blue-600'}`} />
-                  <span className="font-medium">DOB:</span>
-                  <span>{formatDateOfBirth(displayDob)}</span>
-                </div>
-              )}
-              {displayTob && (
-                <div className={isJyotish ? 'flex items-center gap-1.5 text-sky-200' : 'flex items-center gap-1.5 text-blue-900'}>
-                  <Clock className={`h-3 w-3 flex-shrink-0 ${isJyotish ? 'text-sky-400' : 'text-blue-600'}`} />
-                  <span className="font-medium">TOB:</span>
-                  <span>{displayTob}</span>
-                </div>
-              )}
-              {displayPob && (
-                <div className={isJyotish ? 'flex items-center gap-1.5 text-sky-200' : 'flex items-center gap-1.5 text-blue-900'}>
-                  <MapPin className={`h-3 w-3 flex-shrink-0 ${isJyotish ? 'text-sky-400' : 'text-blue-600'}`} />
-                  <span className="font-medium">POB:</span>
-                  <span className="truncate">{displayPob}</span>
-                </div>
-              )}
-            </div>
-          </div>
+          <ProfileBirthDetails birthDetails={birthDetails} variant={variant} />
         )}
 
         {showTimestamp && (
           <div
             className={`flex items-center gap-1 mt-1 px-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
           >
-            <span className={`text-xs ${isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}>
+            <span className="text-xs text-gray-400">
               {formatDistanceToNow(new Date(message.createdAt), {
                 addSuffix: true,
               })}
             </span>
             {isOwn && (
-              <span className={isJyotish ? 'text-amber-400' : 'text-indigo-600'}>
+              <span className="text-indigo-600">
                 {message.isRead ? (
                   <CheckCheck className="h-3 w-3" />
                 ) : (

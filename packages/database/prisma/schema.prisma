@@ -1021,6 +1021,8 @@ enum NotificationType {
   HOROSCOPE
   PAYMENT
   SYSTEM
+  CHAT_ENDED
+  CHAT_ABANDONED
 }
 
 enum PaymentStatus {
@@ -1325,6 +1327,7 @@ model AstrologerCoinEarning {
   clientCoinsDeducted   Int
   commissionPercent     Float
   astrologerCoinsEarned Int
+  sourceDetail          String?                     // e.g. "First broadcast discount" when discount applied
   createdAt             DateTime                     @default(now())
   astrologer            Astrologer                   @relation(fields: [astrologerId], references: [id], onDelete: Cascade)
 

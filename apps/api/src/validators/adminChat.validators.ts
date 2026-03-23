@@ -48,3 +48,13 @@ export const updateAdminChatStatusSchema = z.object({
 export const assignAdminToChatSchema = z.object({
   adminId: z.string().uuid('Invalid admin ID'),
 });
+
+/** Optional reason when admin abandons a chat */
+export const abandonChatBodySchema = z.object({
+  reason: z
+    .string()
+    .max(500, 'Reason cannot exceed 500 characters')
+    .trim()
+    .optional()
+    .transform((val) => (val === '' ? undefined : val)),
+});

@@ -76,14 +76,16 @@ function AstrologersContent() {
   } = useQuery({
     queryKey: QUERY_KEYS.ASTROLOGERS.LIST(filters),
     queryFn: () => astrologerService.listAstrologers(filters),
-    staleTime: 30_000,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
   });
 
-  // Fetch stats
+  // Fetch stats (Online Now count)
   const { data: stats } = useQuery({
     queryKey: QUERY_KEYS.ASTROLOGERS.STATS,
     queryFn: () => astrologerService.getStats(),
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
   });
 
   const totalPages = astrologersData?.pagination?.totalPages ?? 1;
@@ -113,7 +115,11 @@ function AstrologersContent() {
     if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
     const pages: (number | 'ellipsis')[] = [1];
     if (currentPage > 3) pages.push('ellipsis');
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+    for (
+      let i = Math.max(2, currentPage - 1);
+      i <= Math.min(totalPages - 1, currentPage + 1);
+      i++
+    ) {
       pages.push(i);
     }
     if (currentPage < totalPages - 2) pages.push('ellipsis');
@@ -472,7 +478,10 @@ function AstrologersContent() {
                   </span>{' '}
                   to{' '}
                   <span className="text-purple-400">
-                    {Math.min(currentPage * (filters.limit ?? 12), astrologersData.pagination.total)}
+                    {Math.min(
+                      currentPage * (filters.limit ?? 12),
+                      astrologersData.pagination.total
+                    )}
                   </span>{' '}
                   of <span className="text-purple-400">{astrologersData.pagination.total}</span>{' '}
                   astrologers

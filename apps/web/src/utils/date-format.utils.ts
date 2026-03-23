@@ -55,12 +55,23 @@ export function getNepaliMonthName(month: number): string {
 
 /**
  * Normalize date string to YYYY-MM-DD for API lookup.
+ * Uses date components only to avoid timezone shifts (e.g. "2024-03-06T00:00:00"
+ * in Nepal would become 2024-03-05 with toISOString due to UTC conversion).
  */
 export function toDateKey(dateStr: string): string {
   if (!dateStr || typeof dateStr !== 'string') return '';
+  // Extract YYYY-MM-DD directly if present (avoids timezone issues)
+  const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toISOString().slice(0, 10);
+  // Use UTC date for non-ISO inputs to be consistent
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /**
@@ -76,6 +87,26 @@ export function formatEnglishDate(dateStr: string): string {
   const monthName = d.toLocaleString('en-US', { month: 'long' });
   const year = d.getFullYear();
   return `${day}${getOrdinalSuffix(day)} ${monthName} ${year}`;
+}
+
+/**
+ * Format English date short for compact display: "06 Mar, 2024" or "06 Mar, 2024 (Wednesday)"
+ */
+export function formatEnglishDateShort(dateStr: string, includeWeekday = false): string {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  const base = `${day} ${month}, ${year}`;
+  if (includeWeekday) {
+    const weekday = d.toLocaleString('en-US', { weekday: 'long' });
+    return `${base} (${weekday})`;
+  }
+  return base;
 }
 
 /**
@@ -102,4 +133,54 @@ export function formatNepaliDateDisplay(mapping: NepaliDateMapping): string {
   const dayPart = weekday ? ` (${weekday})` : '';
 
   return `${day}${ordinalSuffix} ${monthName} ${year}${dayPart}`;
+}
+
+/**
+ * Format 24-hour time with AM/PM
+ */
+export function formatTimeAmPm(timeStr: string): string {
+  if (!timeStr || typeof timeStr !== 'string') return '';
+
+  const trimmed = timeStr.trim();
+  const parts = trimmed.split(':');
+  const hour = parts[0] ? Number.parseInt(parts[0], 10) : NaN;
+  const min = parts[1] ? Number.parseInt(parts[1], 10) : 0;
+
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return trimmed;
+
+  const isPm = hour >= 12;
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const period = isPm ? 'PM' : 'AM';
+  const minPadded = Number.isFinite(min) ? min.toString().padStart(2, '0') : '00';
+  const hourPadded = hour12.toString().padStart(2, '0');
+
+  return `${hourPadded}:${minPadded} ${period}`;
+}
+
+/**
+ * Nepali Date Conversion Format
+ */
+export function formatNepaliDateCompact(
+  mapping: NepaliDateMapping,
+  includeWeekday = false
+): string {
+  if (!mapping?.nepaliDate) return '';
+
+  const [yearStr, monthStr, dayStr] = mapping.nepaliDate.split('-');
+  const year = Number.parseInt(yearStr, 10);
+  const month = Number.parseInt(monthStr, 10);
+  const day = Number.parseInt(dayStr, 10);
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    const weekday = includeWeekday && mapping.days ? getNepaliWeekdayLabel(mapping.days) : '';
+    return weekday ? `${mapping.nepaliDate} (${weekday})` : mapping.nepaliDate;
+  }
+
+  const monthName = getNepaliMonthName(month) || monthStr;
+  const base = `${day} ${monthName} ${year}`;
+  if (includeWeekday && mapping.days) {
+    const weekday = getNepaliWeekdayLabel(mapping.days);
+    return `${base} (${weekday})`;
+  }
+  return base;
 }

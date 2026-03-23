@@ -220,6 +220,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   const isFirstBroadcast = !alreadyUsedBroadcast;
 
   let amountPaidNr = 0;
+  let isFirstBroadcastDiscount = false;
   try {
     if (isFirstBroadcast) {
       // Get base broadcast cost and admin-configured discount percentage
@@ -233,6 +234,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
         clampedDiscount >= 100 ? 0 : Math.round((baseCost * (100 - clampedDiscount)) / 100);
 
       amountPaidNr = effectiveCost;
+      isFirstBroadcastDiscount = clampedDiscount > 0 && amountPaidNr < baseCost;
       if (effectiveCost > 0) {
         await deductCoinsForBroadcastMessage(data.clientId, effectiveCost);
       }
@@ -264,6 +266,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       metadata: {
         ...baseMetadata,
         amountRefundNr: amountPaidNr,
+        isFirstBroadcastDiscount,
       } as Prisma.InputJsonValue,
       status: BroadcastMessageStatus.PENDING,
     },
@@ -393,14 +396,16 @@ export async function createMultipleBroadcastMessages(
   }
 
   await deductCoinsForBroadcastQuestions(clientId, totalNr);
-  let perQuestionPrices: number[];
+  let breakdown: Awaited<ReturnType<typeof getPerQuestionBreakdown>>;
   try {
-    const breakdown = await getPerQuestionBreakdown(count, clientId);
-    perQuestionPrices = breakdown.map((e) => Math.max(0, e.price));
+    breakdown = await getPerQuestionBreakdown(count, clientId);
   } catch {
-    const fallback = Math.max(1, Math.round(totalNr / count));
-    perQuestionPrices = Array(count).fill(fallback);
+    breakdown = [];
   }
+  const perQuestionPrices =
+    breakdown.length > 0
+      ? breakdown.map((e) => Math.max(0, e.price))
+      : Array(count).fill(Math.max(1, Math.round(totalNr / count)));
 
   const batchId = randomUUID();
   const metadataBase =
@@ -410,12 +415,14 @@ export async function createMultipleBroadcastMessages(
 
   for (let i = 0; i < questionItems.length; i++) {
     const item = questionItems[i];
+    const entry = breakdown[i];
     const metadata = {
       ...metadataBase,
       batchId,
       batchIndex: i,
       totalInBatch: count,
       amountRefundNr: perQuestionPrices[i] ?? Math.max(1, Math.round(totalNr / count)),
+      isFirstBroadcastDiscount: entry?.isDiscounted ?? false,
     };
     const message = await prisma.broadcastMessage.create({
       data: {
@@ -1127,14 +1134,16 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       for (const acceptedMsg of allAccepted) {
         const msgMeta = (acceptedMsg.metadata as Record<string, unknown>) || {};
         const clientCoinsDeducted =
-          typeof msgMeta.amountRefundNr === 'number' && msgMeta.amountRefundNr > 0
-            ? msgMeta.amountRefundNr
+          typeof msgMeta.amountRefundNr === 'number'
+            ? Math.max(0, msgMeta.amountRefundNr)
             : broadcastRate;
         if (clientCoinsDeducted > 0) {
           const astrologerCoinsEarned = Math.floor(
             (clientCoinsDeducted * astrologerForEarning.commissionRate) / 100
           );
           if (astrologerCoinsEarned > 0) {
+            const isFirstBroadcastDiscount =
+              msgMeta.isFirstBroadcastDiscount === true;
             await (prisma as any).astrologerCoinEarning.create({
               data: {
                 astrologerId,
@@ -1144,6 +1153,9 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
                 clientCoinsDeducted,
                 commissionPercent: astrologerForEarning.commissionRate,
                 astrologerCoinsEarned,
+                sourceDetail: isFirstBroadcastDiscount
+                  ? 'First broadcast discount'
+                  : null,
               },
             });
           }

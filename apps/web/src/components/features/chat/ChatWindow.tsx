@@ -36,7 +36,7 @@ import { UserRole } from '@/types';
 import { useStore } from '@/store';
 import { endChat as endChatService, getOrCreateChat } from '@/services/chat.service';
 import { toast } from 'sonner';
-import { Chat, Message } from '@/types/chat';
+import { Chat, Message, type FileAttachment } from '@/types/chat';
 import { useAuthStore } from '@/store/auth-store';
 import { useSocket } from '@/hooks/useSocket';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -60,7 +60,7 @@ interface ChatWindowProps {
   chat: (Chat & { status?: 'ACTIVE' | 'ENDED'; isLocked?: boolean }) | null;
   messages: Message[];
   currentUserId: string;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, attachment?: FileAttachment) => void;
   onTyping: (isTyping: boolean) => void;
   onInputFocus?: () => void;
   onLoadMore?: () => void;
@@ -172,8 +172,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setComplaintAttachment(null);
       setShowComplaintForm(false);
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to submit complaint. Please try again.');
+    onError: (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      toast.error(err.message || 'Failed to submit complaint. Please try again.');
     },
   });
 
@@ -190,7 +191,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   // Wrapper for onSendMessage to handle turn-based logic
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, attachment?: FileAttachment) => {
     // If client is sending a message and turn-based is enabled, set waiting state immediately
     if (user?.role === UserRole.CLIENT && chat?.turnBasedEnabled !== false) {
       console.log('💬 [ChatWindow] Client sending message, setting waiting state');
@@ -199,7 +200,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
 
     // Call the parent's onSendMessage
-    onSendMessage(content);
+    onSendMessage(content, attachment);
   };
 
   // Initialize turn state from chat prop
@@ -234,7 +235,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     // Listen for sent messages to update turn state
-    const handleMessageSent = (data: any) => {
+    const handleMessageSent = (data: { chatId: string; turnState?: { waitingForReply?: boolean; lastClientMessageAt?: string } }) => {
       if (data.chatId !== chat.id) return;
 
       console.log('📤 [ChatWindow] Message sent event:', data);
@@ -246,7 +247,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       if (user?.role === UserRole.CLIENT && data.turnState) {
         console.log('🔄 [ChatWindow] Updating client turn state:', data.turnState);
-        setWaitingForReply(data.turnState.waitingForReply);
+        setWaitingForReply(data.turnState.waitingForReply ?? false);
         if (data.turnState.lastClientMessageAt) {
           setLastClientMessageTime(new Date(data.turnState.lastClientMessageAt));
         }
@@ -254,7 +255,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     // Listen for received messages to update turn state
-    const handleMessageReceived = (data: any) => {
+    const handleMessageReceived = (data: { chatId: string; turnState?: { waitingForReply?: boolean } }) => {
       if (data.chatId !== chat.id) return;
 
       console.log('📥 [ChatWindow] Message received event:', data);
@@ -263,7 +264,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       if (user?.role === UserRole.CLIENT) {
         if (data.turnState) {
           console.log('🔄 [ChatWindow] Updating client turn state from received:', data.turnState);
-          setWaitingForReply(data.turnState.waitingForReply);
+          setWaitingForReply(data.turnState.waitingForReply ?? false);
         } else {
           // If no turn state in message, assume client can now reply
           console.log('✅ [ChatWindow] Client received message, can now reply');
@@ -273,7 +274,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     // Listen for new messages from the astrologer
-    const handleNewMessage = (message: any) => {
+    const handleNewMessage = (message: { chatId: string; senderId: string }) => {
       if (message.chatId !== chat.id) return;
 
       console.log('📨 [ChatWindow] New message event:', message);
@@ -394,9 +395,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       if (onChatEnded) {
         onChatEnded();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error ending chat:', error);
-      toast.error(error.message || 'Failed to end chat');
+      const err = error instanceof Error ? error : new Error(String(error));
+      toast.error(err.message || 'Failed to end chat');
     } finally {
       setIsEndingChat(false);
     }
@@ -493,22 +495,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
 
   return (
-    <div className={`flex flex-col h-full ${isJyotish ? 'bg-white/[0.02]' : 'bg-white'}`}>
-      <div
-        className={`flex items-center justify-between px-4 py-3 border-b ${
-          isJyotish ? 'border-white/[0.06] bg-white/[0.03]' : 'border-gray-200 bg-white'
-        }`}
-      >
+    <div className="flex flex-col h-full bg-white">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
         <div className="flex items-center gap-3">
           {onBack && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={onBack}
-              className={`lg:hidden p-2 rounded-lg transition-colors ${
-                isJyotish ? 'hover:bg-white/[0.06] text-[#fafaf9]' : 'hover:bg-gray-100'
-              }`}
+              className="lg:hidden hover:bg-gray-100"
+              aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
-            </button>
+            </Button>
           )}
 
           <Avatar className="h-10 w-10">
@@ -516,9 +515,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               src={getImageUrl(otherUser.profilePhoto) || undefined}
               alt={otherUser.name || otherUser.phone || 'User'}
             />
-            <AvatarFallback
-              className={isJyotish ? 'font-bold bg-amber-500/30 text-amber-200' : 'font-bold'}
-            >
+            <AvatarFallback className="font-bold">
               {showClientIconFallback ? (
                 <User className="h-5 w-5" />
               ) : (
@@ -528,18 +525,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </Avatar>
 
           <div>
-            <h2
-              className={isJyotish ? 'font-semibold text-[#fafaf9]' : 'font-semibold text-gray-900'}
-            >
+            <h2 className="font-semibold text-gray-900">
               {otherUser.name || otherUser.phone || 'Unknown User'}
             </h2>
-            <p className={isJyotish ? 'text-xs text-[#78716c]' : 'text-xs text-gray-500'}>
+            <p className="text-xs text-gray-500">
               {isTyping ? (
-                <span className={isJyotish ? 'text-amber-400' : 'text-indigo-600'}>typing...</span>
+                <span className="text-indigo-600">typing...</span>
               ) : onlineUsers.has(otherUser.id) ? (
-                <span className={isJyotish ? 'text-emerald-400' : 'text-green-600'}>● Online</span>
+                <span className="text-green-600">● Online</span>
               ) : (
-                <span className={isJyotish ? 'text-[#78716c]' : 'text-gray-400'}>Offline</span>
+                <span className="text-gray-400">Offline</span>
               )}
             </p>
           </div>
@@ -560,11 +555,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           {user?.role === UserRole.ASTROLOGER && otherUser.role === UserRole.CLIENT && (
             <Badge
               variant="outline"
-              className={
-                isJyotish
-                  ? 'cursor-pointer bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40 transition-all px-3 py-1.5 font-medium'
-                  : 'cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium'
-              }
+              className="cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium"
               onClick={() => {
                 setSelectedClientId(otherUser.id);
                 setShowClientDetailsModal(true);
@@ -598,50 +589,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto p-4 ${isJyotish ? 'bg-transparent' : 'bg-gray-50'}`}
+        className="flex-1 overflow-y-auto p-4 bg-gray-50"
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Spinner />
           </div>
         ) : uniqueMessages.length === 0 ? (
-          <div
-            className={`flex flex-col items-center justify-center h-full space-y-4 p-8 ${
-              isJyotish ? 'text-[#78716c]' : 'text-gray-400'
-            }`}
-          >
-            <div className={isJyotish ? 'text-4xl' : 'text-6xl mb-2'}>
-              {isJyotish ? '👋' : '👋'}
-            </div>
-            <p
-              className={
-                isJyotish
-                  ? 'text-lg font-semibold text-[#fafaf9]'
-                  : 'text-xl font-semibold text-gray-700'
-              }
-            >
+          <div className="flex flex-col items-center justify-center h-full space-y-4 p-8 text-gray-400">
+            <div className="text-6xl mb-2">👋</div>
+            <p className="text-xl font-semibold text-gray-700">
               Say hello to {otherUser.name || otherUser.phone || 'Unknown User'}!
             </p>
-            <p
-              className={
-                isJyotish
-                  ? 'text-sm text-[#78716c] text-center max-w-md'
-                  : 'text-sm text-gray-500 text-center max-w-md'
-              }
-            >
+            <p className="text-sm text-gray-500 text-center max-w-md">
               Start your conversation by sending a greeting.{' '}
               {otherUser.role === UserRole.ASTROLOGER
                 ? 'Ask about your cosmic journey!'
                 : 'Respond to their query!'}
             </p>
-            <div
-              className={
-                isJyotish
-                  ? 'mt-4 p-4 bg-amber-500/10 rounded-xl border border-amber-500/20'
-                  : 'mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200'
-              }
-            >
-              <p className={isJyotish ? 'text-sm text-amber-200' : 'text-sm text-purple-700'}>
+            <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <p className="text-sm text-purple-700">
                 💡 <strong>Tip:</strong> Be polite and clear in your communication
               </p>
             </div>
@@ -650,11 +617,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <>
             {isLoadingMore && (
               <div className="flex justify-center py-3">
-                <div
-                  className={`flex items-center gap-2 text-sm ${
-                    isJyotish ? 'text-[#78716c]' : 'text-gray-500'
-                  }`}
-                >
+                <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Spinner />
                   <span>Loading older messages...</span>
                 </div>
@@ -663,11 +626,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
             {!hasMore && uniqueMessages.length > 0 && (
               <div className="flex justify-center py-3 mb-2">
-                <div
-                  className={`text-xs px-3 py-1 rounded-full ${
-                    isJyotish ? 'text-[#78716c] bg-white/[0.06]' : 'text-gray-400 bg-gray-100'
-                  }`}
-                >
+                <div className="text-xs px-3 py-1 rounded-full text-gray-400 bg-gray-100">
                   🎉 Beginning of conversation
                 </div>
               </div>
@@ -817,7 +776,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       </div>
 
       {/* Input or Blocked Message */}
-      {(chat as any)?.isAbandonedByAdmin ? (
+      {chat?.isAbandonedByAdmin ? (
         <div className="px-4 py-6 bg-red-50 border-t border-red-200">
           <div className="flex flex-col items-center justify-center gap-4 text-red-600">
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100">
@@ -829,14 +788,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 You do not have the authority to start or continue this conversation. This chat has
                 been restricted by the administration.
               </p>
-              {(chat as any)?.abandonReason && (
+              {chat?.abandonReason && (
                 <p className="text-xs text-red-600 mt-2 italic">
-                  Reason: {(chat as any).abandonReason}
+                  Reason: {chat.abandonReason}
                 </p>
               )}
               {user?.role === UserRole.CLIENT && (
                 <div className="mt-4">
-                  <button
+                  <Button
                     onClick={() => {
                       setShowComplaintForm(true);
                       setComplaintSubject('Request to Reopen Conversation');
@@ -845,11 +804,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         `I would like to request the reopening of this conversation.\n\nReason for request: `
                       );
                     }}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2"
+                    color="info"
                   >
                     <MessageSquare className="h-4 w-4" />
                     Request to Reopen Chat
-                  </button>
+                  </Button>
                   <p className="text-xs text-red-600 mt-2">
                     Submit a request to the administration to reopen this conversation
                   </p>
@@ -866,10 +826,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
             <div className="text-center">
               <p className="font-semibold text-gray-900">Chat Session Ended</p>
-              <p className="text-sm text-gray-600 mt-1">You can no longer message this person</p>
+              <p className="mt-1 text-sm text-gray-600">
+                You can no longer message this person
+              </p>
+              {user?.role === UserRole.CLIENT && (
+                <p className="mt-2 font-medium text-gray-700">
+                  Want to ask one more question?
+                </p>
+              )}
             </div>
 
-            {/* Reopen button - only show for clients */}
             {user?.role === UserRole.CLIENT && (
               <Button
                 onClick={handleReopenChat}
@@ -907,13 +873,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     </p>
                   </div>
                 </div>
-                <button
+                <Button
+                  variant="outline"
+                  color="warning"
+                  size="sm"
                   onClick={() => setShowComplaintForm(true)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors flex-shrink-0"
+                  className="flex items-center gap-2 flex-shrink-0"
                 >
                   <AlertTriangle className="h-4 w-4" />
                   <span>Contact Support</span>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -962,10 +931,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   Submit a complaint about this conversation
                 </p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowComplaintForm(false)}
-                className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-white/10 rounded-lg flex-shrink-0"
+                className="text-gray-400 hover:text-white flex-shrink-0"
                 disabled={submitComplaintMutation.isPending}
+                aria-label="Close"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
@@ -975,7 +947,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-              </button>
+              </Button>
             </div>
 
             {/* Form Content - Scrollable */}

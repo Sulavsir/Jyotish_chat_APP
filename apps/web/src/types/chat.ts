@@ -70,6 +70,13 @@ export interface Message {
   };
 }
 
+/** Birth details from message metadata or sender profile (for profile card display) */
+export interface MessageBirthDetails {
+  dateOfBirth?: string | Date | null;
+  timeOfBirth?: string | null;
+  placeOfBirth?: string | null;
+}
+
 export interface GetChatHistoryParams {
   otherUserId: string;
   limit?: number;
@@ -132,4 +139,6 @@ export interface ChatInputProps {
   variant?: 'default' | 'jyotish';
   initialValue?: string;
   onChangeMessage?: (value: string) => void;
+  /** Quick prompt chips for Jyotish - when clicked, send the text directly */
+  quickPrompts?: string[];
 }

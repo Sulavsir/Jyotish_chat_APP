@@ -25,3 +25,10 @@ export const uuidParamSchema = z.object({
   id: z.string().uuid('Invalid ID format'),
 });
 
+/**
+ * Chat ID param validator (for chat-specific routes)
+ */
+export const chatIdParamSchema = z.object({
+  chatId: z.string().uuid('Invalid chat ID format'),
+});
+

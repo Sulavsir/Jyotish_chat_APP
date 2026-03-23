@@ -26,7 +26,11 @@ import {
 } from '../controllers';
 import * as broadcastQuestionPricingController from '../controllers/broadcastQuestionPricing.controller';
 import { cancelAppointmentSchema } from '../validators/appointment.validators';
-import { queryPaginationSchema } from '../validators/query.validators';
+import {
+  queryPaginationSchema,
+  chatIdParamSchema,
+} from '../validators/query.validators';
+import { abandonChatBodySchema } from '../validators/adminChat.validators';
 import { asyncHandler } from '../utils';
 import { adminAstrologerUpload } from '../middleware/adminAstrologerUpload';
 import {
@@ -213,11 +217,22 @@ router.get('/chats/:id', adminController.getChat);
 
 router.get('/chats/:id/messages', adminController.getChatMessages);
 
-router.post('/chats/:chatId/abandon', adminController.abandonChat);
-
-router.post('/chats/:chatId/unblock', adminController.unblockChat);
-
-router.post('/chats/:chatId/reopen', adminController.reopenChat);
+router.post(
+  '/chats/:chatId/abandon',
+  validateParams(chatIdParamSchema),
+  validateBody(abandonChatBodySchema),
+  asyncHandler(adminController.abandonChat)
+);
+router.post(
+  '/chats/:chatId/unblock',
+  validateParams(chatIdParamSchema),
+  asyncHandler(adminController.unblockChat)
+);
+router.post(
+  '/chats/:chatId/reopen',
+  validateParams(chatIdParamSchema),
+  asyncHandler(adminController.reopenChat)
+);
 
 router.post(
   '/chats/messages/:messageId/flag',
