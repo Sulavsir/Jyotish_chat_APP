@@ -92,22 +92,18 @@ export function setupSocketHandlers(io: Server) {
           data: { isOnline: true },
         });
       } else if (user.role === UserRole.ASTROLOGER) {
-        // Restore the persisted preference (not forced true, not forced false)
-        const astrologer = await prisma.astrologer.findUnique({
+        // Login = auto-toggle to online (astrologer is connected and available)
+        const astrologer = await prisma.astrologer.update({
           where: { id: user.id },
-          select: { name: true, isOnline: true },
+          data: { isOnline: true },
+          select: { name: true },
         });
-        if (astrologer) {
-          console.log(
-            `✅ Astrologer ${user.id} reconnected (restoring isOnline=${astrologer.isOnline})`
-          );
-          // Sync all clients with the current persisted preference
-          io.emit('astrologer:status_changed', {
-            astrologerId: user.id,
-            name: astrologer.name,
-            isOnline: astrologer.isOnline,
-          });
-        }
+        console.log(`✅ Astrologer ${user.id} logged in — auto-set to online`);
+        io.emit('astrologer:status_changed', {
+          astrologerId: user.id,
+          name: astrologer.name,
+          isOnline: true,
+        });
       }
     } catch (error) {
       console.error(`Error restoring online status for ${user.id}:`, error);
