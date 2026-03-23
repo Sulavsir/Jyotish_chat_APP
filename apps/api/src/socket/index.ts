@@ -92,7 +92,6 @@ export function setupSocketHandlers(io: Server) {
           data: { isOnline: true },
         });
       } else if (user.role === UserRole.ASTROLOGER) {
-        // Login = auto-toggle to online (astrologer is connected and available)
         const astrologer = await prisma.astrologer.update({
           where: { id: user.id },
           data: { isOnline: true },
