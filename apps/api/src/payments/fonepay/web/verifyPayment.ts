@@ -29,8 +29,12 @@ const FONEPAY_RC_FAILED = 'failed';
  */
 function getFailureMessage(rc: string | undefined, ps: string | undefined): string {
   const rcLower = (rc ?? '').toLowerCase();
-  
-  if (rcLower.includes('cancel') || rcLower === FONEPAY_RC_CANCELLED || rcLower === FONEPAY_RC_USER_CANCELLED) {
+
+  if (
+    rcLower.includes('cancel') ||
+    rcLower === FONEPAY_RC_CANCELLED ||
+    rcLower === FONEPAY_RC_USER_CANCELLED
+  ) {
     return 'Payment was cancelled';
   }
   if (rcLower.includes('timeout') || rcLower === FONEPAY_RC_TIMEOUT) {
@@ -42,7 +46,7 @@ function getFailureMessage(rc: string | undefined, ps: string | undefined): stri
   if (ps === 'False' || ps === 'false') {
     return 'Payment was not completed';
   }
-  
+
   return rc || 'Payment could not be processed';
 }
 
@@ -67,20 +71,27 @@ export async function verifyPayment(
   const env = getFonepayWebEnv();
   if (!env) {
     console.error('[verifyPayment] Fonepay Web not configured');
-    return { redirectTo: `${failUrl}?message=${encodeURIComponent('Payment service not configured')}` };
+    return {
+      redirectTo: `${failUrl}?message=${encodeURIComponent('Payment service not configured')}`,
+    };
   }
-  
+
   if (env.FONEPAY_WEB_PID !== query.PID) {
-    console.error('[verifyPayment] PID mismatch:', { expected: env.FONEPAY_WEB_PID, got: query.PID });
-    return { redirectTo: `${failUrl}?message=${encodeURIComponent('Invalid merchant configuration')}` };
+    console.error('[verifyPayment] PID mismatch:', {
+      expected: env.FONEPAY_WEB_PID,
+      got: query.PID,
+    });
+    return {
+      redirectTo: `${failUrl}?message=${encodeURIComponent('Invalid merchant configuration')}`,
+    };
   }
 
   const { PRN, PID, PS, RC, DV, UID, BC, INI, P_AMT, R_AMT } = query;
-  
+
   // Check for explicit failure/cancellation BEFORE DV verification
   // Some cancelled payments might not have valid DV
-  const isExplicitFailure = 
-    PS === 'False' || 
+  const isExplicitFailure =
+    PS === 'False' ||
     PS === 'false' ||
     (RC?.toLowerCase() ?? '').includes('cancel') ||
     (RC?.toLowerCase() ?? '').includes('fail');
@@ -119,7 +130,7 @@ export async function verifyPayment(
   });
   const expectedDV = computeHmacSha512(verifyMessage, env.FONEPAY_WEB_SECRET);
   const providedDV = (DV ?? '').trim().toUpperCase();
-  
+
   if (expectedDV !== providedDV) {
     console.error('[verifyPayment] DV verification failed');
     // If DV fails but we have a payment, mark it as failed
@@ -129,7 +140,9 @@ export async function verifyPayment(
         data: { status: PaymentStatus.FAILED },
       });
     }
-    return { redirectTo: `${failUrl}?message=${encodeURIComponent('Payment verification failed')}` };
+    return {
+      redirectTo: `${failUrl}?message=${encodeURIComponent('Payment verification failed')}`,
+    };
   }
 
   const isSuccess =
@@ -161,7 +174,7 @@ export async function verifyPayment(
   const planId = metadata.planId;
 
   if (isSuccess) {
-    console.log('[verifyPayment] Processing successful payment');
+    const transactionId = (UID?.trim() || PRN?.trim() || metadata.prn) ?? payment.id;
     const updateResult = await prisma.payment.updateMany({
       where: {
         id: payment.id,
@@ -169,10 +182,10 @@ export async function verifyPayment(
       },
       data: {
         status: PaymentStatus.SUCCESS,
-        transactionId: UID ?? PRN,
+        transactionId,
       },
     });
-    
+
     if (updateResult.count === 1) {
       try {
         if (planId) {
@@ -189,14 +202,10 @@ export async function verifyPayment(
         console.log('[verifyPayment] Coins/plan activated successfully');
       } catch (err) {
         console.error('[verifyPayment] Error adding coins/activating plan:', err);
-        // Don't fail the redirect - payment was successful, we can reconcile later
       }
     }
-
-    // Payment SUCCESS is now reflected in the user's account (coins/plan).
-    // Invalidate the cached "my-successful" list so the sidebar shows fresh data.
     invalidateMySuccessfulPaymentsCache(payment.userId);
-    
+
     return {
       redirectTo: `${successUrl}?orderId=${encodeURIComponent(payment.id)}&source=fonepay-card`,
     };
@@ -208,7 +217,7 @@ export async function verifyPayment(
     where: { id: payment.id },
     data: { status: PaymentStatus.FAILED },
   });
-  
+
   return {
     redirectTo: `${failUrl}?orderId=${encodeURIComponent(payment.id)}&message=${encodeURIComponent(getFailureMessage(RC, PS))}`,
   };
