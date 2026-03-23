@@ -56,8 +56,12 @@ export default function PaymentPage() {
     createOrder: createGetPayOrder,
     checkoutData,
     isCreating: isCreatingGetPayOrder,
+    reset: resetGetPay,
   } = useGetPayPayment({
-    onError: (err) => showErrorToast(err),
+    onError: (err) => {
+      getPayOrderInitiatedRef.current = false;
+      showErrorToast(err);
+    },
   });
 
   const {
@@ -121,9 +125,13 @@ export default function PaymentPage() {
   }, [router, fonepayQrData?.orderId]);
 
   const handleBackToMethods = useCallback(() => {
+    // Reset GetPay state so selecting it again creates a fresh order and shows the interface
+    if (paymentMethod === PAYMENT_METHOD.GETPAY) {
+      getPayOrderInitiatedRef.current = false;
+      resetGetPay();
+    }
     setPaymentMethod(null);
-    // Note: Don't reset qrOrderInitiatedRef here - we want to keep using the same QR
-  }, []);
+  }, [paymentMethod, resetGetPay]);
 
   const handleTopBack = useCallback(() => {
     if (paymentMethod !== null) {
