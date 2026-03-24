@@ -399,9 +399,7 @@ export function RequestInstantChatModal({
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={(e) =>
-                                handleToggleQuestion(question.id, e.target.checked)
-                              }
+                              onChange={(e) => handleToggleQuestion(question.id, e.target.checked)}
                               className="mt-1 rounded border-gray-500 bg-slate-800 text-purple-500 focus:ring-purple-500"
                             />
                             <span className="flex-1">{question.text}</span>
@@ -420,35 +418,35 @@ export function RequestInstantChatModal({
 
                 {/* Free-text message — always visible; becomes additive when questions are selected */}
                 <div>
-                    <Label className="text-sm text-gray-300 block mb-1">
-                      {hasQuestionsSelected
-                        ? 'Also add your own question (optional)'
-                        : selectedCategoryData
-                          ? 'Or type your own question'
-                          : 'Type your question'}
-                    </Label>
-                    <Textarea
-                      value={messageText}
-                      onChange={(e) => {
-                        setMessageError('');
-                        setMessageText(e.target.value.slice(0, 60));
-                      }}
-                      placeholder={
-                        hasQuestionsSelected
-                          ? 'Type an additional custom question...'
-                          : 'Type your question...'
-                      }
-                      rows={3}
-                      maxLength={60}
-                      className="min-h-[80px] resize-none"
-                    />
-                    {messageError && (
-                      <p className="text-xs text-red-400 mt-1">{messageError}</p>
-                    )}
-                    <p className={`text-xs mt-0.5 text-right ${messageText.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}>
-                      {messageText.length}/60
-                    </p>
-                  </div>
+                  <Label className="text-sm text-gray-300 block mb-1">
+                    {hasQuestionsSelected
+                      ? 'Also add your own question (optional)'
+                      : selectedCategoryData
+                        ? 'Or type your own question'
+                        : 'Type your question'}
+                  </Label>
+                  <Textarea
+                    value={messageText}
+                    onChange={(e) => {
+                      setMessageError('');
+                      setMessageText(e.target.value.slice(0, 60));
+                    }}
+                    placeholder={
+                      hasQuestionsSelected
+                        ? 'Type an additional custom question...'
+                        : 'Type your question...'
+                    }
+                    rows={3}
+                    maxLength={60}
+                    className="min-h-[80px] resize-none"
+                  />
+                  {messageError && <p className="text-xs text-red-400 mt-1">{messageError}</p>}
+                  <p
+                    className={`text-xs mt-0.5 text-right ${messageText.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}
+                  >
+                    {messageText.length}/60
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-2">

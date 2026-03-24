@@ -26,6 +26,7 @@ import {
   AlertCircle,
   AlertTriangle,
   User,
+  History,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -39,13 +40,19 @@ import { toast } from 'sonner';
 import { Chat, Message, type FileAttachment } from '@/types/chat';
 import { useAuthStore } from '@/store/auth-store';
 import { useSocket } from '@/hooks/useSocket';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useChatBirthDetailsNepaliMap } from '@/hooks/useChatBirthDetailsNepaliMap';
 import complaintService from '@/services/complaint.service';
+import { clientHasChatHistory as clientHasChatHistoryFn } from '@/services/clientChatHistory.service';
 import { ComplaintCategory, COMPLAINT_CATEGORY_LABELS } from '@/types/complaint';
 import { InlineChatRating } from '@/components/features/ratings';
 import { ERROR_CODES, QUERY_KEYS } from '@/constants';
-import { ClientDetailsModal, SelectProfileModal } from '@/components/modals';
+import { ClientDetailsModal, SelectProfileModal, ClientChatHistoryModal } from '@/components/modals';
 import type { ClientProfile } from '@jyotish/shared';
+import {
+  CHAT_MESSAGE_MAX_LENGTH_CLIENT,
+  CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+} from '@jyotish/shared';
 
 interface SystemMessage {
   id: string;
@@ -131,6 +138,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showSelectProfileModal, setShowSelectProfileModal] = useState(false);
+  const [showClientChatHistoryModal, setShowClientChatHistoryModal] = useState(false);
   const onlineUsers = useStore((state) => state.onlineUsers);
   const user = useAuthStore((state) => state.user);
   const { socket } = useSocket();
@@ -138,6 +146,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const previousScrollHeight = useRef<number>(0);
   const isLoadingMoreRef = useRef(false);
   const previousChatId = useRef<string | null>(null);
+
+  const clientIdForHistory = chat?.clientParticipant?.id ?? null;
+
+  const { data: hasClientChatHistoryData } = useQuery({
+    queryKey: QUERY_KEYS.CLIENT_CHAT_HISTORY.HAS_HISTORY(clientIdForHistory ?? ''),
+    queryFn: () => clientHasChatHistoryFn(clientIdForHistory!),
+    enabled:
+      !!clientIdForHistory &&
+      user?.role === UserRole.ASTROLOGER &&
+      !!chat,
+    staleTime: 60_000,
+  });
+
+  const hasClientChatHistory = hasClientChatHistoryData?.hasHistory ?? false;
 
   // Complaint submission mutation
   const submitComplaintMutation = useMutation({
@@ -235,15 +257,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     // Listen for sent messages to update turn state
-    const handleMessageSent = (data: { chatId: string; turnState?: { waitingForReply?: boolean; lastClientMessageAt?: string } }) => {
+    const handleMessageSent = (data: {
+      chatId: string;
+      turnState?: { waitingForReply?: boolean; lastClientMessageAt?: string };
+      coinsDeducted?: number;
+    }) => {
       if (data.chatId !== chat.id) return;
 
       console.log('📤 [ChatWindow] Message sent event:', data);
 
-      // Invalidate coin balance query to reflect real-time deduction
-      if (user?.role === UserRole.CLIENT) {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      }
+      // Toast + refetch handled by chat page handleSentInNewMode only (avoids duplicate toast)
 
       if (user?.role === UserRole.CLIENT && data.turnState) {
         console.log('🔄 [ChatWindow] Updating client turn state:', data.turnState);
@@ -318,6 +341,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     return allMessages;
   }, [messages, systemMessages]);
+
+  const { nepaliConvertMap, isNepaliConvertLoading } = useChatBirthDetailsNepaliMap(
+    uniqueMessages as Message[],
+    currentUserId,
+    user?.role
+  );
 
   // Force scroll to bottom when switching to a new chat
   useEffect(() => {
@@ -553,17 +582,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </Badge>
           )}
           {user?.role === UserRole.ASTROLOGER && otherUser.role === UserRole.CLIENT && (
-            <Badge
-              variant="outline"
-              className="cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium"
-              onClick={() => {
-                setSelectedClientId(otherUser.id);
-                setShowClientDetailsModal(true);
-              }}
-            >
-              <User className="h-3.5 w-3.5 mr-1.5" />
-              View Profile Details
-            </Badge>
+            <>
+              <Badge
+                variant="outline"
+                className="cursor-pointer bg-blue-400 hover:bg-blue-800 text-white transition-all px-3 py-1.5 font-medium"
+                onClick={() => {
+                  setSelectedClientId(otherUser.id);
+                  setShowClientDetailsModal(true);
+                }}
+              >
+                <User className="h-3.5 w-3.5 mr-1.5" />
+                View Profile Details
+              </Badge>
+              {hasClientChatHistory && (
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer bg-slate-600 hover:bg-slate-700 text-white border-slate-500 transition-all px-3 py-1.5 font-medium"
+                  onClick={() => setShowClientChatHistoryModal(true)}
+                >
+                  <History className="h-3.5 w-3.5 mr-1.5" />
+                  Client Chat History
+                </Badge>
+              )}
+            </>
           )}
 
           {chat?.status === 'ACTIVE' && !chat?.isLocked && (
@@ -725,6 +766,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       ? (_clientId: string) => {
                           setShowClientDetailsModal(true);
                         }
+                      : undefined
+                  }
+                  nepaliBatch={
+                    user?.role === UserRole.ASTROLOGER
+                      ? { map: nepaliConvertMap, isLoading: isNepaliConvertLoading }
                       : undefined
                   }
                 />
@@ -902,6 +948,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             variant={isJyotish ? 'jyotish' : 'default'}
             initialValue={draftValue ?? ''}
             onChangeMessage={onDraftChange}
+            maxMessageLength={
+              user?.role === UserRole.ASTROLOGER
+                ? CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER
+                : CHAT_MESSAGE_MAX_LENGTH_CLIENT
+            }
           />
         </>
       )}
@@ -1118,6 +1169,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             setSelectedClientId(null);
           }}
           clientId={selectedClientId || (otherUser.role === UserRole.CLIENT ? otherUser.id : null)}
+        />
+      )}
+
+      {/* Client Chat History Modal (anonymous aggregated view) */}
+      {user?.role === UserRole.ASTROLOGER && chat?.clientParticipant && (
+        <ClientChatHistoryModal
+          isOpen={showClientChatHistoryModal}
+          onClose={() => setShowClientChatHistoryModal(false)}
+          clientId={chat.clientParticipant.id}
+          clientName={chat.clientParticipant.name || chat.clientParticipant.phone}
         />
       )}
     </div>

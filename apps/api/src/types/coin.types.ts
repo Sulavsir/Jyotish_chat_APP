@@ -42,4 +42,6 @@ export interface CoinTransaction {
 export interface CoinBalance {
   userId: string;
   balance: number;
+  /** Coins deducted (when deduction occurred); used for real-time feedback */
+  coinsDeducted?: number;
 }

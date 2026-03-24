@@ -157,6 +157,7 @@ export function notifyBroadcastMessageSent(message: any) {
     type: message.type,
     status: message.status,
     createdAt: message.createdAt,
+    expiresAt: message.expiresAt,
   });
 
   // Also emit to chat audit
@@ -171,6 +172,7 @@ export function notifyBroadcastMessageSent(message: any) {
     messageType: message.type,
     metadata: message.metadata,
     createdAt: message.createdAt,
+    expiresAt: message.expiresAt,
     acceptedAt: null,
   });
   

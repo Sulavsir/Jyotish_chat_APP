@@ -21,7 +21,6 @@ import {
   LogOut,
   Menu,
   X,
-  HelpCircle,
 } from 'lucide-react';
 import { AppSidebar } from '@jyotish/ui';
 import { AppLogo } from '@/components/ui/AppLogo';
@@ -118,7 +117,6 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
       href: ROUTES.TRANSACTIONS,
       icon: <Wallet className="h-4 w-4" />,
     },
-    { name: 'Support', href: ROUTES.SUPPORT, icon: <HelpCircle className="h-4 w-4" /> },
     {
       name: 'Profile',
       href: ROUTES.PROFILE,

@@ -7,6 +7,20 @@ import { prisma } from '@jyotish/database';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 
+async function composeNepalPlaceOfBirthString(
+  pradeshId: string,
+  districtId: string,
+  location: string | null | undefined
+): Promise<string | null> {
+  const [pradesh, district] = await Promise.all([
+    prisma.nepalGeography.findUnique({ where: { id: pradeshId }, select: { nameEn: true } }),
+    prisma.nepalGeography.findUnique({ where: { id: districtId }, select: { nameEn: true } }),
+  ]);
+  const loc = location?.trim() || '';
+  const parts = [pradesh?.nameEn, district?.nameEn, loc].filter((p) => p && String(p).trim());
+  return parts.length ? parts.join(', ') : null;
+}
+
 export async function listByUserId(userId: string) {
   const profiles = await prisma.clientProfile.findMany({
     where: { userId },
@@ -38,8 +52,20 @@ export async function create(
         : null;
   const timeOfBirth =
     data.timeOfBirth && String(data.timeOfBirth).trim() ? String(data.timeOfBirth).trim() : null;
-  const placeOfBirth =
+  let placeOfBirth =
     data.placeOfBirth && String(data.placeOfBirth).trim() ? String(data.placeOfBirth).trim() : null;
+  if (
+    !placeOfBirth &&
+    data.placeOfBirthType === 'NEPAL' &&
+    data.placeOfBirthPradeshId &&
+    data.placeOfBirthDistrictId
+  ) {
+    placeOfBirth = await composeNepalPlaceOfBirthString(
+      data.placeOfBirthPradeshId,
+      data.placeOfBirthDistrictId,
+      data.placeOfBirthLocation
+    );
+  }
 
   const profile = await prisma.clientProfile.create({
     data: {
@@ -96,12 +122,20 @@ export async function update(
         ? String(data.timeOfBirth).trim()
         : null
       : undefined;
-  const placeOfBirth =
-    data.placeOfBirth !== undefined
-      ? data.placeOfBirth && String(data.placeOfBirth).trim()
-        ? String(data.placeOfBirth).trim()
-        : null
-      : undefined;
+  const mergedType = data.placeOfBirthType !== undefined ? data.placeOfBirthType : existing.placeOfBirthType;
+  const mergedPradesh =
+    data.placeOfBirthPradeshId !== undefined ? data.placeOfBirthPradeshId : existing.placeOfBirthPradeshId;
+  const mergedDistrict =
+    data.placeOfBirthDistrictId !== undefined ? data.placeOfBirthDistrictId : existing.placeOfBirthDistrictId;
+  const mergedLocation =
+    data.placeOfBirthLocation !== undefined ? data.placeOfBirthLocation : existing.placeOfBirthLocation;
+
+  let placeOfBirth: string | null | undefined = undefined;
+  if (data.placeOfBirth !== undefined) {
+    placeOfBirth = data.placeOfBirth && String(data.placeOfBirth).trim() ? String(data.placeOfBirth).trim() : null;
+  } else if (mergedType === 'NEPAL' && mergedPradesh && mergedDistrict) {
+    placeOfBirth = await composeNepalPlaceOfBirthString(mergedPradesh, mergedDistrict, mergedLocation);
+  }
 
   const profile = await prisma.clientProfile.update({
     where: { id },

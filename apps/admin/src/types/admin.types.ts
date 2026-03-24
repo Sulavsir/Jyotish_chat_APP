@@ -118,6 +118,7 @@ export interface UserProfile {
   id: string;
   name: string;
   phone: string;
+  email?: string | null;
   profilePhoto?: string | null;
 }
 
@@ -125,6 +126,7 @@ export interface AstrologerProfile {
   id: string;
   name: string;
   phone: string;
+  email?: string | null;
   profilePhoto?: string | null;
 }
 
@@ -169,13 +171,24 @@ export interface DashboardStats {
   totalUsers: number;
   totalAstrologers: number;
   activeChats: number;
+  /** In-house astrologers currently marked online */
+  onlineAstrologers: number;
   totalEarnings: number;
-  pendingPayouts: number;
   todayConsultations: number;
   newUsersToday: number;
   todayEarnings: number;
   platformTotalLoaded: number;
   platformTodayLoaded: number;
+}
+
+/** GET /admin/coin-transactions query */
+export interface AdminPaymentHistoryListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  paymentMethod?: string;
+  paymentDateFrom?: string;
+  paymentDateTo?: string;
 }
 
 // Form Types

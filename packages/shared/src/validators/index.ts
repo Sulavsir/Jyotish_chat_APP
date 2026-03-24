@@ -217,7 +217,7 @@ export const updateClientProfileSchema = createClientProfileSchema.partial();
 // Chat validators
 export const sendMessageSchema = z.object({
   receiverId: z.string().uuid('Invalid receiver ID'),
-  content: z.string().min(1, 'Message content is required').max(5000, 'Message too long'),
+  content: z.string().min(1, 'Message content is required').max(10000, 'Message too long'),
   type: z.nativeEnum(MessageType).default(MessageType.TEXT),
   metadata: z.record(z.any()).optional(),
 });

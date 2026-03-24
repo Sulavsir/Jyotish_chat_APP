@@ -62,10 +62,17 @@ export const getChatHistory = async (
 
 /**
  * Send a message (HTTP fallback)
+ * Returns the message; coinsDeducted is included when balance was deducted
  */
-export const sendMessage = async (params: SendMessageParams): Promise<Message> => {
-  const response = await apiClient.post<Message>(API_ENDPOINTS.CHAT.MESSAGES, params);
-  return response;
+export const sendMessage = async (
+  params: SendMessageParams
+): Promise<Message & { coinsDeducted?: number }> => {
+  const res = (await apiClient.post(API_ENDPOINTS.CHAT.MESSAGES, params)) as
+    | { data?: Message; coinsDeducted?: number }
+    | Message;
+  const payload = res as { data?: Message; coinsDeducted?: number };
+  const msg = payload?.data ?? (typeof res === 'object' && res !== null && !('data' in res) ? res : null);
+  return { ...(msg || {}), coinsDeducted: payload?.coinsDeducted } as Message & { coinsDeducted?: number };
 };
 
 /**

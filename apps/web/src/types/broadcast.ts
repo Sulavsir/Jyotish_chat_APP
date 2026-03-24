@@ -38,6 +38,8 @@ export interface BroadcastMessage {
   chatId: string | null;
   acceptedAt: Date | string | null;
   metadata?: Record<string, unknown> | null;
+  /** Server-set expiry instant; use for countdown (TTL may differ per message / over time). */
+  expiresAt?: Date | string;
   createdAt: Date | string;
   updatedAt: Date | string;
   client?: BroadcastMessageClient;

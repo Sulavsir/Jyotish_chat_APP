@@ -3,7 +3,8 @@
  */
 
 /**
- * Broadcast message expiry time in milliseconds (10 minutes)
+ * Broadcast pending window for new messages (milliseconds). Each row stores its own `expiresAt`
+ * at creation time from this value — change here (or per-deploy constants) if you need a different TTL.
  */
 export const BROADCAST_MESSAGE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 

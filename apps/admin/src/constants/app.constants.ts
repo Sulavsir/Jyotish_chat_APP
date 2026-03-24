@@ -31,6 +31,12 @@ export const PAGINATION_DEFAULTS = {
   MAX_VISIBLE_PAGES: 5,
 } as const;
 
+/** Debounce for admin date filters (ms) — avoids refetch on every keystroke */
+export const ADMIN_DATE_FILTER_DEBOUNCE_MS = 400;
+
+/** Debounce for admin list search inputs (ms) */
+export const ADMIN_SEARCH_DEBOUNCE_MS = 400;
+
 // Chat audit defaults
 export const CHAT_AUDIT_DEFAULTS = {
   PAGE: 1,

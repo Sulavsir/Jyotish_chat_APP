@@ -105,6 +105,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
             metadata: {
               broadcastMessageId: message.id,
               clientId: message.clientId,
+              expiresAt: message.expiresAt.toISOString(),
               isConfidential: true,
             },
           })
@@ -121,6 +122,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
             metadata: {
               broadcastMessageId: message.id,
               clientId: message.clientId,
+              expiresAt: message.expiresAt.toISOString(),
             },
           });
         });
@@ -223,14 +225,16 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         select: { id: true },
       });
 
+      const clientName = result.message.client?.name || result.message.client?.phone || 'Client';
+      const requestNoLongerActiveMsg = `${clientName}'s request is no longer active. It has already been accepted by another astrologer for counselling.`;
+
       // Create notifications only for eligible astrologers (PREMIUM should not see broadcast-related notifications)
       const acceptNotificationPromises = otherEligibleAstrologers.map((astrologer) =>
         notificationService.createNotification({
           astrologerId: astrologer.id,
           type: NotificationType.BROADCAST_ACCEPTED,
           title: 'Request No Longer Available',
-          message:
-            'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
+          message: requestNoLongerActiveMsg,
           metadata: {
             broadcastMessageId: result.message.id,
             acceptedBy: userId,
@@ -246,15 +250,12 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
       const requestAcceptedPayload = {
         messageId: result.message.id,
         allAcceptedMessageIds: allAcceptedIds,
-        message:
-          'This user request is no longer active. It has already been accepted by another astrologer for counselling.',
+        message: requestNoLongerActiveMsg,
         acceptedBy: {
           id: result.message.acceptedAstrologer?.id ?? userId,
           name: result.message.acceptedAstrologer?.name,
         },
       };
-
-      const clientName = result.message.client?.name || result.message.client?.phone || 'Client';
 
       const acceptedByPayload = {
         messageId: result.message.id,

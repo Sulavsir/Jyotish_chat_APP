@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { toPublicDisplayRating } from '../utils/public-display-rating';
 import { UserRole } from '@jyotish/shared';
 
 /**
@@ -68,6 +69,7 @@ export const getAstrologers = async (
     (astrologer: AstrologerSelectResult): AstrologerWithRole => ({
       ...astrologer,
       role: UserRole.ASTROLOGER,
+      rating: toPublicDisplayRating(astrologer.rating),
     })
   );
 };

@@ -67,3 +67,5 @@ logs
 *.sqlite
 prisma/migrations/*/migration.sql
 
+apps/api/uploads/
+

@@ -15,7 +15,17 @@ export const ADMIN_QUERY_KEYS = {
   // Users
   USERS: {
     ALL: ['admin', 'users'] as const,
-    LIST: () => ['admin', 'users', 'list'] as const,
+    LIST: (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      isActive?: boolean;
+      joinedFrom?: string;
+      joinedTo?: string;
+    }) =>
+      params
+        ? (['admin', 'users', 'list', params] as const)
+        : (['admin', 'users', 'list'] as const),
     DETAIL: (id: string) => ['admin', 'users', 'detail', id] as const,
   },
 
@@ -57,7 +67,14 @@ export const ADMIN_QUERY_KEYS = {
 
   // Payment History (successful payments only)
   PAYMENT_HISTORY: {
-    LIST: (params?: { page?: number; limit?: number }) =>
+    LIST: (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      paymentMethod?: string;
+      paymentDateFrom?: string;
+      paymentDateTo?: string;
+    }) =>
       params
         ? (['admin', 'payment-history', 'list', params] as const)
         : (['admin', 'payment-history', 'list'] as const),

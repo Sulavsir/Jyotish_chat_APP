@@ -52,3 +52,5 @@ export * from './broadcastMessage.validators';
 export * from './adminAstrologer.validators';
 export * from './tip.validators';
 export * from './astrologer.validators';
+export * from './adminPlatformPayment.validators';
+export * from './adminUsersList.validators';

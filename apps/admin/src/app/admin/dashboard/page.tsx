@@ -20,6 +20,9 @@ import type { DashboardStats } from '@/types';
 import { useAdminSocket } from '@/hooks';
 import { LoadingButton } from '@/components/ui/LoadingButton';
 
+/** Must match statCards length when stats are loaded */
+const DASHBOARD_STAT_CARD_COUNT = 11;
+
 export default function DashboardPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -250,11 +253,11 @@ export default function DashboardPage() {
             route: ADMIN_ROUTES.TRANSACTIONS,
           },
           {
-            title: 'Pending Payouts',
-            value: `Nrs.${stats.pendingPayouts}`,
+            title: 'Online Jyotish',
+            value: stats.onlineAstrologers,
             icon: (
               <svg
-                className="w-8 h-8 text-red-400"
+                className="w-8 h-8 text-cyan-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -263,12 +266,12 @@ export default function DashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"
                 />
               </svg>
             ),
-            color: 'from-red-400 to-rose-500',
-            route: ADMIN_ROUTES.EARNINGS,
+            color: 'from-cyan-400 to-blue-500',
+            route: ADMIN_ROUTES.ASTROLOGERS,
           },
           {
             title: "Today's Consultations",
@@ -395,7 +398,7 @@ export default function DashboardPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoadingStats && !stats
-            ? Array.from({ length: 6 }).map((_, i) => (
+            ? Array.from({ length: DASHBOARD_STAT_CARD_COUNT }).map((_, i) => (
                 <div key={i} className="cosmic-card rounded-xl p-6">
                   <Skeleton className="h-6 w-32 mb-4" />
                   <Skeleton className="h-10 w-20" />

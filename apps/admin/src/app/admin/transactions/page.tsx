@@ -1,20 +1,66 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button } from '@jyotish/ui';
-import { RefreshCw, CreditCard, Banknote } from 'lucide-react';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import {
+  Button,
+  Search,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  AdminMonthRangeFilter,
+  AdminPaginationBar,
+  getTodayDateRange,
+} from '@jyotish/ui';
+import { LoadingButton } from '@/components/ui/LoadingButton';
+import { RefreshCw, CreditCard, Banknote, Filter, ChevronDown, Check } from 'lucide-react';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_DATE_FILTER_DEBOUNCE_MS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
+import { AdminTable, AdminClearFiltersButton, type AdminTableColumn } from '@/components/admin';
 import { PaymentMethodCell, TransactionIdCell } from '@/components/transactions';
+import { useDebounce } from '@/hooks';
+import { generatePageNumbers } from '@/utils/helpers';
 import type { AdminPaymentHistoryItem } from '@/types';
 
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+const ROWS_PER_PAGE_OPTIONS = [10, 20, 50, 100] as const;
+
+const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All methods' },
+  { value: 'GETPAY', label: 'GetPay' },
+  { value: 'FONEPAY_QR', label: 'Fonepay QR' },
+  { value: 'FONEPAY_CARD', label: 'Fonepay Card' },
+];
 
 export default function PaymentHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [paymentRange, setPaymentRange] = useState(getTodayDateRange);
+  const debouncedFrom = useDebounce(paymentRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
+  const debouncedTo = useDebounce(paymentRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, paymentMethod, debouncedFrom, debouncedTo]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   const {
     data: response,
@@ -22,21 +68,32 @@ export default function PaymentHistoryPage() {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ADMIN_QUERY_KEYS.PAYMENT_HISTORY.LIST({ page: currentPage, limit: ITEMS_PER_PAGE }),
+    queryKey: ADMIN_QUERY_KEYS.PAYMENT_HISTORY.LIST({
+      page: currentPage,
+      limit: itemsPerPage,
+      search: debouncedSearch || undefined,
+      paymentMethod: paymentMethod || undefined,
+      paymentDateFrom: debouncedFrom || undefined,
+      paymentDateTo: debouncedTo || undefined,
+    }),
     queryFn: () =>
       adminApi.paymentHistory.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: itemsPerPage,
+        search: debouncedSearch || undefined,
+        paymentMethod: paymentMethod || undefined,
+        paymentDateFrom: debouncedFrom || undefined,
+        paymentDateTo: debouncedTo || undefined,
       }),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
-    placeholderData: (prev) => prev,
+    placeholderData: keepPreviousData,
   });
 
   const transactions = response?.transactions ?? [];
   const pagination = response?.pagination ?? {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: itemsPerPage,
     total: 0,
     totalPages: 1,
   };
@@ -91,7 +148,7 @@ export default function PaymentHistoryPage() {
       ),
     },
     {
-      header: 'Date',
+      header: 'Payment Date',
       accessor: (tx) => (
         <span className="text-slate-300">
           {new Date(tx.createdAt).toLocaleString()}
@@ -99,6 +156,33 @@ export default function PaymentHistoryPage() {
       ),
     },
   ];
+
+  const paymentMethodLabel =
+    PAYMENT_METHOD_OPTIONS.find((o) => o.value === paymentMethod)?.label ?? 'All methods';
+
+  const showingFrom =
+    pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+  const showingTo = Math.min(pagination.page * pagination.limit, pagination.total);
+
+  const today = getTodayDateRange();
+  const isDefaultView =
+    !debouncedSearch &&
+    !paymentMethod &&
+    debouncedFrom === today.from &&
+    debouncedTo === today.to;
+
+  const hasPaymentFilters =
+    Boolean(debouncedSearch) ||
+    Boolean(paymentMethod) ||
+    debouncedFrom !== today.from ||
+    debouncedTo !== today.to;
+
+  const clearPaymentFilters = () => {
+    setSearchTerm('');
+    setPaymentMethod('');
+    setPaymentRange(getTodayDateRange());
+    setCurrentPage(1);
+  };
 
   return (
     <AdminLayout>
@@ -110,16 +194,76 @@ export default function PaymentHistoryPage() {
               Successful payments only – GetPay, Fonepay QR, Fonepay Card
             </p>
           </div>
-          <Button
+          <LoadingButton
             onClick={() => refetch()}
             variant="outline"
             size="sm"
-            disabled={isLoading || isFetching}
+            isLoading={isLoading || isFetching}
+            loadingText="Refreshing"
             className="border-slate-700 text-white hover:bg-slate-800"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
-          </Button>
+          </LoadingButton>
+        </div>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-4">
+          <div className="min-w-0 flex-1">
+            <Search
+              placeholder="Search by name, email, phone or transaction ID..."
+              value={searchTerm}
+              onSearch={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(1);
+              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <AdminMonthRangeFilter
+            fromValue={paymentRange.from}
+            toValue={paymentRange.to}
+            onRangeChange={(from, to) => setPaymentRange({ from, to })}
+            disabled={isLoading}
+          />
+          <AdminClearFiltersButton
+            show={hasPaymentFilters}
+            onClear={clearPaymentFilters}
+            disabled={isLoading || isFetching}
+          />
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700 text-white hover:bg-slate-800 gap-2 h-9"
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>{paymentMethodLabel}</span>
+                  <ChevronDown className="w-4 h-4 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[180px] p-1 bg-slate-900 border-slate-700">
+                <div className="flex flex-col">
+                  {PAYMENT_METHOD_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value || 'all'}
+                      type="button"
+                      onClick={() => setPaymentMethod(opt.value)}
+                      className={`flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
+                        paymentMethod === opt.value
+                          ? 'text-purple-300 bg-purple-600/15'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      {paymentMethod === opt.value && <Check className="w-4 h-4 text-purple-400" />}
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -133,15 +277,71 @@ export default function PaymentHistoryPage() {
             itemsPerPage={pagination.limit}
             totalItems={pagination.total}
             totalPages={pagination.totalPages}
-            onPageChange={setCurrentPage}
             emptyState={{
               icon: <CreditCard className="w-16 h-16 text-slate-600" />,
-              title: 'No payments yet',
-              description:
-                'Successful payments will appear here once users start topping up their balance.',
+              title: isDefaultView ? 'No payments yet' : 'No payments found',
+              description: isDefaultView
+                ? 'Successful payments will appear here once users start topping up their balance.'
+                : 'Try adjusting search, payment method, or date filter.',
             }}
           />
         </div>
+
+        {!isLoading && (
+          <div className="rounded-xl p-4">
+            <AdminPaginationBar
+              showingFrom={showingFrom}
+              showingTo={showingTo}
+              totalItems={pagination.total}
+              pageSize={itemsPerPage}
+              pageSizeOptions={ROWS_PER_PAGE_OPTIONS}
+              onPageSizeChange={setItemsPerPage}
+              disabled={isFetching}
+              pagination={
+                pagination.totalPages > 0 ? (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        />
+                      </PaginationItem>
+
+                      {generatePageNumbers(
+                        currentPage,
+                        pagination.totalPages,
+                        PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                      ).map((page, index) => (
+                        <PaginationItem key={index}>
+                          {typeof page === 'number' ? (
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                            >
+                              {page}
+                            </PaginationLink>
+                          ) : (
+                            <PaginationEllipsis />
+                          )}
+                        </PaginationItem>
+                      ))}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                          }
+                          disabled={currentPage === pagination.totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                ) : null
+              }
+            />
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

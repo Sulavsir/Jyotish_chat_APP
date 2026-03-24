@@ -72,14 +72,15 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
           try {
             const notification = await notificationService.createNotification({
               astrologerId: astrologer.id,
-              title: 'New Chat Request',
-              message: `New instant chat request from ${request.client?.name || 'a client'}`,
+              title: 'Instant chat request',
+              message: `${request.client?.name || 'A client'} wants an instant chat`,
               type: NotificationType.CHAT_MESSAGE,
               metadata: {
                 requestId: request.id,
                 clientId: request.clientId,
+                kind: 'INSTANT_CHAT',
               },
-              groupKey: 'instant_chat_requests',
+              groupKey: `instant_chat:${request.id}`,
             });
 
             // Emit real-time notification to astrologer

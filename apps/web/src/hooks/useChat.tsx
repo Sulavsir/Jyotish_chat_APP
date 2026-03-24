@@ -12,10 +12,12 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types';
 import { displayError } from '@/utils/error-handler';
-import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
+import { ROUTE_BUILDERS } from '@/constants';
+import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { CoinPurchaseModal } from '@/components/modals';
 import { AstrologerCategory } from '@/types/astrologer';
 import { useCoinRates } from '@/hooks/useCoinRates';
+import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 
 export function useChat() {
   const router = useRouter();
@@ -66,6 +68,17 @@ export function useChat() {
       return null;
     }
 
+    const trimmedInitial = initialMessage?.trim();
+    if (
+      trimmedInitial &&
+      trimmedInitial.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT
+    ) {
+      toast.error(
+        `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
+      );
+      return null;
+    }
+
     try {
       setIsStartingChat(true);
 
@@ -82,7 +95,7 @@ export function useChat() {
           const metadata =
             messageMetadata ?? (categoryId ? { questionCategory: categoryId } : undefined);
           try {
-            await chatService.sendMessage({
+            const sendResult = await chatService.sendMessage({
               chatId: chat.id,
               receiverId: otherUserId,
               content: trimmedMessage,
@@ -99,6 +112,9 @@ export function useChat() {
                   }
                 : undefined,
             });
+            if (sendResult.coinsDeducted != null && sendResult.coinsDeducted > 0) {
+              toast.info(`${sendResult.coinsDeducted} NRs deducted from your balance`);
+            }
           } catch (sendError) {
             console.error('Error sending initial chat message:', sendError);
             displayError(sendError, 'Chat started, but failed to send your first message.');
@@ -121,9 +137,10 @@ export function useChat() {
           const isAppointmentOnly =
             astrologer.category === AstrologerCategory.PREMIUM ||
             astrologer.category === AstrologerCategory.KATHA_VACHAK;
-          const perMessageNr = astrologer.chatMessageFee && astrologer.chatMessageFee > 0
-            ? astrologer.chatMessageFee
-            : 0;
+          const perMessageNr =
+            astrologer.chatMessageFee && astrologer.chatMessageFee > 0
+              ? astrologer.chatMessageFee
+              : 0;
           const requiredCoinsForChat = isAppointmentOnly ? 0 : perMessageNr;
           if (
             requiredCoinsForChat != null &&
@@ -162,8 +179,8 @@ export function useChat() {
         }
       }
 
-      // Invalidate coin balance so UI reflects deducted coins
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      // Refetch balance and dashboard so UI reflects deducted coins (avoids stale overwrite)
+      void refetchClientBalanceAndStats(queryClient);
 
       return chat?.id ?? null;
     } catch (error: unknown) {

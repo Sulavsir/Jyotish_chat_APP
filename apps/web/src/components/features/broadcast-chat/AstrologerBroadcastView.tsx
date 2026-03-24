@@ -318,6 +318,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                     <CountdownTimer
                       createdAt={message.createdAt}
                       expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+                      expiresAt={message.expiresAt}
                       showIcon={true}
                       onExpire={() => {
                         // Remove expired message immediately from list

@@ -21,7 +21,8 @@ import {
   PaginationPrevious,
 } from '@jyotish/ui';
 import { AdminTable, type AdminTableColumn, AdminChatStatusFilter, type AdminChatStatusFilterValue } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_SEARCH_DEBOUNCE_MS } from '@/constants';
+import { AdminClearFiltersButton } from '@/components/admin';
 import type { AdminChat } from '@/lib/admin-api';
 import { useAdminSocket, useDebounce } from '@/hooks';
 import { RefreshCw, MessageSquare } from 'lucide-react';
@@ -44,7 +45,7 @@ interface AdminChatsResponse {
 export default function AdminChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<AdminChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null);
@@ -63,10 +64,12 @@ export default function AdminChatsPage() {
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         status: statusFilter || undefined,
-        search: debouncedSearch || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
       return response;
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const chats = chatsResponse?.chats || [];
@@ -110,6 +113,13 @@ export default function AdminChatsPage() {
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   }, [debouncedSearch, statusFilter]);
+
+  const hasAdminChatFilters = Boolean(debouncedSearch.trim()) || Boolean(statusFilter);
+  const clearAdminChatFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const formatDate = (date: Date | string | null): string => {
     if (!date) return 'N/A';
@@ -233,13 +243,21 @@ export default function AdminChatsPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <Search
-          placeholder="Search by participant name, email, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+          <div className="min-w-0 flex-1">
+            <Search
+              placeholder="Search by participant name, email, or phone..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <AdminClearFiltersButton
+            show={hasAdminChatFilters}
+            onClear={clearAdminChatFilters}
+            disabled={isLoading}
+          />
+        </div>
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -251,9 +269,9 @@ export default function AdminChatsPage() {
             onRowClick={handleChatClick}
             emptyState={{
               icon: <MessageSquare className="w-20 h-20 text-slate-600" />,
-              title: debouncedSearch || statusFilter ? 'No chats found' : 'No admin chats yet',
-              description: debouncedSearch || statusFilter
-                ? 'Try adjusting your search terms or filters'
+              title: hasAdminChatFilters ? 'No chats found' : 'No admin chats yet',
+              description: hasAdminChatFilters
+                ? 'Try adjusting search or status, or clear filters.'
                 : 'Admin chat conversations will appear here when users contact support',
             }}
           />

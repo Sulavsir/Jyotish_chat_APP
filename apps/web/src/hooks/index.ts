@@ -12,6 +12,7 @@ export * from './useCoinRates';
 export * from './useTranslations';
 export * from './useNepaliDateConvert';
 export * from './useBirthDetailsNepaliDate';
+export * from './useChatBirthDetailsNepaliMap';
 export * from './useBsMonthQuery';
 export * from './useLocationQueries';
 

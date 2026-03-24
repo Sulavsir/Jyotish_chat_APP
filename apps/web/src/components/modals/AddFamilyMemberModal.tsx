@@ -6,7 +6,7 @@
 'use client';
 
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
@@ -169,12 +169,32 @@ export function AddFamilyMemberModal({ isOpen, onClose, onSuccess }: AddFamilyMe
               <Label htmlFor="add-profile-dob" className="text-gray-300">
                 Date of birth
               </Label>
-              <DateInput
-                id="add-profile-dob"
-                {...form.register('dateOfBirth')}
-                className="mt-1 bg-white/5 border-white/10 text-white"
-                nepaliDate
+              <Controller
+                name="dateOfBirth"
+                control={form.control}
+                render={({ field }) => (
+                  <DateInput
+                    id="add-profile-dob"
+                    className="mt-1 bg-white/5 border-white/10 text-white"
+                    nepaliDate
+                    value={
+                      field.value == null
+                        ? ''
+                        : field.value instanceof Date
+                          ? field.value.toISOString().split('T')[0]
+                          : String(field.value)
+                    }
+                    onChange={(e) => field.onChange(e.target.value)}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
               />
+              {form.formState.errors.dateOfBirth && (
+                <p className="text-xs text-red-400 mt-0.5">
+                  {form.formState.errors.dateOfBirth.message}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="add-profile-tob" className="text-gray-300">

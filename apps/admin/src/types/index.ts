@@ -15,6 +15,7 @@ export * from './subha-sahit.types';
 export type {
   Admin,
   AdminPaymentHistoryResponse,
+  AdminPaymentHistoryListParams,
   Astrologer,
   User,
   Chat,

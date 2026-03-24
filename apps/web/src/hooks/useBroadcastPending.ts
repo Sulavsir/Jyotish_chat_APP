@@ -14,6 +14,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import broadcastMessageService from '@/services/broadcastMessage.service';
+import { getBroadcastExpiresAtMs, isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
 import type { BroadcastMessage } from '@/types';
 
 const SENDING_PLACEHOLDER_ID = 'sending';
@@ -73,12 +74,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
 
       // Fetch all pending messages once — used by both code paths
       const allMessages = await broadcastMessageService.getMyMessages();
-      const now = Date.now();
-      const activePending = allMessages.filter(
-        (m) =>
-          m.status === 'PENDING' &&
-          new Date(m.createdAt).getTime() + BROADCAST_MESSAGE_EXPIRY_MS > now
-      );
+      const activePending = allMessages.filter((m) => isBroadcastPendingStillActive(m));
 
       if (messageIdOrFetch && messageIdOrFetch !== SENDING_PLACEHOLDER_ID) {
         // Specific message ID supplied (e.g. instant-chat single message)
@@ -159,6 +155,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
     setPendingMessage({
       id: SENDING_PLACEHOLDER_ID,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + BROADCAST_MESSAGE_EXPIRY_MS).toISOString(),
       status: 'PENDING',
     } as BroadcastMessage & { id: typeof SENDING_PLACEHOLDER_ID });
   }, []);
@@ -262,8 +259,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       return;
     }
     const calculateTimeRemaining = () => {
-      const createdAt = new Date(pendingMessage.createdAt).getTime();
-      const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
+      const expiresAt = getBroadcastExpiresAtMs(pendingMessage);
       const now = Date.now();
       const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
       setTimeRemaining(remaining);
@@ -292,10 +288,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       .then((messages) => {
         if (cancelled) return;
         const pending = messages.find(
-          (m) =>
-            m.status === 'PENDING' &&
-            !isMultiQuestionBatch(m) &&
-            new Date(m.createdAt).getTime() + BROADCAST_MESSAGE_EXPIRY_MS > Date.now()
+          (m) => m.status === 'PENDING' && !isMultiQuestionBatch(m) && isBroadcastPendingStillActive(m)
         );
         if (pending) {
           setIsWaitingForAcceptance(true);

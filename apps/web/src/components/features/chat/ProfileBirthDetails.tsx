@@ -3,10 +3,11 @@
  * Used under client messages in chat when astrologer is viewing
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Calendar, Clock, MapPin } from 'lucide-react';
 import { useBirthDetailsNepaliDate } from '@/hooks/useBirthDetailsNepaliDate';
-import { formatTimeAmPm } from '@/utils/date-format.utils';
+import type { NepaliDateMapping } from '@/services/nepali-date.service';
+import { formatTimeAmPm, toDateKey, formatNepaliDateCompact } from '@/utils/date-format.utils';
 import type { MessageBirthDetails } from '@/types/chat';
 
 export interface ProfileBirthDetailsProps {
@@ -16,21 +17,50 @@ export interface ProfileBirthDetailsProps {
   variant?: 'default' | 'jyotish';
   /** Optional loading state override */
   isLoading?: boolean;
+  /**
+   * When set (astrologer chat), Nepali line uses this map from a single batched /convert
+   * for the thread instead of per-row requests.
+   */
+  nepaliBatch?: {
+    map: Record<string, NepaliDateMapping> | null;
+    isLoading: boolean;
+  };
 }
 
 const NOT_PROVIDED = 'Not provided';
 
 export const ProfileBirthDetails: React.FC<ProfileBirthDetailsProps> = ({
   birthDetails,
-  variant = 'default',
+  variant: _variant = 'default',
+  nepaliBatch,
 }) => {
   const { dateOfBirth, timeOfBirth, placeOfBirth } = birthDetails;
 
-  const {
-    englishDisplay,
-    nepaliDisplay,
-    isLoading: isNepaliLoading,
-  } = useBirthDetailsNepaliDate(dateOfBirth);
+  const useBatch = nepaliBatch !== undefined;
+
+  const dateStr = useMemo(() => {
+    if (!dateOfBirth) return null;
+    return typeof dateOfBirth === 'string'
+      ? dateOfBirth
+      : dateOfBirth instanceof Date
+        ? dateOfBirth.toISOString().slice(0, 10)
+        : null;
+  }, [dateOfBirth]);
+
+  const dateKey = useMemo(() => (dateStr ? toDateKey(dateStr) : null), [dateStr]);
+
+  const hookResult = useBirthDetailsNepaliDate(dateOfBirth, { skipNepaliApi: useBatch });
+
+  const nepaliDisplay = useMemo(() => {
+    if (useBatch && nepaliBatch && dateKey) {
+      const mapping = nepaliBatch.map?.[dateKey];
+      return mapping ? formatNepaliDateCompact(mapping, true) : null;
+    }
+    return hookResult.nepaliDisplay;
+  }, [useBatch, nepaliBatch, dateKey, hookResult.nepaliDisplay]);
+
+  const englishDisplay = hookResult.englishDisplay;
+  const isNepaliLoading = useBatch ? nepaliBatch!.isLoading : hookResult.isLoading;
 
   const hasDob = !!dateOfBirth;
   const hasTob = !!timeOfBirth?.trim();

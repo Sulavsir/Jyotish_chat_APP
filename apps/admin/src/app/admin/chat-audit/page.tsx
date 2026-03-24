@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, Search, ChatIcon, Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@jyotish/ui';
@@ -20,7 +20,9 @@ import {
   SOCKET_EVENTS,
   PAGINATION_DEFAULTS,
   AVATAR_GRADIENTS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
 } from '@/constants';
+import { AdminClearFiltersButton } from '@/components/admin';
 import {
   getImageUrl,
   formatAction,
@@ -34,7 +36,7 @@ export default function ChatAuditPage() {
   const [logs, setLogs] = useState<ChatAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState<number>(CHAT_AUDIT_DEFAULTS.PAGE);
   const [itemsPerPage] = useState<number>(CHAT_AUDIT_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<ChatAuditStatusFilterValue>('');
@@ -136,16 +138,21 @@ export default function ChatAuditPage() {
     }
   };
 
-  const filteredLogs = logs.filter((log) => {
-    if (!debouncedSearch) return true;
-    const searchLower = debouncedSearch.toLowerCase();
-    return (
-      log.client?.name?.toLowerCase().includes(searchLower) ||
-      log.client?.phone?.includes(debouncedSearch) ||
-      log.astrologer?.name?.toLowerCase().includes(searchLower) ||
-      log.astrologer?.phone?.includes(debouncedSearch)
-    );
-  });
+  const filteredLogs = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return logs;
+    return logs.filter((log) => {
+      return (
+        log.client?.name?.toLowerCase().includes(q) ||
+        log.client?.phone?.includes(debouncedSearch) ||
+        (log.client?.email && log.client.email.toLowerCase().includes(q)) ||
+        log.astrologer?.name?.toLowerCase().includes(q) ||
+        log.astrologer?.phone?.includes(debouncedSearch) ||
+        (log.astrologer?.email && log.astrologer.email.toLowerCase().includes(q)) ||
+        (log.content && log.content.toLowerCase().includes(q))
+      );
+    });
+  }, [logs, debouncedSearch]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
@@ -153,10 +160,19 @@ export default function ChatAuditPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
 
-  // Reset to page 1 when search term changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, statusFilter, typeFilter]);
+
+  const hasChatAuditFilters =
+    Boolean(debouncedSearch.trim()) || Boolean(statusFilter) || Boolean(typeFilter);
+
+  const clearChatAuditFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setTypeFilter('');
+    setCurrentPage(CHAT_AUDIT_DEFAULTS.PAGE);
+  };
 
   const pageNumbers = generatePageNumbers(
     currentPage,
@@ -294,13 +310,21 @@ export default function ChatAuditPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <Search
-          placeholder="Search by client or astrologer name/phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+          <div className="min-w-0 flex-1">
+            <Search
+              placeholder="Search by name, phone, email, or message..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <AdminClearFiltersButton
+            show={hasChatAuditFilters}
+            onClear={clearChatAuditFilters}
+            disabled={loading}
+          />
+        </div>
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -313,9 +337,9 @@ export default function ChatAuditPage() {
             itemsPerPage={itemsPerPage}
             emptyState={{
               icon: <ChatIcon className="w-20 h-20 text-slate-600" />,
-              title: debouncedSearch ? 'No logs found' : 'No chat audit logs',
-              description: debouncedSearch
-                ? 'Try adjusting your search terms'
+              title: hasChatAuditFilters ? 'No logs found' : 'No chat audit logs',
+              description: hasChatAuditFilters
+                ? 'Try adjusting search or filters, or clear filters to see all loaded logs.'
                 : 'Chat activity logs will appear here as broadcast messages are sent',
             }}
           />

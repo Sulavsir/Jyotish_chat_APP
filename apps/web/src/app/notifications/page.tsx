@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button, Card } from '@jyotish/ui';
 import { apiClient } from '@/lib/api-client';
@@ -9,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingButton } from '@/components/ui';
+import { getNotificationDestination } from '@/utils/notification-navigation';
 
 interface Notification {
   id: string;
@@ -20,9 +22,11 @@ interface Notification {
   lastUpdated?: string;
   count?: number;
   groupKey?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -146,6 +150,27 @@ export default function NotificationsPage() {
     deleteAllReadMutation.mutate();
   };
 
+  const openNotificationTarget = async (n: Notification) => {
+    const path = getNotificationDestination({
+      type: n.type,
+      metadata: n.metadata,
+      isAstrologer: false,
+    });
+    if (!path) return;
+    try {
+      if (!n.isRead) {
+        await apiClient.patch(`/api/v1/notifications/${n.id}/read`, {});
+        setNotifications((prev) =>
+          prev.map((x) => (x.id === n.id ? { ...x, isRead: true, count: 1 } : x))
+        );
+        setUnreadCount((c) => Math.max(0, c - 1));
+      }
+      router.push(path);
+    } catch {
+      toast.error('Could not open notification');
+    }
+  };
+
   const filteredNotifications =
     filter === 'unread' ? notifications.filter((n) => !n.isRead) : notifications;
 
@@ -213,7 +238,11 @@ export default function NotificationsPage() {
                   key={notification.id}
                   className={`flex items-start gap-4 p-4 ${!notification.isRead ? 'bg-purple-900/20' : 'hover:bg-white/5'}`}
                 >
-                  <div className="flex-1">
+                  <button
+                    type="button"
+                    onClick={() => void openNotificationTarget(notification)}
+                    className="flex-1 text-left min-w-0 cursor-pointer"
+                  >
                     <div className="flex items-center gap-2 mb-1">
                       <h3
                         className={`font-semibold ${!notification.isRead ? 'text-white' : 'text-gray-300'}`}
@@ -240,11 +269,15 @@ export default function NotificationsPage() {
                         { addSuffix: true }
                       )}
                     </p>
-                  </div>
-                  <div className="flex gap-2">
+                  </button>
+                  <div className="flex gap-2 flex-shrink-0">
                     {!notification.isRead && (
                       <button
-                        onClick={() => markAsRead(notification.id)}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          markAsRead(notification.id);
+                        }}
                         className="p-2 rounded-full text-purple-400 hover:bg-purple-800/50"
                         title="Mark as read"
                       >
@@ -252,7 +285,11 @@ export default function NotificationsPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => deleteNotification(notification.id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notification.id);
+                      }}
                       className="p-2 rounded-full text-red-400 hover:bg-red-800/50"
                       title="Delete"
                     >

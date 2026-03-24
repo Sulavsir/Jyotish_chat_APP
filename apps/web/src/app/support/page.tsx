@@ -4,8 +4,6 @@ import { Mail, MessageCircle, ExternalLink, Globe, Clock, HelpCircle, ChevronDow
 import { useState } from 'react';
 import { Card, CardContent } from '@jyotish/ui';
 import { Navbar } from '@/components/ui';
-import { DashboardLayout } from '@/components/layouts/DashboardLayout';
-import { useAuthStore } from '@/store/auth-store';
 
 const WHATSAPP_NUMBER = '9706732691';
 const EMAIL = 'chatjyotishiofficial@gmail.com';
@@ -197,23 +195,17 @@ function SupportContent() {
   );
 }
 
+/**
+ * Support page - Always uses public layout (Navbar) for both authenticated and unauthenticated users.
+ * Same pattern as /horoscopes and /astrologers: one consistent layout regardless of auth state.
+ */
 export default function SupportPage() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-black relative">
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 py-24">
-          <SupportContent />
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <DashboardLayout>
-      <SupportContent />
-    </DashboardLayout>
+    <div className="min-h-screen bg-black relative">
+      <Navbar />
+      <main className="max-w-7xl mx-auto px-4 py-24">
+        <SupportContent />
+      </main>
+    </div>
   );
 }

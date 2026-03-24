@@ -1,14 +1,6 @@
 /**
  * Seed NepalGeography with English names for provinces and districts.
  * Province number is not stored; nameEn is used for display and selection.
- *
- * Note: `@@unique([nameEn, parentId])` does NOT stop duplicate provinces: in PostgreSQL,
- * multiple rows with the same `nameEn` and `parentId: null` are allowed because NULLs are
- * considered distinct in UNIQUE checks. Running seed twice used to create duplicates when
- * `create` was used without a stable lookup. We dedupe at the start of each seed run.
- *
- * After migration `20260324120000_nepal_geography_unique_province_name`, the DB also enforces
- * a partial unique index on province nameEn (top-level). Province `create` uses P2002 fallback.
  */
 
 import type { PrismaClient } from '@prisma/client';
@@ -36,7 +28,16 @@ const PROVINCES_DISTRICTS: { provinceNameEn: string; districtsEn: string[] }[] =
   },
   {
     provinceNameEn: 'Madhesh',
-    districtsEn: ['Bara', 'Dhanusha', 'Mahottari', 'Parsa', 'Rautahat', 'Saptari', 'Sarlahi', 'Siraha'],
+    districtsEn: [
+      'Bara',
+      'Dhanusha',
+      'Mahottari',
+      'Parsa',
+      'Rautahat',
+      'Saptari',
+      'Sarlahi',
+      'Siraha',
+    ],
   },
   {
     provinceNameEn: 'Bagmati',
@@ -106,7 +107,16 @@ const PROVINCES_DISTRICTS: { provinceNameEn: string; districtsEn: string[] }[] =
   },
   {
     provinceNameEn: 'Sudurpashchim',
-    districtsEn: ['Achham', 'Baitadi', 'Bajura', 'Dadeldhura', 'Darchula', 'Doti', 'Kailali', 'Kanchanpur'],
+    districtsEn: [
+      'Achham',
+      'Baitadi',
+      'Bajura',
+      'Dadeldhura',
+      'Darchula',
+      'Doti',
+      'Kailali',
+      'Kanchanpur',
+    ],
   },
 ];
 

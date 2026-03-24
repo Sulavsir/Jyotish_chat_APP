@@ -4,7 +4,7 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { validateBody, validateQuery } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { changePasswordSchema } from '@jyotish/shared';
 import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators';
 import { getDashboardStatsQuerySchema } from '../validators/astrologer.validators';
@@ -22,11 +22,15 @@ import {
 import { asyncHandler } from '../utils';
 import * as astrologerController from '../controllers/astrologerController';
 import * as slotController from '../controllers/slotController';
+import * as clientChatHistoryController from '../controllers/clientChatHistory.controller';
 import { astrologerRegistrationUpload } from '../middleware/astrologerRegistrationUpload';
+import {
+  clientChatHistoryQuerySchema,
+  clientHasChatHistoryParamSchema,
+} from '../validators/clientChatHistory.validators';
 
 const router = Router();
 
-// ==================== Astrologer Authentication ====================
 // Public routes (no authentication required)
 router.post('/auth/login', asyncHandler(astrologerController.astrologerLogin));
 
@@ -50,7 +54,6 @@ router.post(
   validateBody(verifyPasswordResetOtpSchema),
   asyncHandler(astrologerController.verifyAstrologerPasswordResetOtp)
 );
-// Registration route - validation handled in controller after FormData parsing
 router.post(
   '/register',
   astrologerRegistrationUpload.fields([
@@ -79,34 +82,32 @@ router.get(
   asyncHandler(astrologerController.getDashboardStats)
 );
 
-// ==================== My Earnings (coin earnings from client deductions) ====================
 router.get(
   '/earnings',
   validateQuery(getAstrologerEarningsQuerySchema),
   asyncHandler(astrologerController.getMyEarnings)
 );
 
-// ==================== Astrologer List ====================
 router.get('/list', asyncHandler(astrologerController.listAstrologers));
 
-// ==================== My Slots (appointment / kundali review) ====================
-router.get(
-  '/slots',
-  validateQuery(listSlotsQuerySchema),
-  asyncHandler(slotController.listMySlots)
-);
+router.get('/slots', validateQuery(listSlotsQuerySchema), asyncHandler(slotController.listMySlots));
 router.post(
   '/slots/bulk',
   validateBody(createSlotsBulkSchema),
   asyncHandler(slotController.createSlotsBulk)
 );
-router.patch(
-  '/slots/:id',
-  validateBody(updateSlotSchema),
-  asyncHandler(slotController.updateSlot)
-);
+router.patch('/slots/:id', validateBody(updateSlotSchema), asyncHandler(slotController.updateSlot));
 router.delete('/slots/:id', asyncHandler(slotController.deleteSlot));
 
+router.get(
+  '/client/chat-history',
+  validateQuery(clientChatHistoryQuerySchema),
+  asyncHandler(clientChatHistoryController.getClientChatHistory)
+);
+router.get(
+  '/client/:clientId/has-chat-history',
+  validateParams(clientHasChatHistoryParamSchema),
+  asyncHandler(clientChatHistoryController.getClientHasChatHistory)
+);
+
 export default router;
-
-

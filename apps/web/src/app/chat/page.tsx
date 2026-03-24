@@ -25,11 +25,13 @@ import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 import { CoinPurchaseModal } from '@/components/modals';
 import { ERROR_CODES, QUERY_KEYS } from '@/constants';
+import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRole } from '@/types/user.types';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
 import { useChatProfileStore } from '@/store/chat-profile.store';
+import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 
 export default function ChatPage() {
   // Require CLIENT role to access this page
@@ -184,6 +186,14 @@ export default function ChatPage() {
       };
       if (parsed.otherUserId !== otherUserIdFromUrl || !parsed.content?.trim()) return;
 
+      if (parsed.content.trim().length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
+        sessionStorage.removeItem('pendingChatMessage');
+        toast.error(
+          `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
+        );
+        return;
+      }
+
       pendingMessageSentRef.current = otherUserIdFromUrl;
       sessionStorage.removeItem('pendingChatMessage');
 
@@ -246,10 +256,7 @@ export default function ChatPage() {
     };
 
     const handleNewMessage = async (message: any) => {
-      // Invalidate coin balance query to reflect real-time deduction
-      if (user?.role === UserRole.CLIENT) {
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      }
+      // Note: Balance only changes when client SENDS (coin deduction). Receiving a message doesn't change balance.
 
       // This prevents duplicate messages!
 
@@ -513,6 +520,10 @@ export default function ChatPage() {
         message.senderId === user?.id &&
         message.receiverId === activeChatId.replace('new-', '')
       ) {
+        if (message.coinsDeducted != null && message.coinsDeducted > 0) {
+          toast.info(`${message.coinsDeducted} NRs deducted from your balance`);
+        }
+        await refetchClientBalanceAndStats(queryClient);
         const realChatId = message.chatId;
         migrateSelectionToChatId(activeChatId, realChatId);
         const profileIdToKeep = getSelectedProfileForChat(realChatId);
@@ -526,7 +537,10 @@ export default function ChatPage() {
       } else {
         handleNewMessage(message);
         if (user?.role === UserRole.CLIENT) {
-          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+          if (message.coinsDeducted != null && message.coinsDeducted > 0) {
+            toast.info(`${message.coinsDeducted} NRs deducted from your balance`);
+          }
+          void refetchClientBalanceAndStats(queryClient);
         }
       }
     };

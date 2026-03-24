@@ -32,6 +32,10 @@ import { KundaliMatchStatus } from '@prisma/client';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { getClientIp } from '../utils/request-utils';
 import { getSocketInstance } from '../utils/socket-instance';
+import * as adminPlatformPaymentService from '../services/adminPlatformPayment.service';
+import { utcDayEnd, utcDayStart } from '../utils/date-range.utils';
+import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
+import type { ListAdminPlatformPaymentQuery } from '../validators/adminPlatformPayment.validators';
 
 // ==================== Admin Authentication ====================
 
@@ -573,30 +577,37 @@ export async function rejectRegistration(req: AuthRequest, res: Response, next: 
  */
 export async function listUsers(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page = '1', limit = '10', search, isActive } = req.query;
+    const { page, limit, search, isActive, joinedFrom, joinedTo } =
+      req.query as unknown as ListAdminUsersQuery;
 
     const where: Prisma.UserWhereInput = { role: 'CLIENT' };
 
     if (search) {
-      const searchStr = search as string;
       where.OR = [
-        { name: { contains: searchStr, mode: 'insensitive' } },
-        { phone: { contains: searchStr } },
-        { email: { contains: searchStr, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
+      where.isActive = isActive;
     }
 
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    if (joinedFrom || joinedTo) {
+      const createdAt: Prisma.DateTimeFilter = {};
+      if (joinedFrom) createdAt.gte = utcDayStart(joinedFrom);
+      if (joinedTo) createdAt.lte = utcDayEnd(joinedTo);
+      where.createdAt = createdAt;
+    }
+
+    const skip = (page - 1) * limit;
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
         skip,
-        take: parseInt(limit as string),
+        take: limit,
         select: {
           id: true,
           phone: true,
@@ -640,10 +651,10 @@ export async function listUsers(req: AuthRequest, res: Response, next: NextFunct
     return sendSuccess(res, {
       users: usersWithTotals,
       pagination: {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
+        page,
+        limit,
         total,
-        totalPages: Math.ceil(total / parseInt(limit as string)),
+        totalPages: Math.ceil(total / limit) || 1,
       },
     });
   } catch (error) {
@@ -878,11 +889,16 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
       where.status = status;
     }
 
-    if (search) {
-      // Search by client or astrologer name
+    if (search && String(search).trim()) {
+      const s = String(search).trim();
       where.OR = [
-        { clientParticipant: { name: { contains: search as string, mode: 'insensitive' } } },
-        { astrologerParticipant: { name: { contains: search as string, mode: 'insensitive' } } },
+        { clientParticipant: { name: { contains: s, mode: 'insensitive' } } },
+        { clientParticipant: { phone: { contains: s } } },
+        { clientParticipant: { email: { contains: s, mode: 'insensitive' } } },
+        { astrologerParticipant: { name: { contains: s, mode: 'insensitive' } } },
+        { astrologerParticipant: { phone: { contains: s } } },
+        { astrologerParticipant: { email: { contains: s, mode: 'insensitive' } } },
+        { lastMessageText: { contains: s, mode: 'insensitive' } },
       ];
     }
 
@@ -1137,9 +1153,8 @@ export async function abandonChat(req: AuthRequest, res: Response, next: NextFun
 
     // Create notifications for both client and astrologer
     try {
-      const { createChatAbandonedNotifications } = await import(
-        '../services/chatNotification.service'
-      );
+      const { createChatAbandonedNotifications } =
+        await import('../services/chatNotification.service');
       await createChatAbandonedNotifications(
         {
           id: chat.id,
@@ -1403,7 +1418,7 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       totalUsers,
       totalAstrologers,
       activeChats,
-      pendingEarnings,
+      onlineAstrologers,
       todayConsultations,
       newUsersToday,
       todayEarnings,
@@ -1413,9 +1428,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       prisma.user.count({ where: { role: 'CLIENT' } }),
       prisma.astrologer.count({ where: { isDeleted: false } }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
-      prisma.astrologerEarnings.aggregate({
-        _sum: { amount: true },
-        where: { status: 'PENDING' },
+      prisma.astrologer.count({
+        where: { isDeleted: false, isActive: true, isOnline: true },
       }),
       prisma.consultation.count({ where: { createdAt: { gte: today } } }),
       prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: today } } }),
@@ -1426,7 +1440,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       }),
       prisma.coinTransaction.aggregate({
         _sum: { amount: true },
-        where: { reason: 'PAYMENT_SUCCESS', createdAt: { gte: today } },
+        where: {
+          reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
+          createdAt: { gte: today },
+        },
       }),
     ]);
 
@@ -1437,9 +1454,9 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       totalUsers,
       totalAstrologers,
       activeChats,
+      onlineAstrologers,
       // Total Earnings (Astrologers) — lifetime coins earned across all astrologers
       totalEarnings: totalEarnings._sum.astrologerCoinsEarned || 0,
-      pendingPayouts: pendingEarnings._sum.amount || 0,
       todayConsultations,
       newUsersToday,
       // Today's Earnings (Astrologers) — coins earned today
@@ -1501,70 +1518,10 @@ export async function listAstrologersWithCoinEarnings(
  */
 export async function getPlatformTransactions(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const page = Number(req.query.page) || 1;
-    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
-    const skip = (page - 1) * limit;
-
-    const where = {
-      type: 'ADD',
-      reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
-    } as const;
-
-    const [transactions, total] = await Promise.all([
-      prisma.coinTransaction.findMany({
-        skip,
-        take: limit,
-        where,
-        select: {
-          id: true,
-          userId: true,
-          amount: true,
-          balanceBefore: true,
-          balanceAfter: true,
-          paymentId: true,
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.coinTransaction.count({ where }),
-    ]);
-
-    const paymentIds = [...new Set(transactions.map((t) => t.paymentId).filter(Boolean))] as string[];
-    const payments =
-      paymentIds.length > 0
-        ? await prisma.payment.findMany({
-            where: { id: { in: paymentIds } },
-            select: { id: true, paymentMethod: true, transactionId: true },
-          })
-        : [];
-    const paymentById = new Map(payments.map((p) => [p.id, p]));
-
-    const transactionsWithPayment = transactions.map((t) => {
-      const payment = t.paymentId ? paymentById.get(t.paymentId) : undefined;
-      return {
-        ...t,
-        paymentMethod: payment?.paymentMethod ?? null,
-        transactionId: payment?.transactionId ?? null,
-      };
-    });
-
-    return sendSuccess(res, {
-      transactions: transactionsWithPayment,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
-      },
-    });
+    const result = await adminPlatformPaymentService.listAdminPlatformPaymentTransactions(
+      req.query as unknown as ListAdminPlatformPaymentQuery
+    );
+    return sendSuccess(res, result);
   } catch (error) {
     next(error);
   }

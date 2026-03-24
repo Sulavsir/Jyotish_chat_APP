@@ -22,28 +22,50 @@ export function getBirthDetailsForProfile(
   selectedProfileId: string
 ): BirthDetailsPayload | undefined {
   if (selectedProfileId === 'me') {
-    if (!user?.dateOfBirth || !user?.timeOfBirth || !user?.placeOfBirth) return undefined;
+    const hasNepalStructured =
+      user?.placeOfBirthType === 'NEPAL' &&
+      user?.placeOfBirthPradeshId &&
+      user?.placeOfBirthDistrictId;
+    const hasPlace =
+      !!(user?.placeOfBirth && String(user.placeOfBirth).trim()) ||
+      (hasNepalStructured && !!(user?.placeOfBirthLocation && String(user.placeOfBirthLocation).trim()));
+    if (!user?.dateOfBirth || !user?.timeOfBirth || !hasPlace) return undefined;
     const dateVal =
       user.dateOfBirth instanceof Date ? user.dateOfBirth : new Date(user.dateOfBirth);
+    const pob =
+      (user.placeOfBirth && user.placeOfBirth.trim()) ||
+      (user.placeOfBirthLocation && user.placeOfBirthLocation.trim()) ||
+      undefined;
     return {
       dateOfBirth: dateVal.toISOString().split('T')[0],
       timeOfBirth: user.timeOfBirth ?? undefined,
-      placeOfBirth: user.placeOfBirth ?? undefined,
+      placeOfBirth: pob,
       gender: user.gender ?? undefined,
     };
   }
   const profile = clientProfiles.find((p) => p.id === selectedProfileId);
-  if (!profile || (!profile.dateOfBirth && !profile.timeOfBirth && !profile.placeOfBirth))
-    return undefined;
+  if (!profile) return undefined;
+  const hasNepalStructured =
+    profile.placeOfBirthType === 'NEPAL' &&
+    profile.placeOfBirthPradeshId &&
+    profile.placeOfBirthDistrictId;
+  const hasPlace =
+    !!(profile.placeOfBirth && String(profile.placeOfBirth).trim()) ||
+    (hasNepalStructured && !!(profile.placeOfBirthLocation && String(profile.placeOfBirthLocation).trim()));
+  if (!profile.dateOfBirth && !profile.timeOfBirth && !hasPlace) return undefined;
   const dateVal = profile.dateOfBirth
     ? profile.dateOfBirth instanceof Date
       ? profile.dateOfBirth
       : new Date(profile.dateOfBirth)
     : null;
+  const pob =
+    (profile.placeOfBirth && profile.placeOfBirth.trim()) ||
+    (profile.placeOfBirthLocation && profile.placeOfBirthLocation.trim()) ||
+    undefined;
   return {
     dateOfBirth: dateVal ? dateVal.toISOString().split('T')[0] : undefined,
     timeOfBirth: profile.timeOfBirth ?? undefined,
-    placeOfBirth: profile.placeOfBirth ?? undefined,
+    placeOfBirth: pob,
     gender: profile.gender ?? undefined,
   };
 }

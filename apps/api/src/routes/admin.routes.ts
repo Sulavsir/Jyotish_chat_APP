@@ -46,6 +46,10 @@ import {
   verifyEditPasswordBodySchema,
 } from '../validators';
 import {
+  listAdminPlatformPaymentQuerySchema,
+  listAdminUsersQuerySchema,
+} from '../validators';
+import {
   createQuestionCategorySchema,
   updateQuestionCategorySchema,
   listQuestionCategoriesQuerySchema,
@@ -178,7 +182,11 @@ router.post(
 );
 
 // ==================== User Management ====================
-router.get('/users', adminController.listUsers);
+router.get(
+  '/users',
+  validateQuery(listAdminUsersQuerySchema),
+  asyncHandler(adminController.listUsers)
+);
 
 router.get('/users/:id', adminController.getUser);
 
@@ -282,7 +290,7 @@ router.post(
 // ==================== Platform Coin Transactions ====================
 router.get(
   '/coin-transactions',
-  validateQuery(queryPaginationSchema),
+  validateQuery(listAdminPlatformPaymentQuerySchema),
   asyncHandler(adminController.getPlatformTransactions)
 );
 

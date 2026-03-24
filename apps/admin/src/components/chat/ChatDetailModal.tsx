@@ -297,8 +297,11 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-white">Chat Conversation</h2>
               <p className="text-sm text-slate-400 mt-1">
-                {chat.clientParticipant?.name || 'Unknown User'} ↔{' '}
-                {chat.astrologerParticipant?.name}
+                <span className="text-blue-300">{chat.clientParticipant?.name || 'Unknown User'}</span>
+                <span className="text-slate-500 mx-1">(Client)</span>
+                <span className="text-slate-400"> ↔ </span>
+                <span className="text-purple-300">{chat.astrologerParticipant?.name}</span>
+                <span className="text-slate-500 ml-1">(Jyotish)</span>
               </p>
               {chat.isAbandonedByAdmin && (
                 <div className="mt-2 flex items-center gap-2">
@@ -398,8 +401,33 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
                     <div
                       className={`flex flex-col ${isClient ? 'items-start' : 'items-end'} flex-1`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs font-medium text-slate-300">{senderName}</span>
+                        <span
+                          className={`text-xs font-semibold rounded px-1.5 py-0.5 ${
+                            isClient
+                              ? 'bg-blue-500/30 text-blue-300'
+                              : 'bg-purple-500/30 text-purple-300'
+                          }`}
+                        >
+                          {isClient ? 'Client' : 'Jyotish'}
+                        </span>
+                        {isClient && (() => {
+                          const meta = (message.metadata as Record<string, unknown>) ?? {};
+                          const isBroadcast =
+                            meta.originalBroadcast === true || !!meta.broadcastMessageId;
+                          return (
+                            <span
+                              className={`text-xs font-semibold rounded px-1.5 py-0.5 ${
+                                isBroadcast
+                                  ? 'bg-amber-500/30 text-amber-300'
+                                  : 'bg-emerald-500/30 text-emerald-300'
+                              }`}
+                            >
+                              {isBroadcast ? 'Broadcast' : 'Direct'}
+                            </span>
+                          );
+                        })()}
                         <span className="text-xs text-slate-500">
                           {new Date(message.createdAt).toLocaleString()}
                         </span>

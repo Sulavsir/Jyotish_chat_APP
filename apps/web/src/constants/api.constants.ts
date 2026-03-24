@@ -151,6 +151,9 @@ export const API_ENDPOINTS = {
     SLOTS: '/api/v1/astrologer/slots',
     SLOTS_BULK: '/api/v1/astrologer/slots/bulk',
     SLOT_BY_ID: (id: string) => `/api/v1/astrologer/slots/${id}`,
+    CLIENT_CHAT_HISTORY: '/api/v1/astrologer/client/chat-history',
+    CLIENT_HAS_CHAT_HISTORY: (clientId: string) =>
+      `/api/v1/astrologer/client/${clientId}/has-chat-history`,
   },
   ADMIN: {
     COIN_RATES: '/api/v1/admin/coin-rates',

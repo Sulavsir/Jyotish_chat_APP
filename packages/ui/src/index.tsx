@@ -13,6 +13,8 @@ export * from './popover';
 export * from './dialog';
 export * from './spinner';
 export * from './pagination';
+export * from './admin-month-range-filter';
+export * from './admin-pagination-bar';
 export * from './image-preview';
 export * from './select';
 export * from './loading-button';

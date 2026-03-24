@@ -13,6 +13,7 @@ import { QUERY_KEYS } from '@/constants';
 import { UserRole } from '@/types/user.types';
 import { useAuthStore } from '@/store/auth-store';
 import { CoinPurchaseModal } from '@/components/modals';
+import { useClientDashboard } from '@/providers/ClientDashboardProvider';
 
 interface CoinDisplayProps {
   themeColor?: 'purple' | 'orange' | 'yellow';
@@ -25,16 +26,22 @@ export function CoinDisplay({
 }: CoinDisplayProps) {
   const user = useAuthStore((state) => state.user);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const dashboardStats = useClientDashboard();
 
+  // Prefer balance from stats (single /dashboard/stats call) when in client layout.
+  // Fall back to COINS.BALANCE only when outside ClientDashboardProvider (e.g. auth pages).
+  const hasStatsBalance = dashboardStats?.stats?.balance !== undefined;
   const { data: balanceData, isLoading } = useQuery({
     queryKey: QUERY_KEYS.COINS.BALANCE,
     queryFn: () => coinService.getBalance(),
-    enabled: user?.role === UserRole.CLIENT,
+    enabled: user?.role === UserRole.CLIENT && !hasStatsBalance,
     refetchInterval: false,
     refetchOnWindowFocus: false,
   });
 
-  const balance = balanceData?.balance ?? 0;
+  const balance =
+    (hasStatsBalance ? dashboardStats?.stats?.balance : balanceData?.balance) ?? 0;
+  const isLoadingBalance = hasStatsBalance ? dashboardStats?.isLoading : isLoading;
 
   if (user?.role !== UserRole.CLIENT) {
     return null;
@@ -49,7 +56,7 @@ export function CoinDisplay({
       >
         <Banknote className="h-4 w-4 text-green-400" />
         <span className="text-sm font-semibold text-green-400">
-          {isLoading ? '...' : `Balance: ${balance}`}
+          {isLoadingBalance ? '...' : `Balance: ${balance}`}
         </span>
       </button>
 

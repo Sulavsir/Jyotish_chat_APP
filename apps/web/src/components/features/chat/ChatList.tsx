@@ -8,7 +8,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
 import { MessageCircle, Search, User, Radio } from 'lucide-react';
 import { getImageUrl } from '@/utils/image.utils';
-import { UserRole } from '@/types';
 import { useStore } from '@/store';
 import { Chat } from '@/types/chat';
 
@@ -102,7 +101,13 @@ export const ChatList: React.FC<ChatListProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className={isJyotish ? 'p-3 border-b border-white/[0.06] space-y-2' : 'p-4 border-b border-white/10 space-y-2'}>
+      <div
+        className={
+          isJyotish
+            ? 'p-3 border-b border-white/[0.06] space-y-2'
+            : 'p-4 border-b border-white/10 space-y-2'
+        }
+      >
         <div className="relative">
           <Search
             className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${
@@ -141,7 +146,13 @@ export const ChatList: React.FC<ChatListProps> = ({
                 {tab.label}
                 {tab.key !== 'all' && (
                   <span className="ml-1 opacity-70">
-                    ({chatList.filter((c) => (tab.key === 'active' ? c.status === 'ACTIVE' : c.status === 'ENDED')).length})
+                    (
+                    {
+                      chatList.filter((c) =>
+                        tab.key === 'active' ? c.status === 'ACTIVE' : c.status === 'ENDED'
+                      ).length
+                    }
+                    )
                   </span>
                 )}
               </button>
@@ -165,9 +176,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             <div className="relative flex-shrink-0">
               <div
                 className={`h-12 w-12 rounded-full flex items-center justify-center ${
-                  isJyotish
-                    ? 'bg-amber-500/20'
-                    : 'bg-gradient-to-r from-purple-600 to-indigo-600'
+                  isJyotish ? 'bg-amber-500/20' : 'bg-gradient-to-r from-purple-600 to-indigo-600'
                 }`}
               >
                 <svg
@@ -188,7 +197,13 @@ export const ChatList: React.FC<ChatListProps> = ({
 
             <div className="flex-1 min-w-0 text-left">
               <div className="flex items-center justify-between mb-1">
-                <h3 className={isJyotish ? 'font-semibold text-[#fafaf9] truncate' : 'font-semibold text-white truncate'}>
+                <h3
+                  className={
+                    isJyotish
+                      ? 'font-semibold text-[#fafaf9] truncate'
+                      : 'font-semibold text-white truncate'
+                  }
+                >
                   Channel Jyotish
                 </h3>
               </div>
@@ -214,13 +229,12 @@ export const ChatList: React.FC<ChatListProps> = ({
           </div>
         ) : (
           filteredChats.map((chat) => {
-            const otherUser =
-              chat.clientParticipant.id === currentUserId 
-                ? chat.astrologerParticipant 
-                : chat.clientParticipant;
+            const viewerIsClient = chat.clientParticipant.id === currentUserId;
+            const otherUser = viewerIsClient ? chat.astrologerParticipant : chat.clientParticipant;
+            const isOtherPartyJyotish = viewerIsClient;
             const isActive = activeChat === chat.id;
             const showClientIconFallback =
-              otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
+              !isOtherPartyJyotish && !otherUser.profilePhoto && !otherUser.name;
 
             return (
               <button
@@ -265,13 +279,17 @@ export const ChatList: React.FC<ChatListProps> = ({
                   <div className="flex items-center justify-between mb-1">
                     <h3
                       className={
-                        isJyotish ? 'font-medium text-[#fafaf9] truncate' : 'font-medium text-white truncate'
+                        isJyotish
+                          ? 'font-medium text-[#fafaf9] truncate'
+                          : 'font-medium text-white truncate'
                       }
                     >
                       {otherUser.name || otherUser.phone || 'Unknown User'}
                     </h3>
                     {chat.lastMessageAt && (
-                      <span className={`text-xs ml-2 ${isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}>
+                      <span
+                        className={`text-xs ml-2 ${isJyotish ? 'text-[#78716c]' : 'text-gray-400'}`}
+                      >
                         {formatDistanceToNow(new Date(chat.lastMessageAt), {
                           addSuffix: false,
                         })}
@@ -304,18 +322,20 @@ export const ChatList: React.FC<ChatListProps> = ({
                     <Badge
                       className={`text-xs px-2 py-0.5 ${
                         isJyotish
-                          ? otherUser.role === UserRole.ASTROLOGER
+                          ? isOtherPartyJyotish
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                             : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                          : otherUser.role === UserRole.ASTROLOGER
+                          : isOtherPartyJyotish
                             ? 'bg-purple-600/30 text-purple-300 border border-purple-500/50'
                             : 'bg-blue-600/30 text-blue-300 border border-blue-500/50'
                       }`}
                     >
-                      {otherUser.role === UserRole.ASTROLOGER ? 'Astrologer' : 'Client'}
+                      {isOtherPartyJyotish ? 'Jyotish' : 'Client'}
                     </Badge>
                     {/* Broadcast vs Direct badge */}
-                    {chat.chatSource === 'BROADCAST' || chat.isBroadcastChat || chat.isInstantChat ? (
+                    {chat.chatSource === 'BROADCAST' ||
+                    chat.isBroadcastChat ||
+                    chat.isInstantChat ? (
                       <Badge className="text-xs px-1.5 py-0.5 bg-violet-500/20 text-violet-300 border border-violet-500/30 flex items-center gap-1">
                         <Radio className="h-2.5 w-2.5" />
                         Broadcast

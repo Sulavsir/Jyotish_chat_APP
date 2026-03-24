@@ -22,7 +22,8 @@ import {
   ChatStatusFilter,
   type ChatStatusFilterValue,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_SEARCH_DEBOUNCE_MS } from '@/constants';
+import { AdminClearFiltersButton } from '@/components/admin';
 import type { Chat } from '@/types';
 import ChatDetailModal from '@/components/chat/ChatDetailModal';
 import { useAdminSocket, useDebounce } from '@/hooks';
@@ -43,7 +44,7 @@ interface ChatsResponse {
 export default function ChatsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -58,19 +59,18 @@ export default function ChatsPage() {
   } = useQuery<ChatsResponse>({
     queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, statusFilter, debouncedSearch],
     queryFn: async () => {
-      const response: any = await adminApi.chats.list({
+      const response = await adminApi.chats.list({
         page: currentPage,
         limit: PAGINATION_DEFAULTS.LIMIT,
         status: statusFilter || undefined,
-        search: debouncedSearch || undefined,
+        search: debouncedSearch.trim() || undefined,
       });
-      // Handle both response formats
-      if (response?.chats && response?.pagination) {
-        return response;
-      } else if (Array.isArray(response)) {
-        // Fallback for old format
+      if (response && typeof response === 'object' && 'chats' in response && 'pagination' in response) {
+        return response as ChatsResponse;
+      }
+      if (Array.isArray(response)) {
         return {
-          chats: response,
+          chats: response as Chat[],
           pagination: {
             page: 1,
             limit: PAGINATION_DEFAULTS.LIMIT,
@@ -84,6 +84,8 @@ export default function ChatsPage() {
         pagination: { page: 1, limit: PAGINATION_DEFAULTS.LIMIT, total: 0, totalPages: 0 },
       };
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   const chats = chatsResponse?.chats || [];
@@ -151,6 +153,13 @@ export default function ChatsPage() {
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   }, [debouncedSearch, statusFilter]);
+
+  const hasChatFilters = Boolean(debouncedSearch.trim()) || Boolean(statusFilter);
+  const clearChatFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const isImageUrl = (text: string) => {
     if (!text) return false;
@@ -255,13 +264,17 @@ export default function ChatsPage() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <Search
-          placeholder="Search by user, astrologer, or message content..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+          <div className="min-w-0 flex-1">
+            <Search
+              placeholder="Search by name, phone, email, or last message..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <AdminClearFiltersButton show={hasChatFilters} onClear={clearChatFilters} disabled={isLoading} />
+        </div>
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -273,9 +286,9 @@ export default function ChatsPage() {
             onRowClick={handleChatClick}
             emptyState={{
               icon: <ChatIcon className="w-20 h-20 text-slate-600" />,
-              title: debouncedSearch ? 'No chats found' : 'No active chats',
-              description: debouncedSearch
-                ? 'Try adjusting your search terms'
+              title: hasChatFilters ? 'No chats found' : 'No active chats',
+              description: hasChatFilters
+                ? 'Try adjusting search or status, or clear filters.'
                 : 'Chat conversations will appear here once users start communicating with astrologers',
             }}
           />

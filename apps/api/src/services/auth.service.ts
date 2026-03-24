@@ -369,8 +369,10 @@ export class AuthService {
    * Find user by email
    */
   async findUserByEmail(email: string): Promise<UserEntity | null> {
+    const trimmed = email.trim();
+    if (!trimmed) return null;
     return await prisma.user.findFirst({
-      where: { email },
+      where: { email: { equals: trimmed, mode: 'insensitive' } },
     });
   }
 
@@ -378,14 +380,16 @@ export class AuthService {
    * Find user by identifier (email or phone)
    */
   async findUserByIdentifier(identifier: string): Promise<UserEntity | null> {
-    const isEmail = identifier.includes('@');
+    const trimmed = identifier.trim();
+    if (!trimmed) return null;
+    const isEmail = trimmed.includes('@');
 
     if (isEmail) {
-      return await this.findUserByEmail(identifier);
+      return await this.findUserByEmail(trimmed);
     }
 
     // Clean phone number (remove non-digits)
-    const cleanPhone = identifier.replace(/\D/g, '');
+    const cleanPhone = trimmed.replace(/\D/g, '');
     return await this.findUserByPhone(cleanPhone);
   }
 

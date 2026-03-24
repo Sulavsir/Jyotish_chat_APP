@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '@jyotish/database';
 import { AppError, sendSuccess, HTTP_STATUS, ERROR_CODES } from '../utils';
 import { AstrologerCategory } from '@jyotish/database';
+import { toPublicDisplayRating } from '../utils/public-display-rating';
 
 /**
  * Get public astrologer profile by ID
@@ -167,8 +168,13 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
       prisma.astrologer.count({ where }),
     ]);
 
+    const astrologersForClients = astrologers.map((a) => ({
+      ...a,
+      rating: toPublicDisplayRating(a.rating),
+    }));
+
     return sendSuccess(res, {
-      astrologers,
+      astrologers: astrologersForClients,
       pagination: {
         page: pageNum,
         limit: limitNum,

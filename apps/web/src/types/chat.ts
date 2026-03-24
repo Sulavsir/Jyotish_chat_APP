@@ -122,6 +122,11 @@ export interface MessageBubbleProps {
   /** When 'jyotish', uses dark-theme bubble styling */
   variant?: 'default' | 'jyotish';
   onViewProfile?: (clientId: string) => void;
+  /** Astrologer chat: batched Nepali convert map from ChatWindow (one API per thread). */
+  nepaliBatch?: {
+    map: Record<string, { nepaliDate: string; days: string }> | null;
+    isLoading: boolean;
+  };
 }
 
 export interface FileAttachment {
@@ -141,4 +146,6 @@ export interface ChatInputProps {
   onChangeMessage?: (value: string) => void;
   /** Quick prompt chips for Jyotish - when clicked, send the text directly */
   quickPrompts?: string[];
+  /** Max characters for text; client vs astrologer (defaults from shared constants). */
+  maxMessageLength?: number;
 }

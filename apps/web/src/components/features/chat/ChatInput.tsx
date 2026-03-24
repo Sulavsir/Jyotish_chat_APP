@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { Send, Paperclip, X, FileText } from 'lucide-react';
 import { Button } from '@jyotish/ui';
 import { ChatInputProps, FileAttachment } from '@/types/chat';
+import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 import { FILE_UPLOAD } from '@/constants/file-upload.constants';
 import { EmojiPicker } from '@/components/ui/EmojiPicker';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -24,6 +25,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   initialValue = '',
   onChangeMessage,
   quickPrompts = [],
+  maxMessageLength = CHAT_MESSAGE_MAX_LENGTH_CLIENT,
 }) => {
   const isJyotish = variant === 'jyotish';
   const prompts: readonly string[] =
@@ -48,10 +50,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [message]);
 
-  const MAX_MESSAGE_LENGTH = 1000;
-
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value.slice(0, MAX_MESSAGE_LENGTH);
+    const value = e.target.value.slice(0, maxMessageLength);
     setMessage(value);
     onChangeMessage?.(value);
 
@@ -169,7 +169,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleEmojiSelect = (emoji: string) => {
-    setMessage((prev) => prev + emoji);
+    setMessage((prev) => (prev + emoji).slice(0, maxMessageLength));
 
     // Focus back on textarea
     if (textareaRef.current) {
@@ -263,7 +263,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             placeholder={placeholder}
             disabled={disabled}
             rows={1}
-            maxLength={MAX_MESSAGE_LENGTH}
+            maxLength={maxMessageLength}
             className="w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 pr-12 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:bg-gray-50 disabled:cursor-not-allowed max-h-32 overflow-y-auto text-sm leading-relaxed min-h-[42px]"
           />
 
@@ -299,11 +299,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               Max size: {FILE_UPLOAD.MAX_SIZE_LABEL}
             </p>
           )}
-          {message.length > 800 && (
+          {message.length > maxMessageLength * 0.8 && (
             <p
-              className={`text-xs ${message.length >= MAX_MESSAGE_LENGTH ? 'text-red-400' : 'text-gray-400'}`}
+              className={`text-xs ${message.length >= maxMessageLength ? 'text-red-400' : 'text-gray-400'}`}
             >
-              {message.length}/{MAX_MESSAGE_LENGTH}
+              {message.length}/{maxMessageLength}
             </p>
           )}
         </div>

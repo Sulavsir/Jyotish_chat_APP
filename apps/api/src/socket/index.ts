@@ -103,6 +103,7 @@ export function setupSocketHandlers(io: Server) {
           name: astrologer.name,
           isOnline: true,
         });
+        void AdminStatsEmitter.emitOnlineAstrologersCount();
       }
     } catch (error) {
       console.error(`Error restoring online status for ${user.id}:`, error);
@@ -170,6 +171,7 @@ export function setupSocketHandlers(io: Server) {
             isOnline: false,
           });
           console.log(`🔌 Astrologer ${user.id} disconnected — isOnline set to false`);
+          void AdminStatsEmitter.emitOnlineAstrologersCount();
         }
       } catch (error) {
         console.error(`Error handling disconnect for ${user.id}:`, error);

@@ -77,6 +77,15 @@ export const QUERY_KEYS = {
     HISTORY: (userId: string) => ['chat', 'history', userId] as const,
   },
 
+  // Client Chat History (astrologer-only, anonymous aggregated)
+  CLIENT_CHAT_HISTORY: {
+    HAS_HISTORY: (clientId: string) => ['client-chat-history', 'has', clientId] as const,
+    LIST: (clientId: string, cursor?: string | null) =>
+      cursor
+        ? (['client-chat-history', 'list', clientId, cursor] as const)
+        : (['client-chat-history', 'list', clientId] as const),
+  },
+
   // Notifications
   NOTIFICATIONS: {
     LIST: (params?: { page?: number; limit?: number; unreadOnly?: boolean }) =>

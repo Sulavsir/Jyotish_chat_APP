@@ -22,12 +22,14 @@ import {
 import type {
   Admin,
   AdminPaymentHistoryResponse,
+  AdminPaymentHistoryListParams,
   Astrologer,
   PlatformCoinRateRow,
   UpdatePlatformCoinRatesBody,
   AstrologerWithCoinEarning,
   ListAstrologersWithCoinEarningsResponse,
   BroadcastQuestionPricingTier,
+  User,
 } from '@/types';
 import type {
   ListAstrologersParams,
@@ -497,8 +499,22 @@ export const adminApi = {
       limit?: number;
       search?: string;
       isActive?: boolean;
-    }) => {
-      const response = await apiClient.get(API_ENDPOINTS.USERS.LIST, { params });
+      joinedFrom?: string;
+      joinedTo?: string;
+    }): Promise<{
+      users: User[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }> => {
+      const { isActive, ...rest } = params ?? {};
+      const response = await apiClient.get<{
+        users: User[];
+        pagination: { page: number; limit: number; total: number; totalPages: number };
+      }>(API_ENDPOINTS.USERS.LIST, {
+        params: {
+          ...rest,
+          ...(isActive !== undefined ? { isActive: isActive ? 'true' : 'false' } : {}),
+        },
+      });
       return response;
     },
 
@@ -880,11 +896,10 @@ export const adminApi = {
   },
 
   paymentHistory: {
-    list: async (params?: { page?: number; limit?: number }) => {
-      return apiClient.get<AdminPaymentHistoryResponse>(
-        API_ENDPOINTS.PAYMENT_HISTORY.LIST,
-        { params }
-      );
+    list: async (params?: AdminPaymentHistoryListParams) => {
+      return apiClient.get<AdminPaymentHistoryResponse>(API_ENDPOINTS.PAYMENT_HISTORY.LIST, {
+        params,
+      });
     },
   },
 

@@ -105,7 +105,8 @@ export function BroadcastPaymentDetailsModal({
   const breakdown = payload.breakdown ?? [];
   const hasBreakdown = breakdown.length > 0;
   // Prefer the actual Q1 discount rate; fall back to overall discount pct for display
-  const displayDiscountPct = payload.firstBroadcastDiscountPct ?? payload.discountPercentApplied ?? 0;
+  const displayDiscountPct =
+    payload.firstBroadcastDiscountPct ?? payload.discountPercentApplied ?? 0;
   const hasDiscount = displayDiscountPct > 0;
   const originalTotal = payload.originalTotalNr ?? payload.totalNr;
   const savedAmount = hasDiscount ? originalTotal - payload.totalNr : 0;
@@ -248,7 +249,10 @@ export function BroadcastPaymentDetailsModal({
               loading={isPublishing}
               className="bg-gradient-to-r from-orange-600 to-red-600 hover:opacity-90 text-white"
             >
-              Publish {questions.length > 0 ? `${questions.length} Question${questions.length !== 1 ? 's' : ''}` : 'Now'}
+              Publish{' '}
+              {questions.length > 0
+                ? `${questions.length} Question${questions.length !== 1 ? 's' : ''}`
+                : 'Now'}
             </LoadingButton>
           ) : (
             <LoadingButton

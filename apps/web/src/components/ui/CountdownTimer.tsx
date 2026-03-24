@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 interface CountdownTimerProps {
   createdAt: Date | string;
   expiryMs: number;
+  /** When set (e.g. from API), drives remaining time instead of createdAt + expiryMs. */
+  expiresAt?: Date | string;
   onExpire?: () => void;
   className?: string;
   showIcon?: boolean;
@@ -20,6 +22,7 @@ interface CountdownTimerProps {
 export function CountdownTimer({
   createdAt,
   expiryMs,
+  expiresAt: expiresAtProp,
   onExpire,
   className = '',
   showIcon = true,
@@ -37,8 +40,11 @@ export function CountdownTimer({
     const calculateTimeLeft = () => {
       const created = new Date(createdAt).getTime();
       const now = Date.now();
-      const elapsed = now - created;
-      const remaining = expiryMs - elapsed;
+      const end =
+        expiresAtProp != null && expiresAtProp !== ''
+          ? new Date(expiresAtProp).getTime()
+          : created + expiryMs;
+      const remaining = end - now;
 
       if (remaining <= 0) {
         setIsExpired(true);
@@ -66,7 +72,7 @@ export function CountdownTimer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [createdAt, expiryMs]); // ✅ Removed onExpire from dependencies
+  }, [createdAt, expiryMs, expiresAtProp]); // ✅ Removed onExpire from dependencies
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -76,7 +82,12 @@ export function CountdownTimer({
   };
 
   const getColorClass = () => {
-    const percentageLeft = (timeLeft / expiryMs) * 100;
+    const created = new Date(createdAt).getTime();
+    const totalMs =
+      expiresAtProp != null && expiresAtProp !== ''
+        ? Math.max(1, new Date(expiresAtProp).getTime() - created)
+        : expiryMs;
+    const percentageLeft = (timeLeft / totalMs) * 100;
     if (percentageLeft > 50) return 'text-green-600';
     if (percentageLeft > 25) return 'text-yellow-600';
     return 'text-red-600';

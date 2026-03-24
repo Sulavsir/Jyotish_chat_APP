@@ -439,6 +439,7 @@ model BroadcastMessage {
   chatId                 String? // Chat created after acceptance
   acceptedAt             DateTime? // When astrologer accepted
   metadata               Json?
+  expiresAt              DateTime // Server-owned; set at create from current TTL (env may override default)
   createdAt              DateTime                     @default(now())
   updatedAt              DateTime                     @updatedAt
   client                 User                         @relation("ClientBroadcastMessages", fields: [clientId], references: [id], onDelete: Cascade)
@@ -449,7 +450,9 @@ model BroadcastMessage {
   @@index([status])
   @@index([acceptedBy])
   @@index([createdAt])
+  @@index([expiresAt])
   @@index([status, createdAt])
+  @@index([status, expiresAt])
   @@index([clientId, status])
   @@index([chatId])
 }

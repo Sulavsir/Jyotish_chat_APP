@@ -488,6 +488,7 @@ export async function sendQuestions(req: AuthRequest, res: Response) {
           metadata: {
             broadcastMessageId: firstMessage.id,
             clientId: firstMessage.clientId,
+            expiresAt: firstMessage.expiresAt.toISOString(),
             isConfidential: true,
           },
         })

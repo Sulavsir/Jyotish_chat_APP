@@ -5,7 +5,12 @@
 
 import { CreateChatParams, GetChatHistoryParams, SendMessageParams } from '@/types/chat.type';
 import { prisma } from '@jyotish/database';
-import { UserRole, AstrologerCategory } from '@jyotish/shared';
+import {
+  UserRole,
+  AstrologerCategory,
+  CHAT_MESSAGE_MAX_LENGTH_CLIENT,
+  CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+} from '@jyotish/shared';
 import {
   ParticipantType,
   ChatStatus,
@@ -19,6 +24,9 @@ import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
+import { getSocketInstance } from '../utils/socket-instance';
+import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
+import { notificationService } from './notification.service';
 
 const chatInclude = {
   clientParticipant: {
@@ -567,6 +575,46 @@ export const getUserChats = async (userId: string) => {
 };
 
 /**
+ * Merge metadata.birthDetails onto client sender so REST + socket match.
+ * Selected family/friend profile is stored in message metadata; the User row alone is not enough.
+ */
+export function mergeClientSenderWithBirthMetadata(
+  sender:
+    | {
+        id: string;
+        name: string | null;
+        profilePhoto: string | null;
+        dateOfBirth?: Date | null;
+        timeOfBirth?: string | null;
+        placeOfBirth?: string | null;
+        role?: string | null;
+        gender?: string | null;
+      }
+    | null
+    | undefined,
+  message: { senderType: ParticipantType; metadata: unknown; senderId: string }
+) {
+  if (message.senderType !== ParticipantType.CLIENT) {
+    return sender || { id: message.senderId, name: 'Unknown User', profilePhoto: null };
+  }
+  const meta = message.metadata as Record<string, unknown> | null | undefined;
+  const birthDetails = meta?.birthDetails as Record<string, unknown> | undefined;
+  const baseSender =
+    sender || ({ id: message.senderId, name: 'Unknown User', profilePhoto: null } as const);
+  if (!birthDetails || typeof birthDetails !== 'object') {
+    return baseSender;
+  }
+  const baseBirth = baseSender as Record<string, unknown>;
+  return {
+    ...baseSender,
+    dateOfBirth: birthDetails.dateOfBirth ?? baseBirth.dateOfBirth,
+    timeOfBirth: birthDetails.timeOfBirth ?? baseBirth.timeOfBirth,
+    placeOfBirth: birthDetails.placeOfBirth ?? baseBirth.placeOfBirth,
+    gender: birthDetails.gender ?? baseBirth.gender,
+  };
+}
+
+/**
  * Get chat history between client and astrologer
  */
 export const getChatHistory = async (
@@ -686,22 +734,7 @@ export const getChatHistory = async (
         ? clientMap.get(message.senderId)
         : astrologerMap.get(message.senderId);
 
-    const baseSender = sender || { id: message.senderId, name: 'Unknown User', profilePhoto: null };
-    const meta = message.metadata as Record<string, unknown> | null | undefined;
-    const birthDetails = meta?.birthDetails as Record<string, unknown> | undefined;
-    const baseBirth = baseSender as Record<string, unknown>;
-    const mergedSender =
-      message.senderType === ParticipantType.CLIENT &&
-      birthDetails &&
-      typeof birthDetails === 'object'
-        ? {
-            ...baseSender,
-            dateOfBirth: birthDetails.dateOfBirth ?? baseBirth.dateOfBirth,
-            timeOfBirth: birthDetails.timeOfBirth ?? baseBirth.timeOfBirth,
-            placeOfBirth: birthDetails.placeOfBirth ?? baseBirth.placeOfBirth,
-            gender: birthDetails.gender ?? baseBirth.gender,
-          }
-        : baseSender;
+    const mergedSender = mergeClientSenderWithBirthMetadata(sender, message);
 
     return { ...message, sender: mergedSender };
   });
@@ -719,6 +752,21 @@ export const getChatHistory = async (
  */
 export const sendMessage = async (params: SendMessageParams & { senderRole: UserRole }) => {
   const { chatId, senderId, receiverId, content, type = 'TEXT', metadata, senderRole } = params;
+
+  const effectiveType = type ?? MessageType.TEXT;
+  if (effectiveType === MessageType.TEXT) {
+    const maxLen =
+      senderRole === UserRole.ASTROLOGER
+        ? CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER
+        : CHAT_MESSAGE_MAX_LENGTH_CLIENT;
+    if (content.trim().length > maxLen) {
+      throw new AppError(
+        `Message cannot exceed ${maxLen} characters`,
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+  }
 
   // Determine sender and receiver types
   const senderType =
@@ -822,12 +870,13 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
       const { deductCoinsForMessage } = await import('./coin.service');
       const { toSharedAstrologerCategory } = await import('../constants/coin.constants');
       try {
-        await deductCoinsForMessage(
+        const dedResult = await deductCoinsForMessage(
           senderId,
           toSharedAstrologerCategory(astrologerCategory),
           chatId,
           isBroadcastChat
         );
+        (chat as any)._coinsDeducted = dedResult.coinsDeducted;
       } catch (error: any) {
         // Re-throw with proper error format
         if (error.code === 'INSUFFICIENT_COINS') {
@@ -887,12 +936,142 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
     }
   }
 
-  await prisma.chat.update({
+  const updatedChat = await prisma.chat.update({
     where: { id: chatId },
     data: chatUpdateData,
+    select: {
+      waitingForReply: true,
+      lastClientMessageAt: true,
+      lastAstrologerReplyAt: true,
+      turnBasedEnabled: true,
+    },
   });
 
-  return message;
+  const coinsDeducted = (chat as any)._coinsDeducted;
+
+  // Emit real-time message + CHAT_MESSAGE notification to receiver (same as socket path)
+  // This ensures astrologers get notifications when clients send via HTTP (e.g. initial message from startChat)
+  try {
+    let sender: {
+      id: string;
+      name: string | null;
+      profilePhoto: string | null;
+      phone?: string | null;
+    } | null = null;
+    if (senderRole === UserRole.CLIENT) {
+      sender = await prisma.user.findUnique({
+        where: { id: senderId },
+        select: { id: true, name: true, profilePhoto: true, phone: true },
+      });
+    } else {
+      sender = await prisma.astrologer.findUnique({
+        where: { id: senderId },
+        select: { id: true, name: true, profilePhoto: true, phone: true },
+      });
+    }
+    const senderName = sender?.name || sender?.phone || 'someone';
+
+    const messageWithSender = {
+      id: message.id,
+      chatId: message.chatId,
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      senderType: message.senderType,
+      receiverType: message.receiverType,
+      content: message.content,
+      type: message.type,
+      metadata: message.metadata,
+      isRead: message.isRead,
+      isDeleted: message.isDeleted,
+      createdAt: message.createdAt.toISOString(),
+      updatedAt: message.updatedAt.toISOString(),
+      sender: sender
+        ? { id: sender.id, name: sender.name ?? 'Unknown User', profilePhoto: sender.profilePhoto }
+        : { id: senderId, name: 'Unknown User', profilePhoto: null },
+      ...(coinsDeducted != null && senderRole === UserRole.CLIENT ? { coinsDeducted } : {}),
+    };
+
+    const turnStateInfo =
+      chat.turnBasedEnabled && updatedChat.turnBasedEnabled
+        ? {
+            waitingForReply: updatedChat.waitingForReply,
+            lastClientMessageAt: updatedChat.lastClientMessageAt,
+            lastAstrologerReplyAt: updatedChat.lastAstrologerReplyAt,
+          }
+        : null;
+
+    const io = getSocketInstance();
+    if (io) {
+      io.to(`user:${receiverId}`).emit('chat:receive', {
+        ...messageWithSender,
+        turnState: turnStateInfo,
+      });
+
+      // Create or update grouped CHAT_MESSAGE notification per chat (one per chat, not per message)
+      const groupKey = `chat:${chatId}`;
+      const notificationWhere =
+        receiverType === ParticipantType.CLIENT
+          ? { userId: receiverId, groupKey }
+          : { astrologerId: receiverId, groupKey };
+
+      const existingNotification = await prisma.notification.findFirst({
+        where: notificationWhere,
+      });
+
+      const nextCount = existingNotification ? existingNotification.count + 1 : 1;
+      const dmCopy = buildDmChatNotificationCopy({
+        senderName,
+        senderRole,
+        receiverType,
+        messageCountInGroup: nextCount,
+      });
+      const chatNotifMetadata = {
+        messageId: message.id,
+        senderId,
+        chatId,
+        ...(senderRole === UserRole.CLIENT && receiverType === ParticipantType.ASTROLOGER
+          ? { channel: 'direct' as const }
+          : {}),
+      };
+
+      let notification;
+      if (existingNotification) {
+        notification = await prisma.notification.update({
+          where: { id: existingNotification.id },
+          data: {
+            count: nextCount,
+            title: dmCopy.title,
+            message: dmCopy.message,
+            lastUpdated: new Date(),
+            isRead: false,
+            metadata: chatNotifMetadata,
+          },
+        });
+      } else {
+        notification = await prisma.notification.create({
+          data: {
+            ...(receiverType === ParticipantType.CLIENT
+              ? { userId: receiverId, recipientType: ParticipantType.CLIENT }
+              : { astrologerId: receiverId, recipientType: ParticipantType.ASTROLOGER }),
+            title: dmCopy.title,
+            message: dmCopy.message,
+            type: 'CHAT_MESSAGE',
+            groupKey,
+            count: 1,
+            metadata: chatNotifMetadata,
+          },
+        });
+      }
+
+      notificationService.invalidateUserCache(receiverId);
+      io.to(`user:${receiverId}`).emit('notification:new', notification);
+    }
+  } catch (emitErr) {
+    console.error('[chatService.sendMessage] Failed to emit to receiver:', emitErr);
+    // Don't throw - message was saved; notification is best-effort
+  }
+
+  return { message, coinsDeducted };
 };
 
 /**
@@ -1128,3 +1307,122 @@ export const getActiveChat = async (userId: string) => {
 
   return activeChat;
 };
+
+/** Anonymous astrologer display name for Client Chat History */
+const ANONYMOUS_ASTROLOGER_NAME = 'Anonymous Astrologer';
+
+/**
+ * Check if a client has previous chat history with any astrologer.
+ * Returns true if the client has messages in more than one chat (i.e. chatted with more than one astrologer).
+ * Used to conditionally show "Client Chat History" button to astrologers.
+ * When the client is in their first-ever conversation (only 1 chat with messages), returns false.
+ */
+export async function clientHasChatHistory(clientId: string): Promise<boolean> {
+  const chatsWithMessages = await prisma.message.findMany({
+    where: {
+      isDeleted: false,
+      chat: {
+        participant1Id: clientId,
+      },
+    },
+    select: { chatId: true },
+    distinct: ['chatId'],
+  });
+  return chatsWithMessages.length >= 2;
+}
+
+export interface GetClientChatHistoryParams {
+  clientId: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ClientChatHistoryMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  receiverId: string;
+  senderType: ParticipantType;
+  receiverType: ParticipantType;
+  content: string;
+  type: MessageType;
+  metadata: unknown;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+  senderDisplayName: string;
+  senderAvatarLetter: string;
+}
+
+export interface GetClientChatHistoryResult {
+  messages: ClientChatHistoryMessage[];
+  nextCursor: string | null;
+}
+
+/**
+ * Get aggregated chat history of a client across ALL astrologers.
+ * Astrologer identities are anonymized ("Anonymous Astrologer", black avatar with "A").
+ * Only astrologers can call this. Cursor-based pagination, newest first.
+ */
+export async function getClientChatHistory(
+  params: GetClientChatHistoryParams,
+  _requestingAstrologerId: string
+): Promise<GetClientChatHistoryResult> {
+  const { clientId, cursor, limit = 12 } = params;
+
+  const cursorDate = cursor ? new Date(cursor) : undefined;
+
+  const messages = await prisma.message.findMany({
+    where: {
+      isDeleted: false,
+      chat: {
+        participant1Id: clientId,
+      },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit + 1,
+    select: {
+      id: true,
+      chatId: true,
+      senderId: true,
+      receiverId: true,
+      senderType: true,
+      receiverType: true,
+      content: true,
+      type: true,
+      metadata: true,
+      isRead: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  const hasMore = messages.length > limit;
+  const resultMessages = hasMore ? messages.slice(0, limit) : messages;
+  const nextCursor =
+    hasMore && resultMessages.length > 0
+      ? resultMessages[resultMessages.length - 1].createdAt.toISOString()
+      : null;
+
+  const anonymized: ClientChatHistoryMessage[] = resultMessages.map((m) => {
+    const isFromAstrologer = m.senderType === ParticipantType.ASTROLOGER;
+    let content = m.content ?? '';
+    if (isFromAstrologer && content) {
+      content = content.replace(
+        /I\s*\([^)]+\)\s*have\s*accepted\s*your\s*request/gi,
+        'I (Anonymous Astrologer) have accepted your request'
+      );
+    }
+    return {
+      ...m,
+      content,
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+      senderDisplayName: isFromAstrologer ? ANONYMOUS_ASTROLOGER_NAME : 'Client',
+      senderAvatarLetter: isFromAstrologer ? 'A' : (m.senderId.charAt(0) || 'C').toUpperCase(),
+    };
+  });
+
+  return { messages: anonymized, nextCursor };
+}

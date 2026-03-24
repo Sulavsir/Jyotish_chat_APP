@@ -255,6 +255,7 @@ export const deductCoinsForMessage = async (
   return {
     userId: updatedUser.id,
     balance: updatedUser.coins,
+    coinsDeducted: coinCost,
   };
 };
 

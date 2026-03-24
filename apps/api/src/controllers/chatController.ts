@@ -128,7 +128,7 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       return sendError(res, 'Chat ID, receiver ID, and content are required', 400);
     }
 
-    const message = await chatService.sendMessage({
+    const result = await chatService.sendMessage({
       chatId,
       senderId: userId,
       receiverId,
@@ -142,7 +142,8 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       res,
       {
         message: 'Message sent successfully',
-        data: message,
+        data: result.message,
+        coinsDeducted: result.coinsDeducted,
       },
       201
     );

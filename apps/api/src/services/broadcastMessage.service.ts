@@ -26,15 +26,15 @@ import {
 } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
-import { getTotalNrForQuestionCount, getPerQuestionBreakdown } from './broadcastQuestionPricing.service';
+import {
+  getTotalNrForQuestionCount,
+  getPerQuestionBreakdown,
+} from './broadcastQuestionPricing.service';
 import { hasUserUsedBroadcast } from './broadcastUsage.service';
 import { randomUUID } from 'node:crypto';
 
 const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
-const pendingBroadcastMessagesCache = new Map<
-  string,
-  { expiresAt: number; messages: unknown[] }
->();
+const pendingBroadcastMessagesCache = new Map<string, { expiresAt: number; messages: unknown[] }>();
 let lastPendingExpiryRunAt = 0;
 
 function invalidatePendingBroadcastCache() {
@@ -113,12 +113,8 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   });
 
   if (pendingBroadcast) {
-    // Calculate time since last broadcast was sent
-    const timeSinceLastBroadcast = Date.now() - pendingBroadcast.createdAt.getTime();
-    const timeLeftSeconds = Math.max(
-      0,
-      Math.ceil((BROADCAST_MESSAGE_EXPIRY_MS - timeSinceLastBroadcast) / 1000)
-    );
+    const timeLeftMs = pendingBroadcast.expiresAt.getTime() - Date.now();
+    const timeLeftSeconds = Math.max(0, Math.ceil(timeLeftMs / 1000));
 
     throw new Error(
       `You already have a pending broadcast message. Please wait ${timeLeftSeconds} seconds for it to be accepted or expire before sending another one.`
@@ -258,11 +254,13 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       ? (data.metadata as Record<string, unknown>)
       : {};
 
+  const ttlMs = BROADCAST_MESSAGE_EXPIRY_MS;
   const message = await prisma.broadcastMessage.create({
     data: {
       clientId: data.clientId,
       content: data.content,
       type: data.type || MessageType.TEXT,
+      expiresAt: new Date(Date.now() + ttlMs),
       metadata: {
         ...baseMetadata,
         amountRefundNr: amountPaidNr,
@@ -411,6 +409,9 @@ export async function createMultipleBroadcastMessages(
   const metadataBase =
     hasBirthDetails && Object.keys(birthDetails!).length > 0 ? { birthDetails } : undefined;
 
+  const ttlMs = BROADCAST_MESSAGE_EXPIRY_MS;
+  const expiresAt = new Date(Date.now() + ttlMs);
+
   const messages: Awaited<ReturnType<typeof prisma.broadcastMessage.create>>[] = [];
 
   for (let i = 0; i < questionItems.length; i++) {
@@ -430,6 +431,7 @@ export async function createMultipleBroadcastMessages(
         content: item.text,
         type: MessageType.TEXT,
         status: BroadcastMessageStatus.PENDING,
+        expiresAt,
         metadata: metadata as Prisma.InputJsonValue,
       },
       include: {
@@ -462,7 +464,7 @@ export async function createMultipleBroadcastMessages(
 
 /**
  * Expire old broadcast messages and refund the client for each (no one accepted).
- * Automatically expires messages older than BROADCAST_MESSAGE_EXPIRY_MS and refunds
+ * Automatically expires pending messages past their stored `expiresAt` and refunds
  * using amountRefundNr (batch) or BROADCAST_SEND rate (single).
  */
 export async function expireOldMessages() {
@@ -471,12 +473,12 @@ export async function expireOldMessages() {
   }
 
   try {
-    const expiryTime = new Date(Date.now() - BROADCAST_MESSAGE_EXPIRY_MS);
+    const now = new Date();
 
     const toExpire = await prisma.broadcastMessage.findMany({
       where: {
         status: BroadcastMessageStatus.PENDING,
-        createdAt: { lt: expiryTime },
+        expiresAt: { lt: now },
       },
     });
 
@@ -1100,7 +1102,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     : [];
 
   // Mark all siblings ACCEPTED and link to the same chat
-  const acceptedSiblings: typeof updatedMessage[] = [];
+  const acceptedSiblings: (typeof updatedMessage)[] = [];
   for (const sibling of batchSiblings) {
     const accepted = await prisma.broadcastMessage.update({
       where: { id: sibling.id },
@@ -1142,8 +1144,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
             (clientCoinsDeducted * astrologerForEarning.commissionRate) / 100
           );
           if (astrologerCoinsEarned > 0) {
-            const isFirstBroadcastDiscount =
-              msgMeta.isFirstBroadcastDiscount === true;
+            const isFirstBroadcastDiscount = msgMeta.isFirstBroadcastDiscount === true;
             await (prisma as any).astrologerCoinEarning.create({
               data: {
                 astrologerId,
@@ -1153,9 +1154,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
                 clientCoinsDeducted,
                 commissionPercent: astrologerForEarning.commissionRate,
                 astrologerCoinsEarned,
-                sourceDetail: isFirstBroadcastDiscount
-                  ? 'First broadcast discount'
-                  : null,
+                sourceDetail: isFirstBroadcastDiscount ? 'First broadcast discount' : null,
               },
             });
           }
@@ -1189,7 +1188,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   });
 
   // 2. Sibling questions (in batch order) — add each as a separate client message
-  const siblingMessages: typeof originalMessage[] = [];
+  const siblingMessages: (typeof originalMessage)[] = [];
   for (const sibling of batchSiblings) {
     const sibMeta = (sibling.metadata as Record<string, unknown>) || {};
     const sibBirthDetails = sibMeta.birthDetails as Record<string, unknown> | undefined;
@@ -1291,18 +1290,16 @@ export async function getBroadcastMessageById(messageId: string) {
 }
 
 /**
- * Expire old pending broadcast messages (called by worker/cron)
+ * Expire old pending broadcast messages (called by worker/cron).
+ * Uses stored `expiresAt` (same rule as {@link expireOldMessages}); refunds are only applied by expireOldMessages.
  */
-export async function expireOldBroadcastMessages(olderThanMinutes: number = 10) {
-  const expiryTime = new Date();
-  expiryTime.setMinutes(expiryTime.getMinutes() - olderThanMinutes);
+export async function expireOldBroadcastMessages(_olderThanMinutes: number = 10) {
+  const now = new Date();
 
   const result = await prisma.broadcastMessage.updateMany({
     where: {
       status: BroadcastMessageStatus.PENDING,
-      createdAt: {
-        lt: expiryTime,
-      },
+      expiresAt: { lt: now },
     },
     data: {
       status: BroadcastMessageStatus.EXPIRED,

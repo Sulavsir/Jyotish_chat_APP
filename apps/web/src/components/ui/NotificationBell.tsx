@@ -36,6 +36,7 @@ import { toast } from 'sonner';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { ROUTE_BUILDERS } from '@/constants';
+import { getNotificationDestination } from '@/utils/notification-navigation';
 
 // ─── localStorage helpers — persist "I accepted this" across remounts ────────
 
@@ -126,7 +127,10 @@ interface NotificationBellProps {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function isBroadcastExpired(createdAt: string): boolean {
+function isBroadcastExpired(createdAt: string, expiresAt?: string | null): boolean {
+  if (expiresAt != null && expiresAt !== '') {
+    return Date.now() > new Date(expiresAt).getTime();
+  }
   return Date.now() - new Date(createdAt).getTime() > BROADCAST_MESSAGE_EXPIRY_MS;
 }
 
@@ -179,7 +183,13 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       const tracked = broadcastStatuses.get(msgId);
       if (tracked) return tracked;
       // Fall back to time-based expiry check
-      if (isBroadcastExpired(notification.createdAt)) return 'EXPIRED';
+      if (
+        isBroadcastExpired(
+          notification.createdAt,
+          notification.metadata?.expiresAt as string | undefined
+        )
+      )
+        return 'EXPIRED';
       return 'PENDING';
     },
     [isAstrologer, broadcastStatuses]
@@ -298,7 +308,9 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
                 next.set(msgId, 'CANCELLED_BY_USER');
               } else if (acceptedByMe) {
                 next.set(msgId, 'ACCEPTED_BY_YOU');
-              } else if (isBroadcastExpired(n.createdAt)) {
+              } else if (
+                isBroadcastExpired(n.createdAt, n.metadata?.expiresAt as string | undefined)
+              ) {
                 next.set(msgId, 'EXPIRED');
               } else {
                 next.set(msgId, 'ACCEPTED_BY_OTHERS');
@@ -377,10 +389,22 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
   useEffect(() => {
     if (!socket || !isConnected || !notificationsEnabled) return;
 
-    // Generic new notification
+    // Generic new notification (or update — CHAT_MESSAGE reuses same row per chat)
     const handleNew = (notification: Notification) => {
-      setNotifications((prev) => [notification, ...prev.slice(0, 4)]);
-      if (!notification.isRead) setUnreadCount((c) => c + 1);
+      const isUpdateRef = { current: false };
+      setNotifications((prev) => {
+        const existingIdx = prev.findIndex(
+          (n) => n.id === notification.id || (notification.groupKey && n.groupKey === notification.groupKey)
+        );
+        if (existingIdx >= 0) {
+          isUpdateRef.current = true;
+          const next = [...prev];
+          next[existingIdx] = notification;
+          return next;
+        }
+        return [notification, ...prev.slice(0, 4)];
+      });
+      if (!notification.isRead && !isUpdateRef.current) setUnreadCount((c) => c + 1);
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(notification.title, { body: notification.message, icon: '/icon.png' });
       }
@@ -478,10 +502,12 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       const msg = ((error as Error)?.message ?? '').toLowerCase();
       if (msg.includes('accepted') || msg.includes('expired') || msg.includes('no longer')) {
         // Message was already taken — update status so the badge reflects reality
+        const n = notifications.find(
+          (x) => x.metadata?.broadcastMessageId === acceptTarget.broadcastMessageId
+        );
         const wasExpired = isBroadcastExpired(
-          notifications.find(
-            (n) => n.metadata?.broadcastMessageId === acceptTarget.broadcastMessageId
-          )?.createdAt ?? ''
+          n?.createdAt ?? '',
+          n?.metadata?.expiresAt as string | undefined
         );
         markBroadcastIds(
           [acceptTarget.broadcastMessageId],
@@ -529,7 +555,11 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       );
       setUnreadCount((c) => Math.max(0, c - countToDecrement));
       setIsOpen(false);
-      const path = getNotificationPath(notification);
+      const path = getNotificationDestination({
+        type: notification.type,
+        metadata: notification.metadata as Record<string, unknown> | undefined,
+        isAstrologer: !!isAstrologer,
+      });
       if (path) router.push(path);
       setTimeout(loadNotifications, 500);
     } catch {
@@ -551,28 +581,6 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       toast.error('Failed to mark all as read');
       void loadNotifications();
     }
-  };
-
-  // ─── Navigation paths ────────────────────────────────────────────────────
-
-  const getNotificationPath = (notification: Notification): string | null => {
-    const { type, metadata } = notification;
-    const prefix = isAstrologer ? '/jyotish' : '';
-    if (type === 'CHAT_MESSAGE' || type === 'NEW_MESSAGE') {
-      return metadata?.chatId ? `${prefix}/chat?chatId=${metadata.chatId}` : `${prefix}/chat`;
-    }
-    if (type === 'SYSTEM' && metadata?.chatId && metadata?.event === 'SESSION_STARTED') {
-      return `${prefix}/chat?chatId=${metadata.chatId}`;
-    }
-    if (type === 'CONSULTATION_BOOKED' || type === 'CONSULTATION_REMINDER') {
-      return metadata?.consultationId
-        ? `${prefix}/consultations/${metadata.consultationId}`
-        : `${prefix}/consultations`;
-    }
-    if (type === 'PAYMENT_RECEIVED' || type === 'PAYMENT_SUCCESS') {
-      return `${prefix}/transactions`;
-    }
-    return `${prefix}/notifications`;
   };
 
   // ─── Status badge ────────────────────────────────────────────────────────

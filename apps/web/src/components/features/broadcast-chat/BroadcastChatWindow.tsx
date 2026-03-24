@@ -25,6 +25,8 @@ import { useMutation } from '@tanstack/react-query';
 import { LoadingButton } from '@/components/ui';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { getBroadcastExpiresAtMs } from '@/utils/broadcastMessage.utils';
+import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
@@ -115,7 +117,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       setIsSending(false);
       setIsWaitingForAcceptance(true);
 
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      void refetchClientBalanceAndStats(queryClient);
 
       checkActiveChat();
 
@@ -123,6 +125,11 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
 
+      const amountNr =
+        (message as { metadata?: { amountRefundNr?: number } })?.metadata?.amountRefundNr ?? 0;
+      if (amountNr > 0) {
+        toast.info(`${amountNr} NRs deducted from your balance`);
+      }
       toast.success('Message request sent to all online Jyotish.', {
         description: 'Waiting for an astrologer to accept...',
         duration: 4000,
@@ -274,11 +281,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
 
   // Calculate time remaining for pending message
   const getTimeRemaining = (message: BroadcastMessage): number => {
-    const createdAt = new Date(message.createdAt).getTime();
-    const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
+    const expiresAt = getBroadcastExpiresAtMs(message);
     const now = Date.now();
-    const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-    return remaining;
+    return Math.max(0, Math.floor((expiresAt - now) / 1000));
   };
 
   // Find the most recent pending message for modal (only show while waiting for acceptance)
@@ -289,8 +294,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   // Also close modal if message expires
   useEffect(() => {
     if (pendingMessage) {
-      const createdAt = new Date(pendingMessage.createdAt).getTime();
-      const expiresAt = createdAt + BROADCAST_MESSAGE_EXPIRY_MS;
+      const expiresAt = getBroadcastExpiresAtMs(pendingMessage);
       const now = Date.now();
       const timeUntilExpiry = expiresAt - now;
 
@@ -390,6 +394,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                 <CountdownTimer
                   createdAt={message.createdAt}
                   expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+                  expiresAt={message.expiresAt}
                   className="text-white"
                   showIcon={true}
                   onExpire={handleMessageExpire}
@@ -590,7 +595,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
               )}
             </button>
           </div>
-          <p className={`text-xs text-right ${inputText.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}>
+          <p
+            className={`text-xs text-right ${inputText.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}
+          >
             {inputText.length}/60
           </p>
         </div>

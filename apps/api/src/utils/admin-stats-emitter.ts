@@ -1,4 +1,5 @@
 import { Server } from 'socket.io';
+import { prisma } from '@jyotish/database';
 
 /**
  * Utility to emit real-time stats updates to admin clients
@@ -130,7 +131,7 @@ export class AdminStatsEmitter {
     totalAstrologers?: number;
     activeChats?: number;
     totalEarnings?: number;
-    pendingPayouts?: number;
+    onlineAstrologers?: number;
     todayConsultations?: number;
   }) {
     try {
@@ -139,6 +140,22 @@ export class AdminStatsEmitter {
       console.log('📊 Emitted stats:update to admin clients:', stats);
     } catch (error) {
       console.error('❌ Failed to emit stats:update:', error);
+    }
+  }
+
+  /**
+   * Recompute online jyotish count (active, non-deleted, isOnline) and push to admin dashboards.
+   * Call after astrologer socket connect/disconnect or toggle-online so the stat stays live.
+   */
+  static async emitOnlineAstrologersCount() {
+    try {
+      const io = this.getIo();
+      const onlineAstrologers = await prisma.astrologer.count({
+        where: { isDeleted: false, isActive: true, isOnline: true },
+      });
+      io.to('admin').emit('stats:update', { onlineAstrologers });
+    } catch (error) {
+      console.error('❌ Failed to emit onlineAstrologers count:', error);
     }
   }
 }

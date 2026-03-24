@@ -7,10 +7,18 @@ import {
   Prisma,
   AppointmentStatus,
 } from '@prisma/client';
-import { MessageType, UserRole, AstrologerCategory } from '@jyotish/shared';
+import {
+  MessageType,
+  UserRole,
+  AstrologerCategory,
+  CHAT_MESSAGE_MAX_LENGTH_CLIENT,
+  CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+} from '@jyotish/shared';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import { ERROR_CODES } from '@/constants/http.constants';
 import { notificationService } from '../services/notification.service';
+import { mergeClientSenderWithBirthMetadata } from '../services/chatService';
+import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 
 export function chatHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
@@ -21,13 +29,20 @@ export function chatHandlers(io: Server, socket: Socket) {
     async (data: { receiverId: string; content: string; type?: MessageType; metadata?: any }) => {
       try {
         const { receiverId, content, type, metadata } = data;
+        let coinsDeductedForSender: number | undefined;
 
         if (!content || !content.trim()) {
           socket.emit('chat:error', { message: 'Message cannot be empty' });
           return;
         }
-        if (content.trim().length > 1000) {
-          socket.emit('chat:error', { message: 'Message cannot exceed 1000 characters' });
+        const maxChatLen =
+          user.role === UserRole.ASTROLOGER
+            ? CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER
+            : CHAT_MESSAGE_MAX_LENGTH_CLIENT;
+        if (content.trim().length > maxChatLen) {
+          socket.emit('chat:error', {
+            message: `Message cannot exceed ${maxChatLen} characters`,
+          });
           return;
         }
 
@@ -349,12 +364,13 @@ export function chatHandlers(io: Server, socket: Socket) {
                 },
               });
               try {
-                await deductCoinsForMessage(
+                const dedResult = await deductCoinsForMessage(
                   user.id,
                   toSharedAstrologerCategory(astrologer.category),
                   newChat.id,
                   false
                 );
+                coinsDeductedForSender = dedResult.coinsDeducted;
                 chat = newChat;
               } catch (error: any) {
                 await prisma.chat.delete({ where: { id: newChat.id } });
@@ -452,12 +468,13 @@ export function chatHandlers(io: Server, socket: Socket) {
                 !(chat as { reopenedAfterEnded?: boolean }).reopenedAfterEnded;
               const { deductCoinsForMessage } = await import('../services/coin.service');
               try {
-                await deductCoinsForMessage(
+                const dedResult = await deductCoinsForMessage(
                   user.id,
                   toSharedAstrologerCategory(astrologer.category),
                   chat!.id,
                   isBroadcastChat
                 );
+                coinsDeductedForSender = dedResult.coinsDeducted;
               } catch (error: any) {
                 socket.emit('chat:error', {
                   message: error.message || 'Insufficient coins to send message',
@@ -532,6 +549,10 @@ export function chatHandlers(io: Server, socket: Socket) {
           });
         }
 
+        // Match getChatHistory: merge metadata.birthDetails into client sender so jyotish sees
+        // family-profile DOB/TOB/POB in real time (not only after REST reload).
+        const senderForSocket = mergeClientSenderWithBirthMetadata(sender, message);
+
         // Add sender info to message - Prisma already returns metadata as plain object
         const messageWithSender = {
           id: message.id,
@@ -547,7 +568,10 @@ export function chatHandlers(io: Server, socket: Socket) {
           isDeleted: message.isDeleted,
           createdAt: message.createdAt.toISOString(), // Convert Date to string for socket
           updatedAt: message.updatedAt.toISOString(), // Convert Date to string for socket
-          sender: sender || { id: user.id, name: 'Unknown User', profilePhoto: null },
+          sender: senderForSocket,
+          ...(coinsDeductedForSender != null && user.role === UserRole.CLIENT
+            ? { coinsDeducted: coinsDeductedForSender }
+            : {}),
         };
 
         // Update chat with last message info
@@ -646,13 +670,13 @@ export function chatHandlers(io: Server, socket: Socket) {
         }
 
         // Create or update grouped notification for receiver
-        const groupKey = `chat_message_from_${user.id}`;
+        const groupKey = `chat:${chat.id}`;
 
         // Determine notification fields based on receiver type
         const notificationWhere =
           receiverType === ParticipantType.CLIENT
-            ? { userId: actualReceiverId, groupKey, isRead: false }
-            : { astrologerId: actualReceiverId, groupKey, isRead: false };
+            ? { userId: actualReceiverId, groupKey }
+            : { astrologerId: actualReceiverId, groupKey };
 
         const notificationData =
           receiverType === ParticipantType.CLIENT
@@ -664,20 +688,34 @@ export function chatHandlers(io: Server, socket: Socket) {
           where: notificationWhere,
         });
 
+        const nextCount = existingNotification ? existingNotification.count + 1 : 1;
+        const dmCopy = buildDmChatNotificationCopy({
+          senderName,
+          senderRole: user.role,
+          receiverType,
+          messageCountInGroup: nextCount,
+        });
+        const chatNotifMetadata = {
+          messageId: message.id,
+          senderId: user.id,
+          chatId: chat.id,
+          ...(user.role === UserRole.CLIENT && receiverType === ParticipantType.ASTROLOGER
+            ? { channel: 'direct' as const }
+            : {}),
+        };
+
         let notification;
         if (existingNotification) {
           // Update existing notification
           notification = await prisma.notification.update({
             where: { id: existingNotification.id },
             data: {
-              count: existingNotification.count + 1,
-              message: `You have ${existingNotification.count + 1} new messages from ${senderName}`,
+              count: nextCount,
+              title: dmCopy.title,
+              message: dmCopy.message,
               lastUpdated: new Date(),
-              metadata: {
-                messageId: message.id,
-                senderId: user.id,
-                chatId: chat.id,
-              },
+              isRead: false,
+              metadata: chatNotifMetadata,
             },
           });
         } else {
@@ -685,16 +723,12 @@ export function chatHandlers(io: Server, socket: Socket) {
           notification = await prisma.notification.create({
             data: {
               ...notificationData,
-              title: 'New Message',
-              message: `You have a new message from ${senderName}`,
+              title: dmCopy.title,
+              message: dmCopy.message,
               type: 'CHAT_MESSAGE',
               groupKey,
               count: 1,
-              metadata: {
-                messageId: message.id,
-                senderId: user.id,
-                chatId: chat.id,
-              },
+              metadata: chatNotifMetadata,
             },
           });
         }

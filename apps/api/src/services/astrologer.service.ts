@@ -94,8 +94,10 @@ export class AstrologerService {
    * Find astrologer by email (excludes soft-deleted)
    */
   async findByEmail(email: string) {
+    const trimmed = email.trim();
+    if (!trimmed) return null;
     return await prisma.astrologer.findFirst({
-      where: { email, isDeleted: false },
+      where: { email: { equals: trimmed, mode: 'insensitive' }, isDeleted: false },
       select: {
         id: true,
         phone: true,
@@ -266,11 +268,18 @@ export class AstrologerService {
    * Astrologer login with phone/email and password
    */
   async login(identifier: string, password: string, deviceInfo: any) {
-    // Find astrologer by phone or email (exclude soft-deleted)
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      throw new AppError('Invalid credentials', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+    const isEmail = trimmed.includes('@');
+    // Find astrologer by phone or email (exclude soft-deleted); email match is case-insensitive
     let astrologer = await prisma.astrologer.findFirst({
       where: {
         isDeleted: false,
-        OR: [{ phone: identifier }, { email: identifier }],
+        OR: isEmail
+          ? [{ email: { equals: trimmed, mode: 'insensitive' } }]
+          : [{ phone: trimmed }, { phone: trimmed.replace(/\D/g, '') }],
       },
       select: {
         id: true,

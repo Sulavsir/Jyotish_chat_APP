@@ -24,6 +24,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   showBirthDetails: showBirthDetailsProp,
   variant = 'default',
   onViewProfile,
+  nepaliBatch,
 }) => {
   const user = useAuthStore((state) => state.user);
   const isAstrologerViewingClient =
@@ -198,7 +199,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
         {/* Birth Details - only for astrologers viewing client messages (English + Nepali DOB) */}
         {hasBirthDetails && (
-          <ProfileBirthDetails birthDetails={birthDetails} variant={variant} />
+          <ProfileBirthDetails
+            birthDetails={birthDetails}
+            variant={variant}
+            nepaliBatch={nepaliBatch}
+          />
         )}
 
         {showTimestamp && (

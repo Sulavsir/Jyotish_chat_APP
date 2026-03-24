@@ -43,12 +43,14 @@ import { useClientDashboard } from '@/providers/ClientDashboardProvider';
 import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
+import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { SelectProfileModal } from '@/components/modals';
 import { SelectProfileSection } from '@/components/profile';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
 import { AstrologerCategory } from '@/types/astrologer';
 import { SelectedQuestionsModal, type SelectedQuestionDetailed } from './SelectedQuestionsModal';
+import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
@@ -234,13 +236,15 @@ export function AskQuestionsSection() {
       birthDetails?: Record<string, string>;
     }) => broadcastMessageService.sendQuestions(payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
-      queryClient.invalidateQueries({ queryKey: ['client-dashboard', 'stats'] });
+      void refetchClientBalanceAndStats(queryClient);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       setSelectedBroadcastQuestionIds([]);
       setBroadcastMessage('');
       setBroadcastQuestion('');
       setBroadcastCategory('');
+      if (variables.totalNr > 0) {
+        toast.info(`${variables.totalNr} NRs deducted from your balance`);
+      }
       toast.success(
         `${variables.questionItems.length} question${variables.questionItems.length === 1 ? '' : 's'} published to all Jyotish. Waiting for acceptance...`
       );
@@ -299,6 +303,16 @@ export function AskQuestionsSection() {
     [questionCategories, selectedDirectQuestionIds]
   );
 
+  /** Same construction as handleStartChat / backend first message (must stay ≤ server limit). */
+  const directOutgoingMessage = React.useMemo(() => {
+    const trimmed = directMessage.trim();
+    const joined =
+      !trimmed && selectedDirectQuestionsDetailed.length > 0
+        ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
+        : '';
+    return trimmed || joined;
+  }, [directMessage, selectedDirectQuestionsDetailed]);
+
   const handleAstrologerSelect = (
     astrologerId: string,
     astrologer?: { name: string; category: AstrologerCategory; chatMessageFee?: number | null }
@@ -341,7 +355,15 @@ export function AskQuestionsSection() {
       const next = checked ? [...prev, questionId] : prev.filter((id) => id !== questionId);
       const detailed = buildSelectedQuestionsDetailed(next, questionCategories);
       if (detailed.length > 0) {
-        setDirectMessage(detailed.map((q) => q.text).join('\n\n'));
+        const joined = detailed.map((q) => q.text).join('\n\n');
+        if (joined.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
+          setDirectMessageError(
+            `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters. Select fewer questions or shorten the text below.`
+          );
+          setDirectMessage(joined.slice(0, CHAT_MESSAGE_MAX_LENGTH_CLIENT));
+        } else {
+          setDirectMessage(joined);
+        }
       } else {
         setDirectMessage('');
       }
@@ -350,7 +372,7 @@ export function AskQuestionsSection() {
   };
 
   const handleDirectMessageChange = (value: string) => {
-    setDirectMessage(value);
+    setDirectMessage(value.slice(0, CHAT_MESSAGE_MAX_LENGTH_CLIENT));
   };
 
   // Broadcast tab handlers
@@ -396,6 +418,12 @@ export function AskQuestionsSection() {
       setDirectMessageError(t('messageCannotBeEmpty'));
       return;
     }
+    if (messageToSend.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
+      setDirectMessageError(
+        `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
+      );
+      return;
+    }
     setDirectMessageError('');
     setShowDirectProfileModal(true);
   };
@@ -412,6 +440,12 @@ export function AskQuestionsSection() {
     const messageToSend = trimmed || joinedSelected;
     if (!messageToSend) {
       setDirectMessageError(t('messageCannotBeEmpty'));
+      return;
+    }
+    if (messageToSend.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
+      setDirectMessageError(
+        `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
+      );
       return;
     }
     setDirectMessageError('');
@@ -819,6 +853,7 @@ export function AskQuestionsSection() {
                     </label>
                     <textarea
                       value={directMessage}
+                      maxLength={CHAT_MESSAGE_MAX_LENGTH_CLIENT}
                       onChange={(e) => {
                         setDirectMessageError('');
                         handleDirectMessageChange(e.target.value);
@@ -830,6 +865,15 @@ export function AskQuestionsSection() {
                       }
                       className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] resize-none"
                     />
+                    <p
+                      className={`text-xs mt-0.5 text-right ${
+                        directOutgoingMessage.length >= CHAT_MESSAGE_MAX_LENGTH_CLIENT
+                          ? 'text-amber-400'
+                          : 'text-gray-500'
+                      }`}
+                    >
+                      {directOutgoingMessage.length}/{CHAT_MESSAGE_MAX_LENGTH_CLIENT}
+                    </p>
                     {directMessageError && (
                       <p className="text-xs text-red-400 mt-1">{directMessageError}</p>
                     )}
@@ -861,7 +905,12 @@ export function AskQuestionsSection() {
                 <div className="flex gap-2 mt-auto">
                   <Button
                     onClick={handleStartChat}
-                    disabled={!selectedAstrologerId || showInsufficientCoinsBanner}
+                    disabled={
+                      !selectedAstrologerId ||
+                      showInsufficientCoinsBanner ||
+                      directOutgoingMessage.trim().length === 0 ||
+                      directOutgoingMessage.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT
+                    }
                     className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
                   >
                     <MessageSquare className="h-4 w-4" />

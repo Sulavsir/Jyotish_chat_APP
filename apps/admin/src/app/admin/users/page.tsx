@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { useDebounce } from '@/hooks';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -17,38 +18,36 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  AdminMonthRangeFilter,
+  AdminPaginationBar,
+  getTodayDateRange,
 } from '@jyotish/ui';
 import { RefreshCw, Banknote, Plus } from 'lucide-react';
 import {
   AdminTable,
+  AdminClearFiltersButton,
   type AdminTableColumn,
   ActiveStatusFilter,
   type ActiveFilterValue,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_DATE_FILTER_DEBOUNCE_MS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import type { User } from '@/types';
 import { AddCoinsModal } from '@/components/admin/AddCoinsModal';
 import { generatePageNumbers } from '@/utils/helpers';
+import { LoadingButton } from '@/components/ui/LoadingButton';
 
 const DEFAULT_ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 const ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-interface UsersResponse {
-  users: User[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-const SEARCH_DEBOUNCE_MS = 400;
-
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm.trim(), SEARCH_DEBOUNCE_MS);
+  const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(DEFAULT_ITEMS_PER_PAGE);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
@@ -58,49 +57,40 @@ export default function UsersPage() {
     balance?: number;
   } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
+  const [joinedRange, setJoinedRange] = useState(getTodayDateRange);
+  const debouncedJoinedFrom = useDebounce(joinedRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
+  const debouncedJoinedTo = useDebounce(joinedRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
 
-  // Reset to page 1 when debounced search changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, debouncedJoinedFrom, debouncedJoinedTo]);
 
-  // Fetch users with TanStack Query (server-side pagination)
   const {
     data: usersResponse,
     isLoading,
+    isFetching,
     refetch,
-  } = useQuery<UsersResponse>({
-    queryKey: [
-      ...ADMIN_QUERY_KEYS.USERS.LIST(),
-      currentPage,
-      rowsPerPage,
-      debouncedSearch,
-      statusFilter,
-    ],
-    queryFn: async () => {
-      const response: any = await adminApi.users.list({
+  } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.USERS.LIST({
+      page: currentPage,
+      limit: rowsPerPage,
+      search: debouncedSearch || undefined,
+      isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
+      joinedFrom: debouncedJoinedFrom || undefined,
+      joinedTo: debouncedJoinedTo || undefined,
+    }),
+    queryFn: () =>
+      adminApi.users.list({
         page: currentPage,
         limit: rowsPerPage,
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
-      });
-      // Handle both response formats
-      if (response?.users && response?.pagination) {
-        return response;
-      } else if (Array.isArray(response)) {
-        // Fallback for old format
-        return {
-          users: response,
-          pagination: {
-            page: 1,
-            limit: rowsPerPage,
-            total: response.length,
-            totalPages: 1,
-          },
-        };
-      }
-      return { users: [], pagination: { page: 1, limit: rowsPerPage, total: 0, totalPages: 0 } };
-    },
+        joinedFrom: debouncedJoinedFrom || undefined,
+        joinedTo: debouncedJoinedTo || undefined,
+      }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
   const users = usersResponse?.users || [];
@@ -111,16 +101,17 @@ export default function UsersPage() {
     totalPages: 0,
   };
 
-  // Toggle status mutation
   const toggleStatusMutation = useMutation({
     mutationFn: (id: string) => adminApi.users.toggleStatus(id),
     onSuccess: () => {
       toast.success('User status updated successfully');
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.USERS.ALL });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.error?.message || 'Failed to toggle status';
-      toast.error(message);
+    onError: (error: unknown) => {
+      const message = isAxiosError(error)
+        ? (error.response?.data as { error?: { message?: string } })?.error?.message
+        : undefined;
+      toast.error(message ?? 'Failed to toggle status');
     },
   });
 
@@ -128,7 +119,20 @@ export default function UsersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  // Reset to page 1 when status filter or rows per page changes
+  const today = getTodayDateRange();
+  const isDefaultView =
+    statusFilter === 'ALL' &&
+    !debouncedSearch &&
+    debouncedJoinedFrom === today.from &&
+    debouncedJoinedTo === today.to;
+
+  const clearUserFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('ALL');
+    setJoinedRange(getTodayDateRange());
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
+
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   }, [statusFilter, rowsPerPage]);
@@ -227,10 +231,13 @@ export default function UsersPage() {
     },
   ];
 
+  const showingFrom =
+    pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
+  const showingTo = Math.min(pagination.page * pagination.limit, pagination.total);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-white">Users</h2>
@@ -240,30 +247,44 @@ export default function UsersPage() {
             <ActiveStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}
-              disabled={isLoading}
+              disabled={isLoading || isFetching}
             />
-            <Button
+            <LoadingButton
               onClick={() => refetch()}
               variant="outline"
               size="sm"
-              disabled={isLoading}
+              isLoading={isLoading || isFetching}
+              loadingText="Refreshing"
               className="border-slate-700 text-white hover:bg-slate-800"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
-            </Button>
+            </LoadingButton>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <Search
-          placeholder="Search users by name, email, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-4">
+          <div className="min-w-0 flex-1">
+            <Search
+              placeholder="Search users by name, email, or phone..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <AdminMonthRangeFilter
+            fromValue={joinedRange.from}
+            toValue={joinedRange.to}
+            onRangeChange={(from, to) => setJoinedRange({ from, to })}
+            disabled={isLoading || isFetching}
+          />
+          <AdminClearFiltersButton
+            show={!isDefaultView}
+            onClear={clearUserFilters}
+            disabled={isLoading || isFetching}
+          />
+        </div>
 
-        {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
             data={users}
@@ -272,86 +293,71 @@ export default function UsersPage() {
             keyExtractor={(user) => user.id}
             emptyState={{
               icon: <UsersIcon className="w-20 h-20 text-slate-600" />,
-              title: searchTerm ? 'No users found' : 'No users yet',
-              description: searchTerm
-                ? 'Try adjusting your search terms'
-                : 'Users will appear here once they sign up on your platform',
+              title: isDefaultView ? 'No users yet' : 'No users found',
+              description: isDefaultView
+                ? 'Users will appear here once they sign up on your platform'
+                : 'Try adjusting search, status, or date joined filter.',
             }}
           />
         </div>
 
-        {/* Pagination + Rows per page */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3 text-sm text-slate-200">
-              <span>Rows per page:</span>
-              <select
-                value={rowsPerPage}
-                onChange={(e) => setRowsPerPage(Number(e.target.value) || DEFAULT_ITEMS_PER_PAGE)}
-                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                {ROWS_PER_PAGE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-              <span className="ml-4">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </span>
-            </div>
+        {!isLoading && (
+          <div className="rounded-xl p-4">
+            <AdminPaginationBar
+              showingFrom={showingFrom}
+              showingTo={showingTo}
+              totalItems={pagination.total}
+              pageSize={rowsPerPage}
+              pageSizeOptions={ROWS_PER_PAGE_OPTIONS}
+              onPageSizeChange={setRowsPerPage}
+              disabled={isFetching}
+              pagination={
+                pagination.totalPages > 0 ? (
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        />
+                      </PaginationItem>
 
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  />
-                </PaginationItem>
+                      {generatePageNumbers(
+                        currentPage,
+                        pagination.totalPages,
+                        PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
+                      ).map((page, index) => (
+                        <PaginationItem key={index}>
+                          {typeof page === 'number' ? (
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                            >
+                              {page}
+                            </PaginationLink>
+                          ) : (
+                            <PaginationEllipsis />
+                          )}
+                        </PaginationItem>
+                      ))}
 
-                {generatePageNumbers(
-                  currentPage,
-                  pagination.totalPages,
-                  PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                ).map((page, index) => (
-                  <PaginationItem key={index}>
-                    {typeof page === 'number' ? (
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                      >
-                        {page}
-                      </PaginationLink>
-                    ) : (
-                      <PaginationEllipsis />
-                    )}
-                  </PaginationItem>
-                ))}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                    }
-                    disabled={currentPage === pagination.totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() =>
+                            setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                          }
+                          disabled={currentPage === pagination.totalPages}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                ) : null
+              }
+            />
           </div>
         )}
       </div>
 
-      {/* Add Balance Modal */}
       {selectedUser && (
         <AddCoinsModal
           isOpen={showAddCoinsModal}

@@ -27,6 +27,7 @@ import {
 import { getAstrologerDashboardStats } from '../services/astrologerDashboard.service';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { getClientIp } from '../utils/request-utils';
+import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 
 /**
  * Astrologer login with phone/email and password
@@ -339,6 +340,8 @@ export async function toggleOnlineStatus(req: AuthRequest, res: Response, next: 
     } catch {
       // If socket isn't initialized, still return REST response successfully.
     }
+
+    void AdminStatsEmitter.emitOnlineAstrologersCount();
 
     return sendSuccess(res, {
       message: `You are now ${isOnline ? 'online' : 'offline'}`,

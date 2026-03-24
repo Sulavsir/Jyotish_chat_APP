@@ -55,17 +55,21 @@ export function notificationHandlers(io: Server, socket: Socket) {
     }
   );
 
-  // Mark notification as read
+  // Mark notification as read (supports both clients and astrologers)
   socket.on('notification:mark-read', async (data: { notificationId: string }) => {
     try {
+      const notification = await prisma.notification.findUnique({
+        where: { id: data.notificationId },
+        select: { userId: true, astrologerId: true },
+      });
+      if (!notification) return;
+      const belongsToUser =
+        notification.userId === user.id || notification.astrologerId === user.id;
+      if (!belongsToUser) return;
+
       await prisma.notification.update({
-        where: {
-          id: data.notificationId,
-          userId: user.id,
-        },
-        data: {
-          isRead: true,
-        },
+        where: { id: data.notificationId },
+        data: { isRead: true },
       });
 
       notificationService.invalidateUserCache(user.id);
@@ -80,7 +84,7 @@ export function notificationHandlers(io: Server, socket: Socket) {
     try {
       await prisma.notification.updateMany({
         where: {
-          userId: user.id,
+          OR: [{ userId: user.id }, { astrologerId: user.id }],
           isRead: false,
         },
         data: {

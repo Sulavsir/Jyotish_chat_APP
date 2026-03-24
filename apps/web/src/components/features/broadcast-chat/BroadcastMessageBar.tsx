@@ -533,6 +533,7 @@ export function BroadcastMessageBar() {
                       <CountdownTimer
                         createdAt={currentMessage.createdAt}
                         expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+                        expiresAt={currentMessage.expiresAt}
                         showIcon={false}
                         onExpire={() => {
                           // Re-sync with server so expiration is driven by backend status
