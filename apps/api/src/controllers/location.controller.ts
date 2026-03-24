@@ -1,5 +1,7 @@
 /**
  * Location controller – Nepal geography (provinces and districts) for place of birth
+ *
+ * Duplicate provinces are prevented by DB (partial unique index) + seed; no runtime dedupe needed.
  */
 
 import { Response } from 'express';
