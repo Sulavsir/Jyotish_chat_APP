@@ -100,6 +100,12 @@ export const errorHandler = (
         });
 
       case 'P2021':
+        // Log meta so production logs show which table Prisma expected (often not the one you inspected).
+        console.error('Prisma P2021 (table missing):', {
+          message: error.message,
+          meta: error.meta,
+          path: req.path,
+        });
         return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
           success: false,
           error: {
@@ -109,6 +115,12 @@ export const errorHandler = (
         });
 
       case 'P2022':
+        // Log meta: missing column is usually on Session, AuditLog, etc., not Astrologer — login touches those after findFirst.
+        console.error('Prisma P2022 (column missing):', {
+          message: error.message,
+          meta: error.meta,
+          path: req.path,
+        });
         return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
           success: false,
           error: {
