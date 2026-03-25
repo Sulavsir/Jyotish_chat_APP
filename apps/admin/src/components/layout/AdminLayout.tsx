@@ -26,6 +26,7 @@ import {
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES } from '@/constants';
 import { useAdminSocket } from '@/hooks';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
+import { Menu, X } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -130,6 +131,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [adminStatus, setAdminStatus] = useState<'available' | 'busy'>('available');
   const [showScrollbar, setShowScrollbar] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const scrollbarTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const { isConnected, isConnecting, error: socketError, on, off } = useAdminSocket();
 
@@ -363,13 +365,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     };
   }, []);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const navigation: Array<NavLinkItem | NavGroupItem> = [
     {
       kind: 'link',
       name: 'Dashboard',
       href: ADMIN_ROUTES.DASHBOARD,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -383,7 +394,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       kind: 'group',
       name: 'Jyotish Bookings',
       key: 'jyotish-bookings' as const,
-      icon: <DocumentIcon className="w-5 h-5" />,
+      icon: <DocumentIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
       children: [
         { name: 'Pandit Ji', href: ADMIN_ROUTES.JYOTISH_BOOKINGS_PANDIT },
         { name: 'Vaastu Shastri', href: ADMIN_ROUTES.JYOTISH_BOOKINGS_VAASTU },
@@ -394,7 +405,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       kind: 'group',
       name: 'Website',
       key: 'website' as const,
-      icon: <DocumentIcon className="w-5 h-5" />,
+      icon: <DocumentIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
       children: [
         { name: 'Website Contents', href: ADMIN_ROUTES.WEBSITE_DASHBOARD_COPY },
         { name: 'Questionnaires', href: ADMIN_ROUTES.WEBSITE_QUESTIONNAIRES },
@@ -404,7 +415,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       kind: 'group',
       key: 'astrologers' as const,
       name: 'Astrologers',
-      icon: <StarIcon className="w-5 h-5" />,
+      icon: <StarIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
       children: [
         { name: 'All Astrologers', href: ADMIN_ROUTES.ASTROLOGERS },
         { name: 'Registration Requests', href: ADMIN_ROUTES.ASTROLOGERS_REGISTRATION_REQUESTS },
@@ -414,13 +425,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       kind: 'link',
       name: 'Users',
       href: ADMIN_ROUTES.USERS,
-      icon: <UsersIcon className="w-5 h-5" />,
+      icon: <UsersIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
     },
     {
       kind: 'group',
       name: 'Chat Management',
       key: 'chat-management' as const,
-      icon: <ChatIcon className="w-5 h-5" />,
+      icon: <ChatIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
       children: [
         { name: 'Chat Monitor', href: ADMIN_ROUTES.CHATS },
         { name: 'Chat Audit', href: ADMIN_ROUTES.CHAT_AUDIT },
@@ -432,7 +443,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Complaints',
       href: ADMIN_ROUTES.COMPLAINTS,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -447,7 +463,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Appointments',
       href: ADMIN_ROUTES.APPOINTMENTS,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -462,7 +483,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Kundali Match',
       href: ADMIN_ROUTES.KUNDALI_MATCH,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -476,20 +502,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       kind: 'link',
       name: 'Audit Logs',
       href: ADMIN_ROUTES.AUDIT_LOGS,
-      icon: <DocumentIcon className="w-5 h-5" />,
+      icon: <DocumentIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
     },
     {
       kind: 'link',
       name: 'Earnings',
       href: ADMIN_ROUTES.EARNINGS,
-      icon: <MoneyIcon className="w-5 h-5" />,
+      icon: <MoneyIcon className="w-4 h-4 shrink-0 lg:w-5 lg:h-5" />,
     },
     {
       kind: 'link',
       name: 'Payment History',
       href: ADMIN_ROUTES.TRANSACTIONS,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -504,7 +535,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Balance Settings',
       href: ADMIN_ROUTES.SET_COINS,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -519,7 +555,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Pricing',
       href: ADMIN_ROUTES.PRICING,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -534,7 +575,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Daily Prediction',
       href: ADMIN_ROUTES.DAILY_PREDICTIONS,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -549,7 +595,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Horoscopes',
       href: ADMIN_ROUTES.HOROSCOPES,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -564,7 +615,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       name: 'Subha Sahit',
       href: ADMIN_ROUTES.SUBHA_SAHIT,
       icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className="w-4 h-4 shrink-0 lg:w-5 lg:h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -587,54 +643,78 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
+  const isSidebarExpanded = sidebarOpen || mobileMenuOpen;
+
   return (
     <div className="h-screen flex overflow-hidden">
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`${
-          sidebarOpen ? 'w-64' : 'w-20'
-        } transition-all duration-300 flex flex-col relative z-10 max-h-screen overflow-y-auto border border-purple-400 bg-slate-950/80 ${
+        className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:relative inset-y-0 left-0 z-40 lg:z-10 w-[min(15.5rem,72vw)] sm:w-[min(17rem,76vw)] ${
+          sidebarOpen ? 'lg:w-64' : 'lg:w-20'
+        } transition-all duration-300 flex flex-col max-h-screen overflow-y-auto border border-purple-400 bg-slate-950/95 lg:bg-slate-950/80 ${
           showScrollbar ? 'scrollbar-show' : 'scrollbar-hide'
         }`}
         onMouseEnter={handleSidebarMouseEnter}
         onMouseLeave={handleSidebarMouseLeave}
       >
         {/* Colorful vertical accent over sidebar items */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-[3px] bg-gradient-to-b from-cosmic-purple via-nebula-pink to-cosmic-purple shadow-[0_0_15px_rgba(168,85,247,0.7)]" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-0.5 lg:w-[3px] bg-gradient-to-b from-cosmic-purple via-nebula-pink to-cosmic-purple shadow-[0_0_15px_rgba(168,85,247,0.7)]" />
 
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="p-6 border-b border-purple-400">
-            <div className="flex items-center gap-3">
-              <Image
-                src={chatJyotishiLogo}
-                alt="Chat Jyotishi"
-                width={120}
-                height={40}
-                className="h-10 w-auto object-contain"
-              />
-              {sidebarOpen && (
-                <div>
-                  <h2 className="font-bold text-white">Jyotish</h2>
-                  <p className="text-xs text-slate-400 ">Admin Panel</p>
-                </div>
-              )}
+          <div className="p-3 sm:p-4 lg:p-6 border-b border-purple-400">
+            <div className="flex items-center justify-between gap-2 lg:gap-3">
+              <div className="flex items-center gap-2 min-w-0 lg:gap-3">
+                <Image
+                  src={chatJyotishiLogo}
+                  alt="Chat Jyotishi"
+                  width={120}
+                  height={40}
+                  className="h-7 w-auto object-contain sm:h-8 lg:h-10"
+                />
+                {isSidebarExpanded && (
+                  <div className="min-w-0">
+                    <h2 className="font-bold text-white text-sm sm:text-base leading-tight truncate">
+                      Jyotish
+                    </h2>
+                    <p className="text-[10px] sm:text-xs text-slate-400 leading-tight">
+                      Admin Panel
+                    </p>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 shrink-0"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-2 relative z-20">
+          <nav className="flex-1 p-2 sm:p-3 lg:p-4 space-y-0.5 sm:space-y-1 lg:space-y-2 relative z-20">
             {navigation.map((item) => {
               if (item.kind === 'group') {
                 const childActive = item.children.some((c) => pathname === c.href);
                 // Always keep the accordion open when one of its child routes is active.
                 const isOpen = childActive || openGroup === item.key;
                 return (
-                  <div key={item.name} className="space-y-1">
+                  <div key={item.name} className="space-y-0.5 lg:space-y-1">
                     <button
                       type="button"
                       onClick={() => setOpenGroup((prev) => (prev === item.key ? null : item.key))}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md sm:rounded-lg sm:gap-2.5 sm:px-3 sm:py-2.5 lg:gap-3 lg:px-4 lg:py-3 transition-all cursor-pointer ${
                         childActive
                           ? 'bg-gradient-to-r from-cosmic-purple/40 to-nebula-pink/20 text-white'
                           : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -642,7 +722,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     >
                       <span className="relative">
                         {item.icon}
-                        {item.key === 'chat-management' && (
+                        {item.key === 'chat-management' &&
                           (() => {
                             const badgeKey: SidebarBadgeKey = 'admin-chats';
                             const current = unreadCount;
@@ -651,23 +731,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                               return null;
                             }
                             return (
-                              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                              <span className="absolute -top-0.5 -right-0.5 lg:-top-1 lg:-right-1 inline-flex items-center justify-center min-w-[14px] h-[14px] lg:min-w-[18px] lg:h-[18px] px-0.5 lg:px-1 rounded-full bg-red-500 text-white text-[9px] lg:text-[10px] font-bold">
                                 {newCount > 99 ? '99+' : newCount}
                               </span>
                             );
-                          })()
-                        )}
+                          })()}
                       </span>
-                      {sidebarOpen && (
+                      {isSidebarExpanded && (
                         <>
                           <span
-                            className="font-medium flex-1 min-w-0 text-left truncate"
+                            className="font-medium flex-1 min-w-0 text-left truncate text-xs sm:text-sm lg:text-base"
                             title={item.name}
                           >
                             {item.name}
                           </span>
                           <svg
-                            className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                            className={`w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -683,8 +762,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                       )}
                     </button>
 
-                    {sidebarOpen && isOpen && (
-                      <div className="ml-6 pl-3 border-l border-slate-700 space-y-1">
+                    {isSidebarExpanded && isOpen && (
+                      <div className="ml-3 pl-2 border-l border-slate-700 space-y-0.5 sm:ml-4 sm:pl-2.5 lg:ml-6 lg:pl-3 lg:space-y-1">
                         {item.children.map((c) => {
                           const active = pathname === c.href;
                           const isAdminChats = c.href === ADMIN_ROUTES.ADMIN_CHATS;
@@ -714,7 +793,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             <Link
                               key={c.href}
                               href={c.href}
-                              className={`block px-3 py-2 rounded-md text-sm transition-colors ${
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={`block px-2 py-1.5 rounded-md text-xs sm:text-sm lg:px-3 lg:py-2 transition-colors ${
                                 active
                                   ? 'text-white bg-slate-800/60'
                                   : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
@@ -724,7 +804,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                               <div className="flex items-center justify-between gap-2">
                                 <span className="truncate min-w-0">{c.name}</span>
                                 {badgeCount > 0 && (
-                                  <span className="inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-xs font-bold">
+                                  <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 sm:min-w-[22px] sm:h-5 sm:px-1.5 rounded-full bg-emerald-500 text-white text-[10px] sm:text-xs font-bold shrink-0">
                                     {badgeCount > 99 ? '99+' : badgeCount}
                                   </span>
                                 )}
@@ -750,7 +830,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer relative ${
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-2 px-2.5 py-2 rounded-md sm:rounded-lg sm:gap-2.5 sm:px-3 sm:py-2.5 lg:gap-3 lg:px-4 lg:py-3 transition-all cursor-pointer relative ${
                     isActive
                       ? 'bg-gradient-to-r from-cosmic-purple to-nebula-pink text-white glow'
                       : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
@@ -758,45 +839,47 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   title={item.name}
                 >
                   {item.icon}
-                  {sidebarOpen && (
-                    <div className="flex items-center justify-between w-full">
-                      <span className="font-medium truncate min-w-0">{item.name}</span>
+                  {isSidebarExpanded && (
+                    <div className="flex items-center justify-between w-full min-w-0 gap-1">
+                      <span className="font-medium truncate min-w-0 text-xs sm:text-sm lg:text-base">
+                        {item.name}
+                      </span>
                       {!isActive &&
                         (() => {
-                        const sidebarKey = getSidebarBadgeKeyForRoute(item.href);
-                        if (!sidebarKey) {
-                          return null;
-                        }
-                        const currentCount = getCurrentCountForKey(sidebarKey);
-                        const newCount = getNewBadgeCount(sidebarKey, currentCount);
-                        if (newCount <= 0) {
-                          return null;
-                        }
+                          const sidebarKey = getSidebarBadgeKeyForRoute(item.href);
+                          if (!sidebarKey) {
+                            return null;
+                          }
+                          const currentCount = getCurrentCountForKey(sidebarKey);
+                          const newCount = getNewBadgeCount(sidebarKey, currentCount);
+                          if (newCount <= 0) {
+                            return null;
+                          }
 
-                        const badgeClassName = isAdminChats
-                          ? 'bg-red-500'
-                          : isComplaints
-                            ? 'bg-amber-500'
-                            : isAppointments
-                              ? 'bg-sky-500'
-                              : isKundaliMatch
-                                ? 'bg-purple-500'
-                                : isTransactions
-                                  ? 'bg-indigo-500'
-                                : isUsers
-                                  ? 'bg-emerald-500'
-                                  : 'bg-emerald-500';
+                          const badgeClassName = isAdminChats
+                            ? 'bg-red-500'
+                            : isComplaints
+                              ? 'bg-amber-500'
+                              : isAppointments
+                                ? 'bg-sky-500'
+                                : isKundaliMatch
+                                  ? 'bg-purple-500'
+                                  : isTransactions
+                                    ? 'bg-indigo-500'
+                                    : isUsers
+                                      ? 'bg-emerald-500'
+                                      : 'bg-emerald-500';
 
-                        const displayValue = newCount > 99 ? '99+' : newCount;
+                          const displayValue = newCount > 99 ? '99+' : newCount;
 
-                        return (
-                          <span
-                            className={`ml-2 inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full ${badgeClassName} text-white text-xs font-bold`}
-                          >
-                            {displayValue}
-                          </span>
-                        );
-                      })()}
+                          return (
+                            <span
+                              className={`ml-1 sm:ml-2 inline-flex items-center justify-center min-w-[18px] h-4 px-1 sm:min-w-[22px] sm:h-5 sm:px-1.5 rounded-full ${badgeClassName} text-white text-[10px] sm:text-xs font-bold shrink-0`}
+                            >
+                              {displayValue}
+                            </span>
+                          );
+                        })()}
                     </div>
                   )}
                 </Link>
@@ -808,7 +891,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <Button
             variant="ghost"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-4 border-t border-slate-700 text-slate-400 hover:text-white"
+            className="hidden lg:flex p-4 border-t border-slate-700 text-slate-400 hover:text-white"
           >
             <svg
               className={`w-6 h-6 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`}
@@ -830,19 +913,31 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="cosmic-card border-b border-slate-700 px-6 py-4">
+        <header className="cosmic-card border-b border-slate-700 px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-white">
-                Cosmic Control Center
-              </h1>
-              <p className="text-sm text-slate-400">Manage your Jyotish platform</p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                className="lg:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+              <div>
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-white">
+                  Cosmic Control Center
+                </h1>
+                <p className="hidden sm:block text-sm text-slate-400">
+                  Manage your Jyotish platform
+                </p>
+              </div>
             </div>
 
             {/* Admin Profile */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
               {/* Real-time Connection Status */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700">
                 {isConnecting ? (
                   <>
                     <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
@@ -869,7 +964,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               {/* Admin Status Toggle */}
               <button
                 onClick={toggleAdminStatus}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50 transition-colors cursor-pointer"
+                className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50 transition-colors cursor-pointer"
                 title={`Status: ${adminStatus === 'available' ? 'Available' : 'Busy'}`}
               >
                 <div
@@ -886,14 +981,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </span>
               </button>
 
-              <div className="text-right">
+              <div className="hidden md:block text-right">
                 <p className="text-sm font-medium text-white">{admin?.name}</p>
                 <p className="text-xs text-slate-400">{admin?.email}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cosmic-purple to-nebula-pink flex items-center justify-center text-white font-bold">
                 {admin?.name?.charAt(0) || 'A'}
               </div>
-              <Button variant="ghost" size="icon" onClick={handleLogoutClick} title="Logout">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleLogoutClick}
+                title="Logout"
+                className="h-9 w-9"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -908,7 +1009,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 min-w-0 overflow-auto p-6">{children}</main>
+        <main className="flex-1 min-w-0 overflow-auto p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
 
       {/* Logout Confirmation Dialog */}

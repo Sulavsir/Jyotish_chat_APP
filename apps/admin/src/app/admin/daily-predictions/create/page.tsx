@@ -83,8 +83,8 @@ export default function CreateDailyPredictionPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex items-start gap-3 sm:gap-4">
           <button
             type="button"
             onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS)}
@@ -94,29 +94,34 @@ export default function CreateDailyPredictionPage() {
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold cosmic-text">Add Daily Predictions</h1>
-            <p className="text-slate-400 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold cosmic-text">Add Daily Predictions</h1>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
               Add one or more predictions for different dates. Fill in each row and save all at once.
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSaveAll} className="space-y-6 w-full">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <div
               key={row.id}
-              className="cosmic-card p-6 space-y-4 relative"
+              className="cosmic-card p-4 sm:p-6 space-y-4 relative"
             >
-              {rows.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeRow(row.id)}
-                  className="absolute top-4 right-4 p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  aria-label="Remove row"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+              <div className="mb-2 flex min-h-[2.25rem] items-center justify-between gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-500/40 bg-purple-500/20">
+                  <span className="text-xs font-semibold text-purple-300">{index + 1}</span>
+                </div>
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(row.id)}
+                    className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    aria-label="Remove row"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-slate-200">Date <span className="text-red-400">*</span></Label>
@@ -160,30 +165,30 @@ export default function CreateDailyPredictionPage() {
                   onChange={(e) => updateRow(row.id, { text: e.target.value })}
                   rows={4}
                   placeholder="Enter the prediction / tip for this day..."
-                  className="mt-1.5 bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500"
+                  className="mt-1.5 block w-full max-w-none bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
           ))}
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={addRow}
               disabled={batchMutation.isPending}
-              className="border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+              className="w-full sm:w-auto border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add another date
             </Button>
-            <div className="flex gap-3">
+            <div className="flex gap-3 w-full sm:w-auto">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS)}
                 disabled={batchMutation.isPending}
-                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+                className="flex-1 sm:flex-none border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
               >
                 Cancel
               </Button>
@@ -192,6 +197,7 @@ export default function CreateDailyPredictionPage() {
                 isLoading={batchMutation.isPending}
                 loadingText="Saving..."
                 disabled={validRows.length === 0}
+                className="flex-1 sm:flex-none"
               >
                 Save all ({validRows.length} prediction{validRows.length !== 1 ? 's' : ''})
               </LoadingButton>

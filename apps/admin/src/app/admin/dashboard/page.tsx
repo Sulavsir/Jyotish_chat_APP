@@ -373,14 +373,16 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-5 sm:space-y-6 lg:space-y-8">
         {/* Welcome Section */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-red-400">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-red-400">
               Dashboard Overview
             </h2>
-            <p className="text-slate-400 mt-2">Welcome back! Here's what's happening today.</p>
+            <p className="text-sm sm:text-base text-slate-400 mt-1.5 sm:mt-2">
+              Welcome back! Here's what's happening today.
+            </p>
           </div>
           <LoadingButton
             onClick={() => refetch()}
@@ -388,7 +390,7 @@ export default function DashboardPage() {
             size="sm"
             isLoading={isRefetching}
             loadingText="Refreshing"
-            className="border-slate-700 text-white hover:bg-slate-800"
+            className="border-slate-700 text-white hover:bg-slate-800 self-start sm:self-auto"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -396,9 +398,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           {isLoadingStats && !stats
-            ? Array.from({ length: DASHBOARD_STAT_CARD_COUNT }).map((_, i) => (
+            ? Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="cosmic-card rounded-xl p-6">
                   <Skeleton className="h-6 w-32 mb-4" />
                   <Skeleton className="h-10 w-20" />
@@ -409,14 +411,16 @@ export default function DashboardPage() {
                   key={index}
                   type="button"
                   onClick={() => stat.route && router.push(stat.route)}
-                  className="cosmic-card rounded-xl p-6 hover:scale-105 transition-transform cursor-pointer text-left w-full"
+                  className="cosmic-card rounded-xl p-4 sm:p-5 lg:p-6 md:hover:scale-105 transition-transform cursor-pointer text-left w-full"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-slate-400 text-sm font-medium">{stat.title}</h3>
-                    {stat.icon}
+                    <h3 className="text-slate-400 text-xs sm:text-sm font-medium pr-2">
+                      {stat.title}
+                    </h3>
+                    <span className="shrink-0">{stat.icon}</span>
                   </div>
                   <p
-                    className={`text-3xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}
+                    className={`text-2xl sm:text-3xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent break-words`}
                   >
                     {stat.value}
                   </p>
@@ -426,21 +430,23 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div>
-          <h3 className="text-2xl font-bold text-white mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
             {quickActions.map((action, index) => (
               <Button
                 key={index}
                 variant="ghost"
                 onClick={() => router.push(action.route)}
-                className="cosmic-card rounded-xl p-6 h-auto text-left justify-start hover:scale-105 transition-all group"
+                className="cosmic-card rounded-xl p-4 sm:p-5 lg:p-6 h-auto text-left justify-start md:hover:scale-105 transition-all group"
               >
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     {action.icon}
-                    <h4 className="text-white font-semibold">{action.title}</h4>
+                    <h4 className="text-white font-semibold text-sm sm:text-base">
+                      {action.title}
+                    </h4>
                   </div>
-                  <p className="text-slate-400 text-sm">{action.description}</p>
+                  <p className="text-slate-400 text-xs sm:text-sm">{action.description}</p>
                 </div>
               </Button>
             ))}

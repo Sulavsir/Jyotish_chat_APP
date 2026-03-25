@@ -66,9 +66,7 @@ export default function EarningsPage() {
     },
     {
       header: 'Email',
-      accessor: (row) => (
-        <span className="text-slate-300">{row.email ?? '—'}</span>
-      ),
+      accessor: (row) => <span className="text-slate-300">{row.email ?? '—'}</span>,
     },
     {
       header: 'Phone',
@@ -109,9 +107,7 @@ export default function EarningsPage() {
       accessor: (row) => (
         <div className="flex items-center gap-1">
           <StarIcon className="w-4 h-4 text-orange-400 shrink-0" />
-          <span className="text-slate-300">
-            {row.rating != null ? row.rating.toFixed(1) : '—'}
-          </span>
+          <span className="text-slate-300">{row.rating != null ? row.rating.toFixed(1) : '—'}</span>
         </div>
       ),
     },
@@ -148,35 +144,52 @@ export default function EarningsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Earnings</h2>
-            <p className="text-slate-400 mt-1">
+      <div className="space-y-5 sm:space-y-6">
+        {/* Header — same responsive pattern as Horoscopes */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Earnings</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => refetch()}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
               Astrologer list with balance earnings (from chat, broadcast, appointment)
             </p>
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+              onClick={() => refetch()}
+              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        <Search
-          placeholder="Search by name, email or phone..."
-          value={searchTerm}
-          onSearch={(value) => {
-            setSearchTerm(value);
-            setCurrentPage(1);
-          }}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="w-full">
+          <Search
+            placeholder="Search by name, email or phone..."
+            value={searchTerm}
+            onSearch={(value) => {
+              setSearchTerm(value);
+              setCurrentPage(1);
+            }}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
@@ -197,8 +210,8 @@ export default function EarningsPage() {
         {/* Pagination - same as other admin tables */}
         {!isLoading && pagination.totalPages > 0 && (
           <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="text-sm text-white font-medium text-center sm:text-left">
                 Showing{' '}
                 <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
@@ -210,8 +223,8 @@ export default function EarningsPage() {
                 of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
-              <Pagination>
-                <PaginationContent>
+              <Pagination className="w-full overflow-x-auto">
+                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
                   <PaginationItem>
                     <PaginationPrevious
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}

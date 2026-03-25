@@ -28,9 +28,7 @@ interface BulkRow {
 export default function CreateHoroscopePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [bulkRows, setBulkRows] = useState<BulkRow[]>([
-    { id: '1', zodiacSign: '', content: '' },
-  ]);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([{ id: '1', zodiacSign: '', content: '' }]);
   const [bulkShared, setBulkShared] = useState({
     date: new Date().toISOString().slice(0, 10),
     category: 'DAILY' as HoroscopeCategory,
@@ -38,7 +36,8 @@ export default function CreateHoroscopePage() {
   });
 
   const createBulkMutation = useMutation({
-    mutationFn: (data: { horoscopes: CreateHoroscopeRequest[] }) => adminApi.horoscopes.createBulk(data),
+    mutationFn: (data: { horoscopes: CreateHoroscopeRequest[] }) =>
+      adminApi.horoscopes.createBulk(data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.ALL });
       const count = variables.horoscopes.length;
@@ -57,9 +56,7 @@ export default function CreateHoroscopePage() {
   };
 
   const updateBulkRow = (id: string, field: 'zodiacSign' | 'content', value: string) => {
-    setBulkRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
-    );
+    setBulkRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
   const onSubmitBulk = () => {
@@ -81,8 +78,8 @@ export default function CreateHoroscopePage() {
 
   return (
     <AdminLayout>
-      <div className="w-full max-w-full text-left space-y-6">
-        <div className="flex items-center gap-4">
+      <div className="w-full max-w-full text-left space-y-5 sm:space-y-6">
+        <div className="flex items-start gap-3 sm:gap-4">
           <button
             type="button"
             onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES)}
@@ -92,15 +89,16 @@ export default function CreateHoroscopePage() {
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold cosmic-text">Add Horoscope</h1>
-            <p className="text-slate-400 mt-1">
-              Add one or more rashi entries. Same date, period and language for all; add a row per Rashi.
+            <h1 className="text-2xl sm:text-3xl font-bold cosmic-text">Add Horoscope</h1>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
+              Add one or more rashi entries. Same date, period and language for all; add a row per
+              Rashi.
             </p>
           </div>
         </div>
 
-        <div className="cosmic-card p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div className="cosmic-card p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
             <div>
               <Label className="text-slate-200 text-xs">Date</Label>
               <DateInput
@@ -121,7 +119,9 @@ export default function CreateHoroscopePage() {
                 className={selectClassName}
               >
                 {HOROSCOPE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -135,7 +135,9 @@ export default function CreateHoroscopePage() {
                 className={selectClassName}
               >
                 {HOROSCOPE_LANGUAGES.map((lang) => (
-                  <option key={lang} value={lang}>{lang}</option>
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
                 ))}
               </select>
             </div>
@@ -144,9 +146,9 @@ export default function CreateHoroscopePage() {
             {bulkRows.map((row) => (
               <div
                 key={row.id}
-                className="flex flex-col sm:flex-row gap-3 items-start sm:items-center"
+                className="flex flex-col md:flex-row gap-3 items-start md:items-center"
               >
-                <div className="w-full sm:w-48 flex-shrink-0">
+                <div className="w-full md:w-44 lg:w-48 flex-shrink-0">
                   <select
                     key={`bulk-rashi-${bulkShared.language}-${row.id}`}
                     value={row.zodiacSign}
@@ -161,13 +163,13 @@ export default function CreateHoroscopePage() {
                     ))}
                   </select>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="w-full flex-1 min-w-0">
                   <Textarea
                     value={row.content}
                     onChange={(e) => updateBulkRow(row.id, 'content', e.target.value)}
                     placeholder="Content for this Rashi..."
                     rows={2}
-                    className="w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                    className="block w-full max-w-none rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-slate-500"
                   />
                 </div>
                 <Button
@@ -176,7 +178,7 @@ export default function CreateHoroscopePage() {
                   size="icon"
                   onClick={() => removeBulkRow(row.id)}
                   disabled={bulkRows.length <= 1}
-                  className="border-slate-600 text-slate-400 hover:text-red-400 shrink-0"
+                  className="border-slate-600 text-slate-400 hover:text-red-400 shrink-0 self-end md:self-auto"
                   aria-label="Remove row"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -189,7 +191,7 @@ export default function CreateHoroscopePage() {
               type="button"
               variant="outline"
               onClick={addBulkRow}
-              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2"
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
               Add row
@@ -199,6 +201,7 @@ export default function CreateHoroscopePage() {
               isLoading={createBulkMutation.isPending}
               loadingText="Creating..."
               onClick={onSubmitBulk}
+              className="w-full sm:w-auto"
             >
               Save
             </LoadingButton>

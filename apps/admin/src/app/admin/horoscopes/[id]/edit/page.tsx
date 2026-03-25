@@ -8,13 +8,7 @@ import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Label,
-  Textarea,
-  ArrowLeftIcon,
-  Button,
-  DateInput,
-} from '@jyotish/ui';
+import { Label, Textarea, ArrowLeftIcon, Button, DateInput } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { getRashiDisplayName } from '@jyotish/shared';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
@@ -28,11 +22,15 @@ const formSchema = z.object({
   zodiacSign: z
     .string()
     .min(1, 'Select a Rashi')
-    .refine((v) => (ZODIAC_SIGNS as readonly string[]).includes(v), { message: 'Select a valid Rashi' }),
+    .refine((v) => (ZODIAC_SIGNS as readonly string[]).includes(v), {
+      message: 'Select a valid Rashi',
+    }),
   category: z
     .string()
     .min(1, 'Select period')
-    .refine((v) => HOROSCOPE_CATEGORIES.includes(v as HoroscopeCategory), { message: 'Select a valid period' }),
+    .refine((v) => HOROSCOPE_CATEGORIES.includes(v as HoroscopeCategory), {
+      message: 'Select a valid period',
+    }),
   date: z.string().min(1, 'Date is required'),
   content: z.string().min(1, 'Content is required').max(50000),
   language: z.enum(HOROSCOPE_LANGUAGES as unknown as [string, ...string[]]).optional(),
@@ -87,8 +85,7 @@ export default function EditHoroscopePage() {
   }, [horoscope, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: (payload: UpdateHoroscopeRequest) =>
-      adminApi.horoscopes.update(id, payload),
+    mutationFn: (payload: UpdateHoroscopeRequest) => adminApi.horoscopes.update(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.ALL });
       toast.success('Horoscope updated');
@@ -144,9 +141,9 @@ export default function EditHoroscopePage() {
 
   return (
     <AdminLayout>
-      <div className="w-full max-w-full text-left space-y-6">
+      <div className="w-full max-w-full text-left space-y-5 sm:space-y-6">
         {/* Header - aligned from start */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-3 sm:gap-4">
           <button
             type="button"
             onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES)}
@@ -156,8 +153,8 @@ export default function EditHoroscopePage() {
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold cosmic-text">Edit Horoscope</h1>
-            <p className="text-slate-400 mt-1">
+            <h1 className="text-2xl sm:text-3xl font-bold cosmic-text">Edit Horoscope</h1>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
               {horoscope.zodiacSign} · {horoscope.category}
             </p>
           </div>
@@ -165,8 +162,8 @@ export default function EditHoroscopePage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Details row */}
-          <div className="cosmic-card p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="cosmic-card p-4 sm:p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <div className="space-y-1.5">
                 <Label htmlFor="zodiacSign" className="text-slate-200">
                   Rashi <span className="text-red-400">*</span>
@@ -180,14 +177,15 @@ export default function EditHoroscopePage() {
                 >
                   {ZODIAC_SIGNS.map((s) => (
                     <option key={s} value={s}>
-                      {getRashiDisplayName(s, (watch('language') ?? 'NEPALI') as QuestionnaireLanguage)}
+                      {getRashiDisplayName(
+                        s,
+                        (watch('language') ?? 'NEPALI') as QuestionnaireLanguage
+                      )}
                     </option>
                   ))}
                 </select>
                 {errors.zodiacSign && (
-                  <p className="text-red-400 text-sm mt-1">
-                    {errors.zodiacSign.message}
-                  </p>
+                  <p className="text-red-400 text-sm mt-1">{errors.zodiacSign.message}</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -207,9 +205,7 @@ export default function EditHoroscopePage() {
                   ))}
                 </select>
                 {errors.category && (
-                  <p className="text-red-400 text-sm mt-1">
-                    {errors.category.message}
-                  </p>
+                  <p className="text-red-400 text-sm mt-1">{errors.category.message}</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -223,23 +219,17 @@ export default function EditHoroscopePage() {
                   iconClassName="text-purple-400"
                   nepaliDate
                 />
-                {errors.date && (
-                  <p className="text-red-400 text-sm mt-1">
-                    {errors.date.message}
-                  </p>
-                )}
+                {errors.date && <p className="text-red-400 text-sm mt-1">{errors.date.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="language" className="text-slate-200">
                   Language
                 </Label>
-                <select
-                  id="language"
-                  {...register('language')}
-                  className={selectClassName}
-                >
+                <select id="language" {...register('language')} className={selectClassName}>
                   {HOROSCOPE_LANGUAGES.map((lang) => (
-                    <option key={lang} value={lang}>{lang}</option>
+                    <option key={lang} value={lang}>
+                      {lang}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -247,16 +237,16 @@ export default function EditHoroscopePage() {
           </div>
 
           {/* Content */}
-          <div className="cosmic-card p-6">
+          <div className="cosmic-card p-4 sm:p-6">
             <Label htmlFor="content" className="text-slate-200">
               Horoscope text <span className="text-red-400">*</span>
             </Label>
             <Textarea
               id="content"
               {...register('content')}
-              rows={14}
+              rows={12}
               placeholder="Enter the horoscope prediction..."
-              className="mt-1.5 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-4 py-3 text-sm text-white placeholder:text-slate-500 hover:border-purple-400/50 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 resize-y min-h-[280px]"
+              className="mt-1.5 block w-full max-w-none rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-4 py-3 text-sm text-white placeholder:text-slate-500 hover:border-purple-400/50 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 resize-y min-h-[280px]"
               aria-invalid={!!errors.content}
             />
             {errors.content && (
@@ -279,6 +269,7 @@ export default function EditHoroscopePage() {
               type="submit"
               isLoading={updateMutation.isPending}
               loadingText="Saving..."
+              className="w-full sm:w-auto"
             >
               Update horoscope
             </LoadingButton>

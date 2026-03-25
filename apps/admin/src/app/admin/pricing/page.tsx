@@ -48,7 +48,11 @@ export default function PricingManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch all pricing plans with TanStack Query
-  const { data: plansData, isLoading, refetch } = useQuery({
+  const {
+    data: plansData,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.PRICING.LIST(),
     queryFn: () => adminApi.pricing.getAll(),
   });
@@ -229,25 +233,44 @@ export default function PricingManagementPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold cosmic-text">Pricing Management</h1>
-            <p className="text-slate-400 mt-1">Manage pricing plans and offers</p>
+      <div className="space-y-5 sm:space-y-6">
+        {/* Header — same responsive pattern as Horoscopes: mobile Refresh beside title; sm+ actions row */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">
+                Pricing Management
+              </h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => refetch()}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
+              Manage pricing plans and offers
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
             <Button
-              onClick={() => refetch()}
               variant="outline"
               size="sm"
               disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
+              onClick={() => refetch()}
+              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => router.push(ADMIN_ROUTES.PRICING_CREATE)} className="gap-2">
+            <Button
+              onClick={() => router.push(ADMIN_ROUTES.PRICING_CREATE)}
+              className="gap-2 w-full sm:w-auto"
+            >
               <PlusIcon className="w-4 h-4" />
               Create Plan
             </Button>
@@ -255,11 +278,13 @@ export default function PricingManagementPage() {
         </div>
 
         {/* Search */}
-        <Search
-          placeholder="Search pricing plans..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <div className="w-full">
+          <Search
+            placeholder="Search pricing plans..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
         {/* Table */}
         <div className="cosmic-card overflow-hidden">
@@ -286,7 +311,7 @@ export default function PricingManagementPage() {
 
         {/* Stats */}
         {!isLoading && filteredPlans.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div className="cosmic-card p-4">
               <div className="text-sm text-slate-400">Total Plans</div>
               <div className="text-2xl font-bold text-white mt-1">{plans.length}</div>

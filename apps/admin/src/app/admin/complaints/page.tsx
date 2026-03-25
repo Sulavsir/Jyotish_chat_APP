@@ -37,7 +37,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn, ComplaintStatusFilter, type ComplaintFilterValue } from '@/components/admin';
+import {
+  AdminTable,
+  type AdminTableColumn,
+  ComplaintStatusFilter,
+  type ComplaintFilterValue,
+} from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -100,7 +105,7 @@ export default function ComplaintsPage() {
     queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage],
     queryFn: () =>
       adminApi.complaints.getComplaints({
-        status: filterStatus === 'ALL' ? undefined : filterStatus as ComplaintStatus,
+        status: filterStatus === 'ALL' ? undefined : (filterStatus as ComplaintStatus),
         limit: ITEMS_PER_PAGE,
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
@@ -384,25 +389,43 @@ export default function ComplaintsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">User Complaints</h2>
-            <p className="text-slate-400 mt-1">Real-time monitoring of all user complaints</p>
+      <div className="space-y-5 sm:space-y-6">
+        {/* Header — same responsive pattern as Appointments / Horoscopes */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">
+                User Complaints
+              </h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => refetch()}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
+              Real-time monitoring of all user complaints
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <ComplaintStatusFilter
-              value={filterStatus}
-              onChange={setFilterStatus}
-              disabled={isLoading}
-            />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+            <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
+              <ComplaintStatusFilter
+                value={filterStatus}
+                onChange={setFilterStatus}
+                disabled={isLoading}
+              />
+            </div>
             <Button
-              onClick={() => refetch()}
               variant="outline"
               size="sm"
               disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
+              onClick={() => refetch()}
+              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
@@ -411,7 +434,7 @@ export default function ComplaintsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="cosmic-card rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -468,8 +491,8 @@ export default function ComplaintsPage() {
         {/* Pagination */}
         {!isLoading && pagination.totalPages > 0 && (
           <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="text-sm text-white font-medium text-center sm:text-left">
                 Showing{' '}
                 <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (currentPage - 1) * pagination.limit + 1}
@@ -481,8 +504,8 @@ export default function ComplaintsPage() {
                 of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
-              <Pagination>
-                <PaginationContent>
+              <Pagination className="w-full overflow-x-auto">
+                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
                   <PaginationItem>
                     <PaginationPrevious
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
@@ -526,26 +549,30 @@ export default function ComplaintsPage() {
 
       {/* Detail Modal */}
       {showDetailModal && selectedComplaint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="cosmic-card rounded-xl shadow-2xl max-w-3xl w-full my-8 flex flex-col border border-slate-700 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="cosmic-card rounded-xl shadow-2xl w-[calc(100vw-1.5rem)] sm:w-full max-w-3xl my-4 sm:my-8 flex flex-col border border-slate-700 overflow-hidden max-h-[min(92vh,calc(100dvh-2rem))]">
             {/* Header */}
-            <div className="flex items-start justify-between p-6 border-b border-slate-700 flex-shrink-0">
-              <div>
-                <h3 className="text-xl font-bold text-white">Complaint Details</h3>
-                <p className="text-sm text-slate-400 mt-1">ID: {selectedComplaint.id}</p>
+            <div className="flex items-start justify-between gap-3 p-4 sm:p-6 border-b border-slate-700 flex-shrink-0">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg sm:text-xl font-bold text-white">Complaint Details</h3>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 break-all">
+                  ID: {selectedComplaint.id}
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowDetailModal(false)}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-white transition-colors shrink-0 p-1"
+                aria-label="Close"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6 overflow-y-auto flex-1 max-h-[calc(100vh-300px)]">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
               {/* Status and Priority */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-slate-300">Status</Label>
                   <Badge className={`${COMPLAINT_STATUS_COLORS[selectedComplaint.status]} mt-1`}>
@@ -571,7 +598,7 @@ export default function ComplaintsPage() {
               </div>
 
               {/* Client & Astrologer */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-slate-300">Client</Label>
                   <div className="mt-2 flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700">
@@ -714,11 +741,11 @@ export default function ComplaintsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex gap-3 p-6 border-t border-slate-700 bg-slate-800/30 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 p-4 sm:p-6 border-t border-slate-700 bg-slate-800/30 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={() => setShowDetailModal(false)}
-                className="border-slate-700 text-white hover:bg-slate-800"
+                className="border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto order-last sm:order-first"
               >
                 Close
               </Button>
@@ -728,7 +755,7 @@ export default function ComplaintsPage() {
                     <LoadingButton
                       onClick={() => handleUpdateStatus(ComplaintStatus.IN_REVIEW)}
                       isLoading={updateStatusMutation.isPending}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                      className="bg-blue-500 hover:bg-blue-600 text-white w-full sm:w-auto"
                       disabled={selectedComplaint.status === ComplaintStatus.IN_REVIEW}
                     >
                       Mark as In Review
@@ -736,7 +763,7 @@ export default function ComplaintsPage() {
                     <LoadingButton
                       onClick={handleResolve}
                       isLoading={resolveMutation.isPending}
-                      className="bg-green-500 hover:bg-green-600 text-white"
+                      className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto"
                       disabled={!resolution.trim()}
                     >
                       Resolve
@@ -744,7 +771,7 @@ export default function ComplaintsPage() {
                     <LoadingButton
                       onClick={handleDismiss}
                       isLoading={dismissMutation.isPending}
-                      className="bg-red-500 hover:bg-red-600 text-white"
+                      className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
                       disabled={!adminNotes.trim()}
                     >
                       Dismiss

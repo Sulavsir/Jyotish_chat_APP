@@ -5,7 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input } from '@jyotish/ui';
+import {
+  Button,
+  DateInput,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Input,
+} from '@jyotish/ui';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, PAGINATION_DEFAULTS } from '@/constants';
 import type { ListSubhaSahitDatesParams, SubhaSahitDate } from '@/types';
 import { AdminTable, type AdminTableColumn } from '@/components/admin';
@@ -82,11 +92,7 @@ export default function SubhaSahitPage() {
   const columns: AdminTableColumn<SubhaSahitDate>[] = [
     {
       header: 'Date',
-      accessor: (date) => (
-        <span className="text-slate-300">
-          {formatAdminDate(date.date)}
-        </span>
-      ),
+      accessor: (date) => <span className="text-slate-300">{formatAdminDate(date.date)}</span>,
     },
     {
       header: 'Occasion',
@@ -99,9 +105,7 @@ export default function SubhaSahitPage() {
     {
       header: 'Language',
       accessor: (date) => (
-        <span className="text-xs text-slate-400 uppercase">
-          {date.language ?? 'EN'}
-        </span>
+        <span className="text-xs text-slate-400 uppercase">{date.language ?? 'EN'}</span>
       ),
     },
     {
@@ -115,11 +119,13 @@ export default function SubhaSahitPage() {
     {
       header: 'Status',
       accessor: (date) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          date.isActive
-            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-            : 'bg-red-500/20 text-red-400 border border-red-500/30'
-        }`}>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            date.isActive
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+          }`}
+        >
           {date.isActive ? 'Active' : 'Inactive'}
         </span>
       ),
@@ -169,19 +175,35 @@ export default function SubhaSahitPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Subha Sahit Dates</h1>
-            <p className="text-slate-400">Manage auspicious dates for Pandit Ji bookings</p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+          <div className="min-w-0 w-full lg:flex-1 lg:min-w-0">
+            <div className="flex items-start justify-between gap-2 sm:items-center">
+              <h1 className="min-w-0 flex-1 text-2xl sm:text-3xl font-bold leading-tight text-white break-words">
+                Subha Sahit Dates
+              </h1>
+              <Button
+                variant="outline"
+                onClick={() => refetch()}
+                disabled={isLoading}
+                size="sm"
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto lg:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
+              Manage auspicious dates for Pandit Ji bookings
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex w-full shrink-0 flex-col gap-2 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2">
             <Button
               variant="outline"
               onClick={() => refetch()}
               disabled={isLoading}
               size="sm"
-              className="border-slate-700 text-white hover:bg-slate-800"
+              className="hidden lg:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full lg:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
               Refresh
@@ -190,14 +212,14 @@ export default function SubhaSahitPage() {
               variant="outline"
               onClick={() => setIsOccasionModalOpen(true)}
               size="sm"
-              className="border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+              className="border-purple-500/40 text-purple-300 hover:bg-purple-500/10 w-full lg:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Occasion
             </Button>
             <Button
               onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
-              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 w-full lg:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Dates
@@ -205,7 +227,7 @@ export default function SubhaSahitPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <div className="space-y-1.5">
             <Label className="text-slate-200">Filter by Occasion</Label>
             <select
@@ -275,7 +297,12 @@ export default function SubhaSahitPage() {
             showSerialNumber
             emptyState={{
               icon: (
-                <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-12 h-12 text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -284,30 +311,36 @@ export default function SubhaSahitPage() {
                   />
                 </svg>
               ),
-              title: occasionFilter || dateFrom || dateTo ? 'No Subha Sahit dates found' : 'No Subha Sahit dates',
-              description: occasionFilter || dateFrom || dateTo
-                ? 'Try adjusting your filters'
-                : 'Add auspicious dates for Pandit Ji bookings.',
+              title:
+                occasionFilter || dateFrom || dateTo
+                  ? 'No Subha Sahit dates found'
+                  : 'No Subha Sahit dates',
+              description:
+                occasionFilter || dateFrom || dateTo
+                  ? 'Try adjusting your filters'
+                  : 'Add auspicious dates for Pandit Ji bookings.',
             }}
           />
         </div>
 
         {/* Pagination */}
         {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
+          <div className="rounded-xl p-3 sm:p-4">
+            <div className="flex flex-col gap-3 items-center justify-between">
+              <div className="text-xs sm:text-sm text-white font-medium text-center px-2">
+                Showing{' '}
+                <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
+                </span>{' '}
+                to{' '}
                 <span className="text-purple-400">
                   {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
+                </span>{' '}
+                of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
-              <Pagination>
-                <PaginationContent>
+              <Pagination className="w-full overflow-x-auto">
+                <PaginationContent className="flex-wrap justify-center gap-1">
                   <PaginationItem>
                     <PaginationPrevious
                       onClick={() => setPage((prev) => Math.max(1, prev - 1))}
@@ -348,7 +381,7 @@ export default function SubhaSahitPage() {
       </div>
 
       <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
-        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-purple-600/40 text-white max-w-md shadow-2xl shadow-purple-900/40">
+        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-purple-600/40 text-white w-[92vw] max-w-md max-h-[90dvh] overflow-y-auto shadow-2xl shadow-purple-900/40 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-purple-100">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-600/30 border border-purple-500/60">
@@ -378,14 +411,23 @@ export default function SubhaSahitPage() {
               </select>
             </div>
             <p className="text-xs text-slate-400">
-              This occasion will appear in all Subha Sahit dropdowns and filters, and can be used while creating dates and booking Pandit Ji.
+              This occasion will appear in all Subha Sahit dropdowns and filters, and can be used
+              while creating dates and booking Pandit Ji.
             </p>
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setIsOccasionModalOpen(false)} className="border-slate-700">
+          <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsOccasionModalOpen(false)}
+              className="border-slate-700 w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddOccasion} disabled={!newOccasion.trim()}>
+            <Button
+              onClick={handleAddOccasion}
+              disabled={!newOccasion.trim()}
+              className="w-full sm:w-auto"
+            >
               Add Occasion
             </Button>
           </DialogFooter>

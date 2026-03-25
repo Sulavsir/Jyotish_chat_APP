@@ -227,37 +227,51 @@ export default function AuditLogsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Audit Logs</h2>
-            <p className="text-slate-400 mt-1">
+      <div className="space-y-5 sm:space-y-6">
+        {/* Header — same responsive pattern as Horoscopes */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Audit Logs</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                onClick={loadLogs}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
               Track all activities and changes on the platform
               {isConnected && <span className="ml-2 text-green-400">• Live</span>}
             </p>
           </div>
-          <Button
-            onClick={loadLogs}
-            variant="outline"
-            size="sm"
-            disabled={loading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={loadLogs}
+              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {/* Search Bar */}
-        <Search
-          placeholder="Search by action, resource, user name, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="w-full">
+          <Search
+            placeholder="Search by action, resource, user name, or phone..."
+            value={searchTerm}
+            onSearch={setSearchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
-        {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
             data={paginatedLogs}
@@ -276,52 +290,51 @@ export default function AuditLogsPage() {
           />
         </div>
 
-        {/* Pagination */}
-      </div>
-      {!loading && filteredLogs.length > 0 && (
-        <div className="rounded-xl p-4">
-          <div className="flex flex-col gap-2 items-center justify-between">
-            <div className="text-sm text-white font-medium">
-              Showing <span className="text-purple-400">{startIndex + 1}</span> to{' '}
-              <span className="text-purple-400">{Math.min(endIndex, filteredLogs.length)}</span> of{' '}
-              <span className="text-purple-400">{filteredLogs.length}</span> entries
-            </div>
+        {!loading && filteredLogs.length > 0 && (
+          <div className="rounded-xl p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="text-sm text-white font-medium text-center sm:text-left">
+                Showing <span className="text-purple-400">{startIndex + 1}</span> to{' '}
+                <span className="text-purple-400">{Math.min(endIndex, filteredLogs.length)}</span>{' '}
+                of <span className="text-purple-400">{filteredLogs.length}</span> entries
+              </div>
 
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  />
-                </PaginationItem>
-
-                {getPageNumbers().map((page, index) => (
-                  <PaginationItem key={index}>
-                    {typeof page === 'number' ? (
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                      >
-                        {page}
-                      </PaginationLink>
-                    ) : (
-                      <PaginationEllipsis />
-                    )}
+              <Pagination className="w-full overflow-x-auto">
+                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
                   </PaginationItem>
-                ))}
 
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                  {getPageNumbers().map((page, index) => (
+                    <PaginationItem key={index}>
+                      {typeof page === 'number' ? (
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      ) : (
+                        <PaginationEllipsis />
+                      )}
+                    </PaginationItem>
+                  ))}
+
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </AdminLayout>
   );
 }

@@ -119,35 +119,35 @@ export default function CreateSubhaSahitPage() {
 
   return (
     <AdminLayout>
-      <div className="w-full min-h-screen">
+      <div className="w-full max-w-full min-w-0">
         {/* Header */}
-        <div className="mb-10">
+        <div className="mb-6 sm:mb-10">
           <button
             type="button"
             onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT)}
-            className="p-2 rounded-lg text-slate-400 hover:text-purple-300 hover:bg-purple-500/15 transition-all duration-300 mb-4 inline-flex"
+            className="p-2 rounded-lg text-slate-400 hover:text-purple-300 hover:bg-purple-500/15 transition-all duration-300 mb-3 sm:mb-4 inline-flex"
             aria-label="Back to Subha Sahit"
           >
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-purple-400" />
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-300 via-purple-200 to-purple-400 bg-clip-text text-transparent">
+            <div className="flex items-start gap-2 sm:items-center">
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400 shrink-0 mt-1 sm:mt-0" />
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-300 via-purple-200 to-purple-400 bg-clip-text text-transparent leading-tight">
                 Add Auspicious Dates
               </h1>
             </div>
-            <p className="text-slate-400 text-lg">
+            <p className="text-slate-400 text-sm sm:text-base lg:text-lg">
               Create sacred moments. Each date holds its own occasion and story.
             </p>
-            <div className="mt-4 inline-flex items-center gap-3 rounded-full border border-purple-500/40 bg-slate-900/60 px-4 py-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+            <div className="mt-3 sm:mt-4 flex w-full sm:inline-flex sm:w-auto items-center gap-3 rounded-full border border-purple-500/40 bg-slate-900/60 px-3 sm:px-4 py-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-300 shrink-0">
                 Language
               </span>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as 'en' | 'ne' | 'hi')}
-                className="bg-transparent text-sm text-purple-200 focus:outline-none"
+                className="min-w-0 flex-1 sm:flex-none bg-transparent text-sm text-purple-200 focus:outline-none"
               >
                 <option value="en">English</option>
                 <option value="ne">नेपाली (Nepali)</option>
@@ -164,31 +164,37 @@ export default function CreateSubhaSahitPage() {
             {rows.map((row, index) => (
               <div
                 key={row.id}
-                className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/30 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-900/20 transition-all duration-300 overflow-hidden"
+                className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/30 border border-purple-500/20 rounded-2xl p-4 sm:p-6 lg:p-8 backdrop-blur-sm hover:border-purple-500/40 hover:shadow-2xl hover:shadow-purple-900/20 transition-all duration-300 overflow-hidden"
               >
                 {/* Animated background gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-600/0 via-transparent to-slate-600/0 opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none" />
 
-                {/* Card number badge */}
-                <div className="absolute top-4 left-4 w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-purple-300">{index + 1}</span>
+                {/* Section index + delete — in flow so labels/inputs never overlap */}
+                <div className="relative z-10 mb-4 flex min-h-[2.25rem] items-center justify-between gap-3 sm:mb-5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-500/40 bg-purple-500/20">
+                      <span className="text-xs font-semibold text-purple-300">{index + 1}</span>
+                    </div>
+                    <span className="sr-only">
+                      Date entry {index + 1} of {rows.length}
+                    </span>
+                  </div>
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.id)}
+                      className="shrink-0 rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-500/15 hover:text-red-300"
+                      aria-label="Remove this date"
+                      title="Remove this date"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  )}
                 </div>
-
-                {rows.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeRow(row.id)}
-                    className="absolute top-4 right-4 p-2.5 rounded-lg text-slate-400 bg-slate-800/0 hover:bg-red-500/15 hover:text-red-300 transition-all duration-300 opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
-                    aria-label="Remove row"
-                    title="Remove this date"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                )}
 
                 <div className="relative z-10 space-y-6">
                   {/* Date and Occasion Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-3">
                       <Label className="text-slate-200 font-semibold text-sm flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-purple-400" />
@@ -259,7 +265,7 @@ export default function CreateSubhaSahitPage() {
                       onChange={(e) => updateRow(row.id, { description: e.target.value })}
                       rows={3}
                       placeholder="Share details about this sacred occasion..."
-                      className="w-full bg-slate-900/40 border-2 border-purple-500/20 text-white placeholder-slate-500 rounded-lg py-3 px-4 focus:border-purple-500/60 focus:bg-slate-900/60 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 resize-none text-sm"
+                      className="block w-full max-w-none bg-slate-900/40 border-2 border-purple-500/20 text-white placeholder-slate-500 rounded-lg py-3 px-4 focus:border-purple-500/60 focus:bg-slate-900/60 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all duration-300 resize-y text-sm"
                     />
                   </div>
                 </div>
@@ -268,7 +274,7 @@ export default function CreateSubhaSahitPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-700/50">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-slate-700/50">
             <Button
               type="button"
               variant="outline"
@@ -303,7 +309,7 @@ export default function CreateSubhaSahitPage() {
         </form>
 
         <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
-          <DialogContent className="bg-slate-900 border border-purple-500/30">
+          <DialogContent className="bg-slate-900 border border-purple-500/30 w-[92vw] max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-slate-100">Add Occasion for Selected Language</DialogTitle>
             </DialogHeader>
@@ -329,12 +335,12 @@ export default function CreateSubhaSahitPage() {
                 />
               </div>
             </div>
-            <DialogFooter className="flex justify-end gap-2">
+            <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsOccasionModalOpen(false)}
-                className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                className="border-slate-600 text-slate-300 hover:bg-slate-800 w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -342,7 +348,7 @@ export default function CreateSubhaSahitPage() {
                 type="button"
                 onClick={handleAddOccasionInline}
                 disabled={!newOccasion.trim()}
-                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Save Occasion

@@ -122,49 +122,66 @@ export default function AdminHoroscopesPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold cosmic-text">Horoscopes</h1>
-            <p className="text-slate-400 mt-1">Manage daily, weekly, monthly and yearly horoscope content by Rashi</p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Horoscopes</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => refetch()}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
+              Manage daily, weekly, monthly and yearly horoscope content by Rashi
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
             <Button
               variant="outline"
               size="sm"
               disabled={isLoading}
               onClick={() => refetch()}
-              className="border-slate-700 text-white hover:bg-slate-800"
+              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE)} className="gap-2">
+            <Button
+              onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE)}
+              className="gap-2 w-full sm:w-auto"
+            >
               <Plus className="w-4 h-4" />
               Add Horoscope
             </Button>
           </div>
         </div>
 
-        <div className="cosmic-card p-4 flex flex-wrap gap-4 items-end">
-          <div>
+        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end">
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Category</Label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as HoroscopeCategory)}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               {HOROSCOPE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Rashi</Label>
             <select
               value={zodiacFilter}
               onChange={(e) => setZodiacFilter(e.target.value)}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               <option value="">All</option>
               {ZODIAC_SIGNS.map((s) => (
@@ -172,12 +189,12 @@ export default function AdminHoroscopesPage() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Language</Label>
             <select
               value={languageFilter}
               onChange={(e) => setLanguageFilter(e.target.value as HoroscopeLanguage | '')}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[120px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               <option value="">All</option>
               <option value="NEPALI">NEPALI</option>
@@ -185,22 +202,22 @@ export default function AdminHoroscopesPage() {
               <option value="ENGLISH">ENGLISH</option>
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Date from</Label>
             <DateInput
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
+              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
               nepaliDate
             />
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Date to</Label>
             <DateInput
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
+              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
               nepaliDate
             />
@@ -227,7 +244,7 @@ export default function AdminHoroscopesPage() {
         </div>
 
         {pagination && pagination.totalPages > 1 && (
-          <div className="flex justify-center gap-2">
+          <div className="flex flex-wrap justify-center items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -237,7 +254,7 @@ export default function AdminHoroscopesPage() {
             >
               Previous
             </Button>
-            <span className="flex items-center px-4 text-slate-400 text-sm">
+            <span className="flex items-center px-2 sm:px-4 text-slate-400 text-xs sm:text-sm text-center">
               Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
             </span>
             <Button

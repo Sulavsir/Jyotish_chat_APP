@@ -203,26 +203,41 @@ export default function KundaliMatchPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Kundali Match</h2>
-            <p className="text-slate-400 mt-1">
+      <div className="space-y-5 sm:space-y-6">
+        {/* Header — same responsive pattern as Horoscopes */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Kundali Match</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => refetch()}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
               Review requests and send the kundali match report (text) to the user.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <KundaliMatchStatusFilter
-              value={statusFilter}
-              onChange={setStatusFilter}
-              disabled={isLoading}
-            />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+            <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
+              <KundaliMatchStatusFilter
+                value={statusFilter}
+                onChange={setStatusFilter}
+                disabled={isLoading}
+              />
+            </div>
             <Button
-              onClick={() => refetch()}
               variant="outline"
               size="sm"
               disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
+              onClick={() => refetch()}
+              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
@@ -254,8 +269,8 @@ export default function KundaliMatchPage() {
         {/* Pagination - same pattern as admin/appointments */}
         {!isLoading && !error && pagination.total > 0 && (
           <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <div className="text-sm text-white font-medium text-center sm:text-left">
                 Showing{' '}
                 <span className="text-purple-400">
                   {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
@@ -267,8 +282,8 @@ export default function KundaliMatchPage() {
                 of <span className="text-purple-400">{pagination.total}</span> entries
               </div>
 
-              <Pagination>
-                <PaginationContent>
+              <Pagination className="w-full overflow-x-auto">
+                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
                   <PaginationItem>
                     <PaginationPrevious
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
@@ -308,7 +323,7 @@ export default function KundaliMatchPage() {
 
       {/* View detail modal */}
       <Dialog open={!!viewModalRequest} onOpenChange={(open) => !open && setViewModalRequest(null)}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-slate-900 border-slate-700 text-white w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto sm:w-full">
           <DialogHeader>
             <DialogTitle>Kundali Match Request</DialogTitle>
           </DialogHeader>
@@ -324,7 +339,7 @@ export default function KundaliMatchPage() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-slate-400 font-medium mb-1">Boy&apos;s details</p>
                   <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3 space-y-1">
@@ -400,7 +415,7 @@ export default function KundaliMatchPage() {
         open={!!reviewModalRequest}
         onOpenChange={(open) => !open && setReviewModalRequest(null)}
       >
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogContent className="bg-slate-900 border-slate-700 text-white w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] flex flex-col overflow-hidden sm:w-full">
           <DialogHeader className="shrink-0">
             <DialogTitle>Send Kundali Match Review</DialogTitle>
           </DialogHeader>
@@ -417,10 +432,10 @@ export default function KundaliMatchPage() {
               className="bg-slate-800 border-slate-600 text-white min-h-[200px] max-h-[50vh] !overflow-y-auto resize-y block"
             />
           </div>
-          <DialogFooter className="shrink-0 border-t border-slate-700 pt-4 mt-4">
+          <DialogFooter className="shrink-0 border-t border-slate-700 pt-4 mt-4 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="ghost"
-              className="text-slate-400"
+              className="text-slate-400 w-full sm:w-auto"
               onClick={() => setReviewModalRequest(null)}
             >
               Cancel
@@ -430,7 +445,7 @@ export default function KundaliMatchPage() {
               loading={submitReviewMutation.isPending}
               loadingText="Sending..."
               disabled={reviewMessage.trim().length < 10}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto"
             >
               Send review
             </LoadingButton>

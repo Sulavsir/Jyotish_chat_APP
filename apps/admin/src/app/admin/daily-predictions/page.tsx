@@ -60,7 +60,11 @@ export default function DailyPredictionsPage() {
       header: 'Date',
       accessor: (tip) => (
         <span className="text-slate-300">
-          {new Date(tip.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          {new Date(tip.date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
         </span>
       ),
     },
@@ -122,75 +126,96 @@ export default function DailyPredictionsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold cosmic-text">Daily Predictions</h1>
-            <p className="text-slate-400 mt-1">
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+          <div className="min-w-0 w-full lg:flex-1 lg:min-w-0">
+            <div className="flex items-start justify-between gap-2 sm:items-center">
+              <h1 className="min-w-0 flex-1 text-2xl sm:text-3xl font-bold cosmic-text leading-tight break-words">
+                Daily Predictions
+              </h1>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={() => refetch()}
+                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto lg:hidden"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">
               Manage daily dashboard predictions (tips) by date, language and audience.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full shrink-0 flex-col gap-2 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2">
             <Button
               variant="outline"
               size="sm"
               disabled={isLoading}
               onClick={() => refetch()}
-              className="border-slate-700 text-white hover:bg-slate-800"
+              className="hidden lg:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full lg:w-auto"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE)} className="gap-2">
+            <Button
+              onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE)}
+              className="gap-2 w-full lg:w-auto"
+            >
               <Plus className="w-4 h-4" />
               Add Predictions
             </Button>
           </div>
         </div>
 
-        <div className="cosmic-card p-4 flex flex-wrap gap-4 items-end">
-          <div>
+        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-end">
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Language</Label>
             <select
               value={languageFilter}
               onChange={(e) => setLanguageFilter(e.target.value as QuestionnaireLanguage | '')}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               <option value="">All</option>
               {QUESTIONNAIRE_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>{lang}</option>
+                <option key={lang} value={lang}>
+                  {lang}
+                </option>
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Audience</Label>
             <select
               value={audienceFilter}
               onChange={(e) => setAudienceFilter(e.target.value as TipAudience | '')}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               <option value="">All</option>
               {TIP_AUDIENCES.map((aud) => (
-                <option key={aud} value={aud}>{aud}</option>
+                <option key={aud} value={aud}>
+                  {aud}
+                </option>
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Date from</Label>
             <DateInput
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
+              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
               nepaliDate
             />
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Date to</Label>
             <DateInput
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
+              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
               nepaliDate
             />
@@ -209,7 +234,10 @@ export default function DailyPredictionsPage() {
                 ? 'Try adjusting filters'
                 : 'No daily predictions yet. Add your first entry.',
               action: !hasFilters
-                ? { label: 'Add Predictions', onClick: () => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE) }
+                ? {
+                    label: 'Add Predictions',
+                    onClick: () => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE),
+                  }
                 : undefined,
               icon: <></>,
             }}
@@ -217,7 +245,7 @@ export default function DailyPredictionsPage() {
         </div>
 
         {pagination && pagination.totalPages > 1 && (
-          <div className="flex justify-center gap-2">
+          <div className="flex flex-wrap justify-center items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -227,7 +255,7 @@ export default function DailyPredictionsPage() {
             >
               Previous
             </Button>
-            <span className="flex items-center px-4 text-slate-400 text-sm">
+            <span className="flex items-center px-2 sm:px-4 text-slate-400 text-xs sm:text-sm text-center">
               Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
             </span>
             <Button
