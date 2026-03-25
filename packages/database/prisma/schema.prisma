@@ -143,7 +143,11 @@ model Astrologer {
   approvedBy                    String? // Admin ID who approved/rejected
   approvedAt                    DateTime? // When approval/rejection happened
   rejectionReason               String? // Reason if rejected
-  commissionRate               Float                 @default(0.0) // Percentage (e.g., 20.0 for 20%)
+  chatMessageCommissionPercent       Float                 @default(10.0)
+  broadcastMessageCommissionPercent  Float                 @default(10.0)
+  firstBroadcastCommissionPercent    Float                 @default(10.0)
+  kundaliReviewCommissionPercent     Float                 @default(10.0)
+  appointmentCommissionPercent       Float                 @default(10.0)
   bankAccountDetails           Json? // Store bank info securely
   documentVerification         Json? // Store verification documents metadata
   availabilitySchedule         Json? // Store weekly schedule
