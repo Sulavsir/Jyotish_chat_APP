@@ -28,8 +28,9 @@
     "db:push": "pnpm --filter database db:push",
     "db:migrate": "pnpm --filter database db:migrate",
     "db:migrate:create": "pnpm --filter database db:migrate:create",
+    "db:migrate:deploy": "pnpm --filter database db:migrate:deploy",
     "db:migrate:status": "pnpm --filter database db:migrate:status",
-    "db:migrate:reset": "pnpm --filter database db:migrate:reset",
+    "db:migrate:baseline-to-nepal-geography": "pnpm --filter database db:migrate:baseline-to-nepal-geography",
     "db:studio": "pnpm --filter database db:studio",
     "db:format": "pnpm --filter database db:format"
   },

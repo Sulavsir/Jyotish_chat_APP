@@ -12,6 +12,7 @@
     "db:migrate:create": "dotenv -e ../../../.env -- prisma migrate dev --create-only",
     "db:migrate:deploy": "dotenv -e ../../../.env -- prisma migrate deploy",
     "db:migrate:status": "dotenv -e ../../../.env -- prisma migrate status",
+    "db:migrate:baseline-to-nepal-geography": "dotenv -e ../../../.env -- bash ./scripts/baseline-migrations-up-to-nepal-geography.sh",
     "db:migrate:reset": "dotenv -e ../../../.env -- prisma migrate reset",
     "db:studio": "dotenv -e ../../../.env -- prisma studio",
     "db:seed": "dotenv -e ../../../.env -- ts-node prisma/seed.ts",
