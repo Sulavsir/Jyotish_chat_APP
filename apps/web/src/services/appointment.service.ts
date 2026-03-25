@@ -14,6 +14,7 @@ import type {
   AstrologerSlot,
   BookingType,
 } from '@/types/appointment.types';
+import type { BookingQuoteResponse, GetBookingQuoteParams } from '@/types/booking-quote.types';
 import type { AppointmentStatus } from '@/types/appointment.types';
 
 type ListMyAppointmentsResponse = {
@@ -24,6 +25,22 @@ type ListMyAppointmentsResponse = {
     total: number;
     totalPages: number;
   };
+};
+
+/**
+ * Quote: wallet balance vs astrologer appointment fee (validates slot when slotId passed).
+ */
+export const getBookingQuote = async (
+  params: GetBookingQuoteParams
+): Promise<BookingQuoteResponse> => {
+  const search = new URLSearchParams({
+    astrologerId: params.astrologerId,
+    bookingType: params.bookingType,
+  });
+  if (params.slotId) search.set('slotId', params.slotId);
+  return apiClient.get<BookingQuoteResponse>(
+    `${API_ENDPOINTS.APPOINTMENTS.BOOKING_QUOTE}?${search.toString()}`
+  );
 };
 
 /**
@@ -141,6 +158,7 @@ export const getAstrologersForAppointment = async (): Promise<Astrologer[]> => {
 };
 
 const appointmentService = {
+  getBookingQuote,
   createAppointment,
   listAvailableSlots,
   getMyAppointments,

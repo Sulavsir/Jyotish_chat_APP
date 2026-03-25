@@ -120,7 +120,9 @@ export const getAstrologerEarningsQuerySchema = z.object({
     .optional()
     .transform((val) => (val ? parseInt(val, 10) : 0))
     .pipe(z.number().int().min(0)),
-  source: z.enum(['CHAT_MESSAGE', 'BROADCAST_MESSAGE', 'APPOINTMENT']).optional(),
+  source: z
+    .enum(['CHAT_MESSAGE', 'BROADCAST_MESSAGE', 'APPOINTMENT', 'KUNDALI_REVIEW'])
+    .optional(),
 });
 
 /**

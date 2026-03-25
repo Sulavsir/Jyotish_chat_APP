@@ -379,16 +379,24 @@ export const astrologerRegistrationSchema = z.object({
   country: z.string().max(100, 'Country is too long').optional().nullable(),
 });
 
-export const approveAstrologerRegistrationSchema = z.object({
-  category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']),
-  appointmentFee: z.number().positive().optional().nullable(),
-  commissionRate: z
-    .number()
-    .min(0)
-    .max(100, 'Commission rate must be between 0 and 100')
-    .optional(),
-  inhouseAstrologer: z.boolean().optional().default(false),
-});
+export const approveAstrologerRegistrationSchema = z
+  .object({
+    category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']),
+    appointmentFee: z.number().positive().optional().nullable(),
+    chatMessageFee: z.number().min(0).optional().nullable(),
+    inhouseAstrologer: z.boolean().optional().default(false),
+  })
+  .merge(
+    z
+      .object({
+        chatMessageCommissionPercent: z.number().min(0).max(100).optional(),
+        broadcastMessageCommissionPercent: z.number().min(0).max(100).optional(),
+        firstBroadcastCommissionPercent: z.number().min(0).max(100).optional(),
+        kundaliReviewCommissionPercent: z.number().min(0).max(100).optional(),
+        appointmentCommissionPercent: z.number().min(0).max(100).optional(),
+      })
+      .partial()
+  );
 
 export const rejectAstrologerRegistrationSchema = z.object({
   rejectionReason: z
@@ -398,3 +406,4 @@ export const rejectAstrologerRegistrationSchema = z.object({
 });
 
 export * from './jyotish-booking.validators';
+export * from './astrologer-commission.validators';

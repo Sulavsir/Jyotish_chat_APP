@@ -266,7 +266,7 @@ export async function getMyEarnings(req: AuthRequest, res: Response, next: NextF
       to?: string;
       limit?: string;
       offset?: string;
-      source?: 'CHAT_MESSAGE' | 'BROADCAST_MESSAGE' | 'APPOINTMENT';
+      source?: 'CHAT_MESSAGE' | 'BROADCAST_MESSAGE' | 'APPOINTMENT' | 'KUNDALI_REVIEW';
     };
     const parsed = {
       from: filters.from ? new Date(filters.from) : undefined,
@@ -448,7 +448,11 @@ export async function changeAstrologerPassword(
         isActive: true,
         isOnline: true,
         isVerified: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         languages: true,
         createdAt: true,
         updatedAt: true,

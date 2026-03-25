@@ -61,6 +61,8 @@ export const QUERY_KEYS = {
       ['appointments', 'availability', astrologerId, date] as const,
     SLOTS: (astrologerId: string, slotType: string, fromDate?: string, toDate?: string) =>
       ['appointments', 'slots', astrologerId, slotType, fromDate, toDate] as const,
+    BOOKING_QUOTE: (p: { astrologerId: string; slotId: string; bookingType: string }) =>
+      ['appointments', 'booking-quote', p] as const,
     ASTROLOGERS_FOR_APPOINTMENT: ['appointments', 'astrologers'] as const,
   },
 

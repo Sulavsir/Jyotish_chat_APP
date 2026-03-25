@@ -15,6 +15,36 @@ import {
   getPendingBroadcastQuestions,
   clearPendingBroadcastQuestions,
 } from '@/components/modals/BroadcastRemainingPayModal';
+import {
+  getPendingKundaliBooking,
+  clearPendingKundaliBooking,
+} from '@/lib/pending-kundali-booking.storage';
+import appointmentService from '@/services/appointment.service';
+import type { QueryClient } from '@tanstack/react-query';
+
+async function completePendingKundaliBookingAfterTopUp(queryClient: QueryClient): Promise<void> {
+  const pending = getPendingKundaliBooking();
+  if (!pending) return;
+  try {
+    await appointmentService.createAppointment({
+      astrologerId: pending.astrologerId,
+      slotId: pending.slotId,
+      bookingType: pending.bookingType,
+      notes: pending.notes,
+    });
+    clearPendingKundaliBooking();
+    toast.success('Your full kundali appointment is confirmed.');
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
+    await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+  } catch (e) {
+    toast.error(
+      e instanceof Error
+        ? e.message
+        : 'Could not complete booking. The slot may have been taken — please book again from the dashboard.'
+    );
+  }
+}
 
 /**
  * Payment sources that are already verified on backend (no frontend verification needed)
@@ -168,6 +198,7 @@ export default function PaymentSuccessPage() {
           sendErr instanceof Error ? sendErr.message : 'Failed to publish questions. You can try again from the dashboard.'
         );
       }
+      await completePendingKundaliBookingAfterTopUp(queryClient);
     })();
     
     // Clean up session storage
@@ -243,6 +274,7 @@ export default function PaymentSuccessPage() {
             sendErr instanceof Error ? sendErr.message : 'Failed to publish questions. You can try again from the dashboard.'
           );
         }
+        await completePendingKundaliBookingAfterTopUp(queryClient);
         try {
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.removeItem('getpay_pending_order_id');

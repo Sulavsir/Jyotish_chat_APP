@@ -31,7 +31,11 @@ export interface CreateAstrologerRequest {
   gender?: 'MALE' | 'FEMALE' | 'OTHER';
   specialization: string[];
   experience: number;
-  commissionRate: number;
+  chatMessageCommissionPercent: number;
+  broadcastMessageCommissionPercent: number;
+  firstBroadcastCommissionPercent: number;
+  kundaliReviewCommissionPercent: number;
+  appointmentCommissionPercent: number;
   category: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';
   appointmentFee?: number | null;
   chatMessageFee?: number | null;
@@ -51,7 +55,11 @@ export interface UpdateAstrologerRequest {
   profilePhoto?: string | null;
   specialization?: string[];
   experience?: number | null;
-  commissionRate?: number;
+  chatMessageCommissionPercent?: number;
+  broadcastMessageCommissionPercent?: number;
+  firstBroadcastCommissionPercent?: number;
+  kundaliReviewCommissionPercent?: number;
+  appointmentCommissionPercent?: number;
   languages?: string[];
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
   category?: 'ORDINARY' | 'PROFESSIONAL' | 'PREMIUM' | 'KATHA_VACHAK';

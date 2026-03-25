@@ -32,7 +32,11 @@ export interface AppointmentAstrologer {
   email: string | null;
   category: AstrologerCategory;
   appointmentFee: number | null;
-  commissionRate?: number;
+    chatMessageCommissionPercent?: number;
+    broadcastMessageCommissionPercent?: number;
+    firstBroadcastCommissionPercent?: number;
+    kundaliReviewCommissionPercent?: number;
+    appointmentCommissionPercent?: number;
 }
 
 /** Appointment for Full Kundali Review (only booking type). */

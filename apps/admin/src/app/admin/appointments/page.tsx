@@ -209,7 +209,7 @@ export default function AppointmentsPage() {
     {
       header: 'Commission (NRs)',
       accessor: (appointment) => {
-        const rate = appointment.astrologer?.commissionRate ?? 0;
+        const rate = appointment.astrologer?.kundaliReviewCommissionPercent ?? 0;
         const commissionedAmount = Math.ceil((appointment.amount * rate) / 100);
         return (
           <div className="flex items-center gap-1.5 text-sm font-medium text-amber-400">

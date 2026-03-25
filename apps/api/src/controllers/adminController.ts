@@ -15,7 +15,6 @@ import {
 } from '../services';
 import * as astrologerEarningsService from '../services/astrologerEarnings.service';
 import { sendSuccess, sendError } from '../utils';
-import { executeSoftDelete } from '../utils/delete.utils';
 import type { ListAdminAstrologersQuery } from '../validators/adminAstrologer.validators';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { AppError } from '../middleware/error-handler';
@@ -36,6 +35,12 @@ import * as adminPlatformPaymentService from '../services/adminPlatformPayment.s
 import { utcDayEnd, utcDayStart } from '../utils/date-range.utils';
 import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
 import type { ListAdminPlatformPaymentQuery } from '../validators/adminPlatformPayment.validators';
+
+/** Rows that should appear in admin astrologer totals (soft-delete + legacy inconsistent rows). */
+const ACTIVE_ASTROLOGER_COUNT_WHERE = {
+  isDeleted: false,
+  deletedAt: null,
+} satisfies Prisma.AstrologerWhereInput;
 
 // ==================== Admin Authentication ====================
 
@@ -245,9 +250,14 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
 
     // Parse numeric fields from form data (they come as strings)
     const experience = req.body.experience ? parseInt(req.body.experience, 10) : null;
-    const commissionRate = req.body.commissionRate ? parseFloat(req.body.commissionRate) : 0;
     const appointmentFee = req.body.appointmentFee ? parseFloat(req.body.appointmentFee) : null;
     const chatMessageFee = req.body.chatMessageFee ? parseFloat(req.body.chatMessageFee) : null;
+    const { parseAstrologerCommissionFieldsFromBody } = await import(
+      '../utils/admin-astrologer-body.util'
+    );
+    const commissionFields = parseAstrologerCommissionFieldsFromBody(
+      req.body as Record<string, unknown>
+    );
     const inhouseAstrologer =
       req.body.inhouseAstrologer === true ||
       req.body.inhouseAstrologer === 'true' ||
@@ -256,13 +266,13 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
     const astrologer = await astrologerService.create({
       ...req.body,
       experience,
-      commissionRate,
       appointmentFee,
       chatMessageFee,
       createdBy: adminId,
       proofOfAstrology,
       profilePhoto: profilePhoto ?? undefined,
       inhouseAstrologer,
+      ...commissionFields,
     });
 
     // Emit real-time stats update to admin
@@ -410,7 +420,10 @@ export async function deleteAstrologer(req: AuthRequest, res: Response, next: Ne
     if (!valid) {
       throw new AppError('Invalid edit password', HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
     }
-    await executeSoftDelete(res, next, id, (id) => astrologerService.delete(id));
+    await astrologerService.delete(id);
+    const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
+    await AdminStatsEmitter.emitAstrologerCountChanged();
+    return sendSuccess(res, null);
   } catch (error) {
     next(error);
   }
@@ -495,16 +508,21 @@ export async function approveRegistration(req: AuthRequest, res: Response, next:
   try {
     const { id } = req.params;
     const adminId = req.user!.id;
-    const { category, appointmentFee, chatMessageFee, commissionRate, inhouseAstrologer } =
-      req.body;
+    const { category, appointmentFee, chatMessageFee, inhouseAstrologer } = req.body;
+    const { parseAstrologerCommissionFieldsFromBody } = await import(
+      '../utils/admin-astrologer-body.util'
+    );
+    const commissionFields = parseAstrologerCommissionFieldsFromBody(
+      req.body as Record<string, unknown>
+    );
 
     const astrologer = await astrologerService.approveRegistration(id, adminId, {
       category,
-      appointmentFee: appointmentFee ? parseFloat(appointmentFee) : null,
-      chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : null,
-      commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
+      appointmentFee: appointmentFee ? parseFloat(String(appointmentFee)) : null,
+      chatMessageFee: chatMessageFee ? parseFloat(String(chatMessageFee)) : null,
       inhouseAstrologer:
         inhouseAstrologer === true || inhouseAstrologer === 'true' || inhouseAstrologer === '1',
+      ...commissionFields,
     });
 
     // Log audit event
@@ -518,7 +536,7 @@ export async function approveRegistration(req: AuthRequest, res: Response, next:
         category,
         appointmentFee,
         chatMessageFee,
-        commissionRate,
+        ...commissionFields,
         inhouseAstrologer,
       },
       ipAddress: getClientIp(req),
@@ -1426,10 +1444,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
     ] = await Promise.all([
       getLifetimeTotals(),
       prisma.user.count({ where: { role: 'CLIENT' } }),
-      prisma.astrologer.count({ where: { isDeleted: false } }),
+      prisma.astrologer.count({ where: ACTIVE_ASTROLOGER_COUNT_WHERE }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
       prisma.astrologer.count({
-        where: { isDeleted: false, isActive: true, isOnline: true },
+        where: { ...ACTIVE_ASTROLOGER_COUNT_WHERE, isActive: true, isOnline: true },
       }),
       prisma.consultation.count({ where: { createdAt: { gte: today } } }),
       prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: today } } }),
@@ -2174,8 +2192,10 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       prisma.kundaliMatchRequest.count({ where: { status: KundaliMatchStatus.PENDING } }),
       prisma.user.count(),
       prisma.user.count({ where: { createdAt: { gte: today } } }),
-      prisma.astrologer.count({ where: { isDeleted: false } }),
-      prisma.astrologer.count({ where: { accountStatus: 'PENDING' } }),
+      prisma.astrologer.count({ where: ACTIVE_ASTROLOGER_COUNT_WHERE }),
+      prisma.astrologer.count({
+        where: { accountStatus: 'PENDING', ...ACTIVE_ASTROLOGER_COUNT_WHERE },
+      }),
       prisma.coinTransaction.count({
         where: { type: 'ADD', reason: DbCoinTransactionReason.PAYMENT_SUCCESS },
       }),

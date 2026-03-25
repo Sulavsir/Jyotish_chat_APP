@@ -9,6 +9,15 @@ import { queryPaginationSchema } from './query.validators';
 const bookingTypeEnum = z.enum(['KUNDALI_REVIEW']);
 
 /**
+ * GET /appointments/booking-quote — balance vs appointment fee before booking
+ */
+export const bookingQuoteQuerySchema = z.object({
+  astrologerId: z.string().uuid('Invalid astrologer ID'),
+  bookingType: bookingTypeEnum,
+  slotId: z.string().uuid('Invalid slot ID').optional(),
+});
+
+/**
  * Validator for creating a new appointment.
  * With slotId + bookingType: books astrologer-defined slot (direct CONFIRMED); without: legacy PENDING.
  */

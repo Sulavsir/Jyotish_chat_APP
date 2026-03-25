@@ -30,7 +30,11 @@ interface ChangePasswordResponse {
     isActive: boolean;
     isOnline: boolean;
     isVerified: boolean;
-    commissionRate: number;
+    chatMessageCommissionPercent: number;
+    broadcastMessageCommissionPercent: number;
+    firstBroadcastCommissionPercent: number;
+    kundaliReviewCommissionPercent: number;
+    appointmentCommissionPercent: number;
     languages: string[];
     createdAt: Date | string;
     updatedAt: Date | string;

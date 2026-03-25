@@ -99,7 +99,7 @@ export default function JyotishDashboardPage() {
             href={ROUTES.JYOTISH_CHAT}
           />
           <StatsCard
-            title="This Month's Earnings"
+            title="This month's balance"
             value={
               stats
                 ? formatEarnings(stats.monthlyEarnings.amount, stats.monthlyEarnings.currency)
@@ -107,7 +107,7 @@ export default function JyotishDashboardPage() {
             }
             subtitle={
               stats && stats.monthlyEarnings.changePercent !== 0
-                ? `${stats.monthlyEarnings.changePercent > 0 ? '+' : ''}${stats.monthlyEarnings.changePercent}% from last month`
+                ? `${stats.monthlyEarnings.changePercent > 0 ? '+' : ''}${stats.monthlyEarnings.changePercent}% vs last month`
                 : 'No change from last month'
             }
             icon={TrendingUp}

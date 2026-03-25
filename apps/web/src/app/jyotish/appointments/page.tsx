@@ -168,10 +168,10 @@ export default function JyotishAppointmentsPage() {
         ),
       },
       {
-        id: 'coins',
-        header: 'Amount',
+        id: 'balance',
+        header: 'Your balance (NRs)',
         cell: (row) => {
-          const rate = row.astrologer?.commissionRate ?? 0;
+          const rate = row.astrologer?.kundaliReviewCommissionPercent ?? 0;
           const amount = Math.ceil((row.amount * rate) / 100);
           return (
             <span className="inline-flex items-center gap-1.5 font-medium text-amber-400">

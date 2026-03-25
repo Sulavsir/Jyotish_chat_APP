@@ -76,11 +76,32 @@ export const createAstrologerSchema = z.object({
       return value;
     }, z.number().int('Experience must be a whole number').min(0, 'Experience cannot be negative').max(100, 'Experience seems unrealistic')),
   
-  commissionRate: z
+  chatMessageCommissionPercent: z
     .number()
-    .min(0, 'Commission rate cannot be negative')
-    .max(100, 'Commission rate cannot exceed 100%'),
-  
+    .min(0)
+    .max(100, 'Commission cannot exceed 100%')
+    .default(10),
+  broadcastMessageCommissionPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .default(10),
+  firstBroadcastCommissionPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .default(10),
+  kundaliReviewCommissionPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .default(10),
+  appointmentCommissionPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .default(10),
+
   category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK'], {
     required_error: 'Category is required',
   }),
@@ -125,7 +146,11 @@ export const updateAstrologerFormSchema = z.object({
     .preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().int().min(0).max(100))
     .optional()
     .nullable(),
-  commissionRate: z.number().min(0).max(100).optional(),
+  chatMessageCommissionPercent: z.number().min(0).max(100).optional(),
+  broadcastMessageCommissionPercent: z.number().min(0).max(100).optional(),
+  firstBroadcastCommissionPercent: z.number().min(0).max(100).optional(),
+  kundaliReviewCommissionPercent: z.number().min(0).max(100).optional(),
+  appointmentCommissionPercent: z.number().min(0).max(100).optional(),
   category: z.enum(['ORDINARY', 'PROFESSIONAL', 'PREMIUM', 'KATHA_VACHAK']).optional(),
   appointmentFee: z
     .preprocess((v) => (v === '' || v === null ? undefined : Number(v)), z.number().min(0))

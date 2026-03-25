@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AstrologerCategory } from '@jyotish/shared';
+import { AstrologerCategory, astrologerCommissionFieldsSchema } from '@jyotish/shared';
 import { queryPaginationSchema } from './query.validators';
 
 // E.164: optional +, then 1-3 digit country code, then 4-14 digit subscriber number
@@ -19,7 +19,6 @@ export const updateAstrologerSchema = z
     profilePhoto: z.string().url().optional().nullable(),
     specialization: z.array(z.string()).min(0).max(20).optional(),
     experience: z.number().int().min(0).max(100).optional().nullable(),
-    commissionRate: z.number().min(0).max(100).optional(),
     languages: z.array(z.string()).optional(),
     gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().nullable(),
     category: z.nativeEnum(AstrologerCategory).optional(),
@@ -29,6 +28,7 @@ export const updateAstrologerSchema = z
     country: z.string().max(100).optional().nullable(),
     inhouseAstrologer: z.boolean().optional(),
   })
+  .merge(astrologerCommissionFieldsSchema.partial())
   .refine((obj) => Object.keys(obj).filter((k) => k !== 'editPassword').length > 0, {
     message: 'At least one field must be provided',
   });

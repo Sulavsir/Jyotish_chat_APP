@@ -20,6 +20,7 @@ import {
   CheckIcon,
 } from '@jyotish/ui';
 import { ADMIN_ROUTES } from '@/constants';
+import { AstrologerCommissionPercentFields } from '@/components/astrologer/AstrologerCommissionPercentFields';
 import {
   createAstrologerSchema,
   parseCommaSeparatedToArray,
@@ -55,7 +56,11 @@ export default function CreateAstrologerPage() {
       gender: 'MALE',
       specialization: [],
       experience: 5,
-      commissionRate: 15,
+      chatMessageCommissionPercent: 10,
+      broadcastMessageCommissionPercent: 10,
+      firstBroadcastCommissionPercent: 10,
+      kundaliReviewCommissionPercent: 10,
+      appointmentCommissionPercent: 10,
       category: 'ORDINARY',
       appointmentFee: null,
       chatMessageFee: null,
@@ -81,7 +86,26 @@ export default function CreateAstrologerPage() {
       formData.append('password', data.password);
       formData.append('gender', data.gender || 'MALE');
       formData.append('experience', String(Number(data.experience) || 0));
-      formData.append('commissionRate', String(Number(data.commissionRate) || 10));
+      formData.append(
+        'chatMessageCommissionPercent',
+        String(Number(data.chatMessageCommissionPercent) || 10)
+      );
+      formData.append(
+        'broadcastMessageCommissionPercent',
+        String(Number(data.broadcastMessageCommissionPercent) || 10)
+      );
+      formData.append(
+        'firstBroadcastCommissionPercent',
+        String(Number(data.firstBroadcastCommissionPercent) || 10)
+      );
+      formData.append(
+        'kundaliReviewCommissionPercent',
+        String(Number(data.kundaliReviewCommissionPercent) || 10)
+      );
+      formData.append(
+        'appointmentCommissionPercent',
+        String(Number(data.appointmentCommissionPercent) || 10)
+      );
       formData.append('category', data.category);
       if (data.appointmentFee) {
         formData.append('appointmentFee', String(Number(data.appointmentFee)));
@@ -396,27 +420,7 @@ export default function CreateAstrologerPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="commissionRate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Commission Rate (%) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            placeholder="10"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                          />
-                        </FormControl>
-                        <FormDescription>Platform commission percentage (0-100%)</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <AstrologerCommissionPercentFields control={form.control} />
 
                   <FormField
                     control={form.control}

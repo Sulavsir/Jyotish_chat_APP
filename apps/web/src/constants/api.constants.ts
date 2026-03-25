@@ -164,6 +164,7 @@ export const API_ENDPOINTS = {
     TOGGLE: '/api/v1/notification-settings/toggle',
   },
   APPOINTMENTS: {
+    BOOKING_QUOTE: '/api/v1/appointments/booking-quote',
     CREATE: '/api/v1/appointments',
     MY: '/api/v1/appointments/my',
     DETAIL: (id: string) => `/api/v1/appointments/${id}`,

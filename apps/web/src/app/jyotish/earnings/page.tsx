@@ -1,6 +1,6 @@
 /**
  * Jyotish My Earnings Page
- * Astrologer views coin earnings from chat/broadcast/appointment (commission-based)
+ * Shows balance credited from client deductions (commission % set by admin per Jyotish).
  */
 
 'use client';
@@ -19,12 +19,13 @@ import {
 } from '@/components/jyotish/JyotishTable';
 import { getAstrologerEarnings } from '@/services/astrologerEarnings.service';
 import type { AstrologerCoinEarningSource, AstrologerCoinEarningRow } from '@/types/earnings.types';
-import { Banknote, MessageSquare, Radio, Calendar } from 'lucide-react';
+import { Banknote, MessageSquare, Radio, Calendar, BookOpen } from 'lucide-react';
 
 const SOURCE_LABELS: Record<AstrologerCoinEarningSource, string> = {
   CHAT_MESSAGE: 'Direct chat',
   BROADCAST_MESSAGE: 'Broadcast chat',
   APPOINTMENT: 'Appointment',
+  KUNDALI_REVIEW: 'Kundali review',
 };
 
 const SOURCE_ICONS: Record<
@@ -34,6 +35,7 @@ const SOURCE_ICONS: Record<
   CHAT_MESSAGE: MessageSquare,
   BROADCAST_MESSAGE: Radio,
   APPOINTMENT: Calendar,
+  KUNDALI_REVIEW: BookOpen,
 };
 
 /** Month and date format e.g. "Feb 13, 2026, 3:45 PM" (no 2/13/26) */
@@ -125,15 +127,15 @@ export default function JyotishEarningsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white tracking-tight">My Earnings</h1>
           <p className="text-white/60 text-sm mt-1">
-            Earnings from client balance deductions (based on your commission %)
+            Balance credited from client deductions(chat, broadcast, appointment, kundali review).
           </p>
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <Card className="bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium text-white/80">Total earned</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/80">Total balance</CardTitle>
               <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
                 <Banknote className="h-4 w-4" />
               </div>
@@ -174,7 +176,9 @@ export default function JyotishEarningsPage() {
         <Card className="bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden">
           <CardHeader>
             <CardTitle className="text-white">Recent earnings</CardTitle>
-            <p className="text-sm text-white/60">Per-message and per-session earnings</p>
+            <p className="text-sm text-white/60">
+              Per-message and per-session balance credits (NRs)
+            </p>
           </CardHeader>
           <CardContent>
             {isLoading && <div className="py-8 text-center text-white/60">Loading...</div>}
@@ -200,11 +204,7 @@ export default function JyotishEarningsPage() {
                     />
                   </div>
                   {data && data.total > 0 && (
-                    <JyotishPagination
-                      page={page}
-                      totalPages={totalPages}
-                      onPageChange={setPage}
-                    />
+                    <JyotishPagination page={page} totalPages={totalPages} onPageChange={setPage} />
                   )}
                 </>
               ))}

@@ -1128,38 +1128,44 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   try {
     const astrologerForEarning = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
-      select: { commissionRate: true },
+      select: {
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+      },
     });
-    if (astrologerForEarning && astrologerForEarning.commissionRate > 0) {
-      const broadcastRate = await getRate('BROADCAST_SEND');
-      const allAccepted = [message, ...acceptedSiblings];
-      for (const acceptedMsg of allAccepted) {
-        const msgMeta = (acceptedMsg.metadata as Record<string, unknown>) || {};
-        const clientCoinsDeducted =
-          typeof msgMeta.amountRefundNr === 'number'
-            ? Math.max(0, msgMeta.amountRefundNr)
-            : broadcastRate;
-        if (clientCoinsDeducted > 0) {
-          const astrologerCoinsEarned = Math.floor(
-            (clientCoinsDeducted * astrologerForEarning.commissionRate) / 100
-          );
-          if (astrologerCoinsEarned > 0) {
-            const isFirstBroadcastDiscount = msgMeta.isFirstBroadcastDiscount === true;
-            await (prisma as any).astrologerCoinEarning.create({
-              data: {
-                astrologerId,
-                broadcastMessageId: acceptedMsg.id,
-                chatId: chat.id,
-                source: 'BROADCAST_MESSAGE',
-                clientCoinsDeducted,
-                commissionPercent: astrologerForEarning.commissionRate,
-                astrologerCoinsEarned,
-                sourceDetail: isFirstBroadcastDiscount ? 'First broadcast discount' : null,
-              },
-            });
-          }
-        }
-      }
+    const broadcastRate = await getRate('BROADCAST_SEND');
+    const allAccepted = [message, ...acceptedSiblings];
+    for (const acceptedMsg of allAccepted) {
+      const msgMeta = (acceptedMsg.metadata as Record<string, unknown>) || {};
+      const isFirstBroadcastDiscount = msgMeta.isFirstBroadcastDiscount === true;
+      const commissionPercent = isFirstBroadcastDiscount
+        ? (astrologerForEarning?.firstBroadcastCommissionPercent ?? 0)
+        : (astrologerForEarning?.broadcastMessageCommissionPercent ?? 0);
+      if (commissionPercent <= 0) continue;
+
+      const clientCoinsDeducted =
+        typeof msgMeta.amountRefundNr === 'number'
+          ? Math.max(0, msgMeta.amountRefundNr)
+          : broadcastRate;
+      if (clientCoinsDeducted <= 0) continue;
+
+      const astrologerCoinsEarned = Math.floor(
+        (clientCoinsDeducted * commissionPercent) / 100
+      );
+      if (astrologerCoinsEarned <= 0) continue;
+
+      await prisma.astrologerCoinEarning.create({
+        data: {
+          astrologerId,
+          broadcastMessageId: acceptedMsg.id,
+          chatId: chat.id,
+          source: 'BROADCAST_MESSAGE',
+          clientCoinsDeducted,
+          commissionPercent,
+          astrologerCoinsEarned,
+          sourceDetail: isFirstBroadcastDiscount ? 'First broadcast discount' : null,
+        },
+      });
     }
   } catch (earningErr) {
     console.error('[acceptBroadcastMessage] Failed to create AstrologerCoinEarning:', earningErr);

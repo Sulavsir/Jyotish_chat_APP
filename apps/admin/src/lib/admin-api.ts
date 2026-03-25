@@ -349,7 +349,11 @@ export const adminApi = {
         category: string;
         appointmentFee?: number;
         chatMessageFee?: number;
-        commissionRate?: number;
+        chatMessageCommissionPercent?: number;
+        broadcastMessageCommissionPercent?: number;
+        firstBroadcastCommissionPercent?: number;
+        kundaliReviewCommissionPercent?: number;
+        appointmentCommissionPercent?: number;
         inhouseAstrologer?: boolean;
       }
     ) => {

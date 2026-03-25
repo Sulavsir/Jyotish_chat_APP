@@ -4,9 +4,10 @@
  */
 
 import { Response } from 'express';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, BookingType } from '@prisma/client';
 import { UserRole } from '@jyotish/shared';
 import * as appointmentService from '../services/appointment.service';
+import * as appointmentQuoteService from '../services/appointmentQuote.service';
 import { AuthRequest } from '../types/common.types';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -109,11 +110,52 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       data: appointment,
       message: 'Appointment created successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create appointment error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create appointment';
     return res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
-      message: error.message || 'Failed to create appointment',
+      message,
+    });
+  }
+};
+
+/**
+ * Quote for booking (balance vs astrologer appointment fee) before deduct.
+ * GET /api/v1/appointments/booking-quote?astrologerId=&bookingType=KUNDALI_REVIEW&slotId=
+ */
+export const getBookingQuote = async (req: AuthRequest, res: Response) => {
+  try {
+    const clientId = req.user?.id;
+    if (!clientId) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        message: 'Unauthorized',
+      });
+    }
+    const { astrologerId, bookingType, slotId } = req.query as {
+      astrologerId: string;
+      bookingType: appointmentQuoteService.BookingQuoteBookingType;
+      slotId?: string;
+    };
+    const data = await appointmentQuoteService.getBookingQuote(clientId, {
+      astrologerId,
+      bookingType,
+      slotId: slotId || undefined,
+    });
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to get booking quote';
+    const status =
+      error instanceof AppError
+        ? error.statusCode
+        : HTTP_STATUS.BAD_REQUEST;
+    return res.status(status).json({
+      success: false,
+      message,
     });
   }
 };
@@ -357,10 +399,15 @@ export const confirmAppointment = async (req: AuthRequest, res: Response) => {
         (appointment.amount as number | null) ??
         (appointment.astrologer?.appointmentFee as number | null) ??
         0;
+      const earningKind =
+        appointment.bookingType === BookingType.KUNDALI_REVIEW
+          ? ('KUNDALI_REVIEW' as const)
+          : ('APPOINTMENT' as const);
       const result = await coinService.deductCoinsForAppointment(
         appointment.clientId,
         appointment.astrologerId,
-        dynamicFee
+        dynamicFee,
+        earningKind
       );
       if (result.coinCost > 0) {
         deduction = { coinTransactionId: result.coinTransactionId, coinCost: result.coinCost };

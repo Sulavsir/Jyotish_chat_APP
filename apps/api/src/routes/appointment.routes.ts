@@ -14,6 +14,7 @@ import {
   listMyAppointmentsQuerySchema,
   cancelAppointmentSchema,
   listAvailableSlotsQuerySchema,
+  bookingQuoteQuerySchema,
 } from '../validators';
 import * as slotController from '../controllers/slotController';
 
@@ -25,6 +26,14 @@ router.get(
   authenticate,
   validateQuery(listAvailableSlotsQuerySchema),
   asyncHandler(slotController.listAvailableSlots)
+);
+
+// Balance vs appointment fee (before booking full kundali / slot book)
+router.get(
+  '/booking-quote',
+  authenticate,
+  validateQuery(bookingQuoteQuerySchema),
+  asyncHandler(appointmentController.getBookingQuote)
 );
 
 // Create appointment

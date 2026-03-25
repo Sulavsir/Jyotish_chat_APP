@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 import type { Astrologer } from '@/types';
 import { X } from 'lucide-react';
 import { AstrologerCategory, ASTROLOGER_PROOF_UPLOAD } from '@jyotish/shared';
+import { AstrologerCommissionPercentFields } from '@/components/astrologer/AstrologerCommissionPercentFields';
 
 const { MAX_FILES: MAX_NEW_PROOF_FILES, isAllowedType: isAllowedProofType } =
   ASTROLOGER_PROOF_UPLOAD;
@@ -82,7 +83,11 @@ export default function EditAstrologerPage() {
       bio: '',
       specialization: [],
       experience: null,
-      commissionRate: 15,
+      chatMessageCommissionPercent: 10,
+      broadcastMessageCommissionPercent: 10,
+      firstBroadcastCommissionPercent: 10,
+      kundaliReviewCommissionPercent: 10,
+      appointmentCommissionPercent: 10,
       category: 'ORDINARY',
       appointmentFee: null,
       chatMessageFee: null,
@@ -102,7 +107,11 @@ export default function EditAstrologerPage() {
       bio: data.bio ?? '',
       specialization: data.specialization ?? [],
       experience: data.experience ?? null,
-      commissionRate: data.commissionRate ?? 15,
+      chatMessageCommissionPercent: data.chatMessageCommissionPercent ?? 10,
+      broadcastMessageCommissionPercent: data.broadcastMessageCommissionPercent ?? 10,
+      firstBroadcastCommissionPercent: data.firstBroadcastCommissionPercent ?? 10,
+      kundaliReviewCommissionPercent: data.kundaliReviewCommissionPercent ?? 10,
+      appointmentCommissionPercent: data.appointmentCommissionPercent ?? 10,
       category: data.category ?? AstrologerCategory.ORDINARY,
       appointmentFee: data.appointmentFee ?? null,
       chatMessageFee: data.chatMessageFee ?? null,
@@ -110,7 +119,7 @@ export default function EditAstrologerPage() {
       gender: data.gender ?? null,
       address: data.address ?? null,
       country: data.country ?? null,
-      inhouseAstrologer: (data as any).inhouseAstrologer ?? false,
+      inhouseAstrologer: data.inhouseAstrologer ?? false,
     });
   }, [data, form]);
 
@@ -604,19 +613,7 @@ export default function EditAstrologerPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="commissionRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Commission Rate (%)</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} max={100} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <AstrologerCommissionPercentFields control={form.control} />
                 <FormField
                   control={form.control}
                   name="category"

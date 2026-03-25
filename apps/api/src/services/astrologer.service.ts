@@ -1,5 +1,10 @@
 import { prisma, Gender } from '@jyotish/database';
-import { UserRole, AstrologerCategory } from '@jyotish/shared';
+import {
+  UserRole,
+  AstrologerCategory,
+  defaultAstrologerCommissionFields,
+  type AstrologerCommissionFieldsInput,
+} from '@jyotish/shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -39,7 +44,11 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         inhouseAstrologer: true,
         languages: true,
         gender: true,
@@ -78,7 +87,11 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         inhouseAstrologer: true,
         languages: true,
         gender: true,
@@ -116,7 +129,11 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         inhouseAstrologer: true,
         languages: true,
         gender: true,
@@ -143,27 +160,28 @@ export class AstrologerService {
   /**
    * Create new astrologer (admin only)
    */
-  async create(data: {
-    phone: string;
-    email?: string;
-    password: string;
-    name: string;
-    bio?: string;
-    specialization: string[];
-    experience?: number;
-    category?: AstrologerCategory;
-    appointmentFee?: number;
-    chatMessageFee?: number | null;
-    commissionRate: number;
-    languages: string[];
-    inhouseAstrologer?: boolean;
-    gender?: Gender;
-    country?: string | null;
-    createdBy: string; // Admin ID
-    proofOfAstrology?: string; // File URL for proof document
-    profilePhoto?: string | null;
-    address?: string | null;
-  }) {
+  async create(
+    data: {
+      phone: string;
+      email?: string;
+      password: string;
+      name: string;
+      bio?: string;
+      specialization: string[];
+      experience?: number;
+      category?: AstrologerCategory;
+      appointmentFee?: number;
+      chatMessageFee?: number | null;
+      languages: string[];
+      inhouseAstrologer?: boolean;
+      gender?: Gender;
+      country?: string | null;
+      createdBy: string; // Admin ID
+      proofOfAstrology?: string; // File URL for proof document
+      profilePhoto?: string | null;
+      address?: string | null;
+    } & Partial<AstrologerCommissionFieldsInput>
+  ) {
     // Check if phone number is already used by a CLIENT
     const existingUser = await prisma.user.findUnique({
       where: { phone: data.phone },
@@ -207,6 +225,20 @@ export class AstrologerService {
     // Hash password
     const hashedPassword = await bcrypt.hash(data.password, AUTH_CONFIG.SALT_ROUNDS);
 
+    const defaults = defaultAstrologerCommissionFields();
+    const commission = {
+      chatMessageCommissionPercent:
+        data.chatMessageCommissionPercent ?? defaults.chatMessageCommissionPercent,
+      broadcastMessageCommissionPercent:
+        data.broadcastMessageCommissionPercent ?? defaults.broadcastMessageCommissionPercent,
+      firstBroadcastCommissionPercent:
+        data.firstBroadcastCommissionPercent ?? defaults.firstBroadcastCommissionPercent,
+      kundaliReviewCommissionPercent:
+        data.kundaliReviewCommissionPercent ?? defaults.kundaliReviewCommissionPercent,
+      appointmentCommissionPercent:
+        data.appointmentCommissionPercent ?? defaults.appointmentCommissionPercent,
+    };
+
     // Create astrologer
     const astrologer = await prisma.astrologer.create({
       data: {
@@ -220,7 +252,7 @@ export class AstrologerService {
         category: data.category, // ORDINARY, PROFESSIONAL, PREMIUM
         appointmentFee: data.appointmentFee,
         chatMessageFee: data.chatMessageFee ?? null,
-        commissionRate: data.commissionRate,
+        ...commission,
         languages: data.languages,
         inhouseAstrologer: data.inhouseAstrologer ?? false,
         gender: data.gender ?? null,
@@ -251,7 +283,11 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         languages: true,
         gender: true,
         country: true,
@@ -299,7 +335,11 @@ export class AstrologerService {
         isOnline: true,
         isVerified: true,
         accountStatus: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         languages: true,
         gender: true,
         country: true,
@@ -445,7 +485,6 @@ export class AstrologerService {
       profilePhoto?: string | null;
       specialization?: string[];
       experience?: number | null;
-      commissionRate?: number;
       languages?: string[];
       gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
       category?: AstrologerCategory;
@@ -453,7 +492,7 @@ export class AstrologerService {
       proofOfAstrology?: string | null;
       chatMessageFee?: number | null;
       inhouseAstrologer?: boolean;
-    }
+    } & Partial<AstrologerCommissionFieldsInput>
   ) {
     const astrologer = await prisma.astrologer.update({
       where: { id },
@@ -476,7 +515,11 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         inhouseAstrologer: true,
         languages: true,
         gender: true,
@@ -596,7 +639,11 @@ export class AstrologerService {
           isActive: true,
           isOnline: true,
           isVerified: true,
-          commissionRate: true,
+          chatMessageCommissionPercent: true,
+          broadcastMessageCommissionPercent: true,
+          firstBroadcastCommissionPercent: true,
+          kundaliReviewCommissionPercent: true,
+          appointmentCommissionPercent: true,
           inhouseAstrologer: true,
           languages: true,
           gender: true,
@@ -793,7 +840,6 @@ export class AstrologerService {
         createdBy: ASTROLOGER_CREATED_BY.SELF_REGISTERED,
         isActive: false,
         category: AstrologerCategory.ORDINARY,
-        commissionRate: 0.0,
       },
       select: {
         id: true,
@@ -810,7 +856,7 @@ export class AstrologerService {
   }
 
   /**
-cle   * Get all pending registration requests with pagination and search
+   * Get all pending registration requests with pagination and search
    */
   async getPendingRegistrations(params?: { page?: number; limit?: number; search?: string }) {
     const { page = 1, limit = 10, search } = params || {};
@@ -877,9 +923,8 @@ cle   * Get all pending registration requests with pagination and search
       category: string;
       appointmentFee?: number | null;
       chatMessageFee?: number | null;
-      commissionRate?: number;
       inhouseAstrologer?: boolean;
-    }
+    } & Partial<AstrologerCommissionFieldsInput>
   ) {
     const astrologer = await prisma.astrologer.findFirst({
       where: { id: astrologerId, isDeleted: false },
@@ -904,6 +949,8 @@ cle   * Get all pending registration requests with pagination and search
       );
     }
 
+    const defaults = defaultAstrologerCommissionFields();
+
     // Update astrologer to APPROVED status
     const updated = await prisma.astrologer.update({
       where: { id: astrologerId },
@@ -915,7 +962,16 @@ cle   * Get all pending registration requests with pagination and search
         category: data.category as AstrologerCategory,
         appointmentFee: data.appointmentFee ?? null,
         chatMessageFee: data.chatMessageFee ?? null,
-        commissionRate: data.commissionRate ?? 0.0,
+        chatMessageCommissionPercent:
+          data.chatMessageCommissionPercent ?? defaults.chatMessageCommissionPercent,
+        broadcastMessageCommissionPercent:
+          data.broadcastMessageCommissionPercent ?? defaults.broadcastMessageCommissionPercent,
+        firstBroadcastCommissionPercent:
+          data.firstBroadcastCommissionPercent ?? defaults.firstBroadcastCommissionPercent,
+        kundaliReviewCommissionPercent:
+          data.kundaliReviewCommissionPercent ?? defaults.kundaliReviewCommissionPercent,
+        appointmentCommissionPercent:
+          data.appointmentCommissionPercent ?? defaults.appointmentCommissionPercent,
         inhouseAstrologer: data.inhouseAstrologer ?? false,
       },
       select: {
@@ -927,7 +983,11 @@ cle   * Get all pending registration requests with pagination and search
         category: true,
         appointmentFee: true,
         chatMessageFee: true,
-        commissionRate: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
         approvedBy: true,
         approvedAt: true,
       },

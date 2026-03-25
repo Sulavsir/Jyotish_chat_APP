@@ -151,13 +151,27 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       const onlineAstrologers = await prisma.astrologer.count({
-        where: { isDeleted: false, isActive: true, isOnline: true },
+        where: { isDeleted: false, deletedAt: null, isActive: true, isOnline: true },
       });
       io.to('admin').emit('stats:update', { onlineAstrologers });
     } catch (error) {
       console.error('❌ Failed to emit onlineAstrologers count:', error);
     }
   }
+
+  /**
+   * After an astrologer is soft-deleted, push fresh totals so dashboard/sidebar caches match DB.
+   */
+  static async emitAstrologerCountChanged() {
+    try {
+      const io = this.getIo();
+      const totalAstrologers = await prisma.astrologer.count({
+        where: { isDeleted: false, deletedAt: null },
+      });
+      io.to('admin').emit('stats:update', { totalAstrologers });
+      this.emitSidebarInvalidate();
+    } catch (error) {
+      console.error('❌ Failed to emit astrologer count change:', error);
+    }
+  }
 }
-
-

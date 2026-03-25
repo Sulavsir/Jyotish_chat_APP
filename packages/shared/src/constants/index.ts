@@ -162,3 +162,4 @@ export const FILE_LIMITS = {
 } as const;
 
 export * from './jyotish-booking.constants';
+export * from './astrologer-commission.constants';

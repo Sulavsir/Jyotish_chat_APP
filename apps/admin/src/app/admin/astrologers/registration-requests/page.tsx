@@ -59,7 +59,11 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
   const [category, setCategory] = useState<AstrologerCategory>(AstrologerCategory.ORDINARY);
   const [appointmentFee, setAppointmentFee] = useState<string>('');
   const [chatMessageFee, setChatMessageFee] = useState<string>('');
-  const [commissionRate, setCommissionRate] = useState<string>('');
+  const [chatMessageCommissionPercent, setChatMessageCommissionPercent] = useState('10');
+  const [broadcastMessageCommissionPercent, setBroadcastMessageCommissionPercent] = useState('10');
+  const [firstBroadcastCommissionPercent, setFirstBroadcastCommissionPercent] = useState('10');
+  const [kundaliReviewCommissionPercent, setKundaliReviewCommissionPercent] = useState('10');
+  const [appointmentCommissionPercent, setAppointmentCommissionPercent] = useState('10');
   const [rejectionReason, setRejectionReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [inhouseAstrologer, setInhouseAstrologer] = useState(false);
@@ -74,7 +78,11 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
           category,
           appointmentFee: appointmentFee ? parseFloat(appointmentFee) : undefined,
           chatMessageFee: chatMessageFee ? parseFloat(chatMessageFee) : undefined,
-          commissionRate: commissionRate ? parseFloat(commissionRate) : undefined,
+          chatMessageCommissionPercent: parseFloat(chatMessageCommissionPercent) || 10,
+          broadcastMessageCommissionPercent: parseFloat(broadcastMessageCommissionPercent) || 10,
+          firstBroadcastCommissionPercent: parseFloat(firstBroadcastCommissionPercent) || 10,
+          kundaliReviewCommissionPercent: parseFloat(kundaliReviewCommissionPercent) || 10,
+          appointmentCommissionPercent: parseFloat(appointmentCommissionPercent) || 10,
           inhouseAstrologer,
         });
         toast.success('Registration approved successfully');
@@ -158,20 +166,33 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Commission Rate % (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={commissionRate}
-                    onChange={(e) => setCommissionRate(e.target.value)}
-                    placeholder="e.g., 20.0"
-                    className="w-full px-4 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3 space-y-3">
+                  <p className="text-sm font-medium text-white">Commission on coin deductions (%)</p>
+                  <p className="text-xs text-slate-400">
+                    Default 10% each; adjust per Jyotish (same idea as chat message fee).
+                  </p>
+                  {(
+                    [
+                      ['Direct chat', chatMessageCommissionPercent, setChatMessageCommissionPercent],
+                      ['Broadcast (standard)', broadcastMessageCommissionPercent, setBroadcastMessageCommissionPercent],
+                      ['First broadcast', firstBroadcastCommissionPercent, setFirstBroadcastCommissionPercent],
+                      ['Full Kundali review', kundaliReviewCommissionPercent, setKundaliReviewCommissionPercent],
+                      ['Other appointments', appointmentCommissionPercent, setAppointmentCommissionPercent],
+                    ] as const
+                  ).map(([label, value, setVal]) => (
+                    <div key={label}>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">{label}</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min={0}
+                        max={100}
+                        value={value}
+                        onChange={(e) => setVal(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white text-sm"
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <div>
@@ -293,12 +314,10 @@ export default function RegistrationRequestsPage() {
       id: string;
       category: string;
       appointmentFee?: number;
-      commissionRate?: number;
     }) => {
       return await adminApi.astrologers.approveRegistration(data.id, {
         category: data.category,
         appointmentFee: data.appointmentFee,
-        commissionRate: data.commissionRate,
       });
     },
     onSuccess: () => {

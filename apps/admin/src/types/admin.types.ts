@@ -24,8 +24,12 @@ export interface Astrologer {
   rating: number;
   isActive: boolean;
   isOnline: boolean;
-  commissionRate: number;
-   inhouseAstrologer: boolean;
+  chatMessageCommissionPercent: number;
+  broadcastMessageCommissionPercent: number;
+  firstBroadcastCommissionPercent: number;
+  kundaliReviewCommissionPercent: number;
+  appointmentCommissionPercent: number;
+  inhouseAstrologer: boolean;
   bio?: string | null;
   address?: string | null;
   languages?: string[];
@@ -199,7 +203,11 @@ export interface CreateAstrologerForm {
   password: string;
   specialization: string[];
   experience: number;
-  commissionRate: number;
+  chatMessageCommissionPercent: number;
+  broadcastMessageCommissionPercent: number;
+  firstBroadcastCommissionPercent: number;
+  kundaliReviewCommissionPercent: number;
+  appointmentCommissionPercent: number;
   bio?: string;
   languages?: string[];
 }
@@ -325,7 +333,7 @@ export interface UpdatePlatformCoinRatesBody {
   COINS_PER_NPR?: number;
 }
 
-// Admin earnings: astrologers with total coin earnings
+// Admin earnings: total balance credited (NRs) per astrologer; API field totalCoinEarnings
 export interface AstrologerWithCoinEarning {
   id: string;
   name: string;
@@ -334,6 +342,11 @@ export interface AstrologerWithCoinEarning {
   category: string;
   rating: number | null;
   totalCoinEarnings: number;
+  chatMessageCommissionPercent: number;
+  broadcastMessageCommissionPercent: number;
+  firstBroadcastCommissionPercent: number;
+  kundaliReviewCommissionPercent: number;
+  appointmentCommissionPercent: number;
 }
 
 export interface ListAstrologersWithCoinEarningsResponse {

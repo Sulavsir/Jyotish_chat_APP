@@ -116,7 +116,28 @@ export default function EarningsPage() {
       ),
     },
     {
-      header: 'Earning (NRs)',
+      header: 'Commission %',
+      accessor: (row) => (
+        <div className="text-[10px] leading-tight text-slate-400 max-w-[200px]">
+          <span className="text-slate-500">Chat </span>
+          <span className="text-slate-200">{row.chatMessageCommissionPercent}%</span>
+          <span className="text-slate-600"> · </span>
+          <span className="text-slate-500">Br </span>
+          <span className="text-slate-200">{row.broadcastMessageCommissionPercent}%</span>
+          <span className="text-slate-600"> · </span>
+          <span className="text-slate-500">1st </span>
+          <span className="text-slate-200">{row.firstBroadcastCommissionPercent}%</span>
+          <br />
+          <span className="text-slate-500">Kundali </span>
+          <span className="text-slate-200">{row.kundaliReviewCommissionPercent}%</span>
+          <span className="text-slate-600"> · </span>
+          <span className="text-slate-500">Appt </span>
+          <span className="text-slate-200">{row.appointmentCommissionPercent}%</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Balance (NRs)',
       accessor: (row) => (
         <span className="font-semibold text-emerald-400">
           NRs {row.totalCoinEarnings.toLocaleString()}

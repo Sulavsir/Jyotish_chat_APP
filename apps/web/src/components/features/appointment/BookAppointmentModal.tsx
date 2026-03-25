@@ -30,8 +30,8 @@ import appointmentService from '@/services/appointment.service';
 import type { Astrologer, AstrologerSlot, BookingType } from '@/types/appointment.types';
 import { AstrologerCategory } from '@/types/appointment.types';
 import { ASTROLOGER_CATEGORY, QUERY_KEYS, ROUTES } from '@/constants';
-import { useCoinRates } from '@/hooks/useCoinRates';
-import coinService from '@/services/coin.service';
+import { RemainingBalancePayModal } from '@/components/payment/RemainingBalancePayModal';
+import { storePendingKundaliBooking } from '@/lib/pending-kundali-booking.storage';
 
 interface AstrologerListResponse {
   data?: Astrologer[];
@@ -48,10 +48,14 @@ interface BookAppointmentModalProps {
 
 const BOOKING_MODE = {
   slotType: 'KUNDALI_REVIEW' as BookingType,
-  rateKey: 'KUNDALI_REVIEW' as const,
   title: 'Appointment for Full Kundali Review',
   description: 'Book a detailed kundali review session with our expert astrologers',
 };
+
+function nrsAppointmentFee(fee: number | null | undefined): number | null {
+  if (fee == null || fee <= 0) return null;
+  return Math.ceil(fee);
+}
 
 export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   isOpen,
@@ -66,17 +70,9 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDateKey, setSelectedDateKey] = useState<string>('');
   const [bookingSlotId, setBookingSlotId] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const bookingMode = BOOKING_MODE;
-  const { rates } = useCoinRates(isOpen);
-  const appointmentCoinCost = rates?.[bookingMode.rateKey];
-  const { data: balanceData } = useQuery({
-    queryKey: QUERY_KEYS.COINS.BALANCE,
-    queryFn: () => coinService.getBalance(),
-    enabled: isOpen,
-  });
-  const coinBalance = balanceData?.balance ?? 0;
-
   // Fetch astrologers with TanStack Query
   const { data: rawAstrologers, isLoading: isLoadingAstrologers } = useQuery({
     queryKey: QUERY_KEYS.APPOINTMENTS.ASTROLOGERS_FOR_APPOINTMENT,
@@ -138,6 +134,22 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
   });
   const availableSlots = slotsData?.slots ?? [];
 
+  const { data: bookingQuote, isLoading: isQuoteLoading } = useQuery({
+    queryKey: QUERY_KEYS.APPOINTMENTS.BOOKING_QUOTE({
+      astrologerId: selectedAstrologer?.id ?? '',
+      slotId: selectedSlot?.id ?? '',
+      bookingType: bookingMode.slotType,
+    }),
+    queryFn: () =>
+      appointmentService.getBookingQuote({
+        astrologerId: selectedAstrologer!.id,
+        bookingType: 'KUNDALI_REVIEW',
+        slotId: selectedSlot!.id,
+      }),
+    enabled: isOpen && !!selectedAstrologer && !!selectedSlot,
+    staleTime: 30_000,
+  });
+
   const { dateOptions, slotsByDate } = useMemo(() => {
     const slots = slotsData?.slots ?? [];
     const byDate = new Map<string, AstrologerSlot[]>();
@@ -195,7 +207,9 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.ALL });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.APPOINTMENTS.LIST() });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      queryClient.invalidateQueries({ queryKey: ['appointments', 'booking-quote'] });
       setBookingSlotId(null);
+      setShowPaymentModal(false);
       onSuccess?.();
       handleClose();
     },
@@ -209,25 +223,23 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     setSelectedSlot(selectedSlot?.id === slot.id ? null : slot);
   };
 
-  const handleConfirmBooking = () => {
+  const handleOpenPaymentDetails = () => {
     if (!selectedAstrologer || !selectedSlot) return;
-    if (
-      appointmentCoinCost != null &&
-      appointmentCoinCost > 0 &&
-      coinBalance < appointmentCoinCost
-    ) {
-      const remaining = appointmentCoinCost - coinBalance;
-      const safeRemaining = remaining > 0 ? remaining : appointmentCoinCost;
-      toast.error(
-        `Insufficient balance. Redirecting to add at least ${safeRemaining} NRs to your wallet.`
-      );
-      if (typeof window !== 'undefined') {
-        window.location.href = `${ROUTES.PAYMENT}?amount=${safeRemaining}&coins=${safeRemaining}`;
-      }
+    if (isQuoteLoading) {
+      toast.message('Checking your balance…');
       return;
     }
+    if (!bookingQuote) {
+      toast.error('Could not load price. Try again.');
+      return;
+    }
+    setShowPaymentModal(true);
+  };
+
+  const executeBooking = async () => {
+    if (!selectedAstrologer || !selectedSlot) return;
     setBookingSlotId(selectedSlot.id);
-    bookAppointmentMutation.mutate({
+    await bookAppointmentMutation.mutateAsync({
       astrologerId: selectedAstrologer.id,
       slotId: selectedSlot.id,
       bookingType: bookingMode.slotType,
@@ -248,12 +260,18 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
     setStep('select-astrologer');
     setSelectedDateKey('');
     setBookingSlotId(null);
+    setShowPaymentModal(false);
     onClose();
   };
 
-  const isConfirmDisabled = !selectedSlot || bookAppointmentMutation.isPending;
+  const isConfirmDisabled =
+    !selectedSlot ||
+    bookAppointmentMutation.isPending ||
+    isQuoteLoading ||
+    !bookingQuote;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] p-0 bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 border border-purple-500/30 shadow-2xl shadow-purple-900/50 overflow-hidden rounded-2xl flex flex-col">
         {/* Animated background effect */}
@@ -412,12 +430,10 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                     ? `⭐ ${selectedAstrologer.experience} years`
                                     : '⭐ Experienced'}
                                 </p>
-                                {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
+                                {nrsAppointmentFee(selectedAstrologer.appointmentFee) != null ? (
                                   <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                                    {appointmentCoinCost} NRs
+                                    {nrsAppointmentFee(selectedAstrologer.appointmentFee)} NRs
                                   </span>
-                                ) : appointmentCoinCost === undefined ? (
-                                  <span className="text-sm text-purple-400">…</span>
                                 ) : null}
                               </div>
                             </div>
@@ -499,13 +515,13 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                                           ? `⭐ ${astrologer.experience} years`
                                           : '⭐ Experienced'}
                                       </p>
-                                      {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
+                                      {nrsAppointmentFee(astrologer.appointmentFee) != null ? (
                                         <span className="text-sm font-bold inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
-                                          {appointmentCoinCost} NRs
+                                          {nrsAppointmentFee(astrologer.appointmentFee)} NRs
                                         </span>
-                                      ) : appointmentCoinCost === undefined ? (
-                                        <span className="text-sm text-purple-400">…</span>
-                                      ) : null}
+                                      ) : (
+                                        <span className="text-sm text-purple-400">—</span>
+                                      )}
                                     </div>
                                   </div>
                                 </button>
@@ -577,17 +593,15 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                         </span>
                       </div>
                       <p className="text-sm text-emerald-300">
-                        {appointmentCoinCost != null && appointmentCoinCost > 0 ? (
+                        {nrsAppointmentFee(selectedAstrologer.appointmentFee) != null ? (
                           <>
                             <span className="inline-flex items-center gap-1 font-semibold text-emerald-300">
-                              <span>NRs {appointmentCoinCost}</span>
+                              <span>NRs {nrsAppointmentFee(selectedAstrologer.appointmentFee)}</span>
                             </span>
-                            {' per session. Deducted when you book.'}
+                            {' per session (this Jyotish’s fee). Shown again before you confirm.'}
                           </>
-                        ) : appointmentCoinCost === undefined ? (
-                          'NRs … per session'
                         ) : (
-                          'Per session'
+                          'Fee set by this Jyotish — you’ll see the exact amount before confirming.'
                         )}
                       </p>
                     </div>
@@ -676,16 +690,6 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                   <p className="text-xs text-purple-300/70 mt-1">{notes.length}/500 characters</p>
                 </div>
 
-                {/* Insufficient balance message */}
-                {appointmentCoinCost != null &&
-                  appointmentCoinCost > 0 &&
-                  coinBalance < appointmentCoinCost && (
-                    <div className="mt-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm">
-                      You need at least {appointmentCoinCost} NRs. Your balance: {coinBalance} NRs. Please
-                      top up to book.
-                    </div>
-                  )}
-
                 <div className="flex justify-end gap-2 mt-6">
                   <Button
                     onClick={handleClose}
@@ -696,13 +700,13 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
                     Cancel
                   </Button>
                   <LoadingButton
-                    onClick={handleConfirmBooking}
+                    onClick={handleOpenPaymentDetails}
                     disabled={isConfirmDisabled}
-                    isLoading={bookAppointmentMutation.isPending}
-                    loadingText="Booking..."
+                    isLoading={isQuoteLoading}
+                    loadingText="Checking price…"
                     className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
                   >
-                    Confirm booking
+                    Continue to payment
                   </LoadingButton>
                 </div>
               </div>
@@ -711,5 +715,47 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
         </div>
       </DialogContent>
     </Dialog>
+
+    <RemainingBalancePayModal
+      isOpen={showPaymentModal}
+      onClose={() => setShowPaymentModal(false)}
+      title="Full Kundali Review"
+      description="Fee matches this Jyotish’s appointment fee. Earnings use the admin-set kundali commission %."
+      totalNr={bookingQuote?.totalNr ?? 0}
+      balance={bookingQuote?.balance ?? 0}
+      remainingNr={bookingQuote?.remainingNr ?? 0}
+      extraLines={[
+        {
+          label: 'Kundali commission (admin)',
+          value: `${bookingQuote?.kundaliReviewCommissionPercent ?? 0}%`,
+        },
+        {
+          label: 'Est. Jyotish balance credit',
+          value: `${bookingQuote?.estimatedJyotishBalanceEarned ?? 0} NRs`,
+        },
+      ]}
+      onConfirm={async () => {
+        try {
+          await executeBooking();
+        } catch {
+          // mutation surfaces toast
+        }
+      }}
+      onPayRemaining={() => {
+        if (!selectedAstrologer || !selectedSlot || !bookingQuote) return;
+        storePendingKundaliBooking({
+          astrologerId: selectedAstrologer.id,
+          slotId: selectedSlot.id,
+          bookingType: 'KUNDALI_REVIEW',
+          notes: notes.trim() || undefined,
+          totalNr: bookingQuote.totalNr,
+        });
+        setShowPaymentModal(false);
+        window.location.href = `${ROUTES.PAYMENT}?amount=${bookingQuote.remainingNr}&coins=${bookingQuote.remainingNr}`;
+      }}
+      isConfirming={bookAppointmentMutation.isPending}
+      confirmButtonText="Confirm booking"
+    />
+    </>
   );
 };

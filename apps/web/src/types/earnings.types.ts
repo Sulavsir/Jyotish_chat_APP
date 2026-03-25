@@ -1,8 +1,12 @@
 /**
- * Astrologer coin earnings (My Earnings) API types
+ * Astrologer earnings (My Earnings). Amounts are balance in NRs; backend stores them as integer units.
  */
 
-export type AstrologerCoinEarningSource = 'CHAT_MESSAGE' | 'BROADCAST_MESSAGE' | 'APPOINTMENT';
+export type AstrologerCoinEarningSource =
+  | 'CHAT_MESSAGE'
+  | 'BROADCAST_MESSAGE'
+  | 'APPOINTMENT'
+  | 'KUNDALI_REVIEW';
 
 export interface AstrologerCoinEarningRow {
   id: string;
@@ -12,8 +16,10 @@ export interface AstrologerCoinEarningRow {
   broadcastMessageId: string | null;
   appointmentId: string | null;
   source: AstrologerCoinEarningSource;
+  /** Client balance deducted for this line (NRs) */
   clientCoinsDeducted: number;
   commissionPercent: number;
+  /** Your credited balance from this line (NRs) */
   astrologerCoinsEarned: number;
   /** e.g. "First broadcast discount" when earning is from a discounted first broadcast */
   sourceDetail?: string;
@@ -22,6 +28,7 @@ export interface AstrologerCoinEarningRow {
 }
 
 export interface AstrologerEarningsSummary {
+  /** Total balance earned (NRs); API field name is totalCoins */
   totalCoins: number;
   bySource: Record<AstrologerCoinEarningSource, number>;
   period?: { from: string; to: string };

@@ -17,6 +17,7 @@ import {
 } from '../types/coin.types';
 import { requiresCoinsForChat, COIN_REASON_MAPPING } from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
+import { astrologerCoinsFromClientDeduction } from '../utils/astrologer-coin-earning.util';
 
 /**
  * Check if user has an active unlimited chat plan
@@ -59,8 +60,9 @@ export const getCoinBalance = async (userId: string): Promise<number> => {
 /**
  * Deduct coins for sending a message (per-message deduction)
  * Only deducts if user doesn't have active unlimited plan
- * Broadcast chats: Always 1 coin per message (regardless of category)
- * Direct DMs: ORDINARY = 2 coin, PROFESSIONAL = 2 coins, PREMIUM = 0 (appointment only)
+ * Broadcast chats: platform BROADCAST_PER_MESSAGE rate; astrologer share uses broadcastMessageCommissionPercent.
+ * Direct / instant chat: per-Jyotish or CHAT_PER_MESSAGE; astrologer share uses chatMessageCommissionPercent.
+ * PREMIUM: no per-message coins outside appointment window (appointment window skips deduction); PREMIUM cannot accept broadcast or instant chat.
  */
 export const deductCoinsForMessage = async (
   userId: string,
@@ -230,19 +232,25 @@ export const deductCoinsForMessage = async (
     if (astrologerIdForEarning) {
       const astrologer = await tx.astrologer.findUnique({
         where: { id: astrologerIdForEarning },
-        select: { commissionRate: true },
+        select: {
+          chatMessageCommissionPercent: true,
+          broadcastMessageCommissionPercent: true,
+        },
       });
-      if (astrologer && astrologer.commissionRate > 0) {
-        const astrologerCoins = Math.floor((coinCost * astrologer.commissionRate) / 100);
+      const pct = isBroadcastSession
+        ? (astrologer?.broadcastMessageCommissionPercent ?? 0)
+        : (astrologer?.chatMessageCommissionPercent ?? 0);
+      if (pct > 0) {
+        const astrologerCoins = astrologerCoinsFromClientDeduction(coinCost, pct);
         if (astrologerCoins > 0) {
-          await (tx as any).astrologerCoinEarning.create({
+          await tx.astrologerCoinEarning.create({
             data: {
               astrologerId: astrologerIdForEarning,
               coinTransactionId: coinTx.id,
               chatId,
               source,
               clientCoinsDeducted: coinCost,
-              commissionPercent: astrologer.commissionRate,
+              commissionPercent: pct,
               astrologerCoinsEarned: astrologerCoins,
             },
           });
@@ -491,13 +499,18 @@ export const addCoins = async (
   };
 };
 
+/** Which admin commission applies when deducting the astrologer's appointment fee */
+export type AppointmentDeductionEarningKind = 'KUNDALI_REVIEW' | 'APPOINTMENT';
+
 /**
- * Deduct coins for booking an appointment (uses admin-configured APPOINTMENT rate)
+ * Deduct coins for a confirmed appointment (legacy confirm flow).
+ * Full Kundali Review bookings use kundaliReviewCommissionPercent; other appointment services use appointmentCommissionPercent.
  */
 export const deductCoinsForAppointment = async (
   userId: string,
   astrologerId: string,
-  coinCost: number
+  coinCost: number,
+  earningKind: AppointmentDeductionEarningKind = 'APPOINTMENT'
 ): Promise<{ userId: string; balance: number; coinTransactionId: string; coinCost: number }> => {
   if (coinCost <= 0) {
     const balance = await getCoinBalance(userId);
@@ -542,18 +555,26 @@ export const deductCoinsForAppointment = async (
     });
     const astrologer = await tx.astrologer.findUnique({
       where: { id: astrologerId },
-      select: { commissionRate: true },
+      select: {
+        appointmentCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+      },
     });
-    if (astrologer && astrologer.commissionRate > 0) {
-      const astrologerCoins = Math.floor((coinCost * astrologer.commissionRate) / 100);
+    const useKundali = earningKind === 'KUNDALI_REVIEW';
+    const pct = useKundali
+      ? (astrologer?.kundaliReviewCommissionPercent ?? 0)
+      : (astrologer?.appointmentCommissionPercent ?? 0);
+    const source = useKundali ? ('KUNDALI_REVIEW' as const) : ('APPOINTMENT' as const);
+    if (pct > 0) {
+      const astrologerCoins = astrologerCoinsFromClientDeduction(coinCost, pct);
       if (astrologerCoins > 0) {
-        await (tx as any).astrologerCoinEarning.create({
+        await tx.astrologerCoinEarning.create({
           data: {
             astrologerId,
             coinTransactionId: coinTx.id,
-            source: 'APPOINTMENT',
+            source,
             clientCoinsDeducted: coinCost,
-            commissionPercent: astrologer.commissionRate,
+            commissionPercent: pct,
             astrologerCoinsEarned: astrologerCoins,
           },
         });
@@ -629,10 +650,11 @@ export const deductCoinsForBooking = async (
     });
     const astrologer = await tx.astrologer.findUnique({
       where: { id: astrologerId },
-      select: { commissionRate: true },
+      select: { kundaliReviewCommissionPercent: true },
     });
-    if (astrologer && astrologer.commissionRate > 0) {
-      const astrologerCoins = Math.floor((coinCost * astrologer.commissionRate) / 100);
+    const pct = astrologer?.kundaliReviewCommissionPercent ?? 0;
+    if (pct > 0) {
+      const astrologerCoins = astrologerCoinsFromClientDeduction(coinCost, pct);
       if (astrologerCoins > 0) {
         await tx.astrologerCoinEarning.create({
           data: {
@@ -640,7 +662,7 @@ export const deductCoinsForBooking = async (
             coinTransactionId: coinTx.id,
             source,
             clientCoinsDeducted: coinCost,
-            commissionPercent: astrologer.commissionRate,
+            commissionPercent: pct,
             astrologerCoinsEarned: astrologerCoins,
           },
         });

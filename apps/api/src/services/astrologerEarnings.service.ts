@@ -201,6 +201,11 @@ export interface AstrologerWithCoinEarningRow {
   category: string;
   rating: number | null;
   totalCoinEarnings: number;
+  chatMessageCommissionPercent: number;
+  broadcastMessageCommissionPercent: number;
+  firstBroadcastCommissionPercent: number;
+  kundaliReviewCommissionPercent: number;
+  appointmentCommissionPercent: number;
 }
 
 export interface ListAstrologersWithCoinEarningsResult {
@@ -252,6 +257,11 @@ export async function listAstrologersWithCoinEarnings(params: {
         phone: true,
         category: true,
         rating: true,
+        chatMessageCommissionPercent: true,
+        broadcastMessageCommissionPercent: true,
+        firstBroadcastCommissionPercent: true,
+        kundaliReviewCommissionPercent: true,
+        appointmentCommissionPercent: true,
       },
       orderBy: { name: 'asc' },
     }),
@@ -284,6 +294,11 @@ export async function listAstrologersWithCoinEarnings(params: {
     category: a.category,
     rating: a.rating,
     totalCoinEarnings: earningsMap.get(a.id) ?? 0,
+    chatMessageCommissionPercent: a.chatMessageCommissionPercent,
+    broadcastMessageCommissionPercent: a.broadcastMessageCommissionPercent,
+    firstBroadcastCommissionPercent: a.firstBroadcastCommissionPercent,
+    kundaliReviewCommissionPercent: a.kundaliReviewCommissionPercent,
+    appointmentCommissionPercent: a.appointmentCommissionPercent,
   }));
 
   return {
