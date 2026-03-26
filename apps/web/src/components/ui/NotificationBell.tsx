@@ -384,6 +384,12 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
     loadNotifications();
   }, [notificationsEnabled, loadNotifications, shouldPollNotifications]);
 
+  useEffect(() => {
+    if (!notificationsEnabled) return;
+    if (!isAstrologer) return;
+    void loadNotifications();
+  }, [notificationsEnabled, isAstrologer, loadNotifications]);
+
   // ─── Socket listeners ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -394,7 +400,9 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       const isUpdateRef = { current: false };
       setNotifications((prev) => {
         const existingIdx = prev.findIndex(
-          (n) => n.id === notification.id || (notification.groupKey && n.groupKey === notification.groupKey)
+          (n) =>
+            n.id === notification.id ||
+            (notification.groupKey && n.groupKey === notification.groupKey)
         );
         if (existingIdx >= 0) {
           isUpdateRef.current = true;
