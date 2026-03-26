@@ -5,17 +5,20 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "NODE_OPTIONS='' node node_modules/prisma/build/index.js generate && tsc",
-    "db:generate": "NODE_OPTIONS='' node node_modules/prisma/build/index.js generate",
-    "db:push": "NODE_OPTIONS='' node node_modules/prisma/build/index.js db push",
-    "db:migrate": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate dev",
-    "db:migrate:create": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate dev --create-only",
-    "db:migrate:deploy": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate deploy",
-    "db:migrate:status": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate status",
-    "db:migrate:reset": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate reset",
-    "db:studio": "NODE_OPTIONS='' node node_modules/prisma/build/index.js studio",
-    "db:seed": "NODE_OPTIONS='' ts-node prisma/seed.ts",
-    "db:format": "NODE_OPTIONS='' node node_modules/prisma/build/index.js format"
+    "build": "dotenv -e ../../.env -- pnpm exec prisma generate && tsc",
+    "postinstall": "dotenv -e ../../.env -- pnpm exec prisma generate",
+    "db:generate": "dotenv -e ../../.env -- pnpm exec prisma generate",
+    "db:push": "dotenv -e ../../.env -- pnpm exec prisma db push",
+    "db:migrate": "dotenv -e ../../.env -- pnpm exec prisma migrate dev",
+    "db:migrate:create": "dotenv -e ../../.env -- pnpm exec prisma migrate dev --create-only",
+    "db:migrate:deploy": "dotenv -e ../../.env -- pnpm exec prisma migrate deploy",
+    "db:migrate:status": "dotenv -e ../../.env -- pnpm exec prisma migrate status",
+    "db:migrate:baseline-to-nepal-geography": "dotenv -e ../../.env -- bash ./scripts/baseline-migrations-up-to-nepal-geography.sh",
+    "db:migrate:reset": "dotenv -e ../../.env -- pnpm exec prisma migrate reset",
+    "db:studio": "dotenv -e ../../.env -- pnpm exec prisma studio",
+    "db:seed": "dotenv -e ../../.env -- ts-node prisma/seed.ts",
+    "db:format": "dotenv -e ../../.env -- pnpm exec prisma format",
+    "db:diagnose": "node ./scripts/diagnose-prisma.cjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -23,10 +26,10 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "prisma": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.19.27",
     "dotenv-cli": "^7.4.2",
-    "prisma": "^5.8.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
