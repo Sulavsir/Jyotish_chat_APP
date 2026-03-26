@@ -9,6 +9,7 @@ import { HTTP_STATUS } from '../constants';
 import { UserRole } from '@jyotish/shared';
 import { AuthRequest } from '../types';
 import { getSocketInstance } from '../utils/socket-instance';
+import type { ListAdminSupportChatsQuery } from '../validators/adminChat.validators';
 
 // AdminChatSenderType enum - will be available from @prisma/client after migration
 const AdminChatSenderType = {
@@ -55,15 +56,12 @@ export const getAllChats = async (req: AuthRequest, res: Response) => {
       return sendError(res, 'Forbidden', HTTP_STATUS.FORBIDDEN);
     }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const status = req.query.status as string | undefined;
-    const search = req.query.search as string | undefined;
+    const { page, limit, status, search } = req.query as unknown as ListAdminSupportChatsQuery;
 
     const result = await adminChatService.getAllChats({
       page,
       limit,
-      status: status as any,
+      status,
       search,
     });
 

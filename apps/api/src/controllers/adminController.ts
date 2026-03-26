@@ -33,7 +33,9 @@ import { getClientIp } from '../utils/request-utils';
 import { getSocketInstance } from '../utils/socket-instance';
 import * as adminPlatformPaymentService from '../services/adminPlatformPayment.service';
 import { utcDayEnd, utcDayStart } from '../utils/date-range.utils';
+import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
 import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
+import type { ListAdminMonitorChatsQuery } from '../validators/adminChat.validators';
 import type { ListAdminPlatformPaymentQuery } from '../validators/adminPlatformPayment.validators';
 
 /** Rows that should appear in admin astrologer totals (soft-delete + legacy inconsistent rows). */
@@ -41,6 +43,24 @@ const ACTIVE_ASTROLOGER_COUNT_WHERE = {
   isDeleted: false,
   deletedAt: null,
 } satisfies Prisma.AstrologerWhereInput;
+
+/** Approved astrologers only — matches admin astrologer list (excludes pending/rejected/deleted). */
+const APPROVED_ASTROLOGER_COUNT_WHERE = {
+  ...ACTIVE_ASTROLOGER_COUNT_WHERE,
+  accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
+} satisfies Prisma.AstrologerWhereInput;
+
+/** Client fields on monitor chat list/detail — matches astrologer “client details” birth block. */
+const ADMIN_MONITOR_CHAT_CLIENT_SELECT = {
+  id: true,
+  name: true,
+  phone: true,
+  email: true,
+  profilePhoto: true,
+  dateOfBirth: true,
+  timeOfBirth: true,
+  placeOfBirth: true,
+} satisfies Prisma.UserSelect;
 
 // ==================== Admin Authentication ====================
 
@@ -899,16 +919,19 @@ export async function getAstrologerAuditLogs(req: AuthRequest, res: Response, ne
  */
 export async function listChats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page = '1', limit = '10', status, search } = req.query;
+    const { page, limit, status, search } = req.query as unknown as ListAdminMonitorChatsQuery;
 
-    const where: Record<string, unknown> = {};
+    const pageNum = page ?? 1;
+    const limitNum = limit ?? 10;
+
+    const where: Prisma.ChatWhereInput = {};
 
     if (status) {
       where.status = status;
     }
 
-    if (search && String(search).trim()) {
-      const s = String(search).trim();
+    if (search?.trim()) {
+      const s = search.trim();
       where.OR = [
         { clientParticipant: { name: { contains: s, mode: 'insensitive' } } },
         { clientParticipant: { phone: { contains: s } } },
@@ -920,27 +943,23 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
       ];
     }
 
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
 
     const [chats, total] = await Promise.all([
       prisma.chat.findMany({
         where,
         skip,
-        take: parseInt(limit as string),
+        take: limitNum,
         include: {
           clientParticipant: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              profilePhoto: true,
-            },
+            select: ADMIN_MONITOR_CHAT_CLIENT_SELECT,
           },
           astrologerParticipant: {
             select: {
               id: true,
               name: true,
               phone: true,
+              email: true,
               profilePhoto: true,
             },
           },
@@ -958,10 +977,10 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
     return sendSuccess(res, {
       chats,
       pagination: {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / parseInt(limit as string)),
+        totalPages: Math.ceil(total / limitNum),
       },
     });
   } catch (error) {
@@ -981,13 +1000,7 @@ export async function getChat(req: AuthRequest, res: Response, next: NextFunctio
       where: { id },
       include: {
         clientParticipant: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            profilePhoto: true,
-          },
+          select: ADMIN_MONITOR_CHAT_CLIENT_SELECT,
         },
         astrologerParticipant: {
           select: {
@@ -1435,6 +1448,7 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       lifetimeTotals,
       totalUsers,
       totalAstrologers,
+      pendingAstrologerRegistrations,
       activeChats,
       onlineAstrologers,
       todayConsultations,
@@ -1444,10 +1458,17 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
     ] = await Promise.all([
       getLifetimeTotals(),
       prisma.user.count({ where: { role: 'CLIENT' } }),
-      prisma.astrologer.count({ where: ACTIVE_ASTROLOGER_COUNT_WHERE }),
+      prisma.astrologer.count({ where: APPROVED_ASTROLOGER_COUNT_WHERE }),
+      prisma.astrologer.count({
+        where: { accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING, ...ACTIVE_ASTROLOGER_COUNT_WHERE },
+      }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
       prisma.astrologer.count({
-        where: { ...ACTIVE_ASTROLOGER_COUNT_WHERE, isActive: true, isOnline: true },
+        where: {
+          ...APPROVED_ASTROLOGER_COUNT_WHERE,
+          isActive: true,
+          isOnline: true,
+        },
       }),
       prisma.consultation.count({ where: { createdAt: { gte: today } } }),
       prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: today } } }),
@@ -1471,6 +1492,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
     const stats = {
       totalUsers,
       totalAstrologers,
+      /** Same definition as sidebar `pendingAstrologerRegistrations` (GET /admin/sidebar-counts). */
+      pendingAstrologerRegistrations,
       activeChats,
       onlineAstrologers,
       // Total Earnings (Astrologers) — lifetime coins earned across all astrologers
@@ -2192,7 +2215,7 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       prisma.kundaliMatchRequest.count({ where: { status: KundaliMatchStatus.PENDING } }),
       prisma.user.count(),
       prisma.user.count({ where: { createdAt: { gte: today } } }),
-      prisma.astrologer.count({ where: ACTIVE_ASTROLOGER_COUNT_WHERE }),
+      prisma.astrologer.count({ where: APPROVED_ASTROLOGER_COUNT_WHERE }),
       prisma.astrologer.count({
         where: { accountStatus: 'PENDING', ...ACTIVE_ASTROLOGER_COUNT_WHERE },
       }),

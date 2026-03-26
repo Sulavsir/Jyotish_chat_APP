@@ -75,7 +75,24 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-800 mt-6 pt-4 text-center text-xs text-gray-500">
+        <div className="border-t border-gray-800 mt-6 pt-4 text-center text-xs text-gray-500 space-y-2">
+          <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            <Link
+              href={ROUTES.PRIVACY}
+              className="text-purple-400 underline underline-offset-2 decoration-purple-400/80 hover:text-purple-300 hover:decoration-purple-300 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-gray-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href={ROUTES.TERMS}
+              className="text-purple-400 underline underline-offset-2 decoration-purple-400/80 hover:text-purple-300 hover:decoration-purple-300 transition-colors"
+            >
+              Terms of Service
+            </Link>
+          </p>
           <p>&copy; 2026 Chat Jyotishii. All rights reserved.</p>
         </div>
       </div>

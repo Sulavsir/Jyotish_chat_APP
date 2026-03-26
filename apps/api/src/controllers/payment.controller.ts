@@ -60,7 +60,7 @@ export async function successRedirect(req: Request, res: Response, next: NextFun
           `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Redirecting...</title></head><body>` +
             `<p>Redirecting to payment success...</p>` +
             `<script>window.location.href=${jsUrl};</script>` +
-            `<p><a href="${htmlEscapedUrl}">Click here if not redirecteAd</a></p></body></html>`
+            `<p><a href="${htmlEscapedUrl}">Click here if you are not redirected</a></p></body></html>`
         );
       return;
     }

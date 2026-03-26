@@ -64,6 +64,10 @@ export interface Chat {
     email?: string;
     phone?: string;
     profilePhoto?: string;
+    /** ISO date string — same as GET /users/:id/details for astrologers */
+    dateOfBirth?: string | null;
+    timeOfBirth?: string | null;
+    placeOfBirth?: string | null;
   };
   astrologerParticipant: {
     id: string;
@@ -174,6 +178,8 @@ export interface Earning {
 export interface DashboardStats {
   totalUsers: number;
   totalAstrologers: number;
+  /** Pending registration approvals — matches sidebar badge / GET sidebar-counts */
+  pendingAstrologerRegistrations: number;
   activeChats: number;
   /** In-house astrologers currently marked online */
   onlineAstrologers: number;

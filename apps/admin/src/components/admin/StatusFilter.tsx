@@ -302,4 +302,33 @@ export function AdminChatStatusFilter({
   );
 }
 
+/** Online presence for admin astrologer list (maps to API isOnline). */
+export type OnlinePresenceFilterValue = 'ALL' | 'ONLINE' | 'OFFLINE';
+
+export const ONLINE_PRESENCE_OPTIONS: StatusFilterOption<OnlinePresenceFilterValue>[] = [
+  { value: 'ALL', label: 'Any online status' },
+  { value: 'ONLINE', label: 'Online now' },
+  { value: 'OFFLINE', label: 'Offline' },
+];
+
+export function OnlinePresenceFilter({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: OnlinePresenceFilterValue;
+  onChange: (value: OnlinePresenceFilterValue) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <StatusFilter
+      value={value}
+      onChange={onChange}
+      options={ONLINE_PRESENCE_OPTIONS}
+      disabled={disabled}
+      placeholder="Online status"
+    />
+  );
+}
+
 export default StatusFilter;

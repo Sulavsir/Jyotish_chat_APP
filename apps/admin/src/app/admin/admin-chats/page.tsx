@@ -29,6 +29,7 @@ import { RefreshCw, MessageSquare } from 'lucide-react';
 import { generatePageNumbers } from '@/utils/helpers';
 import AdminChatDetailModal from '@/components/admin-chat/AdminChatDetailModal';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
+import { UserParticipantCell } from '@/components/chat';
 
 const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
@@ -139,17 +140,29 @@ export default function AdminChatsPage() {
   const columns: AdminTableColumn<AdminChat>[] = [
     {
       header: 'Participant',
-      accessor: (chat) => (
-        <div className="flex items-center gap-2">
-          <span className="font-medium">
-            {chat.user?.name ||
-              chat.user?.phone ||
-              chat.astrologer?.name ||
-              chat.astrologer?.phone ||
-              'Unknown Participant'}
-          </span>
-        </div>
-      ),
+      accessor: (chat) => {
+        if (chat.user) {
+          return (
+            <UserParticipantCell
+              label={chat.participantRole === 'ASTROLOGER' ? 'Jyotish' : 'Client'}
+              name={chat.user.name}
+              phone={chat.user.phone}
+              email={chat.user.email}
+            />
+          );
+        }
+        if (chat.astrologer) {
+          return (
+            <UserParticipantCell
+              label="Jyotish"
+              name={chat.astrologer.name}
+              phone={chat.astrologer.phone}
+              email={chat.astrologer.email}
+            />
+          );
+        }
+        return <span className="text-slate-500 text-sm">Unknown participant</span>;
+      },
     },
     {
       header: 'Role',

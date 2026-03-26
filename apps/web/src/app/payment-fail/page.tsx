@@ -6,6 +6,7 @@ import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { XCircle, ArrowLeft } from 'lucide-react';
 import { ROUTES } from '@/constants';
+import { PaymentChargeDisputeNotice } from '@/components/payment';
 
 export default function PaymentFailPage() {
   const router = useRouter();
@@ -50,12 +51,16 @@ export default function PaymentFailPage() {
                 <XCircle className="h-12 w-12 text-red-100" />
               </div>
               <h3 className="text-2xl font-semibold text-white mb-2">Payment was not completed</h3>
-              <p className="text-red-50/90 mb-6">
-                {message || 'Your payment could not be processed. You have not been charged.'}
+              <p className="text-red-50/90 mb-4">
+                {message ||
+                  'Your payment could not be completed. If no debit appears on your bank or wallet, you can try again safely.'}
               </p>
               {orderId && (
-                <p className="text-red-200/70 text-sm mb-6">Order reference: {orderId}</p>
+                <p className="text-red-200/70 text-sm mb-4">Order reference: {orderId}</p>
               )}
+              <div className="mb-6 text-left max-w-lg mx-auto">
+                <PaymentChargeDisputeNotice className="border-amber-500/35 bg-amber-950/25 text-left" />
+              </div>
               <div className="flex gap-3 justify-center">
                 <Button
                   onClick={handleGoPricing}

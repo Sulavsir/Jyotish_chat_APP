@@ -16,6 +16,10 @@ import { pricingService } from '../../../services/pricing.service';
 import { PurchaseMethod } from '../../../types/pricing.types';
 import { CoinTransactionReason } from '../../../types/coin.types';
 import { invalidateMySuccessfulPaymentsCache } from '../../../services/paymentCache';
+import {
+  notifyClientPaymentFailed,
+  notifyClientPaymentSuccess,
+} from '../../../services/paymentNotification.service';
 import type { FonepayWebCallbackQuery } from '../../../types/fonepay.types';
 
 // Common Fonepay failure response codes
@@ -111,6 +115,14 @@ export async function verifyPayment(
       where: { id: payment.id },
       data: { status: PaymentStatus.FAILED },
     });
+    void notifyClientPaymentFailed({
+      userId: payment.userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: PAYMENT_METHOD_FONEPAY_CARD,
+      reason: getFailureMessage(RC, PS),
+    });
     return {
       redirectTo: `${failUrl}?orderId=${encodeURIComponent(payment.id)}&message=${encodeURIComponent(getFailureMessage(RC, PS))}`,
     };
@@ -138,6 +150,14 @@ export async function verifyPayment(
       await prisma.payment.update({
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED },
+      });
+      void notifyClientPaymentFailed({
+        userId: payment.userId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentMethod: PAYMENT_METHOD_FONEPAY_CARD,
+        reason: 'Payment verification failed (invalid signature).',
       });
     }
     return {
@@ -190,6 +210,14 @@ export async function verifyPayment(
       try {
         if (planId) {
           await pricingService.activatePlanForUser(payment.userId, planId, PurchaseMethod.MONEY);
+          void notifyClientPaymentSuccess({
+            userId: payment.userId,
+            paymentId: payment.id,
+            amount: payment.amount,
+            currency: payment.currency,
+            paymentMethod: PAYMENT_METHOD_FONEPAY_CARD,
+            planActivated: true,
+          });
         } else if (coinsToAdd > 0) {
           await addCoins(
             payment.userId,
@@ -198,6 +226,22 @@ export async function verifyPayment(
             undefined,
             payment.id
           );
+          void notifyClientPaymentSuccess({
+            userId: payment.userId,
+            paymentId: payment.id,
+            amount: payment.amount,
+            currency: payment.currency,
+            paymentMethod: PAYMENT_METHOD_FONEPAY_CARD,
+            coinsAdded: coinsToAdd,
+          });
+        } else {
+          void notifyClientPaymentSuccess({
+            userId: payment.userId,
+            paymentId: payment.id,
+            amount: payment.amount,
+            currency: payment.currency,
+            paymentMethod: PAYMENT_METHOD_FONEPAY_CARD,
+          });
         }
         console.log('[verifyPayment] Coins/plan activated successfully');
       } catch (err) {
@@ -216,6 +260,15 @@ export async function verifyPayment(
   await prisma.payment.update({
     where: { id: payment.id },
     data: { status: PaymentStatus.FAILED },
+  });
+
+  void notifyClientPaymentFailed({
+    userId: payment.userId,
+    paymentId: payment.id,
+    amount: payment.amount,
+    currency: payment.currency,
+    paymentMethod: PAYMENT_METHOD_FONEPAY_CARD,
+    reason: getFailureMessage(RC, PS),
   });
 
   return {

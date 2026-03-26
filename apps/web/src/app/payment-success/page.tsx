@@ -21,6 +21,7 @@ import {
 } from '@/lib/pending-kundali-booking.storage';
 import appointmentService from '@/services/appointment.service';
 import type { QueryClient } from '@tanstack/react-query';
+import { PaymentChargeDisputeNotice } from '@/components/payment';
 
 async function completePendingKundaliBookingAfterTopUp(queryClient: QueryClient): Promise<void> {
   const pending = getPendingKundaliBooking();
@@ -431,9 +432,12 @@ export default function PaymentSuccessPage() {
                 <h3 className="text-2xl font-semibold text-white mb-2">
                   We couldn&apos;t verify your payment
                 </h3>
-                <p className="text-red-50/90 mb-6">
-                  If you were charged, please contact support with your order details.
+                <p className="text-red-50/90 mb-4 max-w-lg mx-auto">
+                  We could not confirm this payment with the gateway. Your order may still be pending.
                 </p>
+                <div className="mb-6 max-w-lg mx-auto text-left">
+                  <PaymentChargeDisputeNotice className="border-amber-500/35 bg-amber-950/25" />
+                </div>
                 <div className="flex gap-3 justify-center">
                   <Button
                     onClick={handleGoPricing}

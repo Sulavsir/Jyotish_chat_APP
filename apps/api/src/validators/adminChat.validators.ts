@@ -4,6 +4,31 @@
 
 import { z } from 'zod';
 
+const adminListPaginationSchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 1)),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 10)),
+});
+
+/** GET /api/v1/admin/chats — monitor client↔jyotish chats */
+export const listAdminMonitorChatsQuerySchema = adminListPaginationSchema.extend({
+  status: z.enum(['ACTIVE', 'ENDED']).optional(),
+  search: z.string().optional(),
+});
+export type ListAdminMonitorChatsQuery = z.infer<typeof listAdminMonitorChatsQuerySchema>;
+
+/** GET /api/v1/admin-chat/admin/all — support widget admin chats */
+export const listAdminSupportChatsQuerySchema = adminListPaginationSchema.extend({
+  status: z.enum(['ACTIVE', 'RESOLVED', 'CLOSED']).optional(),
+  search: z.string().optional(),
+});
+export type ListAdminSupportChatsQuery = z.infer<typeof listAdminSupportChatsQuerySchema>;
+
 export const createAdminChatSchema = z.object({
   initialMessage: z.string().min(1, 'Initial message is required').max(1000, 'Message too long'),
 });
