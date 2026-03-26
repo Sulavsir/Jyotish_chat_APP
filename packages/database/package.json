@@ -5,17 +5,17 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "node node_modules/prisma/build/index.js generate && tsc",
-    "db:generate": "node node_modules/prisma/build/index.js generate",
-    "db:push": "node node_modules/prisma/build/index.js db push",
-    "db:migrate": "node node_modules/prisma/build/index.js migrate dev",
-    "db:migrate:create": "node node_modules/prisma/build/index.js migrate dev --create-only",
-    "db:migrate:deploy": "node node_modules/prisma/build/index.js migrate deploy",
-    "db:migrate:status": "node node_modules/prisma/build/index.js migrate status",
-    "db:migrate:reset": "node node_modules/prisma/build/index.js migrate reset",
-    "db:studio": "node node_modules/prisma/build/index.js studio",
-    "db:seed": "ts-node prisma/seed.ts",
-    "db:format": "node node_modules/prisma/build/index.js format"
+    "build": "NODE_OPTIONS='' node node_modules/prisma/build/index.js generate && tsc",
+    "db:generate": "NODE_OPTIONS='' node node_modules/prisma/build/index.js generate",
+    "db:push": "NODE_OPTIONS='' node node_modules/prisma/build/index.js db push",
+    "db:migrate": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate dev",
+    "db:migrate:create": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate dev --create-only",
+    "db:migrate:deploy": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate deploy",
+    "db:migrate:status": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate status",
+    "db:migrate:reset": "NODE_OPTIONS='' node node_modules/prisma/build/index.js migrate reset",
+    "db:studio": "NODE_OPTIONS='' node node_modules/prisma/build/index.js studio",
+    "db:seed": "NODE_OPTIONS='' ts-node prisma/seed.ts",
+    "db:format": "NODE_OPTIONS='' node node_modules/prisma/build/index.js format"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
