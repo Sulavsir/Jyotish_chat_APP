@@ -9,6 +9,7 @@ import { AuthProvider } from '@/providers/auth-provider';
 import { NepaliDateProvider } from '@/providers/nepali-date-provider';
 import { PaymentRedirectHandler } from '@/components/payment/PaymentRedirectHandler';
 import { JsonLd } from '@/components/seo/JsonLd';
+import { MaintenanceGate } from '@/components/maintenance/MaintenanceGate';
 
 // Lazy-load AdminChatWidget - reduces initial bundle, loads after hydration
 const AdminChatWidget = dynamic(
@@ -102,12 +103,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <JsonLd />
         <QueryProvider>
-          <AuthProvider>
-            <NepaliDateProvider>
-              <Suspense fallback={null}>
-                <PaymentRedirectHandler />
-              </Suspense>
-              {children}
+          <MaintenanceGate>
+            <AuthProvider>
+              <NepaliDateProvider>
+                <Suspense fallback={null}>
+                  <PaymentRedirectHandler />
+                </Suspense>
+                {children}
               <AdminChatWidget />
               <Toaster position="top-right" richColors />
               {/* Fixed portal root for dropdowns (e.g. Language select) so they stay visible when scrolling */}
@@ -123,6 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               />
             </NepaliDateProvider>
           </AuthProvider>
+          </MaintenanceGate>
         </QueryProvider>
       </body>
     </html>

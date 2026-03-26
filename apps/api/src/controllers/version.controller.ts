@@ -2,15 +2,12 @@
  * Version Controller
  * Force-update endpoint for Flutter app.
  * GET /api/version - no auth required, always returns HTTP 200 with valid JSON.
+ * Includes `maintenance` so clients can show maintenance UI without calling /api/v1.
  */
 
 import { Request, Response } from 'express';
-
-interface VersionResponse {
-  latest_version: string;
-  min_required_version: string;
-  force_update: boolean;
-}
+import type { AppVersionApiResponse } from '@jyotish/shared';
+import { isMaintenanceModeActive } from '../services/maintenance.service';
 
 /**
  * GET /api/version
@@ -21,10 +18,11 @@ export function getVersion(req: Request, res: Response) {
   const forceUpdate =
     process.env.APP_FORCE_UPDATE === 'true' || process.env.APP_FORCE_UPDATE === '1';
 
-  const payload: VersionResponse = {
+  const payload: AppVersionApiResponse = {
     latest_version: latestVersion,
     min_required_version: minRequiredVersion,
     force_update: forceUpdate,
+    maintenance: isMaintenanceModeActive(),
   };
 
   res.status(200).json(payload);

@@ -17,8 +17,9 @@ import { getSocketRedisAdapter, closeSocketRedisClients } from './config/socket-
 import routes from './routes';
 import { setupRecurringJobs } from './workers';
 import { getVersion } from './controllers/version.controller';
+import { maintenanceMiddleware } from './middleware/maintenance.middleware';
 
-// Load environment variables from the API directory
+// Load environment variables from apps/api/.env only (MAINTENANCE_MODE defaults off when unset)
 const envPath = path.resolve(__dirname, '../.env');
 const envResult = dotenv.config({ path: envPath });
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -173,6 +174,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Parse cookies for httpOnly refresh token
 app.use(morgan('dev'));
+
+// Maintenance: 503 on /api/v1 and /api-docs; /health and /api/version stay available
+app.use(maintenanceMiddleware);
 
 // Global API rate limit (per IP). Set RATE_LIMIT_MAX=0 to disable. For 10k+ concurrent traffic, use multiple instances + load balancer.
 const rateLimitMax = Math.max(0, parseInt(process.env.RATE_LIMIT_MAX ?? '500', 10));

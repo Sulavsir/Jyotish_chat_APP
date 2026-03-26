@@ -22,6 +22,12 @@ export {
   type MessageWithSenderAndTime,
 } from './chat-birth-metadata';
 
+export {
+  isMaintenanceModeEnabled,
+  buildMaintenanceApiErrorBody,
+  type MaintenanceApiErrorBody,
+} from './maintenance';
+
 /**
  * Get zodiac sign from date of birth
  */
