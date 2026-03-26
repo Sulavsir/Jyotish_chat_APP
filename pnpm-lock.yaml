@@ -404,7 +404,7 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       prisma:
-        specifier: ^5.22.0
+        specifier: ^5.8.0
         version: 5.22.0
       xlsx:
         specifier: ^0.18.5

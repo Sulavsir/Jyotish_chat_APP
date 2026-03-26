@@ -5,30 +5,29 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "prisma generate && tsc",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:create": "prisma migrate dev --create-only",
-    "db:migrate:deploy": "prisma migrate deploy",
-    "db:migrate:status": "prisma migrate status",
-    "db:migrate:baseline-to-nepal-geography": "bash ./scripts/baseline-migrations-up-to-nepal-geography.sh",
-    "db:migrate:reset": "prisma migrate reset",
-    "db:studio": "prisma studio",
-    "db:seed": "ts-node prisma/seed.ts",
-    "db:format": "prisma format",
-    "db:diagnose": "node ./scripts/diagnose-prisma.cjs"
+    "build": "tsc",
+    "db:generate": "dotenv -e ../../../.env -- prisma generate",
+    "db:push": "dotenv -e ../../../.env -- prisma db push",
+    "db:migrate": "dotenv -e ../../../.env -- prisma migrate dev",
+    "db:migrate:create": "dotenv -e ../../../.env -- prisma migrate dev --create-only",
+    "db:migrate:deploy": "dotenv -e ../../../.env -- prisma migrate deploy",
+    "db:migrate:status": "dotenv -e ../../../.env -- prisma migrate status",
+    "db:migrate:baseline-to-nepal-geography": "dotenv -e ../../../.env -- bash ./scripts/baseline-migrations-up-to-nepal-geography.sh",
+    "db:migrate:reset": "dotenv -e ../../../.env -- prisma migrate reset",
+    "db:studio": "dotenv -e ../../../.env -- prisma studio",
+    "db:seed": "dotenv -e ../../../.env -- ts-node prisma/seed.ts",
+    "db:format": "dotenv -e ../../../.env -- prisma format"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
-    "dotenv": "^16.4.7",
-    "prisma": "^5.22.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.19.27",
+    "dotenv-cli": "^7.4.2",
+    "prisma": "^5.8.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
