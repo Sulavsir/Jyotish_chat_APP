@@ -1,11 +1,12 @@
 /**
- * Run `prisma generate` without depending on dotenv-cli (which isn't linked during postinstall).
+ * Run `prisma generate` without dotenv-cli or `pnpm exec`.
  *
- * Loads repo-root `.env` when present; otherwise uses a placeholder DATABASE_URL
- * (Prisma only needs a valid URL shape for client generation, not a live DB).
+ * Why not `pnpm exec prisma generate`?
+ *   During postinstall, `pnpm exec` can fail with exit code -2 on Linux
+ *   because shell PATH / bin links aren't fully wired yet.
  *
- * During `pnpm i`, prisma may not be linked yet — in that case we skip gracefully
- * (the `build` script will generate the client before compilation).
+ * Instead we resolve prisma's CLI JS entry via require.resolve and run it
+ * directly with the current Node process — zero shell dependencies.
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
@@ -41,28 +42,23 @@ if (!process.env.DATABASE_URL) {
     'postgresql://127.0.0.1:5432/prisma_generate_placeholder?schema=public';
 }
 
-// Check if prisma binary is reachable before attempting generate.
-// During `pnpm install` postinstall, devDependencies may not be linked yet.
+// Find prisma CLI entry point via require.resolve (works even when PATH isn't wired).
+let prismaCli;
 try {
-  execSync('pnpm exec prisma --version', {
-    cwd: pkgDir,
-    stdio: 'ignore',
-    env: process.env,
-  });
+  const prismaDir = path.dirname(require.resolve('prisma/package.json', { paths: [pkgDir] }));
+  prismaCli = path.join(prismaDir, 'build', 'index.js');
+  if (!fs.existsSync(prismaCli)) prismaCli = null;
 } catch {
-  const isPostInstall = process.env.npm_lifecycle_event === 'postinstall';
-  if (isPostInstall) {
-    console.log(
-      '[prisma-generate] prisma not available yet (postinstall). Skipping — will generate during build.'
-    );
-    process.exit(0);
-  }
-  console.error('[prisma-generate] prisma binary not found. Run pnpm install first.');
-  process.exit(1);
+  prismaCli = null;
+}
+
+if (!prismaCli) {
+  console.log('[prisma-generate] prisma not installed yet. Skipping — will generate during build.');
+  process.exit(0);
 }
 
 try {
-  execSync('pnpm exec prisma generate', {
+  execSync(`node "${prismaCli}" generate`, {
     cwd: pkgDir,
     stdio: 'inherit',
     env: process.env,
