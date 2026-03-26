@@ -400,9 +400,9 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
-      dotenv-cli:
-        specifier: ^7.4.2
-        version: 7.4.4
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
       prisma:
         specifier: ^5.22.0
         version: 5.22.0
@@ -3450,6 +3450,7 @@ packages:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+    dev: true
 
   /cssesc@3.0.0:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==}
@@ -3712,21 +3713,6 @@ packages:
     dependencies:
       '@babel/runtime': 7.28.4
       csstype: 3.2.3
-    dev: false
-
-  /dotenv-cli@7.4.4:
-    resolution: {integrity: sha512-XkBYCG0tPIes+YZr4SpfFv76SQrV/LeCE8CI7JSEMi3VR9MvTihCGTOtbIexD6i2mXF+6px7trb1imVCXSNMDw==}
-    hasBin: true
-    dependencies:
-      cross-spawn: 7.0.6
-      dotenv: 16.6.1
-      dotenv-expand: 10.0.0
-      minimist: 1.2.8
-    dev: false
-
-  /dotenv-expand@10.0.0:
-    resolution: {integrity: sha512-GopVGCpVS1UKH75VKHGuQFqS1Gusej0z4FyQkPdwjil2gNIv+LNsqBlboOzpJFZKVT95GkCyWJbBSdFEFUWI2A==}
-    engines: {node: '>=12'}
     dev: false
 
   /dotenv@16.6.1:
@@ -4995,6 +4981,7 @@ packages:
 
   /isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+    dev: true
 
   /iterator.prototype@1.1.5:
     resolution: {integrity: sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g==}
@@ -5665,6 +5652,7 @@ packages:
   /path-key@3.1.1:
     resolution: {integrity: sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==}
     engines: {node: '>=8'}
+    dev: true
 
   /path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
@@ -6349,10 +6337,12 @@ packages:
     engines: {node: '>=8'}
     dependencies:
       shebang-regex: 3.0.0
+    dev: true
 
   /shebang-regex@3.0.0:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
+    dev: true
 
   /shell-quote@1.8.3:
     resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
@@ -7168,6 +7158,7 @@ packages:
     hasBin: true
     dependencies:
       isexe: 2.0.0
+    dev: true
 
   /wmf@1.0.2:
     resolution: {integrity: sha512-/p9K7bEh0Dj6WbXg4JG0xvLQmIadrner1bi45VMJTfnbVHsc7yIajZyoSoK60/dtVBs12Fm6WkUI5/3WAVsNMw==}
