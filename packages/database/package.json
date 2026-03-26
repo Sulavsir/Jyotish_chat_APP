@@ -5,9 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "dotenv -e ../../.env -- pnpm exec prisma generate && tsc",
-    "postinstall": "dotenv -e ../../.env -- pnpm exec prisma generate",
-    "db:generate": "dotenv -e ../../.env -- pnpm exec prisma generate",
+    "build": "node node_modules/prisma/build/index.js generate && tsc",
+    "db:generate": "node node_modules/prisma/build/index.js generate",
     "db:push": "dotenv -e ../../.env -- pnpm exec prisma db push",
     "db:migrate": "dotenv -e ../../.env -- pnpm exec prisma migrate dev",
     "db:migrate:create": "dotenv -e ../../.env -- pnpm exec prisma migrate dev --create-only",
