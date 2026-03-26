@@ -6,7 +6,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "prisma generate && tsc",
-    "postinstall": "prisma generate",
+    "postinstall": "node ./scripts/postinstall-prisma.cjs",
     "db:generate": "prisma generate",
     "db:push": "dotenv -e ../../../.env -- prisma db push",
     "db:migrate": "dotenv -e ../../../.env -- prisma migrate dev",
@@ -22,6 +22,7 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
     "dotenv-cli": "^7.4.2",
     "prisma": "^5.22.0",
     "xlsx": "^0.18.5"
