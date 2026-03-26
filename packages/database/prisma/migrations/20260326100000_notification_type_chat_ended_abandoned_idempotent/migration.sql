@@ -1,5 +1,4 @@
 
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -29,3 +28,5 @@ BEGIN
     ALTER TYPE "NotificationType" ADD VALUE 'CHAT_ABANDONED';
   END IF;
 END $$;
+
+ALTER TABLE "AstrologerCoinEarning" ADD COLUMN IF NOT EXISTS "sourceDetail" TEXT;
