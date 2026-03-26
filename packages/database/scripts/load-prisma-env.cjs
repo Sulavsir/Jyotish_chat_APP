@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 
 const pkgRoot = path.join(__dirname, '..');
-const rootEnv = path.join(pkgRoot, '../../../.env');
+const rootEnv = path.join(pkgRoot, '../../.env');
 const localEnv = path.join(pkgRoot, '.env');
 
 if (fs.existsSync(rootEnv)) {
@@ -46,7 +46,7 @@ if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = PLACEHOLDER_DB;
   } else if (needsRealDb) {
     console.error(
-      '[load-prisma-env] DATABASE_URL is not set. Add repo root .env (../../../.env) or packages/database/.env'
+      '[load-prisma-env] DATABASE_URL is not set. Add repo root .env (../../.env from packages/database) or packages/database/.env'
     );
     process.exit(1);
   } else {
