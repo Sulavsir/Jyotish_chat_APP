@@ -76,9 +76,11 @@ function main() {
   }
 
   const prismaEntry = resolvePrismaEntry();
+  // When the parent is `pnpm run`, stdin is often not a TTY (or is closed). Inheriting
+  // stdin can make Prisma/engine exit with code 254; pnpm then shows that as exit -2.
   const result = spawnSync(process.execPath, [prismaEntry, ...args], {
     cwd: pkgRoot,
-    stdio: 'inherit',
+    stdio: ['ignore', 'inherit', 'inherit'],
     env: process.env,
     shell: false,
   });
@@ -87,7 +89,12 @@ function main() {
     console.error('[prisma-cli] spawn failed:', result.error);
     process.exit(1);
   }
-  process.exit(result.status === 0 ? 0 : result.status ?? 1);
+  const st = result.status;
+  if (st === null || st === undefined) {
+    console.error('[prisma-cli] Prisma exited with signal:', result.signal);
+    process.exit(1);
+  }
+  process.exit(st);
 }
 
 main();
