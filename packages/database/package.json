@@ -5,17 +5,17 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "db:generate": "dotenv -e ../../../.env -- prisma generate",
-    "db:push": "dotenv -e ../../../.env -- prisma db push",
-    "db:migrate": "dotenv -e ../../../.env -- prisma migrate dev",
-    "db:migrate:create": "dotenv -e ../../../.env -- prisma migrate dev --create-only",
-    "db:migrate:deploy": "dotenv -e ../../../.env -- prisma migrate deploy",
-    "db:migrate:status": "dotenv -e ../../../.env -- prisma migrate status",
-    "db:migrate:reset": "dotenv -e ../../../.env -- prisma migrate reset",
-    "db:studio": "dotenv -e ../../../.env -- prisma studio",
-    "db:seed": "dotenv -e ../../../.env -- ts-node prisma/seed.ts",
-    "db:format": "dotenv -e ../../../.env -- prisma format"
+    "build": "pnpm exec prisma generate && tsc",
+    "db:generate": "dotenv -e ../../.env -- pnpm exec prisma generate",
+    "db:push": "dotenv -e ../../.env -- pnpm exec prisma db push",
+    "db:migrate": "dotenv -e ../../.env -- pnpm exec prisma migrate dev",
+    "db:migrate:create": "dotenv -e ../../.env -- pnpm exec prisma migrate dev --create-only",
+    "db:migrate:deploy": "dotenv -e ../../.env -- pnpm exec prisma migrate deploy",
+    "db:migrate:status": "dotenv -e ../../.env -- pnpm exec prisma migrate status",
+    "db:migrate:reset": "dotenv -e ../../.env -- pnpm exec prisma migrate reset",
+    "db:studio": "dotenv -e ../../.env -- pnpm exec prisma studio",
+    "db:seed": "dotenv -e ../../.env -- ts-node prisma/seed.ts",
+    "db:format": "dotenv -e ../../.env -- pnpm exec prisma format"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
