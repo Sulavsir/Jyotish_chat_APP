@@ -32,8 +32,7 @@
     "db:migrate:status": "pnpm --filter database db:migrate:status",
     "db:migrate:baseline-to-nepal-geography": "pnpm --filter database db:migrate:baseline-to-nepal-geography",
     "db:studio": "pnpm --filter database db:studio",
-    "db:format": "pnpm --filter database db:format",
-    "db:diagnose": "pnpm --filter database db:diagnose"
+    "db:format": "pnpm --filter database db:format"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
