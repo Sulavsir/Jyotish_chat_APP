@@ -7,16 +7,24 @@ import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import type {
-  GoogleUserInfo,
-  GoogleTokenPayload,
-  GoogleLoginResult,
-  UserEntity,
-} from '../types';
+import type { GoogleUserInfo, GoogleTokenPayload, GoogleLoginResult, UserEntity } from '../types';
+
+/** Prefer `name`; otherwise combine given + family (mobile ID tokens often omit `name`). */
+function resolveGoogleDisplayName(googleUser: GoogleUserInfo): string | undefined {
+  const direct = googleUser.name?.trim();
+  if (direct) return direct;
+  const parts = [googleUser.given_name?.trim(), googleUser.family_name?.trim()].filter(Boolean);
+  if (parts.length > 0) return parts.join(' ');
+  return undefined;
+}
 
 function createGoogleClient(): Google {
   const config = getGoogleOAuthConfig();
-  return new Google(config.GOOGLE_CLIENT_ID, config.GOOGLE_CLIENT_SECRET, config.GOOGLE_REDIRECT_URI);
+  return new Google(
+    config.GOOGLE_CLIENT_ID,
+    config.GOOGLE_CLIENT_SECRET,
+    config.GOOGLE_REDIRECT_URI
+  );
 }
 
 class GoogleOAuthService {
@@ -34,10 +42,7 @@ class GoogleOAuthService {
     return { url, state, codeVerifier };
   }
 
-  async validateCallback(
-    code: string,
-    codeVerifier: string
-  ): Promise<GoogleUserInfo> {
+  async validateCallback(code: string, codeVerifier: string): Promise<GoogleUserInfo> {
     const google = createGoogleClient();
     const tokens = await google.validateAuthorizationCode(code, codeVerifier);
     const accessToken = tokens.accessToken();
@@ -64,6 +69,10 @@ class GoogleOAuthService {
       );
     }
 
+    const resolved = resolveGoogleDisplayName(userInfo);
+    if (resolved) {
+      return { ...userInfo, name: resolved };
+    }
     return userInfo;
   }
 
@@ -94,7 +103,7 @@ class GoogleOAuthService {
 
     // Build list of valid audiences (Web client ID is always required, mobile IDs are optional)
     const validAudiences: string[] = [config.GOOGLE_CLIENT_ID];
-    
+
     if (config.GOOGLE_IOS_CLIENT_ID) {
       validAudiences.push(config.GOOGLE_IOS_CLIENT_ID);
     }
@@ -136,7 +145,7 @@ class GoogleOAuthService {
       );
     }
 
-    return {
+    const merged: GoogleUserInfo = {
       sub: payload.sub,
       email: payload.email,
       email_verified: payload.email_verified === 'true',
@@ -145,6 +154,8 @@ class GoogleOAuthService {
       family_name: payload.family_name,
       picture: payload.picture,
     };
+    const resolved = resolveGoogleDisplayName(merged);
+    return resolved ? { ...merged, name: resolved } : merged;
   }
 
   async findOrCreateUser(
@@ -157,6 +168,8 @@ class GoogleOAuthService {
     });
 
     let isNewUser = false;
+
+    const googleDisplayName = resolveGoogleDisplayName(googleUser);
 
     if (!user) {
       // Check if user exists by email (link accounts)
@@ -172,7 +185,7 @@ class GoogleOAuthService {
             googleId: googleUser.sub,
             emailVerified: user.emailVerified ?? new Date(),
             profilePhoto: user.profilePhoto ?? googleUser.picture ?? undefined,
-            name: user.name ?? googleUser.name ?? undefined,
+            name: user.name?.trim() ? user.name : googleDisplayName ?? undefined,
           },
         });
       } else {
@@ -182,13 +195,30 @@ class GoogleOAuthService {
             googleId: googleUser.sub,
             email: googleUser.email,
             emailVerified: new Date(),
-            name: googleUser.name ?? undefined,
+            name: googleDisplayName ?? undefined,
             profilePhoto: googleUser.picture ?? undefined,
             role: UserRole.CLIENT,
             profileCompleted: false,
           },
         });
         isNewUser = true;
+      }
+    } else {
+      const needsEmail = !user.email?.trim() && !!googleUser.email;
+      const needsName = !user.name?.trim() && !!googleDisplayName;
+      const needsPhoto = !user.profilePhoto && !!googleUser.picture;
+      if (needsEmail || needsName || needsPhoto) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            ...(needsEmail && {
+              email: googleUser.email,
+              emailVerified: user.emailVerified ?? new Date(),
+            }),
+            ...(needsName && googleDisplayName && { name: googleDisplayName }),
+            ...(needsPhoto && { profilePhoto: googleUser.picture }),
+          },
+        });
       }
     }
 

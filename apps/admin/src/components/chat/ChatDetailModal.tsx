@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
 import { ADMIN_QUERY_KEYS } from '@/constants';
 import type { Chat, Message } from '@/types';
-import { Button, Avatar, AvatarImage, AvatarFallback, Spinner } from '@jyotish/ui';
+import { Badge, Button, Avatar, AvatarImage, AvatarFallback, Spinner } from '@jyotish/ui';
 import { LoadingButton, ConfirmDialog } from '@/components/ui';
 import {
   X,
@@ -18,6 +18,12 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  formatBirthDetailsSingleLine,
+  groupMessagesBySenderAndSameSecond,
+  mergeMessageBirthDetails,
+  type FallbackClientBirth,
+} from '@jyotish/shared';
 
 interface ChatDetailModalProps {
   chat: Chat | null;
@@ -179,8 +185,8 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
 
   const renderMessageContent = (message: Message) => {
     // Get file URL from metadata first, fallback to content
-    const metadata = message.metadata as any;
-    const fileUrl = metadata?.fileUrl || message.content;
+    const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+    const fileUrl = (typeof metadata.fileUrl === 'string' ? metadata.fileUrl : null) || message.content;
 
     // Check if content is an image URL (even if type is TEXT)
     if (message.content && isImageUrl(message.content)) {
@@ -213,9 +219,11 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
           </div>
         );
 
-      case 'FILE':
-        const fileName = metadata?.fileName || 'File';
-        const fileSize = metadata?.fileSize ? `${(metadata.fileSize / 1024).toFixed(2)} KB` : '';
+      case 'FILE': {
+        const fileName = typeof metadata.fileName === 'string' ? metadata.fileName : 'File';
+        const rawSize = metadata.fileSize;
+        const fileSize =
+          typeof rawSize === 'number' ? `${(rawSize / 1024).toFixed(2)} KB` : '';
         return (
           <div className="mt-2 flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
             <FileText className="w-8 h-8 text-purple-400" />
@@ -233,6 +241,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
             </Button>
           </div>
         );
+      }
 
       case 'AUDIO':
         return (
@@ -279,6 +288,29 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
     }
   };
 
+  const fallbackBirth: FallbackClientBirth | null = chat?.clientParticipant
+    ? {
+        dateOfBirth: chat.clientParticipant.dateOfBirth ?? null,
+        timeOfBirth: chat.clientParticipant.timeOfBirth ?? null,
+        placeOfBirth: chat.clientParticipant.placeOfBirth ?? null,
+      }
+    : null;
+
+  const accountBirthSummary = useMemo(() => {
+    if (!chat?.clientParticipant) return null;
+    const merged = mergeMessageBirthDetails({}, 'CLIENT', {
+      dateOfBirth: chat.clientParticipant.dateOfBirth ?? null,
+      timeOfBirth: chat.clientParticipant.timeOfBirth ?? null,
+      placeOfBirth: chat.clientParticipant.placeOfBirth ?? null,
+    });
+    return merged ? formatBirthDetailsSingleLine(merged) : null;
+  }, [chat?.clientParticipant]);
+
+  const messageGroups = useMemo(
+    () => groupMessagesBySenderAndSameSecond(messages),
+    [messages]
+  );
+
   if (!chat || !isOpen) return null;
 
   return (
@@ -290,7 +322,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
       />
 
       {/* Modal */}
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl max-h-[85vh] bg-slate-900 border border-slate-800 rounded-lg shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-5xl max-h-[85vh] bg-slate-900 border border-slate-800 rounded-lg shadow-2xl animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <div className="flex items-center gap-4 flex-1">
@@ -362,6 +394,26 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
           </Button>
         </div>
 
+        {/* Birth context: per-message lines below; this is account default only */}
+        {chat.clientParticipant && (
+          <div className="px-6 py-2.5 border-b border-slate-800 bg-slate-950/40">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Each client message lists DOB · TOB · POB for the profile used when that message was sent
+              (e.g. a family member). Values can differ from the account default.
+            </p>
+            {accountBirthSummary && (
+              <Badge
+                variant="outline"
+                className="mt-2 text-xs font-normal whitespace-normal text-left max-w-full border-slate-600 bg-slate-800/70 text-slate-200"
+                title={accountBirthSummary}
+              >
+                <span className="text-slate-500 font-medium mr-1">Account default ·</span>
+                {accountBirthSummary}
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Messages Content */}
         <div className="overflow-y-auto space-y-4 p-6 max-h-[calc(85vh-180px)]">
           {loading ? (
@@ -374,10 +426,15 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
             </div>
           ) : (
             <>
-              {messages.map((message) => {
+              {messageGroups.map((group) => {
+                const message = group[0];
                 const senderName = getSenderName(message);
                 const senderAvatar = getSenderAvatar(message);
                 const isClient = message.senderType === 'CLIENT';
+                const metaFirst = (message.metadata as Record<string, unknown>) ?? {};
+                const isBroadcast =
+                  isClient &&
+                  (metaFirst.originalBroadcast === true || !!metaFirst.broadcastMessageId);
 
                 return (
                   <div
@@ -399,7 +456,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
                     </Avatar>
 
                     <div
-                      className={`flex flex-col ${isClient ? 'items-start' : 'items-end'} flex-1`}
+                      className={`flex flex-col ${isClient ? 'items-start' : 'items-end'} flex-1 min-w-0`}
                     >
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs font-medium text-slate-300">{senderName}</span>
@@ -412,57 +469,91 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
                         >
                           {isClient ? 'Client' : 'Jyotish'}
                         </span>
-                        {isClient && (() => {
-                          const meta = (message.metadata as Record<string, unknown>) ?? {};
-                          const isBroadcast =
-                            meta.originalBroadcast === true || !!meta.broadcastMessageId;
-                          return (
-                            <span
-                              className={`text-xs font-semibold rounded px-1.5 py-0.5 ${
-                                isBroadcast
-                                  ? 'bg-amber-500/30 text-amber-300'
-                                  : 'bg-emerald-500/30 text-emerald-300'
-                              }`}
-                            >
-                              {isBroadcast ? 'Broadcast' : 'Direct'}
-                            </span>
-                          );
-                        })()}
-                        <span className="text-xs text-slate-500">
-                          {new Date(message.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div
-                        className={`rounded-lg p-3 max-w-lg ${
-                          isClient
-                            ? 'bg-blue-600/20 border border-blue-500/30'
-                            : 'bg-purple-600/20 border border-purple-500/30'
-                        }`}
-                      >
-                        {renderMessageContent(message)}
-
-                        {message.isDeleted && (
-                          <p className="text-xs text-slate-500 italic mt-1">
-                            This message was deleted
-                          </p>
+                        {isClient && (
+                          <span
+                            className={`text-xs font-semibold rounded px-1.5 py-0.5 ${
+                              isBroadcast
+                                ? 'bg-amber-500/30 text-amber-300'
+                                : 'bg-emerald-500/30 text-emerald-300'
+                            }`}
+                          >
+                            {isBroadcast ? 'Broadcast' : 'Direct'}
+                          </span>
+                        )}
+                        {group.length > 1 && (
+                          <span className="text-xs text-slate-500">
+                            · {group.length} messages in this burst
+                          </span>
                         )}
                       </div>
 
-                      {(message.type !== 'TEXT' || isImageUrl(message.content || '')) && (
-                        <div className="flex items-center gap-1 mt-1">
-                          {(message.type === 'IMAGE' || isImageUrl(message.content || '')) && (
-                            <ImageIcon className="w-3 h-3 text-slate-500" />
-                          )}
-                          {message.type === 'FILE' && (
-                            <FileText className="w-3 h-3 text-slate-500" />
-                          )}
-                          {message.type === 'AUDIO' && <Mic className="w-3 h-3 text-slate-500" />}
-                          <span className="text-xs text-slate-500 capitalize">
-                            {isImageUrl(message.content || '') ? 'IMAGE' : message.type}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex flex-col gap-2 w-full max-w-2xl">
+                        {group.map((m) => {
+                          const birthMerged =
+                            isClient && fallbackBirth
+                              ? mergeMessageBirthDetails(m.metadata, 'CLIENT', fallbackBirth)
+                              : null;
+                          const birthLine =
+                            birthMerged ? formatBirthDetailsSingleLine(birthMerged) : null;
+
+                          return (
+                            <div key={m.id} className="w-full">
+                              <div
+                                className={`flex flex-wrap items-center gap-2 mb-1 ${
+                                  isClient ? 'justify-start' : 'justify-end'
+                                }`}
+                              >
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] font-normal border-slate-600 text-slate-300 bg-slate-800/80"
+                                >
+                                  {new Date(m.createdAt).toLocaleString()}
+                                </Badge>
+                              </div>
+                              <div
+                                className={`rounded-lg p-3 ${
+                                  isClient
+                                    ? 'bg-blue-600/20 border border-blue-500/30'
+                                    : 'bg-purple-600/20 border border-purple-500/30'
+                                }`}
+                              >
+                                {renderMessageContent(m)}
+
+                                {m.isDeleted && (
+                                  <p className="text-xs text-slate-500 italic mt-1">
+                                    This message was deleted
+                                  </p>
+                                )}
+                              </div>
+
+                              {isClient && birthLine && (
+                                <Badge
+                                  variant="outline"
+                                  className="mt-1.5 text-[11px] font-normal whitespace-normal text-left max-w-full border-blue-500/40 bg-blue-950/40 text-slate-200 leading-snug"
+                                  title={birthLine}
+                                >
+                                  {birthLine}
+                                </Badge>
+                              )}
+
+                              {(m.type !== 'TEXT' || isImageUrl(m.content || '')) && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  {(m.type === 'IMAGE' || isImageUrl(m.content || '')) && (
+                                    <ImageIcon className="w-3 h-3 text-slate-500" />
+                                  )}
+                                  {m.type === 'FILE' && (
+                                    <FileText className="w-3 h-3 text-slate-500" />
+                                  )}
+                                  {m.type === 'AUDIO' && <Mic className="w-3 h-3 text-slate-500" />}
+                                  <span className="text-xs text-slate-500 capitalize">
+                                    {isImageUrl(m.content || '') ? 'IMAGE' : m.type}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 );

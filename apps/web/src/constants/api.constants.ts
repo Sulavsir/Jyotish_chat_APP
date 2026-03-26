@@ -22,6 +22,9 @@ export const WS_BASE_URL =
       ? `${window.location.protocol}//${window.location.hostname}:4000` // Use current hostname (localhost or network IP)
       : 'http://localhost:4000'; // SSR fallback
 
+/** GET /api/version – not under /api/v1; includes `maintenance` flag when API has MAINTENANCE_MODE. */
+export const API_VERSION_PATH = '/api/version';
+
 // API Endpoints
 export const API_ENDPOINTS = {
   PUBLIC: {

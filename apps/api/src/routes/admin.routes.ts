@@ -30,7 +30,10 @@ import {
   queryPaginationSchema,
   chatIdParamSchema,
 } from '../validators/query.validators';
-import { abandonChatBodySchema } from '../validators/adminChat.validators';
+import {
+  abandonChatBodySchema,
+  listAdminMonitorChatsQuerySchema,
+} from '../validators/adminChat.validators';
 import { asyncHandler } from '../utils';
 import { adminAstrologerUpload } from '../middleware/adminAstrologerUpload';
 import {
@@ -219,7 +222,11 @@ router.get('/audit-logs/user/:userId', adminController.getUserAuditLogs);
 router.get('/audit-logs/astrologer/:astrologerId', adminController.getAstrologerAuditLogs);
 
 // ==================== Chat Monitoring ====================
-router.get('/chats', adminController.listChats);
+router.get(
+  '/chats',
+  validateQuery(listAdminMonitorChatsQuerySchema),
+  asyncHandler(adminController.listChats)
+);
 
 router.get('/chats/:id', adminController.getChat);
 

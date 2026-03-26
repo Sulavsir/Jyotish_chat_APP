@@ -28,6 +28,11 @@ export function getTodayDateRange(): { from: string; to: string } {
   return { from: t, to: t };
 }
 
+/** No date restriction — use for list pages that should default to “all time”. */
+export function getAllTimeDateRange(): { from: string; to: string } {
+  return { from: '', to: '' };
+}
+
 export type AdminDatePresetId =
   | 'all'
   | 'today'
@@ -102,7 +107,7 @@ export interface AdminMonthRangeFilterProps {
 
 /**
  * Filter: **DateInput**-style trigger + popover (presets + custom range).
- * Pair with {@link getTodayDateRange} for default **Today** in parent state.
+ * Pair with {@link getAllTimeDateRange} for default **All time** in admin list pages, or {@link getTodayDateRange} for **Today** when needed.
  */
 export function AdminMonthRangeFilter({
   fromValue,

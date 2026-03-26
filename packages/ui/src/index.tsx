@@ -27,6 +27,7 @@ export * from './table';
 export * from './skeleton';
 export * from './table-skeleton';
 export * from './empty-state';
+export * from './maintenance-screen';
 export * from './app-sidebar';
 export * from './icons';
 export * from './profile-image-input';

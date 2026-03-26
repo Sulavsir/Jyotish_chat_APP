@@ -5,6 +5,8 @@ export const API_BASE_URL =
       ? `${window.location.protocol}//${window.location.hostname}:4000`
       : 'http://localhost:4000'; // Always match current host in dev
 
+export const API_VERSION_PATH = '/api/version';
+
 export const API_ENDPOINTS = {
   ADMIN: {
     // Auth

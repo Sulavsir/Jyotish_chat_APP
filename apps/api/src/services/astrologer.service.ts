@@ -591,6 +591,7 @@ export class AstrologerService {
     const where: any = {
       accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
       isDeleted: false,
+      deletedAt: null,
     };
 
     if (search) {

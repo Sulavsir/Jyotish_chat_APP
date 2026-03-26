@@ -43,7 +43,10 @@ function isClientProfileCompleteForFlag(user: {
 async function resolveNepalPlaceOfBirthString(
   value: string
 ): Promise<{ pradeshId: string; districtId: string; location: string | null } | null> {
-  const parts = value.split(',').map((p) => p.trim()).filter(Boolean);
+  const parts = value
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
   if (parts.length < 2) return null;
   const provinceName = parts[0];
   const districtName = parts[1];
@@ -203,7 +206,9 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
       where: { id: userId },
       data: {
         ...(name && { name }),
-        ...(email !== undefined && { email: email || null }),
+        ...(email !== undefined &&
+          email !== null &&
+          String(email).trim() !== '' && { email: String(email).trim() }),
         ...(phone && { phone }),
         ...(profilePhoto && { profilePhoto }),
         ...(bio !== undefined && { bio }),
@@ -266,7 +271,9 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
       where: { id: userId },
       data: {
         ...(name && { name }),
-        ...(email !== undefined && { email: email || null }),
+        ...(email !== undefined &&
+          email !== null &&
+          String(email).trim() !== '' && { email: String(email).trim() }),
         ...(phone && { phone }),
         ...(profilePhoto && { profilePhoto }),
         ...(gender && { gender }),
@@ -462,7 +469,8 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
     where: { id: req.user!.id },
     data: {
       ...(isValidDob && { dateOfBirth: dob }),
-      ...(validatedData.timeOfBirth != null && validatedData.timeOfBirth !== '' && { timeOfBirth: timeOfBirthValue }),
+      ...(validatedData.timeOfBirth != null &&
+        validatedData.timeOfBirth !== '' && { timeOfBirth: timeOfBirthValue }),
       placeOfBirth: placeOfBirthValue ?? validatedData.placeOfBirth ?? null,
       placeOfBirthType: validatedData.placeOfBirthType ?? null,
       placeOfBirthPradeshId: resolvedPradeshId,
@@ -470,8 +478,12 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
       placeOfBirthLocation: resolvedLocation,
       ...(validatedData.latitude !== undefined && { latitude: validatedData.latitude }),
       ...(validatedData.longitude !== undefined && { longitude: validatedData.longitude }),
-      ...(validatedData.currentAddress !== undefined && { currentAddress: validatedData.currentAddress }),
-      ...(validatedData.permanentAddress !== undefined && { permanentAddress: validatedData.permanentAddress }),
+      ...(validatedData.currentAddress !== undefined && {
+        currentAddress: validatedData.currentAddress,
+      }),
+      ...(validatedData.permanentAddress !== undefined && {
+        permanentAddress: validatedData.permanentAddress,
+      }),
       zodiacSign: resolvedZodiacSign,
       ...(validatedData.gender !== undefined ? { gender: validatedData.gender } : {}),
       profileCompleted: computedProfileCompleted,

@@ -4,13 +4,14 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { validate } from '../middleware/validate';
+import { validate, validateQuery } from '../middleware/validate';
 import { chatUploadSingle } from '../middleware/chatUpload';
 import {
   createAdminChatSchema,
   sendAdminChatMessageSchema,
   updateAdminChatStatusSchema,
   assignAdminToChatSchema,
+  listAdminSupportChatsQuerySchema,
 } from '../validators/adminChat.validators';
 import adminChatController from '../controllers/adminChatController';
 
@@ -26,7 +27,12 @@ router.patch('/:id/read', authenticate, adminChatController.markAsRead);
 router.post('/upload-file', authenticate, chatUploadSingle('file'), adminChatController.uploadAdminChatFile);
 
 // Admin routes
-router.get('/admin/all', authenticate, adminChatController.getAllChats);
+router.get(
+  '/admin/all',
+  authenticate,
+  validateQuery(listAdminSupportChatsQuerySchema),
+  adminChatController.getAllChats
+);
 router.get('/admin/unread-count', authenticate, adminChatController.getUnreadCount);
 router.patch('/admin/:id/status', authenticate, validate(updateAdminChatStatusSchema), adminChatController.updateChatStatus);
 router.patch('/admin/:id/assign', authenticate, validate(assignAdminToChatSchema), adminChatController.assignAdmin);

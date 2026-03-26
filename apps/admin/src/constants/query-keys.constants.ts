@@ -4,6 +4,8 @@
  */
 
 export const ADMIN_QUERY_KEYS = {
+  APP_VERSION: ['admin', 'app', 'version'] as const,
+
   // Astrologers
   ASTROLOGERS: {
     ALL: ['admin', 'astrologers'] as const,

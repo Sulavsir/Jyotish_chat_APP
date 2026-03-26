@@ -1,5 +1,13 @@
 import { Server } from 'socket.io';
 import { prisma } from '@jyotish/database';
+import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
+
+/** Matches admin dashboard “Total Astrologers” / list (approved, not soft-deleted). */
+const APPROVED_ASTROLOGER_COUNT_WHERE = {
+  isDeleted: false,
+  deletedAt: null,
+  accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
+} as const;
 
 /**
  * Utility to emit real-time stats updates to admin clients
@@ -151,7 +159,11 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       const onlineAstrologers = await prisma.astrologer.count({
-        where: { isDeleted: false, deletedAt: null, isActive: true, isOnline: true },
+        where: {
+          ...APPROVED_ASTROLOGER_COUNT_WHERE,
+          isActive: true,
+          isOnline: true,
+        },
       });
       io.to('admin').emit('stats:update', { onlineAstrologers });
     } catch (error) {
@@ -166,7 +178,7 @@ export class AdminStatsEmitter {
     try {
       const io = this.getIo();
       const totalAstrologers = await prisma.astrologer.count({
-        where: { isDeleted: false, deletedAt: null },
+        where: APPROVED_ASTROLOGER_COUNT_WHERE,
       });
       io.to('admin').emit('stats:update', { totalAstrologers });
       this.emitSidebarInvalidate();

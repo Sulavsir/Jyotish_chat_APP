@@ -20,7 +20,7 @@ import {
   PaginationPrevious,
   AdminMonthRangeFilter,
   AdminPaginationBar,
-  getTodayDateRange,
+  getAllTimeDateRange,
 } from '@jyotish/ui';
 import { RefreshCw, Banknote, Plus } from 'lucide-react';
 import {
@@ -57,7 +57,7 @@ export default function UsersPage() {
     balance?: number;
   } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
-  const [joinedRange, setJoinedRange] = useState(getTodayDateRange);
+  const [joinedRange, setJoinedRange] = useState(getAllTimeDateRange);
   const debouncedJoinedFrom = useDebounce(joinedRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedJoinedTo = useDebounce(joinedRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
 
@@ -119,17 +119,17 @@ export default function UsersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  const today = getTodayDateRange();
+  const allTime = getAllTimeDateRange();
   const isDefaultView =
     statusFilter === 'ALL' &&
     !debouncedSearch &&
-    debouncedJoinedFrom === today.from &&
-    debouncedJoinedTo === today.to;
+    debouncedJoinedFrom === allTime.from &&
+    debouncedJoinedTo === allTime.to;
 
   const clearUserFilters = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
-    setJoinedRange(getTodayDateRange());
+    setJoinedRange(getAllTimeDateRange());
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
 

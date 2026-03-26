@@ -43,6 +43,10 @@ import {
   setMySuccessfulPaymentsCache,
   invalidateMySuccessfulPaymentsCache,
 } from './paymentCache';
+import {
+  notifyClientPaymentFailed,
+  notifyClientPaymentSuccess,
+} from './paymentNotification.service';
 
 /**
  * Build callback URLs for GetPay. The bundle redirects to these after OTP.
@@ -207,6 +211,14 @@ export async function verifyPayment(
       where: { id: orderId },
       data: { status: PaymentStatus.FAILED, transactionId: transactionIdToStore },
     });
+    void notifyClientPaymentFailed({
+      userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: payment.paymentMethod,
+      reason: e instanceof Error ? e.message : 'Verification with GetPay failed.',
+    });
     const err = e instanceof Error ? e : new Error('Verification failed');
     throw new AppError(err.message, HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
   }
@@ -245,6 +257,14 @@ export async function verifyPayment(
     await prisma.payment.update({
       where: { id: orderId },
       data: { status: PaymentStatus.FAILED, transactionId: transactionIdToStore },
+    });
+    void notifyClientPaymentFailed({
+      userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: payment.paymentMethod,
+      reason: `Gateway status: ${String(rawStatus) || rawMessage || 'unknown'}`,
     });
     return {
       success: false,
@@ -289,6 +309,14 @@ export async function verifyPayment(
   // We won the race — credit coins or activate plan
   if (planId) {
     await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
+    void notifyClientPaymentSuccess({
+      userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: payment.paymentMethod,
+      planActivated: true,
+    });
   } else if (coinsToAdd > 0) {
     await addCoins(
       userId,
@@ -297,6 +325,22 @@ export async function verifyPayment(
       undefined,
       payment.id
     );
+    void notifyClientPaymentSuccess({
+      userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: payment.paymentMethod,
+      coinsAdded: coinsToAdd,
+    });
+  } else {
+    void notifyClientPaymentSuccess({
+      userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: payment.paymentMethod,
+    });
   }
 
   const balance = await prisma.user.findUnique({
@@ -413,6 +457,14 @@ export async function createFonepayQrOrder(
       where: { id: payment.id },
       data: { status: PaymentStatus.FAILED },
     });
+    void notifyClientPaymentFailed({
+      userId,
+      paymentId: payment.id,
+      amount: payment.amount,
+      currency: payment.currency,
+      paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+      reason: result.error ?? 'Could not generate payment QR.',
+    });
     throw new AppError(
       result.error ?? 'Failed to generate Fonepay QR',
       HTTP_STATUS.BAD_REQUEST,
@@ -510,6 +562,7 @@ export async function verifyFonepayQrPayment(
   console.log('[verifyFonepayQrPayment] Fonepay status result:', statusResult);
   
   if (!statusResult.success) {
+    // Do not notify: order stays PENDING; user may retry without a false "failed payment" alert.
     return {
       success: false,
       message: statusResult.error ?? 'Could not verify payment status',
@@ -518,6 +571,16 @@ export async function verifyFonepayQrPayment(
 
   if (statusResult.paymentStatus !== 'success') {
     console.log('[verifyFonepayQrPayment] Payment not successful, status:', statusResult.paymentStatus);
+    if (statusResult.paymentStatus === 'failed') {
+      void notifyClientPaymentFailed({
+        userId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+        reason: 'The payment was declined or failed at the gateway.',
+      });
+    }
     return {
       success: false,
       message:
@@ -569,6 +632,14 @@ export async function verifyFonepayQrPayment(
     if (planId) {
       console.log('[verifyFonepayQrPayment] Activating plan:', planId);
       await pricingService.activatePlanForUser(userId, planId, PurchaseMethod.MONEY);
+      void notifyClientPaymentSuccess({
+        userId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+        planActivated: true,
+      });
     } else if (coinsToAdd > 0) {
       console.log('[verifyFonepayQrPayment] Adding coins:', coinsToAdd);
       await addCoins(
@@ -578,6 +649,22 @@ export async function verifyFonepayQrPayment(
         undefined,
         payment.id
       );
+      void notifyClientPaymentSuccess({
+        userId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+        coinsAdded: coinsToAdd,
+      });
+    } else {
+      void notifyClientPaymentSuccess({
+        userId,
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentMethod: PAYMENT_METHOD_FONEPAY_QR,
+      });
     }
   } catch (err) {
     console.error('[verifyFonepayQrPayment] Error adding coins/activating plan:', err);

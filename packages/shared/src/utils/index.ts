@@ -13,6 +13,21 @@ export {
   type DbLanguageCode,
 } from './language.utils';
 
+export {
+  mergeMessageBirthDetails,
+  formatBirthDetailsSingleLine,
+  groupMessagesBySenderAndSameSecond,
+  type FallbackClientBirth,
+  type MergedBirthDetails,
+  type MessageWithSenderAndTime,
+} from './chat-birth-metadata';
+
+export {
+  isMaintenanceModeEnabled,
+  buildMaintenanceApiErrorBody,
+  type MaintenanceApiErrorBody,
+} from './maintenance';
+
 /**
  * Get zodiac sign from date of birth
  */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -14,14 +14,14 @@ import {
   MoneyIcon,
   DocumentIcon,
 } from '@jyotish/ui';
-import { RefreshCw } from 'lucide-react';
+import { ClipboardList, RefreshCw } from 'lucide-react';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { DashboardStats } from '@/types';
 import { useAdminSocket } from '@/hooks';
 import { LoadingButton } from '@/components/ui/LoadingButton';
 
 /** Must match statCards length when stats are loaded */
-const DASHBOARD_STAT_CARD_COUNT = 11;
+const DASHBOARD_STAT_CARD_COUNT = 12;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -192,7 +192,17 @@ export default function DashboardPage() {
     };
   }, [isConnected, on, off, queryClient, stats]);
 
-  const statCards =
+  type StatCardConfig = {
+    title: string;
+    value: string | number;
+    icon: ReactNode;
+    color: string;
+    route?: string;
+    /** Appended to route for pre-filtered lists (e.g. online jyotish). */
+    routeSearch?: string;
+  };
+
+  const statCards: StatCardConfig[] =
     stats == null
       ? []
       : [
@@ -216,6 +226,13 @@ export default function DashboardPage() {
             icon: <StarIcon className="w-8 h-8 text-purple-400" />,
             color: 'from-pink-500 to-purple-500',
             route: ADMIN_ROUTES.ASTROLOGERS,
+          },
+          {
+            title: 'Astrologers to Approve',
+            value: stats.pendingAstrologerRegistrations,
+            icon: <ClipboardList className="w-8 h-8 text-amber-400" />,
+            color: 'from-amber-500 to-orange-600',
+            route: ADMIN_ROUTES.ASTROLOGERS_REGISTRATION_REQUESTS,
           },
           {
             title: 'Active Chats',
@@ -272,6 +289,7 @@ export default function DashboardPage() {
             ),
             color: 'from-cyan-400 to-blue-500',
             route: ADMIN_ROUTES.ASTROLOGERS,
+            routeSearch: '?online=true',
           },
           {
             title: "Today's Consultations",
@@ -410,8 +428,12 @@ export default function DashboardPage() {
                 <button
                   key={index}
                   type="button"
-                  onClick={() => stat.route && router.push(stat.route)}
-                  className="cosmic-card rounded-xl p-4 sm:p-5 lg:p-6 md:hover:scale-105 transition-transform cursor-pointer text-left w-full"
+                  onClick={() => {
+                    if (!stat.route) return;
+                    const href = stat.routeSearch ? `${stat.route}${stat.routeSearch}` : stat.route;
+                    router.push(href);
+                  }}
+                  className="cosmic-card rounded-xl p-6 hover:scale-105 transition-transform cursor-pointer text-left w-full"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-slate-400 text-xs sm:text-sm font-medium pr-2">

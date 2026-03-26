@@ -6,6 +6,7 @@
   "types": "./src/index.tsx",
   "exports": {
     ".": "./src/index.tsx",
+    "./card": "./src/card.tsx",
     "./assets/*": "./assets/*"
   },
   "scripts": {
@@ -25,6 +26,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@jyotish/shared": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-select": "^2.2.6",

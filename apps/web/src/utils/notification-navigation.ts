@@ -51,7 +51,10 @@ export function getNotificationDestination(input: NotificationNavInput): string 
       : `${prefix}/consultations`;
   }
 
-  if (type === 'PAYMENT_RECEIVED' || type === 'PAYMENT_SUCCESS') {
+  if (type === 'PAYMENT' || type === 'PAYMENT_RECEIVED' || type === 'PAYMENT_SUCCESS') {
+    if (isAstrologer) {
+      return `${prefix}/notifications`;
+    }
     return `${prefix}/transactions`;
   }
 

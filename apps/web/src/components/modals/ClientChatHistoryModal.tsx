@@ -8,8 +8,9 @@
 'use client';
 
 import React, { useCallback, useRef, useEffect, useMemo } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
+  Badge,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -27,6 +28,13 @@ import {
 import { QUERY_KEYS } from '@/constants';
 import { format, isToday, isYesterday } from 'date-fns';
 import { API_BASE_URL } from '@/constants';
+import { userService } from '@/services/user.service';
+import {
+  formatBirthDetailsSingleLine,
+  groupMessagesBySenderAndSameSecond,
+  mergeMessageBirthDetails,
+  type FallbackClientBirth,
+} from '@jyotish/shared';
 
 const MESSAGE_LIMIT = 12;
 
@@ -76,10 +84,12 @@ function MessageBubbleOnly({
   message,
   isFromClient,
   showAvatarAndName,
+  accountBirthFallback,
 }: {
   message: ClientChatHistoryMessage;
   isFromClient: boolean;
   showAvatarAndName: boolean;
+  accountBirthFallback: FallbackClientBirth | null;
 }) {
   const metadata = message.metadata as Record<string, unknown> | undefined;
   const hasFile = !!metadata?.fileUrl;
@@ -116,6 +126,16 @@ function MessageBubbleOnly({
           </span>
         )}
         <div
+          className={`flex w-full mb-1 ${isFromClient ? 'justify-end' : 'justify-start'}`}
+        >
+          <Badge
+            variant="outline"
+            className="text-[10px] font-normal border-slate-600 text-slate-300 bg-slate-800/80"
+          >
+            {new Date(message.createdAt).toLocaleString()}
+          </Badge>
+        </div>
+        <div
           className={`rounded-2xl px-4 py-2.5 ${
             isFromClient
               ? 'bg-purple-600 text-white rounded-br-md'
@@ -147,6 +167,27 @@ function MessageBubbleOnly({
             <p className="text-sm text-slate-400 italic">Attachment</p>
           )}
         </div>
+        {isFromClient &&
+          accountBirthFallback &&
+          (() => {
+            const merged = mergeMessageBirthDetails(
+              message.metadata,
+              'CLIENT',
+              accountBirthFallback
+            );
+            const line = merged ? formatBirthDetailsSingleLine(merged) : null;
+            return line ? (
+              <div className={`flex w-full mt-1.5 ${isFromClient ? 'justify-end' : 'justify-start'}`}>
+                <Badge
+                  variant="outline"
+                  className="text-[11px] font-normal whitespace-normal text-right max-w-full border-purple-500/35 bg-purple-950/30 text-slate-200 leading-snug"
+                  title={line}
+                >
+                  {line}
+                </Badge>
+              </div>
+            ) : null;
+          })()}
       </div>
       {isFromClient && (
         <div className="w-8 flex-shrink-0 flex justify-center">
@@ -173,6 +214,29 @@ export function ClientChatHistoryModal({
 }: ClientChatHistoryModalProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
+
+  const { data: clientDetailsResponse, isLoading: isLoadingClientProfile } = useQuery({
+    queryKey: QUERY_KEYS.USERS.CLIENT_DETAILS(clientId),
+    queryFn: () => userService.getClientDetails(clientId),
+    enabled: isOpen && !!clientId,
+    staleTime: 30_000,
+  });
+  const clientProfile = clientDetailsResponse?.client;
+
+  const accountBirthFallback = useMemo((): FallbackClientBirth | null => {
+    if (!clientProfile) return null;
+    const dob = clientProfile.dateOfBirth;
+    return {
+      dateOfBirth:
+        dob == null
+          ? null
+          : typeof dob === 'string'
+            ? dob
+            : (dob as Date).toISOString(),
+      timeOfBirth: clientProfile.timeOfBirth,
+      placeOfBirth: clientProfile.placeOfBirth,
+    };
+  }, [clientProfile]);
 
   const {
     data,
@@ -237,7 +301,7 @@ export function ClientChatHistoryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col bg-slate-900 border-slate-700 p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-4xl w-[min(100vw-1.5rem,56rem)] max-h-[85vh] flex flex-col bg-slate-900 border-slate-700 p-0 gap-0 overflow-hidden">
         <DialogHeader className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-slate-700/50">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0">
@@ -258,6 +322,31 @@ export function ClientChatHistoryModal({
             Past conversations with {clientName || 'this client'} across all astrologers.
             Astrologer identities are anonymized.
           </p>
+          {isLoadingClientProfile && (
+            <p className="text-xs text-slate-500 mt-3">Loading birth details…</p>
+          )}
+          {clientProfile && (
+            <Badge
+              variant="outline"
+              className="mt-3 text-xs font-normal whitespace-normal text-left max-w-full border-slate-600 bg-slate-800/70 text-slate-200 leading-relaxed"
+            >
+              <span className="text-slate-500 font-medium mr-1">Account default ·</span>
+              {(() => {
+                const dob = clientProfile.dateOfBirth;
+                const m = mergeMessageBirthDetails({}, 'CLIENT', {
+                  dateOfBirth:
+                    dob == null
+                      ? null
+                      : typeof dob === 'string'
+                        ? dob
+                        : (dob as Date).toISOString(),
+                  timeOfBirth: clientProfile.timeOfBirth,
+                  placeOfBirth: clientProfile.placeOfBirth,
+                });
+                return m ? formatBirthDetailsSingleLine(m) : 'Birth details not on file';
+              })()}
+            </Badge>
+          )}
         </DialogHeader>
 
         <div
@@ -303,23 +392,24 @@ export function ClientChatHistoryModal({
                       {group.dateLabel}
                     </span>
                   </div>
-                  <div className="space-y-0.5">
-                    {group.messages.map((msg, idx) => {
-                      const isFromClient = msg.senderType === 'CLIENT';
-                      const prevMsg = group.messages[idx - 1];
-                      const prevSameSender = prevMsg?.senderType === msg.senderType;
-                      const showAvatarAndName = !prevSameSender;
-
-                      return (
-                        <div key={msg.id} className={idx > 0 ? 'mt-1' : ''}>
-                          <MessageBubbleOnly
-                            message={msg}
-                            isFromClient={isFromClient}
-                            showAvatarAndName={showAvatarAndName}
-                          />
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-2">
+                    {groupMessagesBySenderAndSameSecond(group.messages).map((subGroup) => (
+                      <div key={subGroup[0].id} className="space-y-1">
+                        {subGroup.map((msg, idx) => {
+                          const isFromClient = msg.senderType === 'CLIENT';
+                          return (
+                            <div key={msg.id} className={idx > 0 ? 'mt-0.5' : ''}>
+                              <MessageBubbleOnly
+                                message={msg}
+                                isFromClient={isFromClient}
+                                showAvatarAndName={idx === 0}
+                                accountBirthFallback={accountBirthFallback}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

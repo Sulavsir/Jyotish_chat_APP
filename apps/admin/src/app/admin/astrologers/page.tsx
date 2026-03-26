@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -38,6 +38,8 @@ import {
   type AdminTableColumn,
   ActiveStatusFilter,
   type ActiveFilterValue,
+  OnlinePresenceFilter,
+  type OnlinePresenceFilterValue,
 } from '@/components/admin';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
 import { DELETE_CONFIRM, ASTROLOGER_EDIT_PASSWORD } from '@/constants/app.constants';
@@ -62,12 +64,15 @@ interface AstrologersResponse {
 
 export default function AstrologersPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { on, off, isConnected } = useAdminSocket();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
+  const [onlineFilter, setOnlineFilter] = useState<OnlinePresenceFilterValue>('ALL');
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
   const [viewingProfileImage, setViewingProfileImage] = useState<string | null>(null);
@@ -76,6 +81,26 @@ export default function AstrologersPage() {
   const [astrologerToEdit, setAstrologerToEdit] = useState<Astrologer | null>(null);
   const [astrologerToToggle, setAstrologerToToggle] = useState<Astrologer | null>(null);
   const [showDeletePassword, setShowDeletePassword] = useState(false);
+
+  // Deep link: /admin/astrologers?online=true → show only online jyotish (e.g. from dashboard card)
+  useEffect(() => {
+    const o = searchParams.get('online');
+    if (o === 'true') {
+      setOnlineFilter('ONLINE');
+    }
+  }, [searchParams]);
+
+  const setOnlineFilterAndUrl = (value: OnlinePresenceFilterValue) => {
+    setOnlineFilter(value);
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === 'ONLINE') {
+      params.set('online', 'true');
+    } else {
+      params.delete('online');
+    }
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   const viewing = viewingProfileImage
     ? { type: 'profile' as const, value: viewingProfileImage }
@@ -93,13 +118,22 @@ export default function AstrologersPage() {
     isLoading,
     refetch,
   } = useQuery<AstrologersResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(), currentPage, debouncedSearch, statusFilter],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.ASTROLOGERS.LIST(),
+      currentPage,
+      debouncedSearch,
+      statusFilter,
+      onlineFilter,
+    ],
     queryFn: async (): Promise<AstrologersResponse> => {
+      const isOnline =
+        onlineFilter === 'ALL' ? undefined : onlineFilter === 'ONLINE' ? true : false;
       const response = await adminApi.astrologers.list({
         page: currentPage,
         limit: ITEMS_PER_PAGE,
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
+        isOnline,
       });
       if (
         response &&
@@ -286,7 +320,7 @@ export default function AstrologersPage() {
   // Reset to page 1 when search term or status filter changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, onlineFilter]);
 
   const columns: AdminTableColumn<Astrologer>[] = [
     {
@@ -459,6 +493,11 @@ export default function AstrologersPage() {
             <ActiveStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}
+              disabled={isLoading}
+            />
+            <OnlinePresenceFilter
+              value={onlineFilter}
+              onChange={setOnlineFilterAndUrl}
               disabled={isLoading}
             />
             <Button

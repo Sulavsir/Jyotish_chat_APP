@@ -6,6 +6,9 @@
 import type { AstrologerListParams } from '@/types/astrologer';
 
 export const QUERY_KEYS = {
+  /** App version + maintenance flag from GET /api/version */
+  APP_VERSION: ['app', 'version'] as const,
+
   // Auth
   AUTH: {
     ME: ['auth', 'me'] as const,

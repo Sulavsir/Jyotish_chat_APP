@@ -30,6 +30,7 @@ import { useAdminSocket, useDebounce } from '@/hooks';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 import { Ban, RefreshCw } from 'lucide-react';
 import { generatePageNumbers } from '@/utils/helpers';
+import { UserParticipantCell } from '@/components/chat';
 
 interface ChatsResponse {
   chats: Chat[];
@@ -189,7 +190,11 @@ export default function ChatsPage() {
     {
       header: 'User',
       accessor: (chat) => (
-        <span className="font-medium">{chat.clientParticipant?.name || 'Unknown User'}</span>
+        <UserParticipantCell
+          name={chat.clientParticipant?.name}
+          phone={chat.clientParticipant?.phone}
+          email={chat.clientParticipant?.email}
+        />
       ),
     },
     {

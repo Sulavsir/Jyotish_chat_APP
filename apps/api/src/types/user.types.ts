@@ -19,8 +19,10 @@ export interface CreateUserResult {
 }
 
 export interface ProfileSetupData {
-  name: string;
-  email: string;
+  /** Required by public API; if omitted in a trusted call, existing name (e.g. from Google) is kept. */
+  name?: string;
+  /** Optional; omit or leave empty to keep existing email (e.g. Google OAuth). */
+  email?: string;
   dateOfBirth: string | Date; // YYYY-MM-DD or Date object
   timeOfBirth: string; // HH:MM
   placeOfBirth: string; // Display string; required for OUTSIDE_NEPAL, or built from Pradesh+District+Location for NEPAL

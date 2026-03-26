@@ -340,3 +340,5 @@ export interface ApiResponse<T = any> {
     totalPages: number;
   };
 }
+
+export type { AppVersionApiResponse } from './maintenance.types';

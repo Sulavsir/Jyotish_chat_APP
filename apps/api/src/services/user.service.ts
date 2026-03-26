@@ -219,6 +219,26 @@ export class UserService {
    * Setup/complete user profile
    */
   async setupProfile(userId: string, data: ProfileSetupData): Promise<UserResponse> {
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, name: true },
+    });
+    if (!existing) {
+      throw new Error('User not found');
+    }
+
+    const incomingEmail = data.email;
+    const resolvedEmail =
+      incomingEmail !== undefined && incomingEmail !== null && String(incomingEmail).trim() !== ''
+        ? String(incomingEmail).trim()
+        : existing.email;
+
+    // Same idea as email: keep Google/previous name if the client omits or sends empty (optional field paths / bad payloads).
+    const incomingNameTrimmed =
+      data.name !== undefined && data.name !== null ? String(data.name).trim() : '';
+    const resolvedName =
+      incomingNameTrimmed !== '' ? incomingNameTrimmed : existing.name ?? undefined;
+
     const placeComplete =
       (!!data.placeOfBirth && data.placeOfBirth.trim().length > 0) ||
       (data.placeOfBirthType === 'NEPAL' &&
@@ -227,8 +247,8 @@ export class UserService {
         !!data.placeOfBirthLocation &&
         data.placeOfBirthLocation.trim().length > 0);
     const isProfileComplete =
-      !!data.name &&
-      data.name.trim().length > 0 &&
+      !!resolvedName &&
+      resolvedName.trim().length > 0 &&
       !!data.dateOfBirth &&
       !!data.timeOfBirth &&
       data.timeOfBirth.trim().length > 0 &&
@@ -247,8 +267,7 @@ export class UserService {
     const rawZodiac = data.zodiacSign as string | null | undefined;
     const resolvedZodiacSign = rawZodiac && rawZodiac.trim() !== '' ? rawZodiac : null;
 
-    let placeOfBirthValue: string | null =
-      (data.placeOfBirth && data.placeOfBirth.trim()) || null;
+    let placeOfBirthValue: string | null = (data.placeOfBirth && data.placeOfBirth.trim()) || null;
     if (
       !placeOfBirthValue &&
       data.placeOfBirthType === 'NEPAL' &&
@@ -277,8 +296,8 @@ export class UserService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
-        name: data.name,
-        email: data.email || null,
+        ...(resolvedName !== undefined && { name: resolvedName }),
+        email: resolvedEmail,
         dateOfBirth: dob,
         zodiacSign: resolvedZodiacSign as any,
         timeOfBirth: data.timeOfBirth,
@@ -289,7 +308,10 @@ export class UserService {
         placeOfBirthLocation: data.placeOfBirthLocation || null,
         currentAddress: data.currentAddress,
         permanentAddress: data.permanentAddress,
-        gender: (data.gender as string | null | undefined) && (data.gender as string).trim() !== '' ? data.gender : null,
+        gender:
+          (data.gender as string | null | undefined) && (data.gender as string).trim() !== ''
+            ? data.gender
+            : null,
         profileCompleted: isProfileComplete,
         ...(data.profilePhoto && { profilePhoto: data.profilePhoto }),
       },
