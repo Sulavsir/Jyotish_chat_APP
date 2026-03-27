@@ -1,7 +1,7 @@
 'use client';
 
 import { useFieldArray, useForm } from 'react-hook-form';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -108,7 +108,11 @@ export default function QuestionnairesManagementPage() {
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [languageFilter, setLanguageFilter] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState(1);
-  const [rowsPerPage, setRowsPerPage] = React.useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<QuestionnaireCategory | null>(null);
   const [categoryToDelete, setCategoryToDelete] = React.useState<QuestionnaireCategory | null>(
@@ -136,23 +140,19 @@ export default function QuestionnairesManagementPage() {
       currentPage,
       debouncedSearch,
       languageFilter,
-      rowsPerPage,
+      debouncedRowsPerPage,
     ],
     queryFn: () =>
       adminApi.website.questionnaires.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
         language: languageFilter || undefined,
       }),
-    staleTime: 0,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -198,14 +198,14 @@ export default function QuestionnairesManagementPage() {
   const categories = listResponse?.categories ?? [];
   const pagination = listResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
   React.useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, languageFilter, rowsPerPage]);
+  }, [debouncedSearch, languageFilter, debouncedRowsPerPage]);
 
   const createMutation = useMutation({
     mutationFn: (values: QuestionnaireFormValues) =>
@@ -294,16 +294,25 @@ export default function QuestionnairesManagementPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Questionnaires
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+                className="shrink-0"
+              />
+              <Button
+                onClick={openCreate}
+                className="hidden sm:inline-flex gap-2 bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              >
+                <Plus className="w-4 h-4" />
+                Add category
+              </Button>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Manage question categories, optional icons, and predefined questions shown on the client
@@ -311,7 +320,7 @@ export default function QuestionnairesManagementPage() {
           </p>
           <Button
             onClick={openCreate}
-            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+            className="sm:hidden w-full gap-2 bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
           >
             <Plus className="w-4 h-4" />
             Add category

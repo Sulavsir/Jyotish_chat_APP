@@ -26,7 +26,7 @@ import {
   ADMIN_SEARCH_DEBOUNCE_MS,
 } from '@/constants';
 import type { AdminChat } from '@/lib/admin-api';
-import { useAdminSocket, useDebounce } from '@/hooks';
+import { useAdminSocket, useDebounce, useDebouncedPageSize } from '@/hooks';
 import { MessageSquare } from 'lucide-react';
 import AdminChatDetailModal from '@/components/admin-chat/AdminChatDetailModal';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
@@ -47,7 +47,11 @@ export default function AdminChatsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<AdminChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,26 +69,22 @@ export default function AdminChatsPage() {
       currentPage,
       statusFilter,
       debouncedSearch,
-      rowsPerPage,
+      debouncedRowsPerPage,
     ],
     queryFn: async () => {
       const response = await adminApi.adminChat.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         status: statusFilter || undefined,
         search: debouncedSearch.trim() || undefined,
       });
       return response;
     },
-    staleTime: 0,
     refetchOnWindowFocus: false,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -92,7 +92,7 @@ export default function AdminChatsPage() {
   const chats = chatsResponse?.chats || [];
   const pagination = chatsResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -129,7 +129,7 @@ export default function AdminChatsPage() {
   // Reset to page 1 when search term, filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter, rowsPerPage]);
+  }, [debouncedSearch, statusFilter, debouncedRowsPerPage]);
 
   const hasAdminChatFilters = Boolean(debouncedSearch.trim()) || Boolean(statusFilter);
   const clearAdminChatFilters = () => {
@@ -245,16 +245,30 @@ export default function AdminChatsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
               Admin Chats
             </h2>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                <AdminChatStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={isLoading}
+                />
+                <AdminClearFiltersButton
+                  show={hasAdminChatFilters}
+                  onClear={clearAdminChatFilters}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Manage support conversations from users
@@ -263,6 +277,20 @@ export default function AdminChatsPage() {
         </div>
 
         <div className="flex flex-col gap-3">
+          <div className="flex sm:hidden w-full items-center gap-2 min-w-0">
+            <div className="min-w-0 flex-1 [&_button]:w-full">
+              <AdminChatStatusFilter
+                value={statusFilter}
+                onChange={setStatusFilter}
+                disabled={isLoading}
+              />
+            </div>
+            <AdminClearFiltersButton
+              show={hasAdminChatFilters}
+              onClear={clearAdminChatFilters}
+              disabled={isLoading}
+            />
+          </div>
           <div className="w-full min-w-0">
             <Search
               containerClassName="w-full"
@@ -273,22 +301,6 @@ export default function AdminChatsPage() {
                 setCurrentPage(PAGINATION_DEFAULTS.PAGE);
               }}
               onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex w-full min-w-0 flex-row items-end justify-end gap-2 sm:gap-3">
-            <AdminChatStatusFilter
-              value={statusFilter}
-              onChange={setStatusFilter}
-              disabled={isLoading}
-            />
-          </div>
-
-          <div className="flex justify-end">
-            <AdminClearFiltersButton
-              show={hasAdminChatFilters}
-              onClear={clearAdminChatFilters}
-              disabled={isLoading}
             />
           </div>
         </div>

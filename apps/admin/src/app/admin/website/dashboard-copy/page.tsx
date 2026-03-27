@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   ADMIN_QUERY_KEYS,
@@ -67,7 +67,11 @@ export default function DashboardCopyManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DashboardRotatingCopy | null>(null);
   const [form, setForm] = useState<CopyFormState>(toFormDefaults());
@@ -79,21 +83,22 @@ export default function DashboardCopyManagementPage() {
     refetch,
     isFetching,
   } = useQuery<DashboardRotatingCopyResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(), currentPage, debouncedSearch, rowsPerPage],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
+      currentPage,
+      debouncedSearch,
+      debouncedRowsPerPage,
+    ],
     queryFn: () =>
       adminApi.dashboard.rotatingCopy.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
       }),
-    staleTime: 0,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -101,7 +106,7 @@ export default function DashboardCopyManagementPage() {
   const items = itemsResponse?.items ?? [];
   const pagination = itemsResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -109,7 +114,7 @@ export default function DashboardCopyManagementPage() {
   // Reset to page 1 when search term or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, rowsPerPage]);
+  }, [debouncedSearch, debouncedRowsPerPage]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -201,23 +206,33 @@ export default function DashboardCopyManagementPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
+
+        <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Dashboard Header Copy
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+                className="shrink-0"
+              />
+              <Button
+                onClick={openCreate}
+                className="hidden sm:inline-flex gap-2 bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              >
+                <Plus className="w-4 h-4" />
+                Add copy
+              </Button>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Add, edit, enable/disable the rotating title & subtitle shown on the client dashboard.
           </p>
           <Button
             onClick={openCreate}
-            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+            className="sm:hidden w-full gap-2 bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
           >
             <Plus className="w-4 h-4" />
             Add copy
@@ -270,7 +285,11 @@ export default function DashboardCopyManagementPage() {
                   header: 'Actions',
                   accessor: (item) => (
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" className="border-slate-700" onClick={() => openEdit(item)}>
+                      <Button
+                        variant="outline"
+                        className="border-slate-700"
+                        onClick={() => openEdit(item)}
+                      >
                         Edit
                       </Button>
                       <Button
@@ -299,7 +318,12 @@ export default function DashboardCopyManagementPage() {
             showSerialNumber
             emptyState={{
               icon: (
-                <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-12 h-12 text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -442,11 +466,7 @@ export default function DashboardCopyManagementPage() {
             if (itemToDelete) deleteMutation.mutate(itemToDelete.id);
           }}
           title="Delete this item?"
-          description={
-            itemToDelete
-              ? `"${itemToDelete.title}". This cannot be undone.`
-              : ''
-          }
+          description={itemToDelete ? `"${itemToDelete.title}". This cannot be undone.` : ''}
           confirmText="Delete"
           cancelText="Cancel"
           isDestructive
@@ -457,4 +477,3 @@ export default function DashboardCopyManagementPage() {
     </AdminLayout>
   );
 }
-

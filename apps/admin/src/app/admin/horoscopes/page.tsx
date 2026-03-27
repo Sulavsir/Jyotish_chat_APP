@@ -22,9 +22,15 @@ import {
   PAGINATION_DEFAULTS,
   ADMIN_ROWS_PER_PAGE_OPTIONS,
 } from '@/constants';
-import type { AdminHoroscopeEntry, HoroscopeCategory, HoroscopeLanguage, ListHoroscopesParams } from '@/types';
+import type {
+  AdminHoroscopeEntry,
+  HoroscopeCategory,
+  HoroscopeLanguage,
+  ListHoroscopesParams,
+} from '@/types';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { useDebouncedPageSize } from '@/hooks';
 
 export default function AdminHoroscopesPage() {
   const router = useRouter();
@@ -35,36 +41,38 @@ export default function AdminHoroscopesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [horoscopeToDelete, setHoroscopeToDelete] = useState<AdminHoroscopeEntry | null>(null);
 
-  const listParams = useMemo<ListHoroscopesParams>(() => ({
-    category: categoryFilter,
-    ...(zodiacFilter && { zodiacSign: zodiacFilter }),
-    ...(languageFilter && { language: languageFilter }),
-    ...(dateFrom && { dateFrom }),
-    ...(dateTo && { dateTo }),
-    page,
-    limit: rowsPerPage,
-  }), [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, page, rowsPerPage]);
+  const listParams = useMemo<ListHoroscopesParams>(
+    () => ({
+      category: categoryFilter,
+      ...(zodiacFilter && { zodiacSign: zodiacFilter }),
+      ...(languageFilter && { language: languageFilter }),
+      ...(dateFrom && { dateFrom }),
+      ...(dateTo && { dateTo }),
+      page,
+      limit: debouncedRowsPerPage,
+    }),
+    [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, page, debouncedRowsPerPage]
+  );
 
   useEffect(() => {
     setPage(PAGINATION_DEFAULTS.PAGE);
-  }, [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, rowsPerPage]);
+  }, [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, debouncedRowsPerPage]);
 
-  /** Override global staleTime (60s) so revisiting the same page/limit still hits the API. */
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.LIST(listParams),
     queryFn: () => adminApi.horoscopes.list(listParams),
-    staleTime: 0,
     placeholderData: keepPreviousData,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -89,15 +97,16 @@ export default function AdminHoroscopesPage() {
       header: 'Rashi',
       accessor: (row) => (
         <span className="font-medium text-white">
-          {getRashiDisplayName(row.zodiacSign, (row.language ?? 'NEPALI') as 'NEPALI' | 'HINDI' | 'ENGLISH')}
+          {getRashiDisplayName(
+            row.zodiacSign,
+            (row.language ?? 'NEPALI') as 'NEPALI' | 'HINDI' | 'ENGLISH'
+          )}
         </span>
       ),
     },
     {
       header: 'Language',
-      accessor: (row) => (
-        <span className="text-slate-300 text-sm">{row.language ?? 'NEPALI'}</span>
-      ),
+      accessor: (row) => <span className="text-slate-300 text-sm">{row.language ?? 'NEPALI'}</span>,
     },
     {
       header: 'Category',
@@ -111,7 +120,11 @@ export default function AdminHoroscopesPage() {
       header: 'Date',
       accessor: (row) => (
         <span className="text-slate-300">
-          {new Date(row.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          {new Date(row.date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
         </span>
       ),
     },
@@ -153,23 +166,32 @@ export default function AdminHoroscopesPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Horoscopes
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isFetching}
+                className="shrink-0"
+              />
+              <Button
+                onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE)}
+                className="hidden sm:inline-flex gap-2 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                Add Horoscope
+              </Button>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Manage daily, weekly, monthly and yearly horoscope content by Rashi
           </p>
           <Button
             onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE)}
-            className="gap-2 w-full sm:w-auto"
+            className="gap-2 w-full sm:hidden"
           >
             <Plus className="w-4 h-4" />
             Add Horoscope
@@ -185,7 +207,9 @@ export default function AdminHoroscopesPage() {
               className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               {HOROSCOPE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
@@ -198,7 +222,9 @@ export default function AdminHoroscopesPage() {
             >
               <option value="">All</option>
               {ZODIAC_SIGNS.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </div>
@@ -245,12 +271,17 @@ export default function AdminHoroscopesPage() {
             keyExtractor={(row) => row.id}
             emptyState={{
               title: 'No horoscopes found',
-              description: zodiacFilter || languageFilter || dateFrom || dateTo
-                ? 'Try adjusting filters'
-                : `No ${categoryFilter.toLowerCase()} horoscopes yet. Add your first entry.`,
-              action: !zodiacFilter && !languageFilter && !dateFrom && !dateTo
-                ? { label: 'Add Horoscope', onClick: () => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE) }
-                : undefined,
+              description:
+                zodiacFilter || languageFilter || dateFrom || dateTo
+                  ? 'Try adjusting filters'
+                  : `No ${categoryFilter.toLowerCase()} horoscopes yet. Add your first entry.`,
+              action:
+                !zodiacFilter && !languageFilter && !dateFrom && !dateTo
+                  ? {
+                      label: 'Add Horoscope',
+                      onClick: () => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE),
+                    }
+                  : undefined,
               icon: <></>,
             }}
           />

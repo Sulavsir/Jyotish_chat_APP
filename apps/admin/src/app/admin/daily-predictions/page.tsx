@@ -25,6 +25,7 @@ import {
 import { ConfirmDialog } from '@/components/ui';
 import { toast } from 'sonner';
 import { Plus, Trash2, Pencil } from 'lucide-react';
+import { useDebouncedPageSize } from '@/hooks';
 
 export default function DailyPredictionsPage() {
   const router = useRouter();
@@ -35,7 +36,11 @@ export default function DailyPredictionsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [tipToDelete, setTipToDelete] = useState<AdminDailyTip | null>(null);
 
   const listParams: ListTipsParams = useMemo(
@@ -45,28 +50,23 @@ export default function DailyPredictionsPage() {
       ...(dateFrom && { dateFrom }),
       ...(dateTo && { dateTo }),
       page,
-      limit: rowsPerPage,
+      limit: debouncedRowsPerPage,
     }),
-    [languageFilter, audienceFilter, dateFrom, dateTo, page, rowsPerPage]
+    [languageFilter, audienceFilter, dateFrom, dateTo, page, debouncedRowsPerPage]
   );
 
   useEffect(() => {
     setPage(PAGINATION_DEFAULTS.PAGE);
-  }, [languageFilter, audienceFilter, dateFrom, dateTo, rowsPerPage]);
+  }, [languageFilter, audienceFilter, dateFrom, dateTo, debouncedRowsPerPage]);
 
-  /** Override global staleTime (60s) so revisiting the same page/limit still hits the API. */
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.TIPS.LIST(listParams),
     queryFn: () => adminApi.tips.list(listParams),
-    staleTime: 0,
     placeholderData: keepPreviousData,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -155,23 +155,32 @@ export default function DailyPredictionsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Daily Predictions
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isFetching}
+                className="shrink-0"
+              />
+              <Button
+                onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE)}
+                className="hidden sm:inline-flex gap-2 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                Add Predictions
+              </Button>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Manage daily dashboard predictions (tips) by date, language and audience.
           </p>
           <Button
             onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE)}
-            className="gap-2 w-full sm:w-auto"
+            className="gap-2 w-full sm:hidden"
           >
             <Plus className="w-4 h-4" />
             Add Predictions

@@ -41,15 +41,8 @@ import {
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
-import {
-  AlertTriangle,
-  Eye,
-  CheckCircle,
-  X,
-  Clock,
-  MessageSquare,
-  Paperclip,
-} from 'lucide-react';
+import { useDebouncedPageSize } from '@/hooks';
+import { AlertTriangle, Eye, CheckCircle, X, Clock, MessageSquare, Paperclip } from 'lucide-react';
 
 const STATUS_COLORS: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -79,7 +72,11 @@ export default function ComplaintsPage() {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<ComplaintFilterValue>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [resolution, setResolution] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
@@ -95,22 +92,18 @@ export default function ComplaintsPage() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage, rowsPerPage],
+    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage, debouncedRowsPerPage],
     queryFn: () =>
       adminApi.complaints.getComplaints({
         status: filterStatus === 'ALL' ? undefined : (filterStatus as ComplaintStatus),
-        limit: rowsPerPage,
-        offset: (currentPage - 1) * rowsPerPage,
+        limit: debouncedRowsPerPage,
+        offset: (currentPage - 1) * debouncedRowsPerPage,
       }),
-    staleTime: 0,
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -119,15 +112,15 @@ export default function ComplaintsPage() {
   const totalComplaints = complaintsData?.total ?? complaints.length;
   const pagination = {
     page: currentPage,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: totalComplaints,
-    totalPages: Math.ceil(totalComplaints / rowsPerPage),
+    totalPages: Math.ceil(totalComplaints / debouncedRowsPerPage),
   };
 
   // Reset to page 1 when filter status or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [filterStatus, rowsPerPage]);
+  }, [filterStatus, debouncedRowsPerPage]);
 
   // Calculate stats using useMemo
   const stats = useMemo(() => {
@@ -393,21 +386,30 @@ export default function ComplaintsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               User Complaints
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden sm:block shrink-0">
+                <ComplaintStatusFilter
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Real-time monitoring of all user complaints
           </p>
-          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+          <div className="w-full sm:hidden [&_button]:w-full">
             <ComplaintStatusFilter
               value={filterStatus}
               onChange={setFilterStatus}

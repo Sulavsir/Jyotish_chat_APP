@@ -6,19 +6,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Search,
-} from '@jyotish/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Search } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { Check, X, FileText, UserIcon, Download } from 'lucide-react';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
@@ -163,21 +156,45 @@ function ApproveRejectModal({ request, type, onClose, onSuccess }: ApproveReject
                 </div>
 
                 <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3 space-y-3">
-                  <p className="text-sm font-medium text-white">Commission on coin deductions (%)</p>
+                  <p className="text-sm font-medium text-white">
+                    Commission on coin deductions (%)
+                  </p>
                   <p className="text-xs text-slate-400">
                     Default 10% each; adjust per Jyotish (same idea as chat message fee).
                   </p>
                   {(
                     [
-                      ['Direct chat', chatMessageCommissionPercent, setChatMessageCommissionPercent],
-                      ['Broadcast (standard)', broadcastMessageCommissionPercent, setBroadcastMessageCommissionPercent],
-                      ['First broadcast', firstBroadcastCommissionPercent, setFirstBroadcastCommissionPercent],
-                      ['Full Kundali review', kundaliReviewCommissionPercent, setKundaliReviewCommissionPercent],
-                      ['Other appointments', appointmentCommissionPercent, setAppointmentCommissionPercent],
+                      [
+                        'Direct chat',
+                        chatMessageCommissionPercent,
+                        setChatMessageCommissionPercent,
+                      ],
+                      [
+                        'Broadcast (standard)',
+                        broadcastMessageCommissionPercent,
+                        setBroadcastMessageCommissionPercent,
+                      ],
+                      [
+                        'First broadcast',
+                        firstBroadcastCommissionPercent,
+                        setFirstBroadcastCommissionPercent,
+                      ],
+                      [
+                        'Full Kundali review',
+                        kundaliReviewCommissionPercent,
+                        setKundaliReviewCommissionPercent,
+                      ],
+                      [
+                        'Other appointments',
+                        appointmentCommissionPercent,
+                        setAppointmentCommissionPercent,
+                      ],
                     ] as const
                   ).map(([label, value, setVal]) => (
                     <div key={label}>
-                      <label className="block text-xs font-medium text-slate-300 mb-1">{label}</label>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        {label}
+                      </label>
                       <input
                         type="number"
                         step="0.1"
@@ -263,7 +280,11 @@ export default function RegistrationRequestsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
 
   const viewing =
     viewingProfileImage !== null
@@ -280,7 +301,7 @@ export default function RegistrationRequestsPage() {
   // Reset to page 1 when search term or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, rowsPerPage]);
+  }, [debouncedSearch, debouncedRowsPerPage]);
 
   const hasRegistrationFilters = Boolean(debouncedSearch.trim());
   const clearRegistrationFilters = () => {
@@ -294,23 +315,24 @@ export default function RegistrationRequestsPage() {
     isFetching,
     refetch,
   } = useQuery<RegistrationRequestsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(), currentPage, debouncedSearch, rowsPerPage],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(),
+      currentPage,
+      debouncedSearch,
+      debouncedRowsPerPage,
+    ],
     queryFn: async (): Promise<RegistrationRequestsResponse> => {
       const response = await adminApi.astrologers.getRegistrationRequests({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
       });
       return response;
     },
-    staleTime: 0,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -318,17 +340,13 @@ export default function RegistrationRequestsPage() {
   const requests = requestsResponse?.requests || [];
   const pagination = requestsResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
   const approveMutation = useMutation({
-    mutationFn: async (data: {
-      id: string;
-      category: string;
-      appointmentFee?: number;
-    }) => {
+    mutationFn: async (data: { id: string; category: string; appointmentFee?: number }) => {
       return await adminApi.astrologers.approveRegistration(data.id, {
         category: data.category,
         appointmentFee: data.appointmentFee,
@@ -493,7 +511,7 @@ export default function RegistrationRequestsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
               Account Creation Requests
@@ -593,9 +611,7 @@ export default function RegistrationRequestsPage() {
             >
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-white">
-                  {viewing.type === 'profile'
-                    ? 'Profile Image'
-                    : 'Proof of Astrology Certificates'}
+                  {viewing.type === 'profile' ? 'Profile Image' : 'Proof of Astrology Certificates'}
                 </CardTitle>
                 <Button
                   variant="ghost"

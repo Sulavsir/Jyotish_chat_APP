@@ -8,7 +8,7 @@ import {
   ADMIN_ROWS_PER_PAGE_OPTIONS,
   ADMIN_SEARCH_DEBOUNCE_MS,
 } from '@/constants';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -90,7 +90,11 @@ export default function PanditBookingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
@@ -106,24 +110,20 @@ export default function PanditBookingsPage() {
       currentPage,
       debouncedSearch,
       statusFilter,
-      rowsPerPage,
+      debouncedRowsPerPage,
     ],
     queryFn: () =>
       adminApi.jyotishBookings.list({
         type: JyotishBookingType.PANDIT,
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
-    staleTime: 0,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -131,7 +131,7 @@ export default function PanditBookingsPage() {
   const bookings = bookingsResponse?.bookings ?? [];
   const pagination = bookingsResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -139,7 +139,7 @@ export default function PanditBookingsPage() {
   // Reset to page 1 when search term, status filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter, rowsPerPage]);
+  }, [debouncedSearch, statusFilter, debouncedRowsPerPage]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (input: {
@@ -262,30 +262,39 @@ export default function PanditBookingsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Book Pujari Ji Requests
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden sm:block [&_button]:w-auto">
+                <BookingStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Approve or reject Pandit Ji booking requests
           </p>
-          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="sm:hidden w-full [&_button]:w-full">
             <BookingStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}
               disabled={isLoading}
             />
           </div>
-        </div>
-
-        <div className="flex flex-col gap-3">
           <div className="w-full min-w-0">
             <Search
               containerClassName="w-full"
