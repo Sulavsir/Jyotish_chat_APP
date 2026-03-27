@@ -1,18 +1,30 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, DateInput, Label } from '@jyotish/ui';
-import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, TIP_AUDIENCES } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  ADMIN_ROUTES,
+  TIP_AUDIENCES,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+} from '@/constants';
 import type { AdminDailyTip, ListTipsParams } from '@/types';
 import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import type { QuestionnaireLanguage, TipAudience } from '@jyotish/shared';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ConfirmDialog } from '@/components/ui';
 import { toast } from 'sonner';
-import { Plus, RefreshCw, Trash2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Pencil } from 'lucide-react';
 
 export default function DailyPredictionsPage() {
   const router = useRouter();
@@ -23,6 +35,8 @@ export default function DailyPredictionsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const [tipToDelete, setTipToDelete] = useState<AdminDailyTip | null>(null);
 
   const listParams: ListTipsParams = useMemo(
     () => ({
@@ -31,15 +45,31 @@ export default function DailyPredictionsPage() {
       ...(dateFrom && { dateFrom }),
       ...(dateTo && { dateTo }),
       page,
-      limit: 20,
+      limit: rowsPerPage,
     }),
-    [languageFilter, audienceFilter, dateFrom, dateTo, page]
+    [languageFilter, audienceFilter, dateFrom, dateTo, page, rowsPerPage]
   );
 
-  const { data, isLoading, refetch } = useQuery({
+  useEffect(() => {
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  }, [languageFilter, audienceFilter, dateFrom, dateTo, rowsPerPage]);
+
+  /** Override global staleTime (60s) so revisiting the same page/limit still hits the API. */
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.TIPS.LIST(listParams),
     queryFn: () => adminApi.tips.list(listParams),
+    staleTime: 0,
+    placeholderData: keepPreviousData,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const tips = data?.tips ?? [];
   const pagination = data?.pagination;
@@ -49,6 +79,7 @@ export default function DailyPredictionsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.TIPS.ALL });
       toast.success('Prediction deleted');
+      setTipToDelete(null);
     },
     onError: (e: Error) => {
       toast.error(e?.message || 'Failed to delete prediction');
@@ -60,7 +91,11 @@ export default function DailyPredictionsPage() {
       header: 'Date',
       accessor: (tip) => (
         <span className="text-slate-300">
-          {new Date(tip.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          {new Date(tip.date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          })}
         </span>
       ),
     },
@@ -102,10 +137,7 @@ export default function DailyPredictionsPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (!confirm('Delete this prediction?')) return;
-              deleteMutation.mutate(tip.id);
-            }}
+            onClick={() => setTipToDelete(tip)}
             disabled={deleteMutation.isPending}
             className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             title="Delete"
@@ -122,75 +154,77 @@ export default function DailyPredictionsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold cosmic-text">Daily Predictions</h1>
-            <p className="text-slate-400 mt-1">
-              Manage daily dashboard predictions (tips) by date, language and audience.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Daily Predictions
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Predictions
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Manage daily dashboard predictions (tips) by date, language and audience.
+          </p>
+          <Button
+            onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE)}
+            className="gap-2 w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Add Predictions
+          </Button>
         </div>
 
-        <div className="cosmic-card p-4 flex flex-wrap gap-4 items-end">
-          <div>
+        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-end">
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Language</Label>
             <select
               value={languageFilter}
               onChange={(e) => setLanguageFilter(e.target.value as QuestionnaireLanguage | '')}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               <option value="">All</option>
               {QUESTIONNAIRE_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>{lang}</option>
+                <option key={lang} value={lang}>
+                  {lang}
+                </option>
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Audience</Label>
             <select
               value={audienceFilter}
               onChange={(e) => setAudienceFilter(e.target.value as TipAudience | '')}
-              className="h-11 rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none min-w-[140px]"
+              className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-800/50 px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
             >
               <option value="">All</option>
               {TIP_AUDIENCES.map((aud) => (
-                <option key={aud} value={aud}>{aud}</option>
+                <option key={aud} value={aud}>
+                  {aud}
+                </option>
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Date from</Label>
             <DateInput
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
+              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
               nepaliDate
             />
           </div>
-          <div>
+          <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Date to</Label>
             <DateInput
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-11 w-full min-w-[160px] bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
+              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
               iconClassName="text-purple-400"
               nepaliDate
             />
@@ -209,39 +243,57 @@ export default function DailyPredictionsPage() {
                 ? 'Try adjusting filters'
                 : 'No daily predictions yet. Add your first entry.',
               action: !hasFilters
-                ? { label: 'Add Predictions', onClick: () => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE) }
+                ? {
+                    label: 'Add Predictions',
+                    onClick: () => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS_CREATE),
+                  }
                 : undefined,
               icon: <></>,
             }}
           />
         </div>
 
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="border-slate-600 text-white"
-            >
-              Previous
-            </Button>
-            <span className="flex items-center px-4 text-slate-400 text-sm">
-              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= pagination.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="border-slate-600 text-white"
-            >
-              Next
-            </Button>
-          </div>
+        {!isLoading && pagination && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={tipToDelete !== null}
+        onClose={() => {
+          if (!deleteMutation.isPending) setTipToDelete(null);
+        }}
+        onConfirm={() => {
+          if (tipToDelete) deleteMutation.mutate(tipToDelete.id);
+        }}
+        title="Delete this prediction?"
+        description={
+          tipToDelete
+            ? `${new Date(tipToDelete.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })} · ${tipToDelete.language} · ${tipToDelete.audience}. This cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive
+        isLoading={deleteMutation.isPending}
+        icon={<Trash2 className="w-6 h-6 text-red-400" />}
+      />
     </AdminLayout>
   );
 }

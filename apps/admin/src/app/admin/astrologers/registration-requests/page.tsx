@@ -18,25 +18,21 @@ import {
   CardHeader,
   CardTitle,
   Search,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { RefreshCw, Check, X, FileText, UserIcon, Download } from 'lucide-react';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { Check, X, FileText, UserIcon, Download } from 'lucide-react';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import type { RegistrationRequest } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 import { getImageUrl } from '@/utils/helpers';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { generatePageNumbers } from '@/utils/helpers';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminClearFiltersButton,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 interface RegistrationRequestsResponse {
   requests: RegistrationRequest[];
@@ -267,6 +263,7 @@ export default function RegistrationRequestsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
 
   const viewing =
     viewingProfileImage !== null
@@ -280,31 +277,48 @@ export default function RegistrationRequestsPage() {
     setViewingProfileImage(null);
   };
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, rowsPerPage]);
+
+  const hasRegistrationFilters = Boolean(debouncedSearch.trim());
+  const clearRegistrationFilters = () => {
+    setSearchTerm('');
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const {
     data: requestsResponse,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery<RegistrationRequestsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(), currentPage, debouncedSearch],
+    queryKey: [...ADMIN_QUERY_KEYS.ASTROLOGERS.REGISTRATION_REQUESTS(), currentPage, debouncedSearch, rowsPerPage],
     queryFn: async (): Promise<RegistrationRequestsResponse> => {
       const response = await adminApi.astrologers.getRegistrationRequests({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
       });
       return response;
     },
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const requests = requestsResponse?.requests || [];
   const pagination = requestsResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -478,34 +492,45 @@ export default function RegistrationRequestsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Account Creation Requests</h2>
-            <p className="text-slate-400 mt-1">
-              Review and manage astrologer registration requests
-            </p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
+              Account Creation Requests
+            </h2>
+            <AdminRefreshButton
+              onClick={() => refetch()}
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <p className="text-sm sm:text-base text-slate-400">
+            Review and manage astrologer registration requests
+          </p>
         </div>
 
-        {/* Search Bar */}
-        <Search
-          placeholder="Search requests by name, email, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="w-full min-w-0">
+            <Search
+              containerClassName="w-full"
+              placeholder="Search requests by name, email, or phone..."
+              value={searchTerm}
+              onSearch={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <AdminClearFiltersButton
+              show={hasRegistrationFilters}
+              onClear={clearRegistrationFilters}
+              disabled={isLoading || isFetching}
+            />
+          </div>
+        </div>
 
         {/* Table */}
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -514,8 +539,9 @@ export default function RegistrationRequestsPage() {
             columns={columns}
             loading={isLoading}
             keyExtractor={(request) => request.id}
+            showSerialNumber
             emptyState={{
-              icon: <UserIcon className="w-20 h-20 text-slate-600" />,
+              icon: <UserIcon className="w-16 h-16 text-slate-600" />,
               title: debouncedSearch ? 'No requests found' : 'No pending registration requests',
               description: debouncedSearch
                 ? 'Try adjusting your search terms'
@@ -523,68 +549,23 @@ export default function RegistrationRequestsPage() {
             }}
             currentPage={pagination.page}
             itemsPerPage={pagination.limit}
-            totalItems={pagination.total}
-            totalPages={pagination.totalPages}
-            onPageChange={setCurrentPage}
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
 
         {/* Modals */}

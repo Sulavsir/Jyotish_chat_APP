@@ -39,18 +39,18 @@ export function AdminPaginationBar({
   return (
     <div
       className={cn(
-        'flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between',
+        'flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4',
         className
       )}
     >
-      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-200">
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-slate-200 sm:justify-start">
         <label className="flex items-center gap-2 text-slate-400">
-          <span>{rowsPerPageLabel}</span>
+          <span className="whitespace-nowrap">{rowsPerPageLabel}</span>
           <select
             value={pageSize}
             disabled={disabled}
             onChange={(e) => onPageSizeChange(Number(e.target.value) || pageSize)}
-            className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+            className="min-h-9 rounded-md border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
           >
             {pageSizeOptions.map((n) => (
               <option key={n} value={n}>
@@ -59,7 +59,7 @@ export function AdminPaginationBar({
             ))}
           </select>
         </label>
-        <span className="text-white">
+        <span className="text-center text-white sm:text-left">
           Showing{' '}
           <span className="font-medium text-purple-400">{showingFrom}</span>
           {' – '}
@@ -68,7 +68,9 @@ export function AdminPaginationBar({
           <span className="font-medium text-purple-400">{totalItems}</span>
         </span>
       </div>
-      <div className="flex justify-center md:justify-end">{pagination}</div>
+      <div className="flex w-full min-w-0 justify-center overflow-x-auto sm:justify-end">
+        {pagination}
+      </div>
     </div>
   );
 }

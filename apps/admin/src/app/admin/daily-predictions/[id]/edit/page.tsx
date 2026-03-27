@@ -86,30 +86,30 @@ export default function EditDailyPredictionPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6 max-w-3xl">
-        <div className="flex items-center gap-4">
+      <div className="space-y-5 sm:space-y-6 w-full max-w-3xl min-w-0">
+        <div className="flex items-start gap-3 sm:gap-4">
           <button
             type="button"
             onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS)}
-            className="text-sm text-slate-400 hover:text-white"
+            className="text-sm text-slate-400 hover:text-white mt-1"
           >
             ← Back to Daily Predictions
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white">Edit Daily Prediction</h1>
-            <p className="text-slate-400 text-sm">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Edit Daily Prediction</h1>
+            <p className="text-slate-400 text-xs sm:text-sm mt-1">
               Update the date, language, audience and prediction text.
             </p>
           </div>
         </div>
 
         {isLoading || !data ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-6 text-slate-300">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 sm:p-6 text-slate-300 text-sm">
             Loading prediction details...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="cosmic-card p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            <div className="cosmic-card p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-slate-200">
@@ -161,22 +161,27 @@ export default function EditDailyPredictionPage() {
                   onChange={(e) => setText(e.target.value)}
                   rows={6}
                   placeholder="Enter the prediction / tip for this day..."
-                  className="mt-1.5 bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500"
+                  className="mt-1.5 block w-full max-w-none bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500"
                 />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col-reverse sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push(ADMIN_ROUTES.DAILY_PREDICTIONS)}
                 disabled={isSaving}
-                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white w-full sm:w-auto"
               >
                 Cancel
               </Button>
-              <LoadingButton type="submit" isLoading={isSaving} loadingText="Saving...">
+              <LoadingButton
+                type="submit"
+                isLoading={isSaving}
+                loadingText="Saving..."
+                className="w-full sm:w-auto"
+              >
                 Update prediction
               </LoadingButton>
             </div>
@@ -186,4 +191,3 @@ export default function EditDailyPredictionPage() {
     </AdminLayout>
   );
 }
-

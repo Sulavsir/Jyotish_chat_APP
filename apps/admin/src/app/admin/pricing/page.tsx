@@ -1,17 +1,28 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, Search, EmptyState } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ConfirmDialog } from '@/components/ui';
+import {
+  ADMIN_ROUTES,
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+} from '@/constants';
 import type { PricingPlan } from '@/types';
 import { toast } from 'sonner';
 
-import { RefreshCw } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 // Inline icon components to avoid import issues
 const PlusIcon = ({ className }: { className?: string }) => (
@@ -46,12 +57,30 @@ export default function PricingManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [planToDelete, setPlanToDelete] = useState<PricingPlan | null>(null);
+  const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
 
   // Fetch all pricing plans with TanStack Query
-  const { data: plansData, isLoading, refetch } = useQuery({
+  const {
+    data: plansData,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.PRICING.LIST(),
     queryFn: () => adminApi.pricing.getAll(),
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const plans = plansData?.plans || [];
 
@@ -64,6 +93,24 @@ export default function PricingManagementPage() {
         plan.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [plans, searchQuery]);
+
+  const totalFiltered = filteredPlans.length;
+  const totalPages = totalFiltered === 0 ? 0 : Math.ceil(totalFiltered / rowsPerPage);
+
+  const paginatedPlans = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return filteredPlans.slice(start, start + rowsPerPage);
+  }, [filteredPlans, page, rowsPerPage]);
+
+  useEffect(() => {
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  }, [searchQuery, rowsPerPage]);
+
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [totalPages, page]);
 
   // Toggle status mutation
   const toggleStatusMutation = useMutation({
@@ -84,6 +131,7 @@ export default function PricingManagementPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.PRICING.ALL });
       toast.success('Plan deleted successfully');
+      setPlanToDelete(null);
     },
     onError: (error: Error) => {
       console.error('Error deleting plan:', error);
@@ -93,13 +141,6 @@ export default function PricingManagementPage() {
 
   const handleToggleStatus = (id: string) => {
     toggleStatusMutation.mutate(id);
-  };
-
-  const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
-      return;
-    }
-    deleteMutation.mutate(id);
   };
 
   const columns: AdminTableColumn<PricingPlan>[] = [
@@ -214,7 +255,7 @@ export default function PricingManagementPage() {
             <PencilIcon className="w-4 h-4" />
           </button>
           <button
-            onClick={() => handleDelete(plan.id, plan.name)}
+            onClick={() => setPlanToDelete(plan)}
             disabled={deleteMutation.isPending}
             className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             title="Delete"
@@ -229,42 +270,41 @@ export default function PricingManagementPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold cosmic-text">Pricing Management</h1>
-            <p className="text-slate-400 mt-1">Manage pricing plans and offers</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Pricing Management
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button onClick={() => router.push(ADMIN_ROUTES.PRICING_CREATE)} className="gap-2">
-              <PlusIcon className="w-4 h-4" />
-              Create Plan
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
+          <p className="text-sm sm:text-base text-slate-400">Manage pricing plans and offers</p>
+          <Button
+            onClick={() => router.push(ADMIN_ROUTES.PRICING_CREATE)}
+            className="gap-2 w-full sm:w-auto"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Create Plan
+          </Button>
         </div>
 
         {/* Search */}
-        <Search
-          placeholder="Search pricing plans..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <div className="w-full">
+          <Search
+            placeholder="Search pricing plans..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
         {/* Table */}
         <div className="cosmic-card overflow-hidden">
           <AdminTable
-            data={filteredPlans}
+            data={paginatedPlans}
             columns={columns}
             loading={isLoading}
             keyExtractor={(plan) => plan.id}
@@ -284,9 +324,25 @@ export default function PricingManagementPage() {
           />
         </div>
 
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page,
+              limit: rowsPerPage,
+              total: totalFiltered,
+              totalPages: Math.max(1, totalPages),
+            }}
+            onPageChange={setPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
+        )}
+
         {/* Stats */}
         {!isLoading && filteredPlans.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="cosmic-card p-4">
               <div className="text-sm text-slate-400">Total Plans</div>
               <div className="text-2xl font-bold text-white mt-1">{plans.length}</div>
@@ -312,6 +368,27 @@ export default function PricingManagementPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={planToDelete !== null}
+        onClose={() => {
+          if (!deleteMutation.isPending) setPlanToDelete(null);
+        }}
+        onConfirm={() => {
+          if (planToDelete) deleteMutation.mutate(planToDelete.id);
+        }}
+        title="Delete pricing plan?"
+        description={
+          planToDelete
+            ? `Are you sure you want to delete "${planToDelete.name}"? This action cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive
+        isLoading={deleteMutation.isPending}
+        icon={<Trash2 className="w-6 h-6 text-red-400" />}
+      />
     </AdminLayout>
   );
 }

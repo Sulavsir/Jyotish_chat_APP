@@ -5,56 +5,51 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useDebounce } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Button,
-  Search,
-  MoneyIcon,
-  StarIcon,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@jyotish/ui';
-import { RefreshCw } from 'lucide-react';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { Search, MoneyIcon, StarIcon } from '@jyotish/ui';
+import { AdminTable, AdminListPaginationSection, AdminRefreshButton, type AdminTableColumn } from '@/components/admin';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import type { AstrologerWithCoinEarning } from '@/types';
-import { generatePageNumbers } from '@/utils/helpers';
 import { AstrologerCategory } from '@jyotish/shared';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 export default function EarningsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.EARNINGS.ASTROLOGERS_WITH_COINS({
       page: currentPage,
-      limit: ITEMS_PER_PAGE,
+      limit: rowsPerPage,
       search: debouncedSearch || undefined,
     }),
     queryFn: () =>
       adminApi.earnings.listAstrologersWithCoins({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
       }),
+    staleTime: 0,
     placeholderData: keepPreviousData,
   });
 
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, rowsPerPage]);
 
   const astrologers = data?.astrologers ?? [];
   const pagination = data?.pagination ?? {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -66,9 +61,7 @@ export default function EarningsPage() {
     },
     {
       header: 'Email',
-      accessor: (row) => (
-        <span className="text-slate-300">{row.email ?? '—'}</span>
-      ),
+      accessor: (row) => <span className="text-slate-300">{row.email ?? '—'}</span>,
     },
     {
       header: 'Phone',
@@ -109,9 +102,7 @@ export default function EarningsPage() {
       accessor: (row) => (
         <div className="flex items-center gap-1">
           <StarIcon className="w-4 h-4 text-orange-400 shrink-0" />
-          <span className="text-slate-300">
-            {row.rating != null ? row.rating.toFixed(1) : '—'}
-          </span>
+          <span className="text-slate-300">{row.rating != null ? row.rating.toFixed(1) : '—'}</span>
         </div>
       ),
     },
@@ -148,35 +139,34 @@ export default function EarningsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Earnings</h2>
-            <p className="text-slate-400 mt-1">
-              Astrologer list with balance earnings (from chat, broadcast, appointment)
-            </p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Earnings
+            </h1>
+            <AdminRefreshButton
+              loading={isLoading}
+              onClick={() => refetch()}
+              className="shrink-0 self-start"
+            />
           </div>
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-            className="border-slate-700 text-white hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <p className="text-sm sm:text-base text-slate-400">
+            Astrologer list with balance earnings (from chat, broadcast, appointment)
+          </p>
         </div>
 
-        <Search
-          placeholder="Search by name, email or phone..."
-          value={searchTerm}
-          onSearch={(value) => {
-            setSearchTerm(value);
-            setCurrentPage(1);
-          }}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="w-full">
+          <Search
+            placeholder="Search by name, email or phone..."
+            value={searchTerm}
+            onSearch={(value) => {
+              setSearchTerm(value);
+              setCurrentPage(1);
+            }}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
@@ -194,62 +184,20 @@ export default function EarningsPage() {
           />
         </div>
 
-        {/* Pagination - same as other admin tables */}
         {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
     </AdminLayout>

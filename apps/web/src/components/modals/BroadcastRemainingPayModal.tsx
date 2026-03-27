@@ -20,7 +20,7 @@ import {
   Button,
   LoadingButton,
 } from '@jyotish/ui';
-import { CheckCircle2, Zap } from 'lucide-react';
+import { CheckCircle2, Eye, Zap } from 'lucide-react';
 import { ROUTES } from '@/constants';
 import type { BroadcastPriceBreakdownEntry } from '@/types/broadcast';
 
@@ -100,6 +100,10 @@ export function BroadcastPaymentDetailsModal({
   onPublish,
   isPublishing = false,
 }: BroadcastPaymentDetailsModalProps) {
+  const [previewQuestion, setPreviewQuestion] = React.useState<{
+    index: number;
+    text: string;
+  } | null>(null);
   const hasSufficientBalance = remainingNr === 0;
 
   const breakdown = payload.breakdown ?? [];
@@ -117,10 +121,16 @@ export function BroadcastPaymentDetailsModal({
     window.location.href = `${ROUTES.PAYMENT}?amount=${remainingNr}&coins=${remainingNr}`;
   };
 
+  const truncateQuestion = (text: string, maxChars = 42) => {
+    const normalized = text.trim();
+    if (normalized.length <= maxChars) return normalized;
+    return `${normalized.slice(0, maxChars).trimEnd()}...`;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="bg-slate-900 border-slate-700 text-white w-[95vw] max-w-[95vw] sm:max-w-[545px] max-h-[90dvh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
           <DialogTitle className="flex items-center gap-2 text-white">
             {hasSufficientBalance ? (
               <CheckCircle2 className="h-5 w-5 text-emerald-400" />
@@ -136,7 +146,7 @@ export function BroadcastPaymentDetailsModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6 space-y-4">
           {/* Question list */}
           {questions.length > 0 && (
             <div className="rounded-lg bg-slate-800/60 border border-slate-600/60 p-3 max-h-36 overflow-y-auto">
@@ -147,7 +157,18 @@ export function BroadcastPaymentDetailsModal({
                 {questions.slice(0, 10).map((q, i) => (
                   <li key={q.id} className="flex items-start gap-1.5">
                     <span className="text-slate-500 shrink-0 text-xs mt-0.5">Q{i + 1}.</span>
-                    <span className="flex-1 truncate">{q.text}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="min-w-0 truncate break-all">{truncateQuestion(q.text)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewQuestion({ index: i + 1, text: q.text })}
+                        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                        aria-label={`View full question ${i + 1}`}
+                        title="View full question"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
                     {q.isCustom && (
                       <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">
                         Custom questions
@@ -233,7 +254,7 @@ export function BroadcastPaymentDetailsModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 px-4 pb-4 sm:px-6 sm:pb-6">
           <Button
             variant="outline"
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
@@ -264,6 +285,23 @@ export function BroadcastPaymentDetailsModal({
           )}
         </div>
       </DialogContent>
+
+      <Dialog open={!!previewQuestion} onOpenChange={(open) => !open && setPreviewQuestion(null)}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white w-fit min-w-[280px] max-w-[92vw] max-h-[70vh] overflow-y-auto overflow-x-hidden p-4">
+          {previewQuestion && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] px-2 py-0.5 rounded bg-white/5 text-slate-200 border border-white/10">
+                  Q{previewQuestion.index}
+                </span>
+                <p className="text-sm text-slate-200 whitespace-pre-wrap break-all leading-relaxed">
+                  {previewQuestion.text}
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

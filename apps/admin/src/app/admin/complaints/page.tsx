@@ -29,16 +29,16 @@ import {
   Textarea,
   Label,
   ImagePreview,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn, ComplaintStatusFilter, type ComplaintFilterValue } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+  ComplaintStatusFilter,
+  type ComplaintFilterValue,
+} from '@/components/admin';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
@@ -47,13 +47,9 @@ import {
   CheckCircle,
   X,
   Clock,
-  RefreshCw,
   MessageSquare,
   Paperclip,
 } from 'lucide-react';
-import { generatePageNumbers } from '@/utils/helpers';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 const STATUS_COLORS: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -83,6 +79,7 @@ export default function ComplaintsPage() {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<ComplaintFilterValue>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [resolution, setResolution] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
@@ -95,31 +92,42 @@ export default function ComplaintsPage() {
   const {
     data: complaintsData,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery({
-    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage],
+    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage, rowsPerPage],
     queryFn: () =>
       adminApi.complaints.getComplaints({
-        status: filterStatus === 'ALL' ? undefined : filterStatus as ComplaintStatus,
-        limit: ITEMS_PER_PAGE,
-        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+        status: filterStatus === 'ALL' ? undefined : (filterStatus as ComplaintStatus),
+        limit: rowsPerPage,
+        offset: (currentPage - 1) * rowsPerPage,
       }),
+    staleTime: 0,
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const complaints = complaintsData?.complaints || [];
   const totalComplaints = complaintsData?.total ?? complaints.length;
   const pagination = {
     page: currentPage,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: totalComplaints,
-    totalPages: Math.ceil(totalComplaints / ITEMS_PER_PAGE),
+    totalPages: Math.ceil(totalComplaints / rowsPerPage),
   };
 
-  // Reset to page 1 when filter status changes
+  // Reset to page 1 when filter status or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [filterStatus]);
+  }, [filterStatus, rowsPerPage]);
 
   // Calculate stats using useMemo
   const stats = useMemo(() => {
@@ -384,34 +392,32 @@ export default function ComplaintsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">User Complaints</h2>
-            <p className="text-slate-400 mt-1">Real-time monitoring of all user complaints</p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              User Complaints
+            </h1>
+            <AdminRefreshButton
+              onClick={() => refetch()}
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
-          <div className="flex items-center gap-2">
+          <p className="text-sm sm:text-base text-slate-400">
+            Real-time monitoring of all user complaints
+          </p>
+          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
             <ComplaintStatusFilter
               value={filterStatus}
               onChange={setFilterStatus}
               disabled={isLoading}
             />
-            <Button
-              onClick={() => refetch()}
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="cosmic-card rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -465,87 +471,49 @@ export default function ComplaintsPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (currentPage - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(currentPage * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: currentPage,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
 
       {/* Detail Modal */}
       {showDetailModal && selectedComplaint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="cosmic-card rounded-xl shadow-2xl max-w-3xl w-full my-8 flex flex-col border border-slate-700 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="cosmic-card rounded-xl shadow-2xl w-[calc(100vw-1.5rem)] sm:w-full max-w-3xl my-4 sm:my-8 flex flex-col border border-slate-700 overflow-hidden max-h-[min(92vh,calc(100dvh-2rem))]">
             {/* Header */}
-            <div className="flex items-start justify-between p-6 border-b border-slate-700 flex-shrink-0">
-              <div>
-                <h3 className="text-xl font-bold text-white">Complaint Details</h3>
-                <p className="text-sm text-slate-400 mt-1">ID: {selectedComplaint.id}</p>
+            <div className="flex items-start justify-between gap-3 p-4 sm:p-6 border-b border-slate-700 flex-shrink-0">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-lg sm:text-xl font-bold text-white">Complaint Details</h3>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 break-all">
+                  ID: {selectedComplaint.id}
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowDetailModal(false)}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-white transition-colors shrink-0 p-1"
+                aria-label="Close"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6 overflow-y-auto flex-1 max-h-[calc(100vh-300px)]">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto flex-1 min-h-0">
               {/* Status and Priority */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-slate-300">Status</Label>
                   <Badge className={`${COMPLAINT_STATUS_COLORS[selectedComplaint.status]} mt-1`}>
@@ -571,7 +539,7 @@ export default function ComplaintsPage() {
               </div>
 
               {/* Client & Astrologer */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-slate-300">Client</Label>
                   <div className="mt-2 flex items-center gap-3 p-3 bg-slate-800/30 rounded-lg border border-slate-700">
@@ -714,11 +682,11 @@ export default function ComplaintsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex gap-3 p-6 border-t border-slate-700 bg-slate-800/30 flex-shrink-0">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 p-4 sm:p-6 border-t border-slate-700 bg-slate-800/30 flex-shrink-0">
               <Button
                 variant="outline"
                 onClick={() => setShowDetailModal(false)}
-                className="border-slate-700 text-white hover:bg-slate-800"
+                className="border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto order-last sm:order-first"
               >
                 Close
               </Button>
@@ -728,7 +696,7 @@ export default function ComplaintsPage() {
                     <LoadingButton
                       onClick={() => handleUpdateStatus(ComplaintStatus.IN_REVIEW)}
                       isLoading={updateStatusMutation.isPending}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                      className="bg-blue-500 hover:bg-blue-600 text-white w-full sm:w-auto"
                       disabled={selectedComplaint.status === ComplaintStatus.IN_REVIEW}
                     >
                       Mark as In Review
@@ -736,7 +704,7 @@ export default function ComplaintsPage() {
                     <LoadingButton
                       onClick={handleResolve}
                       isLoading={resolveMutation.isPending}
-                      className="bg-green-500 hover:bg-green-600 text-white"
+                      className="bg-green-500 hover:bg-green-600 text-white w-full sm:w-auto"
                       disabled={!resolution.trim()}
                     >
                       Resolve
@@ -744,7 +712,7 @@ export default function ComplaintsPage() {
                     <LoadingButton
                       onClick={handleDismiss}
                       isLoading={dismissMutation.isPending}
-                      className="bg-red-500 hover:bg-red-600 text-white"
+                      className="bg-red-500 hover:bg-red-600 text-white w-full sm:w-auto"
                       disabled={!adminNotes.trim()}
                     >
                       Dismiss

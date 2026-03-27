@@ -4,32 +4,27 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Button,
-  Search,
-  ChatIcon,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@jyotish/ui';
+import { Search, ChatIcon } from '@jyotish/ui';
 import {
   AdminTable,
+  AdminClearFiltersButton,
+  AdminListPaginationSection,
+  AdminRefreshButton,
   type AdminTableColumn,
   ChatStatusFilter,
   type ChatStatusFilterValue,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_SEARCH_DEBOUNCE_MS } from '@/constants';
-import { AdminClearFiltersButton } from '@/components/admin';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import type { Chat } from '@/types';
 import ChatDetailModal from '@/components/chat/ChatDetailModal';
 import { useAdminSocket, useDebounce } from '@/hooks';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
-import { Ban, RefreshCw } from 'lucide-react';
-import { generatePageNumbers } from '@/utils/helpers';
+import { Ban } from 'lucide-react';
 import { UserParticipantCell } from '@/components/chat';
 
 interface ChatsResponse {
@@ -47,6 +42,7 @@ export default function ChatsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<ChatStatusFilterValue>('');
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,17 +52,29 @@ export default function ChatsPage() {
   const {
     data: chatsResponse,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery<ChatsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.CHATS.LIST(), currentPage, statusFilter, debouncedSearch],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.CHATS.LIST(),
+      currentPage,
+      statusFilter,
+      debouncedSearch,
+      rowsPerPage,
+    ],
     queryFn: async () => {
       const response = await adminApi.chats.list({
         page: currentPage,
-        limit: PAGINATION_DEFAULTS.LIMIT,
+        limit: rowsPerPage,
         status: statusFilter || undefined,
         search: debouncedSearch.trim() || undefined,
       });
-      if (response && typeof response === 'object' && 'chats' in response && 'pagination' in response) {
+      if (
+        response &&
+        typeof response === 'object' &&
+        'chats' in response &&
+        'pagination' in response
+      ) {
         return response as ChatsResponse;
       }
       if (Array.isArray(response)) {
@@ -74,7 +82,7 @@ export default function ChatsPage() {
           chats: response as Chat[],
           pagination: {
             page: 1,
-            limit: PAGINATION_DEFAULTS.LIMIT,
+            limit: rowsPerPage,
             total: response.length,
             totalPages: 1,
           },
@@ -82,17 +90,26 @@ export default function ChatsPage() {
       }
       return {
         chats: [],
-        pagination: { page: 1, limit: PAGINATION_DEFAULTS.LIMIT, total: 0, totalPages: 0 },
+        pagination: { page: 1, limit: rowsPerPage, total: 0, totalPages: 0 },
       };
     },
-    staleTime: 30_000,
+    staleTime: 0,
     refetchOnWindowFocus: false,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const chats = chatsResponse?.chats || [];
   const pagination = chatsResponse?.pagination || {
     page: 1,
-    limit: PAGINATION_DEFAULTS.LIMIT,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -150,10 +167,10 @@ export default function ChatsPage() {
     };
   }, [isConnected, on, off, queryClient]);
 
-  // Reset to page 1 when search term or status filter changes
+  // Reset to page 1 when search term, status filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, rowsPerPage]);
 
   const hasChatFilters = Boolean(debouncedSearch.trim()) || Boolean(statusFilter);
   const clearChatFilters = () => {
@@ -241,44 +258,52 @@ export default function ChatsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Chat Monitor</h2>
-            <p className="text-slate-400 mt-1">
-              Monitor conversations between users and astrologers
-            </p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
+              Chat Monitor
+            </h2>
+            <AdminRefreshButton
+              onClick={() => refetch()}
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
-          <div className="flex items-center gap-2">
+          <p className="text-sm sm:text-base text-slate-400">
+            Monitor conversations between users and astrologers
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="w-full min-w-0">
+            <Search
+              containerClassName="w-full"
+              placeholder="Search by name, phone, email, or last message..."
+              value={searchTerm}
+              onSearch={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex w-full min-w-0 flex-row items-end justify-end gap-2 sm:gap-3">
             <ChatStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}
               disabled={isLoading}
             />
-            <Button
-              onClick={() => refetch()}
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-          <div className="min-w-0 flex-1">
-            <Search
-              placeholder="Search by name, phone, email, or last message..."
-              value={searchTerm}
-              onSearch={setSearchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+          <div className="flex justify-end">
+            <AdminClearFiltersButton
+              show={hasChatFilters}
+              onClear={clearChatFilters}
+              disabled={isLoading}
             />
           </div>
-          <AdminClearFiltersButton show={hasChatFilters} onClear={clearChatFilters} disabled={isLoading} />
         </div>
 
         {/* Table */}
@@ -288,9 +313,12 @@ export default function ChatsPage() {
             columns={columns}
             loading={isLoading}
             keyExtractor={(chat) => chat.id}
+            showSerialNumber
+            currentPage={pagination.page}
+            itemsPerPage={pagination.limit}
             onRowClick={handleChatClick}
             emptyState={{
-              icon: <ChatIcon className="w-20 h-20 text-slate-600" />,
+              icon: <ChatIcon className="w-16 h-16 text-slate-600" />,
               title: hasChatFilters ? 'No chats found' : 'No active chats',
               description: hasChatFilters
                 ? 'Try adjusting search or status, or clear filters.'
@@ -299,62 +327,20 @@ export default function ChatsPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
 

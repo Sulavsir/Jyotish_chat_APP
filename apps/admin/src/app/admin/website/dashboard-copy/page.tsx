@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useDebounce } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -19,21 +24,17 @@ import {
   Search,
   Textarea,
   LoadingButton,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from '@jyotish/ui';
 import type { DashboardRotatingCopy } from '@jyotish/shared';
 import { toast } from 'sonner';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { generatePageNumbers } from '@/utils/helpers';
-import { RefreshCw } from 'lucide-react';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ConfirmDialog } from '@/components/ui';
+import { Plus, Trash2 } from 'lucide-react';
 
 interface DashboardRotatingCopyResponse {
   items: DashboardRotatingCopy[];
@@ -64,11 +65,13 @@ function toFormDefaults(item?: DashboardRotatingCopy): CopyFormState {
 export default function DashboardCopyManagementPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DashboardRotatingCopy | null>(null);
   const [form, setForm] = useState<CopyFormState>(toFormDefaults());
+  const [itemToDelete, setItemToDelete] = useState<DashboardRotatingCopy | null>(null);
 
   const {
     data: itemsResponse,
@@ -76,27 +79,37 @@ export default function DashboardCopyManagementPage() {
     refetch,
     isFetching,
   } = useQuery<DashboardRotatingCopyResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(), currentPage, debouncedSearch],
+    queryKey: [...ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(), currentPage, debouncedSearch, rowsPerPage],
     queryFn: () =>
       adminApi.dashboard.rotatingCopy.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
       }),
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const items = itemsResponse?.items ?? [];
   const pagination = itemsResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
-  // Reset to page 1 when search term changes
+  // Reset to page 1 when search term or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, rowsPerPage]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -154,6 +167,7 @@ export default function DashboardCopyManagementPage() {
         queryKey: ADMIN_QUERY_KEYS.WEBSITE.DASHBOARD_ROTATING_COPY(),
       });
       toast.success('Deleted successfully');
+      setItemToDelete(null);
     },
     onError: (e: Error) => toast.error(e.message || 'Failed to delete'),
   });
@@ -186,41 +200,41 @@ export default function DashboardCopyManagementPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard Header Copy</h1>
-            <p className="text-slate-400">
-              Add, edit, enable/disable the rotating title & subtitle shown on the client dashboard.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Dashboard Header Copy
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              disabled={isLoading}
-              size="sm"
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              onClick={openCreate}
-              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
-            >
-              Add copy
-            </Button>
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Add, edit, enable/disable the rotating title & subtitle shown on the client dashboard.
+          </p>
+          <Button
+            onClick={openCreate}
+            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+          >
+            <Plus className="w-4 h-4" />
+            Add copy
+          </Button>
         </div>
 
-        <Search
-          placeholder="Search title/subtitle..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="w-full min-w-0">
+            <Search
+              containerClassName="w-full"
+              placeholder="Search title/subtitle..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
@@ -269,13 +283,7 @@ export default function DashboardCopyManagementPage() {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          const ok = window.confirm(
-                            `Delete this item?\n\n${item.title}\n\nThis cannot be undone.`
-                          );
-                          if (!ok) return;
-                          deleteMutation.mutate(item.id);
-                        }}
+                        onClick={() => setItemToDelete(item)}
                         disabled={deleteMutation.isPending}
                         className="border-red-500/40 text-red-300 hover:bg-red-500/10 hover:text-red-200"
                       >
@@ -309,58 +317,20 @@ export default function DashboardCopyManagementPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
 
         <Dialog
@@ -373,14 +343,14 @@ export default function DashboardCopyManagementPage() {
             }
           }}
         >
-          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogContent className="flex max-h-[min(90vh,800px)] w-[calc(100vw-2rem)] flex-col overflow-y-auto bg-slate-900 border-slate-700 text-white sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white">
                 {editing ? 'Edit dashboard copy' : 'Add dashboard copy'}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title" className="text-white">
                   Title
@@ -446,7 +416,7 @@ export default function DashboardCopyManagementPage() {
               <Button
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
-                className="border-slate-700"
+                className="w-full border-slate-700 sm:w-auto"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -455,13 +425,34 @@ export default function DashboardCopyManagementPage() {
                 onClick={onSubmit}
                 loading={isSubmitting}
                 loadingText="Saving..."
-                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
               >
                 Save
               </LoadingButton>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          isOpen={itemToDelete !== null}
+          onClose={() => {
+            if (!deleteMutation.isPending) setItemToDelete(null);
+          }}
+          onConfirm={() => {
+            if (itemToDelete) deleteMutation.mutate(itemToDelete.id);
+          }}
+          title="Delete this item?"
+          description={
+            itemToDelete
+              ? `"${itemToDelete.title}". This cannot be undone.`
+              : ''
+          }
+          confirmText="Delete"
+          cancelText="Cancel"
+          isDestructive
+          isLoading={deleteMutation.isPending}
+          icon={<Trash2 className="w-6 h-6 text-red-400" />}
+        />
       </div>
     </AdminLayout>
   );

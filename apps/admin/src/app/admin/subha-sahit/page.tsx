@@ -1,27 +1,38 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input } from '@jyotish/ui';
-import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, PAGINATION_DEFAULTS } from '@/constants';
-import type { ListSubhaSahitDatesParams, SubhaSahitDate } from '@/types';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { toast } from 'sonner';
-import { Plus, RefreshCw, Trash2, Pencil } from 'lucide-react';
-import { formatAdminDate } from '@/utils/helpers';
-import { generatePageNumbers } from '@/utils/helpers';
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
+  Button,
+  DateInput,
+  Label,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Input,
 } from '@jyotish/ui';
+import {
+  ADMIN_QUERY_KEYS,
+  ADMIN_ROUTES,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+} from '@/constants';
+import type { ListSubhaSahitDatesParams, SubhaSahitDate } from '@/types';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ConfirmDialog } from '@/components/ui';
+import { toast } from 'sonner';
+import { Plus, Trash2, Pencil } from 'lucide-react';
+import { formatAdminDate } from '@/utils/helpers';
 
 export default function SubhaSahitPage() {
   const router = useRouter();
@@ -31,10 +42,12 @@ export default function SubhaSahitPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [language, setLanguage] = useState<'en' | 'ne' | 'hi' | ''>('');
   const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
   const [newOccasion, setNewOccasion] = useState('');
   const [occasionLanguage, setOccasionLanguage] = useState<'en' | 'ne' | 'hi'>('en');
+  const [dateToDelete, setDateToDelete] = useState<SubhaSahitDate | null>(null);
 
   const { data: occasionsData } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(),
@@ -50,22 +63,38 @@ export default function SubhaSahitPage() {
       ...(dateTo && { dateTo }),
       ...(language && { language }),
       page,
-      limit: PAGINATION_DEFAULTS.LIMIT,
+      limit: rowsPerPage,
     }),
-    [occasionFilter, dateFrom, dateTo, language, page]
+    [occasionFilter, dateFrom, dateTo, language, page, rowsPerPage]
   );
 
+  /** Override global staleTime (60s) so revisiting the same page/limit still hits the API. */
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.LIST(listParams),
     queryFn: () => adminApi.subhaSahit.list(listParams),
+    staleTime: 0,
   });
 
   const dates = data?.dates ?? [];
   const pagination = data?.pagination ?? {
     page: 1,
-    limit: PAGINATION_DEFAULTS.LIMIT,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
+  };
+
+  useEffect(() => {
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  }, [rowsPerPage]);
+
+  /** Same limit: native select may not fire onChange; when it does, refetch. New limit: state change + staleTime:0 above. */
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setPage(PAGINATION_DEFAULTS.PAGE);
   };
 
   const deleteMutation = useMutation({
@@ -73,6 +102,7 @@ export default function SubhaSahitPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.ALL });
       toast.success('Subha Sahit date deleted');
+      setDateToDelete(null);
     },
     onError: (e: Error) => {
       toast.error(e?.message || 'Failed to delete date');
@@ -82,11 +112,7 @@ export default function SubhaSahitPage() {
   const columns: AdminTableColumn<SubhaSahitDate>[] = [
     {
       header: 'Date',
-      accessor: (date) => (
-        <span className="text-slate-300">
-          {formatAdminDate(date.date)}
-        </span>
-      ),
+      accessor: (date) => <span className="text-slate-300">{formatAdminDate(date.date)}</span>,
     },
     {
       header: 'Occasion',
@@ -99,9 +125,7 @@ export default function SubhaSahitPage() {
     {
       header: 'Language',
       accessor: (date) => (
-        <span className="text-xs text-slate-400 uppercase">
-          {date.language ?? 'EN'}
-        </span>
+        <span className="text-xs text-slate-400 uppercase">{date.language ?? 'EN'}</span>
       ),
     },
     {
@@ -115,11 +139,13 @@ export default function SubhaSahitPage() {
     {
       header: 'Status',
       accessor: (date) => (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          date.isActive
-            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-            : 'bg-red-500/20 text-red-400 border border-red-500/30'
-        }`}>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            date.isActive
+              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+          }`}
+        >
           {date.isActive ? 'Active' : 'Inactive'}
         </span>
       ),
@@ -137,10 +163,7 @@ export default function SubhaSahitPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (!confirm('Delete this Subha Sahit date?')) return;
-              deleteMutation.mutate(date.id);
-            }}
+            onClick={() => setDateToDelete(date)}
             className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
             disabled={deleteMutation.isPending}
           >
@@ -169,35 +192,34 @@ export default function SubhaSahitPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Subha Sahit Dates</h1>
-            <p className="text-slate-400">Manage auspicious dates for Pandit Ji bookings</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold leading-tight text-white break-words">
+              Subha Sahit Dates
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              disabled={isLoading}
-              size="sm"
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
+          </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Manage auspicious dates for Pandit Ji bookings
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setIsOccasionModalOpen(true)}
               size="sm"
-              className="border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+              className="w-full border-purple-500/40 text-purple-300 hover:bg-purple-500/10 sm:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Occasion
             </Button>
             <Button
               onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
-              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Dates
@@ -205,7 +227,7 @@ export default function SubhaSahitPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
           <div className="space-y-1.5">
             <Label className="text-slate-200">Filter by Occasion</Label>
             <select
@@ -275,7 +297,12 @@ export default function SubhaSahitPage() {
             showSerialNumber
             emptyState={{
               icon: (
-                <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-12 h-12 text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -284,71 +311,37 @@ export default function SubhaSahitPage() {
                   />
                 </svg>
               ),
-              title: occasionFilter || dateFrom || dateTo ? 'No Subha Sahit dates found' : 'No Subha Sahit dates',
-              description: occasionFilter || dateFrom || dateTo
-                ? 'Try adjusting your filters'
-                : 'Add auspicious dates for Pandit Ji bookings.',
+              title:
+                occasionFilter || dateFrom || dateTo
+                  ? 'No Subha Sahit dates found'
+                  : 'No Subha Sahit dates',
+              description:
+                occasionFilter || dateFrom || dateTo
+                  ? 'Try adjusting your filters'
+                  : 'Add auspicious dates for Pandit Ji bookings.',
             }}
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                      disabled={page === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    page,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((pageNum, index) => (
-                    <PaginationItem key={index}>
-                      {typeof pageNum === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setPage(pageNum)}
-                          isActive={page === pageNum}
-                        >
-                          {pageNum}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                      disabled={page === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
 
       <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
-        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-purple-600/40 text-white max-w-md shadow-2xl shadow-purple-900/40">
+        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-purple-600/40 text-white w-[92vw] max-w-md max-h-[90dvh] overflow-y-auto shadow-2xl shadow-purple-900/40 p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-purple-100">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-600/30 border border-purple-500/60">
@@ -378,19 +371,49 @@ export default function SubhaSahitPage() {
               </select>
             </div>
             <p className="text-xs text-slate-400">
-              This occasion will appear in all Subha Sahit dropdowns and filters, and can be used while creating dates and booking Pandit Ji.
+              This occasion will appear in all Subha Sahit dropdowns and filters, and can be used
+              while creating dates and booking Pandit Ji.
             </p>
           </div>
-          <DialogFooter className="mt-2">
-            <Button variant="outline" onClick={() => setIsOccasionModalOpen(false)} className="border-slate-700">
+          <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsOccasionModalOpen(false)}
+              className="border-slate-700 w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={handleAddOccasion} disabled={!newOccasion.trim()}>
+            <Button
+              onClick={handleAddOccasion}
+              disabled={!newOccasion.trim()}
+              className="w-full sm:w-auto"
+            >
               Add Occasion
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        isOpen={dateToDelete !== null}
+        onClose={() => {
+          if (!deleteMutation.isPending) setDateToDelete(null);
+        }}
+        onConfirm={() => {
+          if (dateToDelete) deleteMutation.mutate(dateToDelete.id);
+        }}
+        title="Delete Subha Sahit date?"
+        description={
+          dateToDelete
+            ? `${formatAdminDate(dateToDelete.date)} · ${dateToDelete.occasion}. This cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive
+        isLoading={deleteMutation.isPending}
+        icon={<Trash2 className="w-6 h-6 text-red-400" />}
+      />
     </AdminLayout>
   );
 }

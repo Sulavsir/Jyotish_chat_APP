@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import { useDebounce } from '@/hooks';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,19 +24,17 @@ import {
   Search,
   Textarea,
   LoadingButton,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from '@jyotish/ui';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
-import { AdminTable, type AdminTableColumn, BookingStatusFilter, type BookingStatusFilterValue } from '@/components/admin';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+  BookingStatusFilter,
+  type BookingStatusFilterValue,
+} from '@/components/admin';
 import { formatAdminDate } from '@/utils/helpers';
-import { generatePageNumbers } from '@/utils/helpers';
-import { RefreshCw } from 'lucide-react';
 
 interface JyotishBookingsResponse {
   bookings: Array<
@@ -85,8 +88,9 @@ function statusBadge(status: JyotishBookingStatus) {
 export default function PanditBookingsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
@@ -102,29 +106,40 @@ export default function PanditBookingsPage() {
       currentPage,
       debouncedSearch,
       statusFilter,
+      rowsPerPage,
     ],
     queryFn: () =>
       adminApi.jyotishBookings.list({
         type: JyotishBookingType.PANDIT,
         page: currentPage,
-        limit: PAGINATION_DEFAULTS.LIMIT,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const bookings = bookingsResponse?.bookings ?? [];
   const pagination = bookingsResponse?.pagination || {
     page: 1,
-    limit: PAGINATION_DEFAULTS.LIMIT,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
-  // Reset to page 1 when search term or status filter changes
+  // Reset to page 1 when search term, status filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, rowsPerPage]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (input: {
@@ -246,37 +261,41 @@ export default function PanditBookingsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Book Pujari Ji Requests</h1>
-            <p className="text-slate-400">Approve or reject Pandit Ji booking requests</p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Book Pujari Ji Requests
+            </h1>
+            <AdminRefreshButton
+              onClick={() => refetch()}
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
-          <div className="flex items-center gap-3">
+          <p className="text-sm sm:text-base text-slate-400">
+            Approve or reject Pandit Ji booking requests
+          </p>
+          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
             <BookingStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}
               disabled={isLoading}
             />
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isLoading}
-              size="sm"
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
           </div>
         </div>
 
-        <Search
-          placeholder="Search by category, details, client name, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="w-full min-w-0">
+            <Search
+              containerClassName="w-full"
+              placeholder="Search by category, details, client name, or phone..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
@@ -311,62 +330,20 @@ export default function PanditBookingsPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
 
         <Dialog
@@ -375,7 +352,7 @@ export default function PanditBookingsPage() {
             if (!open) setAction({ open: false });
           }}
         >
-          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogContent className="flex max-h-[min(90vh,800px)] w-[calc(100vw-2rem)] flex-col overflow-y-auto bg-slate-900 border-slate-700 text-white sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white">
                 {action.open && action.status === JyotishBookingStatus.APPROVED
@@ -384,7 +361,7 @@ export default function PanditBookingsPage() {
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label className="text-white">Admin notes (optional)</Label>
               <Textarea
                 value={adminNotes}
@@ -397,13 +374,13 @@ export default function PanditBookingsPage() {
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
                 variant="outline"
-                className="border-slate-700"
+                className="w-full border-slate-700 sm:w-auto"
                 onClick={() => setAction({ open: false })}
               >
                 Cancel
               </Button>
               <LoadingButton
-                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
                 disabled={!action.open}
                 loading={updateStatusMutation.isPending}
                 loadingText="Saving..."

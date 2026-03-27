@@ -82,28 +82,28 @@ export default function EditSubhaSahitDatePage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6 max-w-2xl">
+      <div className="space-y-5 sm:space-y-6 w-full max-w-2xl min-w-0">
         <div>
           <button
             type="button"
             onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT)}
-            className="mb-4 text-sm text-slate-400 hover:text-white"
+            className="mb-3 sm:mb-4 text-sm text-slate-400 hover:text-white"
           >
             ← Back to Subha Sahit
           </button>
-          <h1 className="text-2xl font-bold text-white">Edit Subha Sahit Date</h1>
-          <p className="text-slate-400 text-sm">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Edit Subha Sahit Date</h1>
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
             Update the auspicious date, occasion, and description. Language remains the same.
           </p>
         </div>
 
         {isLoading || !data ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-6 text-slate-300">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 sm:p-6 text-slate-300 text-sm">
             Loading date details...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 sm:p-5 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-slate-200 text-sm">
@@ -138,12 +138,12 @@ export default function EditSubhaSahitDatePage() {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                   placeholder="Optional description for this auspicious date"
-                  className="mt-1.5 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40 resize-y"
+                  className="mt-1.5 block w-full max-w-none rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40 resize-y"
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5 min-w-0">
                   <p className="text-sm font-medium text-slate-200">Status</p>
                   <p className="text-xs text-slate-400">
                     {isActive
@@ -154,7 +154,7 @@ export default function EditSubhaSahitDatePage() {
                 <button
                   type="button"
                   onClick={() => setIsActive((prev) => !prev)}
-                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium border transition-colors self-start sm:self-auto ${
                     isActive
                       ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
                       : 'border-slate-600 bg-slate-800 text-slate-300'
@@ -179,17 +179,22 @@ export default function EditSubhaSahitDatePage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col-reverse sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT)}
                 disabled={isSaving}
-                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+                className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white w-full sm:w-auto"
               >
                 Cancel
               </Button>
-              <LoadingButton type="submit" isLoading={isSaving} loadingText="Saving...">
+              <LoadingButton
+                type="submit"
+                isLoading={isSaving}
+                loadingText="Saving..."
+                className="w-full sm:w-auto"
+              >
                 Update Subha Sahit
               </LoadingButton>
             </div>

@@ -20,18 +20,26 @@ const Search = React.forwardRef<HTMLInputElement, SearchProps>(
     };
 
     return (
-      <div className={cn('cosmic-card rounded-xl p-4', containerClassName)}>
-        <div className="relative">
+      <div
+        className={cn(
+          'cosmic-card min-w-0 w-full rounded-xl p-2.5 sm:p-4',
+          containerClassName
+        )}
+      >
+        <div className="relative min-w-0">
           <SearchIcon
             size={20}
             strokeWidth={2}
             absoluteStrokeWidth
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 !text-white pointer-events-none"
+            className="pointer-events-none absolute left-2 top-1/2 z-10 h-4 w-4 -translate-y-1/2 !text-white sm:left-3 sm:h-5 sm:w-5"
           />
           <Input
             ref={ref}
             type="text"
-            className={cn('pl-10', className)}
+            className={cn(
+              'min-w-0 pl-8 pr-2 text-xs leading-normal sm:pl-10 sm:pr-4 sm:text-sm',
+              className
+            )}
             onChange={handleChange}
             {...props}
           />

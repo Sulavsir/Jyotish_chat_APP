@@ -117,13 +117,13 @@ export default function SetCoinsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-5 sm:space-y-6">
         <div>
-          <h2 className="text-3xl font-bold text-white">NRs Settings</h2>
-            <p className="text-slate-400 mt-1">
-              Set platform-wide NRs for broadcast and kundali-related actions. Per-Jyotish chat and
-              appointment fees are now configured on each astrologer profile.
-            </p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">NRs Settings</h2>
+          <p className="text-sm sm:text-base text-slate-400 mt-1">
+            Set platform-wide NRs for broadcast and kundali-related actions. Per-Jyotish chat and
+            appointment fees are now configured on each astrologer profile.
+          </p>
         </div>
 
         <Card className="cosmic-card border border-slate-700 overflow-hidden">
@@ -165,13 +165,13 @@ export default function SetCoinsPage() {
                       </div>
                     ))}
                 </div>
-                <div className="flex justify-end pt-2">
+                <div className="flex w-full justify-end pt-2 sm:justify-end">
                   <LoadingButton
                     onClick={handleSaveClick}
                     loading={mutation.isPending}
                     loadingText="Saving..."
                     disabled={!hasChanges}
-                    className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                    className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 w-full sm:w-auto"
                   >
                     Save changes
                   </LoadingButton>
@@ -183,7 +183,7 @@ export default function SetCoinsPage() {
       </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+        <DialogContent className="bg-slate-900 border-slate-700 text-white w-[92vw] max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Save NRs rates?</DialogTitle>
             <DialogDescription className="text-slate-400">
@@ -191,11 +191,12 @@ export default function SetCoinsPage() {
               broadcast, appointment, and kundali match.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2 sm:gap-0">
             <Button
               variant="outline"
               className="border-slate-600 text-slate-300"
               onClick={() => setConfirmOpen(false)}
+              type="button"
             >
               Cancel
             </Button>
@@ -203,7 +204,8 @@ export default function SetCoinsPage() {
               loading={mutation.isPending}
               loadingText="Saving..."
               onClick={handleConfirmSave}
-              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 w-full sm:w-auto"
+              type="button"
             >
               Save changes
             </LoadingButton>

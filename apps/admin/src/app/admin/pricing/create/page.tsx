@@ -9,7 +9,7 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Input, Label, Textarea, ArrowLeftIcon, Button } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { ADMIN_ROUTES } from '@/constants';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { CreatePricingPlanRequest } from '@/types';
 import { toast } from 'sonner';
 
@@ -51,8 +51,8 @@ export default function CreatePricingPlanPage() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: CreatePricingPlanRequest) => adminApi.pricing.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pricing-plans'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.PRICING.ALL });
       toast.success('Pricing plan created successfully');
       router.push(ADMIN_ROUTES.PRICING);
     },
@@ -81,9 +81,9 @@ export default function CreatePricingPlanPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-5 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <button
             onClick={() => router.push(ADMIN_ROUTES.PRICING)}
             className="p-2 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 transition-colors"
@@ -91,13 +91,13 @@ export default function CreatePricingPlanPage() {
             <ArrowLeftIcon className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold cosmic-text">Create Pricing Plan</h1>
-            <p className="text-slate-400 mt-1">Add a new pricing plan for customers</p>
+            <h1 className="text-2xl sm:text-3xl font-bold cosmic-text">Create Pricing Plan</h1>
+            <p className="text-sm sm:text-base text-slate-400 mt-1">Add a new pricing plan for customers</p>
           </div>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="cosmic-card p-6 space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="cosmic-card p-4 sm:p-6 space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-white">Basic Information</h2>
@@ -251,12 +251,13 @@ export default function CreatePricingPlanPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-6 border-t border-purple-500/20">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 border-t border-purple-500/20">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.push(ADMIN_ROUTES.PRICING)}
               disabled={createMutation.isPending}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
@@ -264,6 +265,7 @@ export default function CreatePricingPlanPage() {
               type="submit"
               isLoading={createMutation.isPending}
               loadingText="Creating..."
+              className="w-full sm:w-auto"
             >
               Create Plan
             </LoadingButton>
