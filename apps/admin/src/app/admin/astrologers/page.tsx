@@ -44,7 +44,7 @@ import {
   ADMIN_ROWS_PER_PAGE_OPTIONS,
 } from '@/constants';
 import { DELETE_CONFIRM, ASTROLOGER_EDIT_PASSWORD } from '@/constants/app.constants';
-import { useAdminSocket, useDebounce } from '@/hooks';
+import { useAdminSocket, useDebounce, useDebouncedPageSize } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 import { getImageUrl } from '@/utils/helpers';
@@ -70,7 +70,11 @@ export default function AstrologersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [onlineFilter, setOnlineFilter] = useState<OnlinePresenceFilterValue>('ALL');
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
@@ -125,14 +129,14 @@ export default function AstrologersPage() {
       debouncedSearch,
       statusFilter,
       onlineFilter,
-      rowsPerPage,
+      debouncedRowsPerPage,
     ],
     queryFn: async (): Promise<AstrologersResponse> => {
       const isOnline =
         onlineFilter === 'ALL' ? undefined : onlineFilter === 'ONLINE' ? true : false;
       const response = await adminApi.astrologers.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
         isOnline,
@@ -150,7 +154,7 @@ export default function AstrologersPage() {
           astrologers: response as Astrologer[],
           pagination: {
             page: 1,
-            limit: rowsPerPage,
+            limit: debouncedRowsPerPage,
             total: (response as Astrologer[]).length,
             totalPages: 1,
           },
@@ -158,17 +162,13 @@ export default function AstrologersPage() {
       }
       return {
         astrologers: [],
-        pagination: { page: 1, limit: rowsPerPage, total: 0, totalPages: 0 },
+        pagination: { page: 1, limit: debouncedRowsPerPage, total: 0, totalPages: 0 },
       };
     },
-    staleTime: 0,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -176,7 +176,7 @@ export default function AstrologersPage() {
   const astrologers = astrologersResponse?.astrologers || [];
   const pagination = astrologersResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -332,7 +332,7 @@ export default function AstrologersPage() {
   // Reset to page 1 when search term, status filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter, onlineFilter, rowsPerPage]);
+  }, [debouncedSearch, statusFilter, onlineFilter, debouncedRowsPerPage]);
 
   const hasAstrologersFilters =
     Boolean(debouncedSearch.trim()) || statusFilter !== 'ALL' || onlineFilter !== 'ALL';
@@ -505,28 +505,79 @@ export default function AstrologersPage() {
   return (
     <AdminLayout>
       <div className="w-full max-w-full min-w-0 space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
               Astrologers
             </h2>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden min-[1241px]:flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                <Button
+                  onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_CREATE)}
+                  className="inline-flex items-center justify-center gap-2 shrink-0"
+                >
+                  <PlusIcon className="w-5 h-5 shrink-0" />
+                  Add Astrologer
+                </Button>
+                <OnlinePresenceFilter
+                  value={onlineFilter}
+                  onChange={setOnlineFilterAndUrl}
+                  disabled={isLoading}
+                />
+                <ActiveStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={isLoading}
+                />
+                <AdminClearFiltersButton
+                  show={hasAstrologersFilters}
+                  onClear={clearAstrologersFilters}
+                  disabled={isLoading || isFetching}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">Manage your cosmic advisors</p>
-          <Button
-            onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_CREATE)}
-            className="flex w-full items-center justify-center gap-2 sm:w-auto"
-          >
-            <PlusIcon className="w-5 h-5 shrink-0" />
-            Add Astrologer
-          </Button>
         </div>
 
         <div className="flex flex-col gap-3">
+          <div className="flex w-full flex-col gap-2 min-[1241px]:hidden">
+            <Button
+              onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_CREATE)}
+              className="flex w-full items-center justify-center gap-2"
+            >
+              <PlusIcon className="w-5 h-5 shrink-0" />
+              Add Astrologer
+            </Button>
+            <div className="w-full [&_button]:w-full">
+              <OnlinePresenceFilter
+                value={onlineFilter}
+                onChange={setOnlineFilterAndUrl}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="w-full [&_button]:w-full">
+              <ActiveStatusFilter
+                value={statusFilter}
+                onChange={setStatusFilter}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="w-full">
+              <AdminClearFiltersButton
+                show={hasAstrologersFilters}
+                onClear={clearAstrologersFilters}
+                disabled={isLoading || isFetching}
+                className="w-full justify-center"
+              />
+            </div>
+          </div>
+
           <div className="w-full min-w-0">
             <Search
               containerClassName="w-full"
@@ -537,31 +588,6 @@ export default function AstrologersPage() {
                 setCurrentPage(PAGINATION_DEFAULTS.PAGE);
               }}
               onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex w-full min-w-0 flex-row items-end gap-2 sm:gap-3">
-            <div className="min-w-0 flex-1">
-              <ActiveStatusFilter
-                value={statusFilter}
-                onChange={setStatusFilter}
-                disabled={isLoading}
-              />
-            </div>
-            <div className="shrink-0">
-              <OnlinePresenceFilter
-                value={onlineFilter}
-                onChange={setOnlineFilterAndUrl}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <AdminClearFiltersButton
-              show={hasAstrologersFilters}
-              onClear={clearAstrologersFilters}
-              disabled={isLoading || isFetching}
             />
           </div>
         </div>

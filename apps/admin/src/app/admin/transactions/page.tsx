@@ -29,7 +29,7 @@ import {
   type AdminTableColumn,
 } from '@/components/admin';
 import { PaymentMethodCell, TransactionIdCell } from '@/components/transactions';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import type { AdminPaymentHistoryItem } from '@/types';
 
 const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
@@ -39,12 +39,69 @@ const PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
   { value: 'FONEPAY_CARD', label: 'Fonepay Card' },
 ];
 
+function PaymentMethodFilterPopover({
+  value,
+  onChange,
+  disabled,
+  fullWidth,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  fullWidth?: boolean;
+}) {
+  const label = PAYMENT_METHOD_OPTIONS.find((o) => o.value === value)?.label ?? 'All methods';
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          className={
+            fullWidth
+              ? 'border-slate-700 text-white hover:bg-slate-800 gap-2 h-9 w-full min-w-0 max-w-none justify-between shrink-0'
+              : 'border-slate-700 text-white hover:bg-slate-800 gap-2 h-9 min-w-[160px] max-w-[220px] justify-between shrink-0'
+          }
+        >
+          <Filter className="w-4 h-4 shrink-0" />
+          <span className="truncate">{label}</span>
+          <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[180px] p-1 bg-slate-900 border-slate-700">
+        <div className="flex flex-col">
+          {PAYMENT_METHOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value || 'all'}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={`flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
+                value === opt.value
+                  ? 'text-purple-300 bg-purple-600/15'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span>{opt.label}</span>
+              {value === opt.value && <Check className="w-4 h-4 text-purple-400" />}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function PaymentHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const {
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    debouncedPageSize: debouncedItemsPerPage,
+  } = useDebouncedPageSize(20);
   const [paymentRange, setPaymentRange] = useState(getAllTimeDateRange);
   const debouncedFrom = useDebounce(paymentRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedTo = useDebounce(paymentRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
@@ -55,7 +112,7 @@ export default function PaymentHistoryPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [itemsPerPage]);
+  }, [debouncedItemsPerPage]);
 
   const {
     data: response,
@@ -65,7 +122,7 @@ export default function PaymentHistoryPage() {
   } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.PAYMENT_HISTORY.LIST({
       page: currentPage,
-      limit: itemsPerPage,
+      limit: debouncedItemsPerPage,
       search: debouncedSearch || undefined,
       paymentMethod: paymentMethod || undefined,
       paymentDateFrom: debouncedFrom || undefined,
@@ -74,22 +131,18 @@ export default function PaymentHistoryPage() {
     queryFn: () =>
       adminApi.paymentHistory.list({
         page: currentPage,
-        limit: itemsPerPage,
+        limit: debouncedItemsPerPage,
         search: debouncedSearch || undefined,
         paymentMethod: paymentMethod || undefined,
         paymentDateFrom: debouncedFrom || undefined,
         paymentDateTo: debouncedTo || undefined,
       }),
-    staleTime: 0,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === itemsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === itemsPerPage) return;
     setItemsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -97,7 +150,7 @@ export default function PaymentHistoryPage() {
   const transactions = response?.transactions ?? [];
   const pagination = response?.pagination ?? {
     page: 1,
-    limit: itemsPerPage,
+    limit: debouncedItemsPerPage,
     total: 0,
     totalPages: 1,
   };
@@ -157,9 +210,6 @@ export default function PaymentHistoryPage() {
     },
   ];
 
-  const paymentMethodLabel =
-    PAYMENT_METHOD_OPTIONS.find((o) => o.value === paymentMethod)?.label ?? 'All methods';
-
   const showingFrom = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const showingTo = Math.min(pagination.page * pagination.limit, pagination.total);
 
@@ -186,16 +236,25 @@ export default function PaymentHistoryPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
               Payment History
             </h2>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden sm:block">
+                <PaymentMethodFilterPopover
+                  value={paymentMethod}
+                  onChange={setPaymentMethod}
+                  disabled={isLoading || isFetching}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Successful payments only – GetPay, Fonepay QR, Fonepay Card
@@ -203,73 +262,59 @@ export default function PaymentHistoryPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="w-full min-w-0">
-            <Search
-              containerClassName="w-full"
-              placeholder="Search by name, email, phone or transaction ID..."
-              value={searchTerm}
-              onSearch={(value) => {
-                setSearchTerm(value);
-                setCurrentPage(1);
-              }}
-              onChange={(e) => setSearchTerm(e.target.value)}
+          <div className="sm:hidden w-full">
+            <PaymentMethodFilterPopover
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              disabled={isLoading || isFetching}
+              fullWidth
             />
           </div>
-
-          {/* Date filter + Payment Method in the same row on sm+ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-            <AdminMonthRangeFilter
-              fromValue={paymentRange.from}
-              toValue={paymentRange.to}
-              onRangeChange={(from, to) => setPaymentRange({ from, to })}
-              disabled={isLoading}
-              className="w-full"
-            />
-
-            <div className="w-full flex justify-end">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-700 text-white hover:bg-slate-800 gap-2 h-9 w-full justify-between"
-                  >
-                    <Filter className="w-4 h-4" />
-                    <span className="truncate max-w-[160px]">{paymentMethodLabel}</span>
-                    <ChevronDown className="w-4 h-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-[180px] p-1 bg-slate-900 border-slate-700">
-                  <div className="flex flex-col">
-                    {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value || 'all'}
-                        type="button"
-                        onClick={() => setPaymentMethod(opt.value)}
-                        className={`flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
-                          paymentMethod === opt.value
-                            ? 'text-purple-300 bg-purple-600/15'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                        }`}
-                      >
-                        <span>{opt.label}</span>
-                        {paymentMethod === opt.value && (
-                          <Check className="w-4 h-4 text-purple-400" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+          <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3 min-[1145px]:hidden">
+            <div className="min-w-0 flex-1">
+              <AdminMonthRangeFilter
+                fromValue={paymentRange.from}
+                toValue={paymentRange.to}
+                onRangeChange={(from, to) => setPaymentRange({ from, to })}
+                disabled={isLoading || isFetching}
+                className="w-full min-w-0"
+              />
             </div>
-          </div>
-
-          <div className="flex justify-end">
             <AdminClearFiltersButton
               show={hasPaymentFilters}
               onClear={clearPaymentFilters}
               disabled={isLoading || isFetching}
             />
+          </div>
+
+          <div className="flex w-full min-w-0 flex-row items-center gap-2 sm:gap-3">
+            <div className="flex-1 min-w-0">
+              <Search
+                containerClassName="w-full"
+                placeholder="Search by name, email, phone or transaction ID..."
+                value={searchTerm}
+                onSearch={(value) => {
+                  setSearchTerm(value);
+                  setCurrentPage(1);
+                }}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="hidden min-[1145px]:block shrink-0">
+              <AdminMonthRangeFilter
+                fromValue={paymentRange.from}
+                toValue={paymentRange.to}
+                onRangeChange={(from, to) => setPaymentRange({ from, to })}
+                disabled={isLoading || isFetching}
+              />
+            </div>
+            <div className="hidden min-[1145px]:block shrink-0">
+              <AdminClearFiltersButton
+                show={hasPaymentFilters}
+                onClear={clearPaymentFilters}
+                disabled={isLoading || isFetching}
+              />
+            </div>
           </div>
         </div>
 

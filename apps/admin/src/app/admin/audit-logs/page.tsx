@@ -11,7 +11,7 @@ import {
   type AdminTableColumn,
 } from '@/components/admin';
 import { ADMIN_ROWS_PER_PAGE_OPTIONS, PAGINATION_DEFAULTS } from '@/constants';
-import { useAdminSocket, useDebounce } from '@/hooks';
+import { useAdminSocket, useDebounce, useDebouncedPageSize } from '@/hooks';
 import { toast } from 'sonner';
 
 /** Max rows loaded when searching (client filter); API has no text search yet. */
@@ -68,7 +68,11 @@ export default function AuditLogsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    debouncedPageSize: debouncedItemsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const { on, off, isConnected } = useAdminSocket();
 
   const searchActive = Boolean(debouncedSearch.trim());
@@ -78,7 +82,7 @@ export default function AuditLogsPage() {
     try {
       const response: any = await adminApi.auditLogs.list({
         page: currentPage,
-        limit: itemsPerPage,
+        limit: debouncedItemsPerPage,
       });
       const rawLogs = Array.isArray(response) ? response : (response?.logs ?? []);
       const pag = response?.pagination;
@@ -86,7 +90,7 @@ export default function AuditLogsPage() {
       setPagination(
         pag ?? {
           page: currentPage,
-          limit: itemsPerPage,
+          limit: debouncedItemsPerPage,
           total: rawLogs.length,
           totalPages: 1,
         }
@@ -97,7 +101,7 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, debouncedItemsPerPage]);
 
   const fetchSearchPool = useCallback(async () => {
     const q = debouncedSearch.trim();
@@ -130,7 +134,7 @@ export default function AuditLogsPage() {
 
   useLayoutEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, itemsPerPage]);
+  }, [debouncedSearch, debouncedItemsPerPage]);
 
   useEffect(() => {
     if (!searchActive) return;
@@ -162,11 +166,7 @@ export default function AuditLogsPage() {
   }, [isConnected, on, off, debouncedSearch, fetchServerPage]);
 
   const handlePageSizeChange = (size: number) => {
-    if (size === itemsPerPage) {
-      if (searchActive) void fetchSearchPool();
-      else void fetchServerPage();
-      return;
-    }
+    if (size === itemsPerPage) return;
     setItemsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -272,7 +272,7 @@ export default function AuditLogsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Audit Logs
