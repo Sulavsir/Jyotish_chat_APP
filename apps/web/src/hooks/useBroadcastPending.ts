@@ -12,9 +12,13 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useSocket } from '@/hooks/useSocket';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
+import { useAuthStore } from '@/store/auth-store';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import broadcastMessageService from '@/services/broadcastMessage.service';
-import { getBroadcastExpiresAtMs, isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
+import {
+  getBroadcastExpiresAtMs,
+  isBroadcastPendingStillActive,
+} from '@/utils/broadcastMessage.utils';
 import type { BroadcastMessage } from '@/types';
 
 const SENDING_PLACEHOLDER_ID = 'sending';
@@ -58,7 +62,9 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
   const [timeRemaining, setTimeRemaining] = useState(0);
 
   const cancelBroadcastMutation = useMutation({
-    mutationFn: async (messageIdOrFetch: string | null): Promise<{ refundAmount: number } | null> => {
+    mutationFn: async (
+      messageIdOrFetch: string | null
+    ): Promise<{ refundAmount: number } | null> => {
       // Helper: cancel multiple messages and aggregate total refund
       const cancelAll = async (ids: string[]): Promise<{ refundAmount: number } | null> => {
         if (ids.length === 0) return null;
@@ -177,7 +183,7 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       setPendingMessage(msg);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       queryClient.invalidateQueries({ queryKey: ['client-dashboard', 'stats'] });
-      // Toast is shown from the component that initiates the request (to avoid duplicates)
+      void useAuthStore.getState().refreshUser();
     });
 
     socket.on(
@@ -288,7 +294,8 @@ export function useBroadcastPending(options: UseBroadcastPendingOptions = {}) {
       .then((messages) => {
         if (cancelled) return;
         const pending = messages.find(
-          (m) => m.status === 'PENDING' && !isMultiQuestionBatch(m) && isBroadcastPendingStillActive(m)
+          (m) =>
+            m.status === 'PENDING' && !isMultiQuestionBatch(m) && isBroadcastPendingStillActive(m)
         );
         if (pending) {
           setIsWaitingForAcceptance(true);

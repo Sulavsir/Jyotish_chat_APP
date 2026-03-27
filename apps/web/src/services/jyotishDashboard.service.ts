@@ -19,6 +19,15 @@ export interface JyotishDashboardStats {
     total: number;
     urgent: number;
   };
+  todaysEarnings: {
+    amount: number;
+    currency: string;
+    transactionCount: number;
+    bySource: Record<
+      'CHAT_MESSAGE' | 'BROADCAST_MESSAGE' | 'APPOINTMENT' | 'KUNDALI_REVIEW',
+      number
+    >;
+  };
   monthlyEarnings: {
     amount: number;
     currency: string;
@@ -52,6 +61,7 @@ interface BackendDashboardStats {
   todaysConsultations: JyotishDashboardStats['todaysConsultations'];
   totalConsultations: number;
   pendingChats: JyotishDashboardStats['pendingChats'];
+  todaysEarnings: JyotishDashboardStats['todaysEarnings'];
   monthlyEarnings: JyotishDashboardStats['monthlyEarnings'];
   recentActivity: BackendRecentActivityItem[];
   todayTip: { text: string };

@@ -6,6 +6,7 @@ export * from './useAuth';
 export * from './useBroadcastPending';
 export * from './useRequireAuth';
 export * from './useSocket';
+export * from './useAstrologerPresenceSync';
 export * from './useChat';
 export * from './useRedirectIfAuthenticated';
 export * from './useCoinRates';

@@ -103,6 +103,8 @@ export interface AdminMonthRangeFilterProps {
   onRangeChange: (from: string, to: string) => void;
   disabled?: boolean;
   className?: string;
+  /** Narrow layout for dashboard stat tiles: full-width trigger, no fixed min width. */
+  compact?: boolean;
 }
 
 /**
@@ -115,6 +117,7 @@ export function AdminMonthRangeFilter({
   onRangeChange,
   disabled,
   className,
+  compact = false,
 }: AdminMonthRangeFilterProps) {
   const [open, setOpen] = React.useState(false);
   const [customFrom, setCustomFrom] = React.useState(fromValue);
@@ -151,14 +154,20 @@ export function AdminMonthRangeFilter({
     'w-full bg-slate-900/40 border-2 border-purple-500/20 text-white rounded-lg py-2.5 px-3 text-sm focus:border-purple-500/60 focus:outline-none focus:ring-2 focus:ring-purple-500/20 [color-scheme:dark]';
 
   const triggerClass = cn(
-    'inline-flex h-10 min-w-[220px] max-w-full items-center justify-between gap-2 rounded-lg border-2 border-purple-500/20',
+    'inline-flex h-10 max-w-full items-center justify-between gap-2 rounded-lg border-2 border-purple-500/20',
+    compact ? 'min-w-0 w-full' : 'min-w-[220px]',
     'bg-slate-900/40 px-3 py-2 text-left text-sm text-white shadow-sm transition-colors',
     'hover:border-purple-500/40 focus:outline-none focus:ring-2 focus:ring-purple-500/30',
     'disabled:opacity-50 [color-scheme:dark]'
   );
 
   return (
-    <span className={cn('inline-flex shrink-0 items-center gap-2', className)}>
+    <span
+      className={cn(
+        compact ? 'flex w-full min-w-0 flex-col items-stretch gap-1.5' : 'inline-flex shrink-0 items-center gap-2',
+        className
+      )}
+    >
       <span className="whitespace-nowrap text-sm font-medium text-slate-400">Filter:</span>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>

@@ -502,14 +502,14 @@ export const getUserChats = async (userId: string) => {
         },
       },
     },
-    orderBy: [{ updatedAt: 'desc' }],
+    orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
   });
 
   const chatIds = chats.map((c) => c.id);
 
   const broadcastLinkedChatIds =
     chatIds.length > 0
-      ? await (prisma as any).broadcastMessage
+      ? await prisma.broadcastMessage
           .findMany({
             where: {
               chatId: { in: chatIds },
@@ -517,7 +517,7 @@ export const getUserChats = async (userId: string) => {
             },
             select: { chatId: true },
           })
-          .then((rows: { chatId: string }[]) => new Set(rows.map((r) => r.chatId)))
+          .then((rows) => new Set(rows.map((r) => r.chatId)))
       : new Set<string>();
 
   // Fetch instant-chat-linked chat IDs in one query (accepted only)

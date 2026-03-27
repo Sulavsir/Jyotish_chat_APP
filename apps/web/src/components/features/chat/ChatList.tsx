@@ -10,6 +10,7 @@ import { MessageCircle, Search, User, Radio } from 'lucide-react';
 import { getImageUrl } from '@/utils/image.utils';
 import { useStore } from '@/store';
 import { Chat } from '@/types/chat';
+import { sortChatsByRecentActivity } from '@/utils/chat-sort.utils';
 
 type StatusFilter = 'all' | 'active' | 'ended';
 
@@ -48,38 +49,36 @@ export const ChatList: React.FC<ChatListProps> = ({
   // Ensure chats is always an array
   const chatList = Array.isArray(chats) ? chats : [];
 
-  // Filter chats based on search term AND status
-  const filteredChats = chatList.filter((chat) => {
-    // Skip chats with missing data
-    if (!chat?.clientParticipant || !chat?.astrologerParticipant) {
-      return false;
-    }
+  // Filter, then order by most recent conversation (last message / updatedAt)
+  const filteredChats = React.useMemo(() => {
+    const filtered = chatList.filter((chat) => {
+      if (!chat?.clientParticipant || !chat?.astrologerParticipant) {
+        return false;
+      }
 
-    // Status filter
-    if (statusFilter === 'active' && chat.status !== 'ACTIVE') return false;
-    if (statusFilter === 'ended' && chat.status !== 'ENDED') return false;
+      if (statusFilter === 'active' && chat.status !== 'ACTIVE') return false;
+      if (statusFilter === 'ended' && chat.status !== 'ENDED') return false;
 
-    // If no search term, include in results
-    if (!searchTerm) return true;
+      if (!searchTerm) return true;
 
-    // Determine other user based on current user ID
-    const otherUser =
-      chat.clientParticipant.id === currentUserId
-        ? chat.astrologerParticipant
-        : chat.clientParticipant;
+      const otherUser =
+        chat.clientParticipant.id === currentUserId
+          ? chat.astrologerParticipant
+          : chat.clientParticipant;
 
-    // Search by name, email, or phone (handle null names)
-    const name = otherUser?.name || '';
-    const email = otherUser?.email || '';
-    const phone = otherUser?.phone || '';
-    const searchLower = searchTerm.toLowerCase();
+      const name = otherUser?.name || '';
+      const email = otherUser?.email || '';
+      const phone = otherUser?.phone || '';
+      const searchLower = searchTerm.toLowerCase();
 
-    return (
-      name.toLowerCase().includes(searchLower) ||
-      email.toLowerCase().includes(searchLower) ||
-      phone.includes(searchTerm)
-    );
-  });
+      return (
+        name.toLowerCase().includes(searchLower) ||
+        email.toLowerCase().includes(searchLower) ||
+        phone.includes(searchTerm)
+      );
+    });
+    return sortChatsByRecentActivity(filtered);
+  }, [chatList, currentUserId, searchTerm, statusFilter]);
 
   if (isLoading) {
     return (

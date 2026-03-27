@@ -19,7 +19,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import { AppSidebar } from '@jyotish/ui';
-import { useAuth, useRequireAuth } from '@/hooks';
+import { useAuth, useRequireAuth, useAstrologerPresenceSync } from '@/hooks';
 import { ROUTES, USER_ROLES } from '@/constants';
 import { cn } from '@/lib/utils';
 import { LogoutModal } from '@/components/modals';
@@ -34,6 +34,7 @@ interface JyotishLayoutProps {
 }
 
 export function JyotishLayout({ children }: JyotishLayoutProps) {
+  useAstrologerPresenceSync();
   const pathname = usePathname();
   const { user } = useRequireAuth();
   const { handleLogout } = useAuth();

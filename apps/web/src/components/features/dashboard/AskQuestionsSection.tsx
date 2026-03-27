@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Eye, MessageSquare } from 'lucide-react';
 import {
   Select,
@@ -62,10 +62,11 @@ export function AskQuestionsSection() {
   const { socket, isConnected } = useSocket();
   const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
   const [selectedAstrologerId, setSelectedAstrologerId] = useState<string>('');
-  const [selectedAstrologer, setSelectedAstrologer] =
-    useState<{ name: string; category: AstrologerCategory; chatMessageFee?: number | null } | null>(
-      null
-    );
+  const [selectedAstrologer, setSelectedAstrologer] = useState<{
+    name: string;
+    category: AstrologerCategory;
+    chatMessageFee?: number | null;
+  } | null>(null);
   const [selectedAstrologerCategory, setSelectedAstrologerCategory] =
     useState<AstrologerCategory | null>(null);
   const { setShowExtraInfoCards } = useAskQuestionsLayoutStore();
@@ -188,8 +189,16 @@ export function AskQuestionsSection() {
   });
   const pricingTiers = React.useMemo(() => pricingData?.tiers ?? [], [pricingData]);
 
-  // Whether this client still has their once-in-lifetime first-broadcast discount
-  const hasFirstBroadcastDiscount = !!(user as any)?.hasFreeBroadcastAvailable;
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+
+  // Sync from GET /users/me — hasFreeBroadcastAvailable is not in persisted auth until refreshed
+  useEffect(() => {
+    if (mode !== 'broadcast') return;
+    void refreshUser();
+  }, [mode, refreshUser]);
+
+  // Whether this client still has their once-in-lifetime first-broadcast discount (server: hasUserUsedBroadcast)
+  const hasFirstBroadcastDiscount = user?.hasFreeBroadcastAvailable === true;
   const firstBroadcastDiscountPct = coinRates?.FIRST_BROADCAST_DISCOUNT ?? 0;
 
   /**
@@ -236,6 +245,7 @@ export function AskQuestionsSection() {
       birthDetails?: Record<string, string>;
     }) => broadcastMessageService.sendQuestions(payload),
     onSuccess: (_, variables) => {
+      void refreshUser();
       void refetchClientBalanceAndStats(queryClient);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       setSelectedBroadcastQuestionIds([]);
@@ -259,8 +269,7 @@ export function AskQuestionsSection() {
   });
 
   // Client profiles - defer until user needs to select (broadcast tab or direct + about to send)
-  const needsProfiles =
-    mode === 'broadcast' || (mode === 'direct' && !!selectedAstrologerId);
+  const needsProfiles = mode === 'broadcast' || (mode === 'direct' && !!selectedAstrologerId);
   const { data: profilesData } = useQuery({
     queryKey: QUERY_KEYS.USERS.PROFILES,
     queryFn: () => clientProfileService.list(),
@@ -319,7 +328,13 @@ export function AskQuestionsSection() {
   ) => {
     setSelectedAstrologerId(astrologerId);
     setSelectedAstrologer(
-      astrologer ? { name: astrologer.name, category: astrologer.category, chatMessageFee: astrologer.chatMessageFee } : null
+      astrologer
+        ? {
+            name: astrologer.name,
+            category: astrologer.category,
+            chatMessageFee: astrologer.chatMessageFee,
+          }
+        : null
     );
     setSelectedAstrologerCategory(astrologer?.category ?? null);
     setSelectedAstrologerFee(
@@ -419,9 +434,7 @@ export function AskQuestionsSection() {
       return;
     }
     if (messageToSend.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
-      setDirectMessageError(
-        `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
-      );
+      setDirectMessageError(`Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`);
       return;
     }
     setDirectMessageError('');
@@ -443,9 +456,7 @@ export function AskQuestionsSection() {
       return;
     }
     if (messageToSend.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
-      setDirectMessageError(
-        `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
-      );
+      setDirectMessageError(`Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`);
       return;
     }
     setDirectMessageError('');
@@ -538,6 +549,10 @@ export function AskQuestionsSection() {
   const handleBroadcastProfileConfirm = async (profileId: string) => {
     if (!user) return;
 
+    await refreshUser();
+    const firstBroadcastStillAvailable =
+      useAuthStore.getState().user?.hasFreeBroadcastAvailable === true;
+
     if (profileId === 'me') {
       const profileCheck = checkClientProfileCompletion(user);
       if (!profileCheck.isComplete) {
@@ -553,8 +568,7 @@ export function AskQuestionsSection() {
       try {
         setIsSending(true);
         // Pass any typed text as a custom question alongside the predefined selections
-        const customTexts =
-          broadcastMessage.trim() ? [broadcastMessage.trim()] : [];
+        const customTexts = broadcastMessage.trim() ? [broadcastMessage.trim()] : [];
         const result = await prepareMutation.mutateAsync({
           questionIds: selectedBroadcastQuestionIds,
           customTexts,
@@ -609,7 +623,7 @@ export function AskQuestionsSection() {
     // For text-only broadcasts, show the unified "Your Payment Details" modal as well.
     // Pricing mirrors backend createBroadcastMessage: BROADCAST_SEND with first-broadcast discount once.
     const broadcastSendRate = coinRates?.BROADCAST_SEND ?? 0;
-    const clampedDiscount = hasFirstBroadcastDiscount
+    const clampedDiscount = firstBroadcastStillAvailable
       ? Math.max(0, Math.min(100, firstBroadcastDiscountPct))
       : 0;
     const discountedCost =
@@ -1050,7 +1064,9 @@ export function AskQuestionsSection() {
                   maxLength={60}
                   className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
                 />
-                <p className={`text-xs mt-0.5 text-right ${broadcastMessage.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}>
+                <p
+                  className={`text-xs mt-0.5 text-right ${broadcastMessage.length >= 55 ? 'text-red-400' : 'text-gray-500'}`}
+                >
                   {broadcastMessage.length}/60
                 </p>
                 {broadcastMessageError && (

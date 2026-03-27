@@ -10,3 +10,4 @@ export { ChatList } from './ChatList';
 export { ChatWindow } from './ChatWindow';
 export { StartChatButton } from './StartChatButton';
 export { OnlineUsers } from './OnlineUsers';
+export { ChatConnectionBanner } from './ChatConnectionBanner';

@@ -70,6 +70,20 @@ export async function astrologerLogin(req: AuthRequest, res: Response, next: Nex
       userAgent: req.get('user-agent'),
     });
 
+    try {
+      const io = getSocketInstance();
+      if (io) {
+        io.emit('astrologer:status_changed', {
+          astrologerId: result.astrologer.id,
+          name: result.astrologer.name,
+          isOnline: true,
+        });
+        void AdminStatsEmitter.emitOnlineAstrologersCount();
+      }
+    } catch {
+      // non-fatal
+    }
+
     return sendSuccess(res, {
       message: 'Login successful.',
       astrologer: result.astrologer,
@@ -91,6 +105,27 @@ export async function astrologerLogout(req: AuthRequest, res: Response, next: Ne
     clearAuthCookies(res);
 
     if (req.user?.id) {
+      await prisma.astrologer.update({
+        where: { id: req.user.id },
+        data: { isOnline: false },
+      });
+      try {
+        const io = getSocketInstance();
+        if (io) {
+          const astro = await prisma.astrologer.findUnique({
+            where: { id: req.user.id },
+            select: { name: true },
+          });
+          io.emit('astrologer:status_changed', {
+            astrologerId: req.user.id,
+            name: astro?.name ?? 'Astrologer',
+            isOnline: false,
+          });
+          void AdminStatsEmitter.emitOnlineAstrologersCount();
+        }
+      } catch {
+        // non-fatal
+      }
       await auditService.logAction({
         astrologerId: req.user.id,
         action: 'ASTROLOGER_LOGOUT',

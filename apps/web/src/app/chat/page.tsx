@@ -14,7 +14,8 @@ import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES } from '@/constants';
 import { useSocket } from '@/hooks/useSocket';
-import { ChatList, ChatWindow, OnlineUsers } from '@/components/features/chat';
+import { ChatList, ChatWindow, OnlineUsers, ChatConnectionBanner } from '@/components/features/chat';
+import { sortChatsByRecentActivity } from '@/utils/chat-sort.utils';
 import { BroadcastChatWindow } from '@/components/features/broadcast-chat/BroadcastChatWindow';
 import chatService from '@/services/chat.service';
 import astrologerService from '@/services/astrologer.service';
@@ -582,8 +583,9 @@ export default function ChatPage() {
         (chat, index, self) => index === self.findIndex((c) => c.id === chat.id)
       );
 
-      setChats(uniqueConversations);
-      return uniqueConversations;
+      const sorted = sortChatsByRecentActivity(uniqueConversations);
+      setChats(sorted);
+      return sorted;
     } catch (error) {
       console.error('Error loading conversations:', error);
       toast.error('Failed to load conversations');
@@ -997,6 +999,8 @@ export default function ChatPage() {
 
         {/* Online Astrologers - Scrollable, No Limit */}
         <OnlineUsers title="Online Astrologers - Available Now" maxHeight="300px" />
+
+        <ChatConnectionBanner isConnected={isConnected} />
 
         {/* Chat Interface - Fixed Height */}
         <Card className="bg-black/40 backdrop-blur-md border-purple-500/30 overflow-hidden">

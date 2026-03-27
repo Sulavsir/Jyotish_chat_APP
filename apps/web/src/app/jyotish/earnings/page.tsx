@@ -5,12 +5,19 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES, QUERY_KEYS } from '@/constants';
-import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  AdminMonthRangeFilter,
+  getAllTimeDateRange,
+} from '@jyotish/ui';
 import { LoadingScreenWithBackground } from '@/components/ui';
 import {
   JyotishDataTable,
@@ -53,11 +60,30 @@ function formatDate(iso: string): string {
 export default function JyotishEarningsPage() {
   const { isCheckingAccess } = useRequireAuth({ requiredRole: USER_ROLES.ASTROLOGER });
   const [page, setPage] = useState(0);
+  const [dateRange, setDateRange] = useState(getAllTimeDateRange);
   const limit = 20;
 
+  const fromParam = dateRange.from || undefined;
+  const toParam = dateRange.to || undefined;
+
+  useEffect(() => {
+    setPage(0);
+  }, [fromParam, toParam]);
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: QUERY_KEYS.JYOTISH_EARNINGS.LIST({ limit, offset: page * limit }),
-    queryFn: () => getAstrologerEarnings({ limit, offset: page * limit }),
+    queryKey: QUERY_KEYS.JYOTISH_EARNINGS.LIST({
+      from: fromParam,
+      to: toParam,
+      limit,
+      offset: page * limit,
+    }),
+    queryFn: () =>
+      getAstrologerEarnings({
+        from: fromParam,
+        to: toParam,
+        limit,
+        offset: page * limit,
+      }),
     staleTime: 60 * 1000,
   });
 
@@ -124,18 +150,29 @@ export default function JyotishEarningsPage() {
   return (
     <JyotishLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-white tracking-tight">My Earnings</h1>
-          <p className="text-white/60 text-sm mt-1">
-            Balance credited from client deductions(chat, broadcast, appointment, kundali review).
-          </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-white tracking-tight">My Earnings</h1>
+            <p className="text-white/60 text-sm mt-1">
+              Balance credited from client deductions (chat, broadcast, appointment, kundali
+              review). Use the filter to narrow by date.
+            </p>
+          </div>
+          <AdminMonthRangeFilter
+            fromValue={dateRange.from}
+            toValue={dateRange.to}
+            onRangeChange={(from, to) => setDateRange({ from, to })}
+            className="shrink-0 lg:pt-1"
+          />
         </div>
 
         {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <Card className="bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-xl overflow-hidden">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-medium text-white/80">Total balance</CardTitle>
+              <CardTitle className="text-sm font-medium text-white/80">
+                {fromParam || toParam ? 'Total (this period)' : 'Total balance'}
+              </CardTitle>
               <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
                 <Banknote className="h-4 w-4" />
               </div>
@@ -191,8 +228,17 @@ export default function JyotishEarningsPage() {
               !isError &&
               (!data?.items?.length ? (
                 <div className="py-8 text-center text-white/60">
-                  No earnings yet. Earnings appear when clients use balance in your chats or
-                  appointments.
+                  {fromParam || toParam ? (
+                    <>
+                      No earnings in this date range. Try <strong className="text-white/80">All time</strong> or
+                      a wider range.
+                    </>
+                  ) : (
+                    <>
+                      No earnings yet. Earnings appear when clients use balance in your chats or
+                      appointments.
+                    </>
+                  )}
                 </div>
               ) : (
                 <>

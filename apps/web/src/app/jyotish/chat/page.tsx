@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { LoadingScreenWithBackground } from '@/components/ui';
-import { ChatList, ChatWindow } from '@/components/features/chat';
+import { ChatList, ChatWindow, ChatConnectionBanner } from '@/components/features/chat';
+import { sortChatsByRecentActivity } from '@/utils/chat-sort.utils';
 import { useSocket } from '@/hooks/useSocket';
 import { useStore } from '@/store';
 import chatService from '@/services/chat.service';
@@ -347,10 +348,11 @@ export default function JyotishChatPage() {
         (chat, index, self) => index === self.findIndex((c) => c.id === chat.id)
       );
 
-      setChats(uniqueConversations);
-      setTotalChats(uniqueConversations.length);
-      console.log('📋 Final conversations:', uniqueConversations.length);
-      return uniqueConversations;
+      const sorted = sortChatsByRecentActivity(uniqueConversations);
+      setChats(sorted);
+      setTotalChats(sorted.length);
+      console.log('📋 Final conversations:', sorted.length);
+      return sorted;
     } catch (error) {
       console.error('Error loading conversations:', error);
       toast.error('Failed to load conversations');
@@ -918,6 +920,8 @@ export default function JyotishChatPage() {
             </CardContent>
           </Card>
         </div>
+
+        <ChatConnectionBanner isConnected={isConnected} variant="jyotish" />
 
         <Card className="bg-black/30 backdrop-blur-sm border border-white/15 rounded-xl overflow-hidden">
           <div className="flex h-[580px] min-h-0">

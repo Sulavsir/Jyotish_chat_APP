@@ -389,6 +389,28 @@ export class AstrologerService {
 
     console.log('✅ Login successful for:', astrologer.email, 'Category:', astrologer.category);
 
+    // New session: show as available unless changed by toggle or admin (socket does not overwrite DB).
+    const astrologerAfterOnline = await prisma.astrologer.update({
+      where: { id: astrologer.id },
+      data: { isOnline: true },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        name: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        rating: true,
+        category: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        gender: true,
+      },
+    });
+
     // Generate tokens with category
     const accessToken = this.generateAccessToken(
       astrologer.id,
@@ -415,20 +437,20 @@ export class AstrologerService {
 
     return {
       astrologer: {
-        id: astrologer.id,
-        phone: astrologer.phone,
-        email: astrologer.email,
-        name: astrologer.name,
-        profilePhoto: astrologer.profilePhoto,
-        bio: astrologer.bio,
-        specialization: astrologer.specialization,
-        experience: astrologer.experience,
-        rating: astrologer.rating,
-        category: astrologer.category, // Include category in response
-        isActive: astrologer.isActive,
-        isOnline: astrologer.isOnline,
-        isVerified: astrologer.isVerified,
-        gender: astrologer.gender,
+        id: astrologerAfterOnline.id,
+        phone: astrologerAfterOnline.phone,
+        email: astrologerAfterOnline.email,
+        name: astrologerAfterOnline.name,
+        profilePhoto: astrologerAfterOnline.profilePhoto,
+        bio: astrologerAfterOnline.bio,
+        specialization: astrologerAfterOnline.specialization,
+        experience: astrologerAfterOnline.experience,
+        rating: astrologerAfterOnline.rating,
+        category: astrologer.category,
+        isActive: astrologerAfterOnline.isActive,
+        isOnline: astrologerAfterOnline.isOnline,
+        isVerified: astrologerAfterOnline.isVerified,
+        gender: astrologerAfterOnline.gender,
       },
       accessToken,
       refreshToken,

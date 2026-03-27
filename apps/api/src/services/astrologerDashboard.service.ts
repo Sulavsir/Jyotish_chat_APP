@@ -1,13 +1,22 @@
 /**
  * Astrologer Dashboard Service
  * Aggregates all dashboard data (stats, recent activity, today tip) into a single response.
- * Replaces multiple separate API calls (appointments/my, consultations/my, conversations, tips/today).
+ * Includes today’s and this month’s earnings from AstrologerCoinEarning; use /earnings?from=&to= for filtered history.
  */
 
 import { prisma } from '@jyotish/database';
 import { tipService } from './tip.service';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, type AstrologerCoinEarningSource } from '@prisma/client';
+
+function emptyEarningsBySource(): Record<AstrologerCoinEarningSource, number> {
+  return {
+    CHAT_MESSAGE: 0,
+    BROADCAST_MESSAGE: 0,
+    APPOINTMENT: 0,
+    KUNDALI_REVIEW: 0,
+  };
+}
 
 export interface TodaysConsultations {
   total: number;
@@ -24,6 +33,14 @@ export interface MonthlyEarnings {
   amount: number;
   currency: string;
   changePercent: number;
+}
+
+/** Today's credited balance (same calendar day as server, same units as monthlyEarnings). */
+export interface TodaysEarnings {
+  amount: number;
+  currency: string;
+  transactionCount: number;
+  bySource: Record<AstrologerCoinEarningSource, number>;
 }
 
 export interface RecentActivityItem {
@@ -44,6 +61,7 @@ export interface AstrologerDashboardStats {
   todaysConsultations: TodaysConsultations;
   totalConsultations: number;
   pendingChats: PendingChats;
+  todaysEarnings: TodaysEarnings;
   monthlyEarnings: MonthlyEarnings;
   recentActivity: RecentActivityItem[];
   todayTip: TodayTip;
@@ -73,6 +91,8 @@ export async function getAstrologerDashboardStats(
     chatsForActivity,
     tips,
     consultationsCount,
+    todaysEarningsGroupBy,
+    todaysEarningsCount,
   ] = await Promise.all([
     prisma.chat.count({
       where: {
@@ -147,6 +167,20 @@ export async function getAstrologerDashboardStats(
       language: language ?? 'ENGLISH',
     }),
     prisma.consultation.count({ where: { astrologerId } }),
+    prisma.astrologerCoinEarning.groupBy({
+      by: ['source'],
+      where: {
+        astrologerId,
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
+      _sum: { astrologerCoinsEarned: true },
+    }),
+    prisma.astrologerCoinEarning.count({
+      where: {
+        astrologerId,
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
+    }),
   ]);
 
   const todaysCompleted = todaysAppointments.filter(
@@ -164,6 +198,12 @@ export async function getAstrologerDashboardStats(
       : monthlyAmount > 0
         ? 100
         : 0;
+
+  const todaysBySource = emptyEarningsBySource();
+  for (const row of todaysEarningsGroupBy) {
+    todaysBySource[row.source] = row._sum.astrologerCoinsEarned ?? 0;
+  }
+  const todaysEarningsAmount = Object.values(todaysBySource).reduce((a, b) => a + b, 0);
 
   const DESCRIPTION_MAX_LEN = 60;
   const truncate = (s: string, max: number) =>
@@ -223,6 +263,12 @@ export async function getAstrologerDashboardStats(
     pendingChats: {
       total: pendingChatsCount,
       urgent: 0,
+    },
+    todaysEarnings: {
+      amount: todaysEarningsAmount,
+      currency: 'NPR',
+      transactionCount: todaysEarningsCount,
+      bySource: todaysBySource,
     },
     monthlyEarnings: {
       amount: monthlyAmount,

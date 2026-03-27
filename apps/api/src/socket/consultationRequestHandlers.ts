@@ -7,33 +7,23 @@ import { Server, Socket } from 'socket.io';
 import { consultationRequestService } from '../services/consultationRequest.service';
 import { notificationService } from '../services/notification.service';
 import { prisma, ConsultationRequest } from '@jyotish/database';
-import { NotificationType, UserRole } from '@jyotish/shared';
+import { UserRole, NotificationType } from '@jyotish/shared';
 import type { UserSummary } from '../types/common.types';
-
-// Store online astrologers separately for efficient broadcasting
-const onlineAstrologers = new Map<string, string>(); // astrologerId -> socketId
+import {
+  getOnlineAstrologerIds,
+  getOnlineAstrologersCount,
+} from './socketPresence';
 
 export function consultationRequestHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
 
-  // Register astrologer as online
   if (user.role === UserRole.ASTROLOGER) {
-    onlineAstrologers.set(user.id, socket.id);
-    console.log(`🔮 Astrologer ${user.id} is now online and can receive requests`);
+    console.log(`🔮 Astrologer ${user.id} registered for consultation requests`);
 
-    // Send current pending requests to newly connected astrologer
     consultationRequestService.getPendingRequests().then((requests) => {
       socket.emit('consultationRequest:pending', requests);
     });
   }
-
-  // When astrologer disconnects, remove from online list
-  socket.on('disconnect', () => {
-    if (user.role === UserRole.ASTROLOGER) {
-      onlineAstrologers.delete(user.id);
-      console.log(`🔮 Astrologer ${user.id} is now offline`);
-    }
-  });
 }
 
 /**
@@ -52,13 +42,11 @@ export async function broadcastNewConsultationRequest(
   request: ConsultationRequestWithClient
 ) {
   console.log(
-    `📢 Broadcasting new consultation request ${request.id} to ${onlineAstrologers.size} online astrologers`
+    `📢 Broadcasting new consultation request ${request.id} to ${getOnlineAstrologersCount()} socket-connected astrologers`
   );
 
-  // Broadcast to all astrologers by room (works across API instances with Redis adapter)
   io.to('astrologers').emit('consultationRequest:new', request);
 
-  // Also create notifications for all astrologers (even offline ones)
   try {
     const astrologers = await prisma.user.findMany({
       where: {
@@ -70,19 +58,18 @@ export async function broadcastNewConsultationRequest(
       },
     });
 
-    // Create grouped notifications for each astrologer
     const notificationPromises = astrologers.map((astrologer) =>
       notificationService.createNotification({
         userId: astrologer.id,
         title: 'New Consultation Request',
         message: `${request.client?.name || 'A client'} is requesting a ${request.type.toLowerCase()} consultation`,
-        type: 'CONSULTATION_BOOKING' as any,
+        type: NotificationType.CONSULTATION_BOOKING,
         metadata: {
           requestId: request.id,
           clientId: request.clientId,
           type: request.type,
         },
-        groupKey: `consultation_request_${request.id}`, // Same groupKey for all astrologers
+        groupKey: `consultation_request_${request.id}`,
       })
     );
 
@@ -98,12 +85,13 @@ export async function broadcastNewConsultationRequest(
  */
 export async function broadcastConsultationRequestAccepted(
   io: Server,
-  request: any,
+  request: ConsultationRequestWithClient & {
+    acceptedAstrologer?: { id: string; name: string; phone?: string | null; email?: string | null; profilePhoto?: string | null } | null;
+  },
   astrologerId: string
 ) {
   console.log(`✅ Consultation request ${request.id} accepted by astrologer ${astrologerId}`);
 
-  // Remove from all astrologers except the one who accepted (room-based for multi-instance)
   const astrologerIds = getOnlineAstrologerIds();
   for (const astrId of astrologerIds) {
     if (astrId !== astrologerId) {
@@ -113,7 +101,6 @@ export async function broadcastConsultationRequestAccepted(
     }
   }
 
-  // Notify the client by room (works across instances)
   io.to(`user:${request.clientId}`).emit('consultationRequest:accepted', {
     requestId: request.id,
     astrologer: request.acceptedAstrologer,
@@ -123,7 +110,7 @@ export async function broadcastConsultationRequestAccepted(
     userId: request.clientId,
     title: 'Consultation Request Accepted',
     message: `${request.acceptedAstrologer?.name || 'An astrologer'} has accepted your consultation request`,
-    type: 'CONSULTATION_BOOKING' as any,
+    type: NotificationType.CONSULTATION_BOOKING,
     metadata: {
       requestId: request.id,
       astrologerId,
@@ -137,7 +124,6 @@ export async function broadcastConsultationRequestAccepted(
 export async function broadcastConsultationRequestCancelled(io: Server, requestId: string) {
   console.log(`❌ Consultation request ${requestId} cancelled`);
 
-  // Remove from all astrologers by room (multi-instance safe)
   io.to('astrologers').emit('consultationRequest:removed', { requestId });
 }
 
@@ -150,18 +136,4 @@ export async function broadcastConsultationRequestExpired(io: Server, requestId:
   io.to('astrologers').emit('consultationRequest:removed', { requestId });
 }
 
-/**
- * Get count of online astrologers
- */
-export function getOnlineAstrologersCount(): number {
-  return onlineAstrologers.size;
-}
-
-/**
- * Get list of online astrologer IDs
- */
-export function getOnlineAstrologerIds(): string[] {
-  return Array.from(onlineAstrologers.keys());
-}
-
-export { onlineAstrologers };
+export { getOnlineAstrologerIds, getOnlineAstrologersCount } from './socketPresence';

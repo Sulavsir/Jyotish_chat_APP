@@ -24,7 +24,10 @@ import {
   deductCoinsForBroadcastQuestions,
   refundCoins,
 } from './coin.service';
-import { requiresCoinsForChat } from '../constants/coin.constants';
+import {
+  requiresCoinsForChat,
+  MIN_FIRST_BROADCAST_FREE_ASTRO_EARNING_NPR,
+} from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
 import {
   getTotalNrForQuestionCount,
@@ -1141,18 +1144,43 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
       const commissionPercent = isFirstBroadcastDiscount
         ? (astrologerForEarning?.firstBroadcastCommissionPercent ?? 0)
         : (astrologerForEarning?.broadcastMessageCommissionPercent ?? 0);
-      if (commissionPercent <= 0) continue;
 
-      const clientCoinsDeducted =
+      let clientCoinsDeducted =
         typeof msgMeta.amountRefundNr === 'number'
           ? Math.max(0, msgMeta.amountRefundNr)
           : broadcastRate;
-      if (clientCoinsDeducted <= 0) continue;
 
-      const astrologerCoinsEarned = Math.floor(
+      const isFreeToClient =
+        isFirstBroadcastDiscount && clientCoinsDeducted <= 0;
+
+      if (!isFreeToClient) {
+        if (commissionPercent <= 0) continue;
+        if (clientCoinsDeducted <= 0) continue;
+      }
+
+      let astrologerCoinsEarned = Math.floor(
         (clientCoinsDeducted * commissionPercent) / 100
       );
-      if (astrologerCoinsEarned <= 0) continue;
+
+      let sourceDetail: string | null = isFirstBroadcastDiscount
+        ? 'First broadcast discount'
+        : null;
+
+      if (isFreeToClient) {
+        astrologerCoinsEarned = Math.max(
+          astrologerCoinsEarned,
+          MIN_FIRST_BROADCAST_FREE_ASTRO_EARNING_NPR
+        );
+        clientCoinsDeducted = 0;
+        sourceDetail = [
+          sourceDetail,
+          `Platform minimum credit (${MIN_FIRST_BROADCAST_FREE_ASTRO_EARNING_NPR} NRs; client not charged)`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      } else if (astrologerCoinsEarned <= 0) {
+        continue;
+      }
 
       await prisma.astrologerCoinEarning.create({
         data: {
@@ -1163,7 +1191,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
           clientCoinsDeducted,
           commissionPercent,
           astrologerCoinsEarned,
-          sourceDetail: isFirstBroadcastDiscount ? 'First broadcast discount' : null,
+          sourceDetail,
         },
       });
     }

@@ -32,6 +32,12 @@ export const DIRECT_CHAT_COIN_COSTS: Record<AstrologerCategory, number> = {
 export const BROADCAST_CHAT_COIN_COST = 1;
 
 /**
+ * When the first broadcast is fully discounted (client pays 0 NPR), the astrologer still receives
+ * this minimum balance credit (platform-funded; no client deduction).
+ */
+export const MIN_FIRST_BROADCAST_FREE_ASTRO_EARNING_NPR = 10;
+
+/**
  * Coin transaction reasons mapping
  */
 export const COIN_REASON_MAPPING: Record<AstrologerCategory, CoinTransactionReason> = {

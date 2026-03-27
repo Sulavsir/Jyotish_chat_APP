@@ -18,10 +18,11 @@ import {
   RecentActivity,
   WelcomeHero,
   DashboardTip,
+  DashboardEarningsStatCard,
 } from '@/components/features/jyotish-dashboard';
 import jyotishDashboardService from '@/services/jyotishDashboard.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
-import { CalendarDays, MessageSquare, TrendingUp, Clock, ArrowRight } from 'lucide-react';
+import { CalendarDays, MessageSquare, TrendingUp, ArrowRight } from 'lucide-react';
 
 export default function JyotishDashboardPage() {
   const { user, isCheckingAccess } = useRequireAuth({
@@ -29,10 +30,7 @@ export default function JyotishDashboardPage() {
   });
   const language = useQuestionnaireLanguageStore((s) => s.language);
 
-  const {
-    data: stats,
-    isLoading: isLoadingStats,
-  } = useQuery({
+  const { data: stats, isLoading: isLoadingStats, isError: isStatsError } = useQuery({
     queryKey: [...QUERY_KEYS.JYOTISH_DASHBOARD.STATS, language],
     queryFn: () => jyotishDashboardService.getDashboardStats(language),
     staleTime: 10 * 60 * 1000,
@@ -74,15 +72,10 @@ export default function JyotishDashboardPage() {
             isLoading={isLoadingStats}
             href={ROUTES.JYOTISH_CONSULTATIONS}
           />
-          <StatsCard
-            title="Total Consultations"
-            value={stats?.totalConsultations ?? 0}
-            subtitle="Lifetime completed"
-            icon={Clock}
-            gradient="bg-sky-500/20 text-sky-400"
-            borderColor="blue"
+          <DashboardEarningsStatCard
+            earnings={stats?.todaysEarnings}
             isLoading={isLoadingStats}
-            href={ROUTES.JYOTISH_CONSULTATIONS}
+            isError={isStatsError}
           />
           <StatsCard
             title="Active Chats"
