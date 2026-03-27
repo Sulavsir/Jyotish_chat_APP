@@ -31,6 +31,7 @@ import {
 } from '../services';
 import { AppError } from '../middleware/error-handler';
 import { getClientIp } from '../utils/request-utils';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 
 /**
  * Check if phone number exists
@@ -188,13 +189,7 @@ export async function setPassword(req: AuthRequest, res: Response, next: NextFun
   // Verify temp token
   const decoded = authService.verifyTempToken(tempToken);
 
-  // Check if user already exists
-  const exists = await userService.userExists(decoded.phoneNumber);
-  if (exists) {
-    throw new AppError('User already exists', HTTP_STATUS.CONFLICT, ERROR_CODES.USER_EXISTS);
-  }
-
-  // Create user via service
+  // Create user via service (DB partial unique + user.service maps P2002)
   const result = await userService.createUser({
     phoneNumber: decoded.phoneNumber,
     password,
@@ -395,8 +390,8 @@ export async function changePassword(req: AuthRequest, res: Response, next: Next
   await authService.changePassword(userId, currentPassword, newPassword);
 
   // Fetch updated user to return hasPassword: true
-  const updatedUser = await prisma.user.findUnique({
-    where: { id: userId },
+  const updatedUser = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: {
       id: true,
       email: true,
@@ -457,8 +452,8 @@ export async function setPasswordForExistingUser(
   await authService.setPasswordForExistingUser(userId, password);
 
   // Fetch updated user to return hasPassword: true
-  const updatedUser = await prisma.user.findUnique({
-    where: { id: userId },
+  const updatedUser = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: {
       id: true,
       email: true,
@@ -692,8 +687,8 @@ export async function refreshToken(req: AuthRequest, res: Response, next: NextFu
       userFound = await userService.userExists(decoded.phone);
     }
     if (!userFound) {
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.id },
+      const user = await prisma.user.findFirst({
+        where: { id: decoded.id, ...ACTIVE_CLIENT_USER_WHERE },
         select: { id: true },
       });
       userFound = !!user;

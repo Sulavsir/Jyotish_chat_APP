@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { getCanonicalDateForCategory } from '@jyotish/shared';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { HOROSCOPE_CONFIG } from '../constants';
@@ -359,8 +360,8 @@ export class HoroscopeService {
     userId: string,
     language?: QuestionnaireLanguage
   ): Promise<HoroscopeResponse> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { zodiacSign: true },
     });
 

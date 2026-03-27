@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { AppointmentStatus } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
@@ -45,8 +46,8 @@ export const hasActiveUnlimitedPlan = async (userId: string): Promise<boolean> =
  * Get user's coin balance
  */
 export const getCoinBalance = async (userId: string): Promise<number> => {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true },
   });
 
@@ -188,8 +189,8 @@ export const deductCoinsForMessage = async (
   }
 
   // Get current balance
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 
@@ -298,8 +299,8 @@ export const deductCoinsForChat = async (params: CoinDeductionParams): Promise<C
   const transactionReason = COIN_REASON_MAPPING[category as AstrologerCategory];
 
   // Get current balance
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 
@@ -370,8 +371,8 @@ export const deductCoinsForBroadcastMessage = async (
   const coinCost = overrideCoinCost !== undefined ? overrideCoinCost : baseCost;
 
   // Get current balance
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 
@@ -441,8 +442,8 @@ export const addCoins = async (
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { id: true, coins: true },
   });
 
@@ -517,8 +518,8 @@ export const deductCoinsForAppointment = async (
     return { userId, balance, coinTransactionId: '', coinCost: 0 };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 
@@ -611,8 +612,8 @@ export const deductCoinsForBooking = async (
     return { userId, balance, coinTransactionId: '', coinCost: 0 };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 
@@ -691,8 +692,8 @@ export const deductCoinsForKundaliMatch = async (
     return { userId, balance, coinTransactionId: '', coinCost: 0 };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 
@@ -770,8 +771,8 @@ export const deductCoinsForBroadcastQuestions = async (
     return { userId, balance };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true, id: true },
   });
 

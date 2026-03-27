@@ -124,8 +124,11 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
     const userRole = req.user!.role;
     const { chatId, receiverId, content, type, metadata } = req.body;
 
-    if (!chatId || !receiverId || !content) {
-      return sendError(res, 'Chat ID, receiver ID, and content are required', 400);
+    if (!chatId || !receiverId) {
+      return sendError(res, 'Chat ID and receiver ID are required', 400);
+    }
+    if (typeof content !== 'string') {
+      return sendError(res, 'Content must be a string', 400);
     }
 
     const result = await chatService.sendMessage({

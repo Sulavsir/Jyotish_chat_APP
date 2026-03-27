@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { SlotStatus } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
@@ -101,8 +102,8 @@ export async function getBookingQuote(
     }
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: clientId },
+  const user = await prisma.user.findFirst({
+    where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true },
   });
   if (!user) {

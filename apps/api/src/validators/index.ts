@@ -48,6 +48,7 @@ export * from './appointment.validators';
 export * from './slot.validators';
 export * from './dashboardRotatingCopy.validators';
 export * from './jyotishBooking.validators';
+export * from './userAccount.validators';
 export * from './broadcastMessage.validators';
 export * from './adminAstrologer.validators';
 export * from './tip.validators';

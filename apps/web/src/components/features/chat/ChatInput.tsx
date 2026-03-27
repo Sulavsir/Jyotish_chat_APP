@@ -127,10 +127,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
     const trimmedMessage = message.trim();
 
+    if (attachment && !trimmedMessage) {
+      toast.error('Please add a message along with your attachment.');
+      return;
+    }
+
     // Must have either message or attachment
     if ((trimmedMessage || attachment) && !disabled) {
-      // If only attachment, send empty message (the UI will show the file)
-      onSendMessage(trimmedMessage || '', attachment || undefined);
+      onSendMessage(trimmedMessage, attachment || undefined);
       setMessage('');
       onChangeMessage?.('');
       setIsTyping(false);

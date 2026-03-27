@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import {
@@ -159,8 +160,8 @@ export async function verifyPayment(
   }
 
   if (payment.status === PaymentStatus.SUCCESS) {
-    const balance = await prisma.user.findUnique({
-      where: { id: userId },
+    const balance = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { coins: true },
     });
     invalidateMySuccessfulPaymentsCache(userId);
@@ -294,8 +295,8 @@ export async function verifyPayment(
 
   if (updateResult.count === 0) {
     // Another request already processed this order — return idempotent success
-    const balance = await prisma.user.findUnique({
-      where: { id: userId },
+    const balance = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { coins: true },
     });
     invalidateMySuccessfulPaymentsCache(userId);
@@ -343,8 +344,8 @@ export async function verifyPayment(
     });
   }
 
-  const balance = await prisma.user.findUnique({
-    where: { id: userId },
+  const balance = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true },
   });
 
@@ -513,8 +514,8 @@ export async function verifyFonepayQrPayment(
   // If already completed, return success (idempotent)
   if (existingPayment.status === PaymentStatus.SUCCESS) {
     console.log('[verifyFonepayQrPayment] Payment already completed, returning cached result');
-    const balance = await prisma.user.findUnique({
-      where: { id: userId },
+    const balance = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { coins: true },
     });
     invalidateMySuccessfulPaymentsCache(userId);
@@ -615,8 +616,8 @@ export async function verifyFonepayQrPayment(
 
   if (updateResult.count === 0) {
     console.log('[verifyFonepayQrPayment] Update count 0 - payment already processed');
-    const balance = await prisma.user.findUnique({
-      where: { id: userId },
+    const balance = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { coins: true },
     });
     invalidateMySuccessfulPaymentsCache(userId);
@@ -671,8 +672,8 @@ export async function verifyFonepayQrPayment(
     throw err;
   }
 
-  const balance = await prisma.user.findUnique({
-    where: { id: userId },
+  const balance = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { coins: true },
   });
 

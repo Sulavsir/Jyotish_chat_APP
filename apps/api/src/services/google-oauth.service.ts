@@ -1,5 +1,7 @@
 import { Google, generateState, generateCodeVerifier } from 'arctic';
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
+import { isPrismaUniqueConstraintViolation } from '../utils/prisma-error.utils';
 import { UserRole } from '@jyotish/shared';
 import { getGoogleOAuthConfig } from '../config/google-oauth.config';
 import { authService } from './auth.service';
@@ -9,7 +11,6 @@ import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import type { GoogleUserInfo, GoogleTokenPayload, GoogleLoginResult, UserEntity } from '../types';
 
-/** Prefer `name`; otherwise combine given + family (mobile ID tokens often omit `name`). */
 function resolveGoogleDisplayName(googleUser: GoogleUserInfo): string | undefined {
   const direct = googleUser.name?.trim();
   if (direct) return direct;
@@ -163,8 +164,8 @@ class GoogleOAuthService {
     metadata?: { userAgent?: string; ipAddress?: string }
   ): Promise<GoogleLoginResult> {
     // Check if user exists by googleId
-    let user = await prisma.user.findUnique({
-      where: { googleId: googleUser.sub },
+    let user = await prisma.user.findFirst({
+      where: { googleId: googleUser.sub, ...ACTIVE_CLIENT_USER_WHERE },
     });
 
     let isNewUser = false;
@@ -174,7 +175,7 @@ class GoogleOAuthService {
     if (!user) {
       // Check if user exists by email (link accounts)
       user = await prisma.user.findFirst({
-        where: { email: googleUser.email },
+        where: { email: googleUser.email, ...ACTIVE_CLIENT_USER_WHERE },
       });
 
       if (user) {
@@ -185,23 +186,45 @@ class GoogleOAuthService {
             googleId: googleUser.sub,
             emailVerified: user.emailVerified ?? new Date(),
             profilePhoto: user.profilePhoto ?? googleUser.picture ?? undefined,
-            name: user.name?.trim() ? user.name : googleDisplayName ?? undefined,
+            name: user.name?.trim() ? user.name : (googleDisplayName ?? undefined),
           },
         });
       } else {
-        // Create new user
-        user = await prisma.user.create({
-          data: {
-            googleId: googleUser.sub,
-            email: googleUser.email,
-            emailVerified: new Date(),
-            name: googleDisplayName ?? undefined,
-            profilePhoto: googleUser.picture ?? undefined,
-            role: UserRole.CLIENT,
-            profileCompleted: false,
-          },
-        });
-        isNewUser = true;
+        try {
+          user = await prisma.user.create({
+            data: {
+              googleId: googleUser.sub,
+              email: googleUser.email,
+              emailVerified: new Date(),
+              name: googleDisplayName ?? undefined,
+              profilePhoto: googleUser.picture ?? undefined,
+              role: UserRole.CLIENT,
+              profileCompleted: false,
+            },
+          });
+          isNewUser = true;
+        } catch (e) {
+          if (!isPrismaUniqueConstraintViolation(e)) {
+            throw e;
+          }
+          user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { googleId: googleUser.sub, ...ACTIVE_CLIENT_USER_WHERE },
+                ...(googleUser.email
+                  ? [{ email: googleUser.email, ...ACTIVE_CLIENT_USER_WHERE }]
+                  : []),
+              ],
+            },
+          });
+          if (!user) {
+            throw new AppError(
+              'Could not complete Google sign-in. Please try again.',
+              HTTP_STATUS.CONFLICT,
+              ERROR_CODES.VALIDATION_ERROR
+            );
+          }
+        }
       }
     } else {
       const needsEmail = !user.email?.trim() && !!googleUser.email;

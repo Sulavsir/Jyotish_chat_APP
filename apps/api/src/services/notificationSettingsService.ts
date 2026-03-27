@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { UserRole } from '@jyotish/shared';
 
 /**
@@ -11,8 +12,8 @@ import { UserRole } from '@jyotish/shared';
  */
 export const getNotificationSettings = async (userId: string, userRole?: UserRole) => {
   // Check if user exists in User table (only CLIENT users)
-  const userExists = await prisma.user.findUnique({
-    where: { id: userId },
+  const userExists = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { id: true, role: true },
   });
 
@@ -75,8 +76,8 @@ export const updateNotificationSettings = async (
   }
 ) => {
   // Check if user exists in User table (only CLIENT users)
-  const userExists = await prisma.user.findUnique({
-    where: { id: userId },
+  const userExists = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
     select: { id: true, role: true },
   });
 

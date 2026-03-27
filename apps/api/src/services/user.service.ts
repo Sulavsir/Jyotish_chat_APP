@@ -3,10 +3,14 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { UserRole, getZodiacSign } from '@jyotish/shared';
 import { authService } from './auth.service';
 import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
+import { AppError } from '../middleware/error-handler';
+import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { isPrismaUniqueConstraintViolation } from '../utils/prisma-error.utils';
 import type {
   CreateUserData,
   CreateUserResult,
@@ -20,8 +24,8 @@ export class UserService {
    * Check if user exists by phone
    */
   async userExists(phoneNumber: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-      where: { phone: phoneNumber },
+    const user = await prisma.user.findFirst({
+      where: { phone: phoneNumber, ...ACTIVE_CLIENT_USER_WHERE },
     });
     return !!user;
   }
@@ -36,46 +40,51 @@ export class UserService {
   ): Promise<CreateUserResult> {
     const { phoneNumber, password } = data;
 
-    // Check if user already exists
-    const exists = await this.userExists(phoneNumber);
-    if (exists) {
-      throw new Error('User already exists');
-    }
-
     // Hash password
     const hashedPassword = await authService.hashPassword(password);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        phone: phoneNumber,
-        password: hashedPassword,
-        profileCompleted: false,
-      },
-      select: {
-        id: true,
-        phone: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-        emailVerified: true,
-        profilePhoto: true,
-        profileCompleted: true,
-        password: true,
-        dateOfBirth: true,
-        timeOfBirth: true,
-        placeOfBirth: true,
-        currentAddress: true,
-        permanentAddress: true,
-        latitude: true,
-        longitude: true,
-        zodiacSign: true,
-        gender: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          phone: phoneNumber,
+          password: hashedPassword,
+          profileCompleted: false,
+        },
+        select: {
+          id: true,
+          phone: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          profilePhoto: true,
+          profileCompleted: true,
+          password: true,
+          dateOfBirth: true,
+          timeOfBirth: true,
+          placeOfBirth: true,
+          currentAddress: true,
+          permanentAddress: true,
+          latitude: true,
+          longitude: true,
+          zodiacSign: true,
+          gender: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } catch (e) {
+      if (isPrismaUniqueConstraintViolation(e)) {
+        throw new AppError(
+          'An account with this phone number already exists',
+          HTTP_STATUS.CONFLICT,
+          ERROR_CODES.USER_EXISTS
+        );
+      }
+      throw e;
+    }
 
     // Generate auth tokens
     const { accessToken, refreshToken } = authService.generateTokens({
@@ -107,12 +116,6 @@ export class UserService {
     role: UserRole = UserRole.CLIENT,
     metadata?: { userAgent?: string; ipAddress?: string }
   ): Promise<CreateUserResult> {
-    // Check if user already exists in User table
-    const exists = await this.userExists(phoneNumber);
-    if (exists) {
-      throw new Error('User already exists');
-    }
-
     // Check if phone number is already used by an ASTROLOGER
     const existingAstrologer = await prisma.astrologer.findUnique({
       where: { phone: phoneNumber },
@@ -124,38 +127,49 @@ export class UserService {
       );
     }
 
-    // Create user without password
-    const user = await prisma.user.create({
-      data: {
-        phone: phoneNumber,
-        password: null,
-        profileCompleted: false,
-        role,
-      },
-      select: {
-        id: true,
-        phone: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-        emailVerified: true,
-        profilePhoto: true,
-        profileCompleted: true,
-        password: true,
-        dateOfBirth: true,
-        timeOfBirth: true,
-        placeOfBirth: true,
-        currentAddress: true,
-        permanentAddress: true,
-        latitude: true,
-        longitude: true,
-        zodiacSign: true,
-        gender: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          phone: phoneNumber,
+          password: null,
+          profileCompleted: false,
+          role,
+        },
+        select: {
+          id: true,
+          phone: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          profilePhoto: true,
+          profileCompleted: true,
+          password: true,
+          dateOfBirth: true,
+          timeOfBirth: true,
+          placeOfBirth: true,
+          currentAddress: true,
+          permanentAddress: true,
+          latitude: true,
+          longitude: true,
+          zodiacSign: true,
+          gender: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } catch (e) {
+      if (isPrismaUniqueConstraintViolation(e)) {
+        throw new AppError(
+          'An account with this phone number already exists',
+          HTTP_STATUS.CONFLICT,
+          ERROR_CODES.USER_EXISTS
+        );
+      }
+      throw e;
+    }
 
     // Generate auth tokens
     const { accessToken, refreshToken } = authService.generateTokens({
@@ -182,8 +196,8 @@ export class UserService {
    * Get user by ID
    */
   async getUserById(userId: string): Promise<UserResponse | null> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         id: true,
         phone: true,
@@ -219,8 +233,8 @@ export class UserService {
    * Setup/complete user profile
    */
   async setupProfile(userId: string, data: ProfileSetupData): Promise<UserResponse> {
-    const existing = await prisma.user.findUnique({
-      where: { id: userId },
+    const existing = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { email: true, name: true },
     });
     if (!existing) {
@@ -237,7 +251,7 @@ export class UserService {
     const incomingNameTrimmed =
       data.name !== undefined && data.name !== null ? String(data.name).trim() : '';
     const resolvedName =
-      incomingNameTrimmed !== '' ? incomingNameTrimmed : existing.name ?? undefined;
+      incomingNameTrimmed !== '' ? incomingNameTrimmed : (existing.name ?? undefined);
 
     const placeComplete =
       (!!data.placeOfBirth && data.placeOfBirth.trim().length > 0) ||
@@ -294,7 +308,7 @@ export class UserService {
     }
 
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: {
         ...(resolvedName !== undefined && { name: resolvedName }),
         email: resolvedEmail,
@@ -362,7 +376,7 @@ export class UserService {
     if (data.placeOfBirthLocation === undefined) delete updateData.placeOfBirthLocation;
 
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: updateData,
       select: {
         id: true,

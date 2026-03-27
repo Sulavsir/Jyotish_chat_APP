@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { toPublicDisplayRating } from '../utils/public-display-rating';
 import { UserRole } from '@jyotish/shared';
 
@@ -84,6 +85,7 @@ export const getClients = async (limit = 10) => {
     where: {
       role: 'CLIENT',
       isActive: true,
+      ...ACTIVE_CLIENT_USER_WHERE,
     },
     select: {
       id: true,

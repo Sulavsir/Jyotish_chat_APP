@@ -17,6 +17,7 @@ import { sessionService } from './session.service';
 import { emailService } from './email.service';
 import { smsService } from './sms.service';
 import { isNepaliPhoneNumber } from '../utils/phone.utils';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 
 export class AstrologerService {
   /**
@@ -183,8 +184,8 @@ export class AstrologerService {
     } & Partial<AstrologerCommissionFieldsInput>
   ) {
     // Check if phone number is already used by a CLIENT
-    const existingUser = await prisma.user.findUnique({
-      where: { phone: data.phone },
+    const existingUser = await prisma.user.findFirst({
+      where: { phone: data.phone, ...ACTIVE_CLIENT_USER_WHERE },
     });
 
     if (existingUser) {

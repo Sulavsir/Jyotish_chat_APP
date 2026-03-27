@@ -195,6 +195,12 @@ export const authApi = {
     return apiClient.delete<User>(API_ENDPOINTS.USER.REMOVE_PHOTO);
   },
 
+  deleteMyAccount: async (payload: {
+    confirmation: 'DELETE_MY_ACCOUNT';
+  }): Promise<{ message: string }> => {
+    return apiClient.post<{ message: string }>(API_ENDPOINTS.USER.DELETE_ACCOUNT, payload);
+  },
+
   changePassword: async (data: {
     currentPassword: string;
     newPassword: string;

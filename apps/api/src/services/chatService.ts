@@ -27,6 +27,8 @@ import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getSocketInstance } from '../utils/socket-instance';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { notificationService } from './notification.service';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
+import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
 
 const chatInclude = {
   clientParticipant: {
@@ -65,7 +67,10 @@ async function resolveClientAndAstrologerIds(
     clientId = participant1Id;
     const [otherAsAstrologer, otherAsUser] = await Promise.all([
       prisma.astrologer.findUnique({ where: { id: participant2Id }, select: { id: true } }),
-      prisma.user.findUnique({ where: { id: participant2Id }, select: { id: true, role: true } }),
+      prisma.user.findFirst({
+        where: { id: participant2Id, ...ACTIVE_CLIENT_USER_WHERE },
+        select: { id: true, role: true },
+      }),
     ]);
     if (otherAsAstrologer) {
       astrologerId = participant2Id;
@@ -74,12 +79,15 @@ async function resolveClientAndAstrologerIds(
     } else {
       throw new Error('User not found');
     }
-    const client = await prisma.user.findUnique({ where: { id: clientId }, select: { id: true } });
+    const client = await prisma.user.findFirst({
+      where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
+      select: { id: true },
+    });
     if (!client) throw new Error('Client user not found');
   } else if (currentUserRole === UserRole.ASTROLOGER) {
     astrologerId = participant1Id;
-    const otherAsUser = await prisma.user.findUnique({
-      where: { id: participant2Id },
+    const otherAsUser = await prisma.user.findFirst({
+      where: { id: participant2Id, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true, role: true },
     });
     if (otherAsUser && otherAsUser.role === UserRole.CLIENT) {
@@ -231,8 +239,8 @@ export const findOrCreateChat = async (
     }
 
     // Check if client profile is completed before creating chat
-    const clientProfile = await prisma.user.findUnique({
-      where: { id: clientId },
+    const clientProfile = await prisma.user.findFirst({
+      where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         name: true,
         dateOfBirth: true,
@@ -753,6 +761,17 @@ export const getChatHistory = async (
 export const sendMessage = async (params: SendMessageParams & { senderRole: UserRole }) => {
   const { chatId, senderId, receiverId, content, type = 'TEXT', metadata, senderRole } = params;
 
+  if (!content?.trim()) {
+    if (hasChatFileMetadata(metadata)) {
+      throw new AppError(
+        'Please add a message along with your attachment.',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.ATTACHMENT_REQUIRES_TEXT
+      );
+    }
+    throw new AppError('Message cannot be empty', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
   const effectiveType = type ?? MessageType.TEXT;
   if (effectiveType === MessageType.TEXT) {
     const maxLen =
@@ -959,8 +978,8 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
       phone?: string | null;
     } | null = null;
     if (senderRole === UserRole.CLIENT) {
-      sender = await prisma.user.findUnique({
-        where: { id: senderId },
+      sender = await prisma.user.findFirst({
+        where: { id: senderId, ...ACTIVE_CLIENT_USER_WHERE },
         select: { id: true, name: true, profilePhoto: true, phone: true },
       });
     } else {

@@ -5,6 +5,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { AUTH_CONFIG, HTTP_STATUS, ERROR_CODES, TOKEN_TYPES } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { toUserResponse } from '../utils';
@@ -360,8 +361,8 @@ export class AuthService {
    * Find user by phone number
    */
   async findUserByPhone(phoneNumber: string): Promise<UserEntity | null> {
-    return await prisma.user.findUnique({
-      where: { phone: phoneNumber },
+    return await prisma.user.findFirst({
+      where: { phone: phoneNumber, ...ACTIVE_CLIENT_USER_WHERE },
     });
   }
 
@@ -372,7 +373,10 @@ export class AuthService {
     const trimmed = email.trim();
     if (!trimmed) return null;
     return await prisma.user.findFirst({
-      where: { email: { equals: trimmed, mode: 'insensitive' } },
+      where: {
+        email: { equals: trimmed, mode: 'insensitive' },
+        ...ACTIVE_CLIENT_USER_WHERE,
+      },
     });
   }
 
@@ -398,8 +402,8 @@ export class AuthService {
    * Creates session with hashed refresh token
    */
   async loginWithPhone(phoneNumber: string, deviceInfo: any): Promise<LoginResult> {
-    const user = await prisma.user.findUnique({
-      where: { phone: phoneNumber },
+    const user = await prisma.user.findFirst({
+      where: { phone: phoneNumber, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         id: true,
         phone: true,
@@ -551,8 +555,8 @@ export class AuthService {
     newPassword: string
   ): Promise<void> {
     // Get user with password
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true, password: true },
     });
 
@@ -583,7 +587,7 @@ export class AuthService {
 
     // Update password
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: { password: hashedPassword },
     });
   }
@@ -593,8 +597,8 @@ export class AuthService {
    */
   async setPasswordForExistingUser(userId: string, password: string): Promise<void> {
     // Get user
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true, password: true },
     });
 
@@ -615,7 +619,7 @@ export class AuthService {
 
     // Set password
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: { password: hashedPassword },
     });
   }

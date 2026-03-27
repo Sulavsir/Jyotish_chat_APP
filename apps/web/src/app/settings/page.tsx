@@ -19,6 +19,7 @@ import {
   type ChangePasswordFormData,
   type SetPasswordFormData,
 } from '@/lib/validations';
+import { DeleteAccountSection } from '@/components/settings/DeleteAccountSection';
 
 export default function SettingsPage() {
   const { user } = useRequireAuth({ requiredRole: USER_ROLES.CLIENT });
@@ -243,6 +244,8 @@ export default function SettingsPage() {
             <p className="text-gray-400">Language settings coming soon...</p>
           </CardContent>
         </Card>
+
+        <DeleteAccountSection />
       </div>
     </DashboardLayout>
   );

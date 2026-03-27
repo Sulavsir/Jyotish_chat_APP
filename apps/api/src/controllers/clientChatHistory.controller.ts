@@ -9,6 +9,7 @@ import { sendSuccess, sendError } from '../utils';
 import * as chatService from '../services/chatService';
 import { UserRole } from '@jyotish/shared';
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 
 /**
  * GET /api/v1/astrologer/client/chat-history
@@ -29,8 +30,8 @@ export async function getClientChatHistory(req: AuthRequest, res: Response, next
     };
     const { clientId, cursor, limit } = query;
 
-    const client = await prisma.user.findUnique({
-      where: { id: clientId },
+    const client = await prisma.user.findFirst({
+      where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true, role: true },
     });
     if (!client || client.role !== UserRole.CLIENT) {
@@ -60,8 +61,8 @@ export async function getClientHasChatHistory(req: AuthRequest, res: Response, n
 
     const { clientId } = req.params;
 
-    const client = await prisma.user.findUnique({
-      where: { id: clientId },
+    const client = await prisma.user.findFirst({
+      where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true, role: true },
     });
     if (!client || client.role !== UserRole.CLIENT) {

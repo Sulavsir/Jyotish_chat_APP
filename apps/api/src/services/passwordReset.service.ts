@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG, PASSWORD_RESET_ACTOR } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { isProduction, isDevelopment } from '../utils';
@@ -87,8 +88,8 @@ export async function findEntityIdByPhone(
   actor: PasswordResetActor
 ): Promise<string | null> {
   if (actor === PASSWORD_RESET_ACTOR.USER) {
-    const user = await prisma.user.findUnique({
-      where: { phone },
+    const user = await prisma.user.findFirst({
+      where: { phone, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true },
     });
     return user?.id ?? null;
@@ -196,7 +197,7 @@ export async function handleResetPasswordWithToken(
       : authService.verifyAstrologerResetToken(token).astrologerId;
 
   const exists = await (actor === PASSWORD_RESET_ACTOR.USER
-    ? prisma.user.findUnique({ where: { id }, select: { id: true } })
+    ? prisma.user.findFirst({ where: { id, ...ACTIVE_CLIENT_USER_WHERE }, select: { id: true } })
     : prisma.astrologer.findUnique({ where: { id }, select: { id: true } }));
 
   if (!exists) {

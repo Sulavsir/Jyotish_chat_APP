@@ -405,5 +405,12 @@ export const rejectAstrologerRegistrationSchema = z.object({
     .max(500, 'Rejection reason is too long'),
 });
 
+/** Client self-service account deletion (typed confirmation phrase). */
+export const deleteMyAccountBodySchema = z.object({
+  confirmation: z.literal('DELETE_MY_ACCOUNT'),
+});
+
+export type DeleteMyAccountBody = z.infer<typeof deleteMyAccountBodySchema>;
+
 export * from './jyotish-booking.validators';
 export * from './astrologer-commission.validators';

@@ -34,6 +34,7 @@ import {
   getPerQuestionBreakdown,
 } from './broadcastQuestionPricing.service';
 import { hasUserUsedBroadcast } from './broadcastUsage.service';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { randomUUID } from 'node:crypto';
 
 const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
@@ -174,8 +175,8 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     data.metadata.birthDetails &&
     typeof (data.metadata.birthDetails as Record<string, unknown>) === 'object';
 
-  const clientProfile = await prisma.user.findUnique({
-    where: { id: data.clientId },
+  const clientProfile = await prisma.user.findFirst({
+    where: { id: data.clientId, ...ACTIVE_CLIENT_USER_WHERE },
     select: {
       name: true,
       dateOfBirth: true,
@@ -369,8 +370,8 @@ export async function createMultipleBroadcastMessages(
   const hasBirthDetails =
     birthDetails &&
     (birthDetails.dateOfBirth || birthDetails.timeOfBirth || birthDetails.placeOfBirth);
-  const clientProfile = await prisma.user.findUnique({
-    where: { id: clientId },
+  const clientProfile = await prisma.user.findFirst({
+    where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
     select: {
       name: true,
       dateOfBirth: true,
@@ -965,8 +966,8 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   if (!chat) {
     // Check if client profile is completed before creating chat
     // Check actual required fields instead of just profileCompleted flag
-    const clientProfile = await prisma.user.findUnique({
-      where: { id: message.clientId },
+    const clientProfile = await prisma.user.findFirst({
+      where: { id: message.clientId, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         name: true,
         dateOfBirth: true,

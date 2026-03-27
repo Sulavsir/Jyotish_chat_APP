@@ -22,3 +22,4 @@ export * as clientProfileService from './clientProfile.service';
 export { settingsService } from './settings.service';
 export * as passwordResetService from './passwordReset.service';
 export { googleOAuthService } from './google-oauth.service';
+export * as userAccountService from './userAccount.service';

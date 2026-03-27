@@ -17,6 +17,7 @@ import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 
 /**
  * Create an instant chat request
@@ -41,8 +42,8 @@ export const createInstantChatRequest = async (clientId: string, message?: strin
   }
 
   // Get client info
-  const client = await prisma.user.findUnique({
-    where: { id: clientId },
+  const client = await prisma.user.findFirst({
+    where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
     select: {
       id: true,
       name: true,
@@ -220,8 +221,8 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
   if (!chat) {
     // Check if client profile is completed before creating chat
     // Check actual required fields instead of just profileCompleted flag
-    const clientProfile = await prisma.user.findUnique({
-      where: { id: request.clientId },
+    const clientProfile = await prisma.user.findFirst({
+      where: { id: request.clientId, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         name: true,
         dateOfBirth: true,

@@ -764,6 +764,11 @@ export default function JyotishChatPage() {
 
     // Handle file upload if attachment exists
     if (attachment) {
+      const caption = content.trim();
+      if (!caption) {
+        toast.error('Please add a message along with your attachment.');
+        return;
+      }
       try {
         toast.loading('Uploading file...');
 
@@ -773,8 +778,7 @@ export default function JyotishChatPage() {
         toast.dismiss();
         toast.success('File uploaded!');
 
-        // Send message with file URL - if no text, send empty string (UI will show file)
-        const messageContent = content || '';
+        const messageContent = caption;
         const success = sendMessage(otherUser.id, messageContent, fileData.type, {
           fileUrl: fileData.url,
           fileName: fileData.originalName,

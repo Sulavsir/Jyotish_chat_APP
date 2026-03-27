@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@jyotish/database';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { UserRole } from '@jyotish/shared';
 import { encrypt, decrypt, isSmsSendEnabled, isDevelopment } from '../utils';
 import { smsService } from './sms.service';
@@ -38,8 +39,8 @@ export class OTPService {
    * Check if user exists by phone number (CLIENT only)
    */
   async isExistingUser(phoneNumber: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-      where: { phone: phoneNumber },
+    const user = await prisma.user.findFirst({
+      where: { phone: phoneNumber, ...ACTIVE_CLIENT_USER_WHERE },
     });
     return !!user;
   }
@@ -52,8 +53,8 @@ export class OTPService {
     phoneNumber: string
   ): Promise<{ exists: boolean; role?: UserRole.CLIENT | UserRole.ASTROLOGER }> {
     const [user, astrologer] = await Promise.all([
-      prisma.user.findUnique({
-        where: { phone: phoneNumber },
+      prisma.user.findFirst({
+        where: { phone: phoneNumber, ...ACTIVE_CLIENT_USER_WHERE },
         select: { id: true, role: true },
       }),
       prisma.astrologer.findUnique({

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { ensureActiveUser } from '../middleware/ensureActiveUser';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { asyncHandler } from '../utils';
 import { userController, clientProfileController, clientDashboardController } from '../controllers';
@@ -10,18 +11,21 @@ import {
   createClientProfileSchema,
   updateClientProfileSchema,
 } from '../validators';
+import { deleteMyAccountBodySchema } from '../validators/userAccount.validators';
 import { uuidParamSchema } from '../validators/query.validators';
 import { uploadProfilePhoto } from '../middleware/upload';
 
 const router = Router();
 
+router.use(authenticate);
+router.use(ensureActiveUser);
+
 // Get current user profile
-router.get('/me', authenticate, asyncHandler(userController.getCurrentUser));
+router.get('/me', asyncHandler(userController.getCurrentUser));
 
 // Client dashboard stats (balance, rates, tip, horoscope, rotating copy, pending broadcast)
 router.get(
   '/dashboard/stats',
-  authenticate,
   validateQuery(getDashboardStatsQuerySchema),
   asyncHandler(clientDashboardController.getDashboardStats)
 );
@@ -29,54 +33,52 @@ router.get(
 // Complete profile setup (for new users after account creation)
 router.post(
   '/profile-setup',
-  authenticate,
   validateBody(profileSetupSchema),
   asyncHandler(authController.profileSetup)
 );
 
 // Update user profile
-router.patch('/me', authenticate, asyncHandler(userController.updateProfile));
+router.patch('/me', asyncHandler(userController.updateProfile));
 
 // Update birth details
-router.patch('/me/birth-details', authenticate, asyncHandler(userController.updateBirthDetails));
+router.patch('/me/birth-details', asyncHandler(userController.updateBirthDetails));
 
-// Upload profile photo
+// Soft-delete own account (client only)
 router.post(
-  '/upload-photo',
-  authenticate,
-  uploadProfilePhoto(),
-  asyncHandler(userController.uploadPhoto)
+  '/me/delete-account',
+  validateBody(deleteMyAccountBodySchema),
+  asyncHandler(userController.deleteMyAccount)
 );
 
+// Upload profile photo
+router.post('/upload-photo', uploadProfilePhoto(), asyncHandler(userController.uploadPhoto));
+
 // Remove profile photo
-router.delete('/remove-photo', authenticate, asyncHandler(userController.removePhoto));
+router.delete('/remove-photo', asyncHandler(userController.removePhoto));
 
 // Get chatable users (astrologers for clients, clients for astrologers)
-router.get('/chatable', authenticate, asyncHandler(userController.getChatableUsers));
+router.get('/chatable', asyncHandler(userController.getChatableUsers));
 
 // Client profiles (family/friends) for asking questions on behalf of someone (must be before /:id)
-router.get('/profiles', authenticate, asyncHandler(clientProfileController.list));
+router.get('/profiles', asyncHandler(clientProfileController.list));
 router.post(
   '/profiles',
-  authenticate,
   validateBody(createClientProfileSchema),
   asyncHandler(clientProfileController.create)
 );
 router.patch(
   '/profiles/:id',
-  authenticate,
   validateParams(uuidParamSchema),
   validateBody(updateClientProfileSchema),
   asyncHandler(clientProfileController.update)
 );
 router.delete(
   '/profiles/:id',
-  authenticate,
   validateParams(uuidParamSchema),
   asyncHandler(clientProfileController.remove)
 );
 
 // Get client details by ID (for astrologers to view client profile)
-router.get('/:id/details', authenticate, asyncHandler(userController.getClientDetails));
+router.get('/:id/details', asyncHandler(userController.getClientDetails));
 
 export default router;

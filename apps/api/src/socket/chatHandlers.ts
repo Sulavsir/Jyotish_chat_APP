@@ -19,6 +19,8 @@ import { ERROR_CODES } from '@/constants/http.constants';
 import { notificationService } from '../services/notification.service';
 import { mergeClientSenderWithBirthMetadata } from '../services/chatService';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
+import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
 
 export function chatHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
@@ -31,7 +33,14 @@ export function chatHandlers(io: Server, socket: Socket) {
         const { receiverId, content, type, metadata } = data;
         let coinsDeductedForSender: number | undefined;
 
-        if (!content || !content.trim()) {
+        if (!content?.trim()) {
+          if (hasChatFileMetadata(metadata)) {
+            socket.emit('chat:error', {
+              message: 'Please add a message along with your attachment.',
+              code: ERROR_CODES.ATTACHMENT_REQUIRES_TEXT,
+            });
+            return;
+          }
           socket.emit('chat:error', { message: 'Message cannot be empty' });
           return;
         }
@@ -57,7 +66,10 @@ export function chatHandlers(io: Server, socket: Socket) {
           // Check if receiver is in Astrologer table or User table
           const [receiverAsAstrologer, receiverAsUser] = await Promise.all([
             prisma.astrologer.findUnique({ where: { id: receiverId }, select: { id: true } }),
-            prisma.user.findUnique({ where: { id: receiverId }, select: { id: true, role: true } }),
+            prisma.user.findFirst({
+              where: { id: receiverId, ...ACTIVE_CLIENT_USER_WHERE },
+              select: { id: true, role: true },
+            }),
           ]);
 
           if (receiverAsAstrologer) {
@@ -73,8 +85,8 @@ export function chatHandlers(io: Server, socket: Socket) {
           }
 
           // Verify client exists
-          const client = await prisma.user.findUnique({
-            where: { id: clientId },
+          const client = await prisma.user.findFirst({
+            where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
             select: { id: true },
           });
           if (!client) {
@@ -85,8 +97,8 @@ export function chatHandlers(io: Server, socket: Socket) {
           astrologerId = user.id;
 
           // Check if receiver is in User table (client)
-          const receiverAsUser = await prisma.user.findUnique({
-            where: { id: receiverId },
+          const receiverAsUser = await prisma.user.findFirst({
+            where: { id: receiverId, ...ACTIVE_CLIENT_USER_WHERE },
             select: { id: true, role: true },
           });
 
@@ -244,8 +256,8 @@ export function chatHandlers(io: Server, socket: Socket) {
           }
 
           // Check if client profile is completed before creating chat
-          const clientProfile = await prisma.user.findUnique({
-            where: { id: clientId },
+          const clientProfile = await prisma.user.findFirst({
+            where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
             select: {
               name: true,
               dateOfBirth: true,
@@ -526,8 +538,8 @@ export function chatHandlers(io: Server, socket: Socket) {
         // Fetch sender information based on role
         let sender;
         if (user.role === UserRole.CLIENT) {
-          sender = await prisma.user.findUnique({
-            where: { id: user.id },
+          sender = await prisma.user.findFirst({
+            where: { id: user.id, ...ACTIVE_CLIENT_USER_WHERE },
             select: {
               id: true,
               name: true,
@@ -656,8 +668,8 @@ export function chatHandlers(io: Server, socket: Socket) {
         // Get sender name (fetch from appropriate table based on role)
         let senderName = 'someone';
         if (user.role === UserRole.CLIENT) {
-          const sender = await prisma.user.findUnique({
-            where: { id: user.id },
+          const sender = await prisma.user.findFirst({
+            where: { id: user.id, ...ACTIVE_CLIENT_USER_WHERE },
             select: { name: true, phone: true },
           });
           senderName = sender?.name || sender?.phone || 'someone';

@@ -848,6 +848,11 @@ export default function ChatPage() {
 
     // Handle file upload if attachment exists
     if (attachment) {
+      const caption = content.trim();
+      if (!caption) {
+        toast.error('Please add a message along with your attachment.');
+        return;
+      }
       try {
         toast.loading('Uploading file...');
 
@@ -856,7 +861,7 @@ export default function ChatPage() {
         toast.dismiss();
         toast.success('File uploaded!');
 
-        const messageContent = content || '';
+        const messageContent = caption;
         const success = sendMessage(otherUser.id, messageContent, fileData.type, {
           ...baseMetadata,
           fileUrl: fileData.url,

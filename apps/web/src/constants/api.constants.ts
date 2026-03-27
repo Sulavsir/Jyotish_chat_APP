@@ -71,6 +71,7 @@ export const API_ENDPOINTS = {
     PROFILE_SETUP: '/api/v1/users/profile-setup',
     UPLOAD_PHOTO: '/api/v1/users/upload-photo',
     REMOVE_PHOTO: '/api/v1/users/remove-photo',
+    DELETE_ACCOUNT: '/api/v1/users/me/delete-account',
     BIRTH_DETAILS: '/api/v1/users/me/birth-details',
     CHATABLE: '/api/v1/users/chatable',
     PROFILES: '/api/v1/users/profiles',

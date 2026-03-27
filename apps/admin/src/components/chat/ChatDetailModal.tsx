@@ -184,14 +184,23 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
   };
 
   const renderMessageContent = (message: Message) => {
-    // Get file URL from metadata first, fallback to content
     const metadata = (message.metadata ?? {}) as Record<string, unknown>;
-    const fileUrl = (typeof metadata.fileUrl === 'string' ? metadata.fileUrl : null) || message.content;
+    const fileUrl =
+      (typeof metadata.fileUrl === 'string' ? metadata.fileUrl : null) || message.content;
+    const captionText = message.content?.trim() ?? '';
+    /** True when `content` holds a bare file path/URL (legacy), not a user-written caption */
+    const contentLooksLikeFileOnly =
+      !!message.content && isImageUrl(message.content) && !metadata.fileUrl;
 
-    // Check if content is an image URL (even if type is TEXT)
-    if (message.content && isImageUrl(message.content)) {
+    const captionBlock =
+      captionText && !contentLooksLikeFileOnly ? (
+        <p className="text-sm text-slate-200 whitespace-pre-wrap break-words">{message.content}</p>
+      ) : null;
+
+    // Legacy: content itself is an image URL (no metadata.fileUrl)
+    if (contentLooksLikeFileOnly) {
       return (
-        <div className="mt-2">
+        <div className="mt-2 space-y-2">
           <img
             src={getImageUrl(message.content) || ''}
             alt="Image"
@@ -205,7 +214,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
     switch (message.type) {
       case 'IMAGE':
         return (
-          <div className="mt-2">
+          <div className="mt-2 space-y-2">
             {fileUrl ? (
               <img
                 src={getImageUrl(fileUrl) || ''}
@@ -216,6 +225,7 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
             ) : (
               <p className="text-sm text-slate-400 italic">Image not available</p>
             )}
+            {captionBlock}
           </div>
         );
 
@@ -225,36 +235,42 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
         const fileSize =
           typeof rawSize === 'number' ? `${(rawSize / 1024).toFixed(2)} KB` : '';
         return (
-          <div className="mt-2 flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-            <FileText className="w-8 h-8 text-purple-400" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{fileName}</p>
-              {fileSize && <p className="text-xs text-slate-400">{fileSize}</p>}
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center gap-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+              <FileText className="w-8 h-8 text-purple-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{fileName}</p>
+                {fileSize && <p className="text-xs text-slate-400">{fileSize}</p>}
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => window.open(getImageUrl(fileUrl) || '', '_blank')}
+                className="flex-shrink-0"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => window.open(getImageUrl(fileUrl) || '', '_blank')}
-              className="flex-shrink-0"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
+            {captionBlock}
           </div>
         );
       }
 
       case 'AUDIO':
         return (
-          <div className="mt-2 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-            <div className="flex items-center gap-2">
-              <Mic className="w-5 h-5 text-purple-400" />
-              <audio
-                controls
-                src={getImageUrl(fileUrl) || ''}
-                className="flex-1 h-8"
-                style={{ maxWidth: '300px' }}
-              />
+          <div className="mt-2 space-y-2">
+            <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+              <div className="flex items-center gap-2">
+                <Mic className="w-5 h-5 text-purple-400" />
+                <audio
+                  controls
+                  src={getImageUrl(fileUrl) || ''}
+                  className="flex-1 h-8"
+                  style={{ maxWidth: '300px' }}
+                />
+              </div>
             </div>
+            {captionBlock}
           </div>
         );
 

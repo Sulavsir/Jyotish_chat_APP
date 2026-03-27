@@ -21,6 +21,9 @@ import { AppError } from '../middleware/error-handler';
 import * as userServiceNew from '../services/userService';
 import { getSocketInstance } from '../utils/socket-instance';
 import { hasUserUsedBroadcast } from '../services/broadcastUsage.service';
+import { clearAuthCookies } from '../utils/cookie-utils';
+import { userAccountService } from '../services';
+import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 
 function isClientProfileCompleteForFlag(user: {
   name?: string | null;
@@ -133,9 +136,9 @@ export async function getCurrentUser(req: AuthRequest, res: Response, next: Next
 
     return sendSuccess(res, formattedAstrologer);
   } else {
-    // Get client profile
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    // Get client profile (active users only)
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         id: true,
         email: true,
@@ -268,7 +271,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
   } else {
     // Update client profile
     const user = await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: {
         ...(name && { name }),
         ...(email !== undefined &&
@@ -308,7 +311,7 @@ export async function updateProfile(req: AuthRequest, res: Response, next: NextF
       user.profileCompleted === shouldBeCompleted
         ? user
         : await prisma.user.update({
-            where: { id: userId },
+            where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
             data: { profileCompleted: shouldBeCompleted },
             select: {
               id: true,
@@ -369,8 +372,8 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
 
   const validatedData = birthDetailsSchema.parse(req.body);
 
-  const existing = await prisma.user.findUnique({
-    where: { id: req.user!.id },
+  const existing = await prisma.user.findFirst({
+    where: { id: req.user!.id, ...ACTIVE_CLIENT_USER_WHERE },
     select: { name: true, zodiacSign: true, gender: true, dateOfBirth: true, timeOfBirth: true },
   });
 
@@ -466,7 +469,7 @@ export async function updateBirthDetails(req: AuthRequest, res: Response, next: 
   }
 
   const user = await prisma.user.update({
-    where: { id: req.user!.id },
+    where: { id: req.user!.id, ...ACTIVE_CLIENT_USER_WHERE },
     data: {
       ...(isValidDob && { dateOfBirth: dob }),
       ...(validatedData.timeOfBirth != null &&
@@ -587,8 +590,8 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
     });
     currentProfilePhoto = astrologer?.profilePhoto || null;
   } else {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { profilePhoto: true },
     });
     currentProfilePhoto = user?.profilePhoto || null;
@@ -655,7 +658,7 @@ export async function uploadPhoto(req: AuthRequest, res: Response, next: NextFun
     return sendSuccess(res, formattedUser);
   } else {
     updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: { profilePhoto: fileUrl },
       select: {
         id: true,
@@ -710,8 +713,8 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
     });
     currentProfilePhoto = astrologer?.profilePhoto || null;
   } else {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.user.findFirst({
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { profilePhoto: true },
     });
     currentProfilePhoto = user?.profilePhoto || null;
@@ -779,7 +782,7 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
     return sendSuccess(res, formattedUser);
   } else {
     updatedUser = await prisma.user.update({
-      where: { id: userId },
+      where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
       data: { profilePhoto: null },
       select: {
         id: true,
@@ -817,6 +820,28 @@ export async function removePhoto(req: AuthRequest, res: Response, next: NextFun
 }
 
 /**
+ * Soft-delete own client account (clears phone/email so re-registration is allowed).
+ * POST /api/v1/users/me/delete-account
+ */
+export async function deleteMyAccount(req: AuthRequest, res: Response, next: NextFunction) {
+  if (req.user!.role !== UserRole.CLIENT) {
+    throw new AppError(
+      'Only client accounts can delete here',
+      HTTP_STATUS.FORBIDDEN,
+      ERROR_CODES.FORBIDDEN
+    );
+  }
+
+  await userAccountService.softDeleteClientAccount(req.user!.id);
+  clearAuthCookies(res);
+
+  return sendSuccess(res, {
+    message:
+      'Your account has been deleted. You can sign up again with the same phone or email when you are ready.',
+  });
+}
+
+/**
  * Get users to chat with (astrologers for clients, clients for astrologers)
  * GET /api/v1/users/chatable
  */
@@ -843,9 +868,9 @@ export async function getClientDetails(req: AuthRequest, res: Response, next: Ne
       return sendError(res, 'Only astrologers can view client details', HTTP_STATUS.FORBIDDEN);
     }
 
-    // Get client user details
-    const client = await prisma.user.findUnique({
-      where: { id },
+    // Get client user details (active clients only)
+    const client = await prisma.user.findFirst({
+      where: { id, ...ACTIVE_CLIENT_USER_WHERE },
       select: {
         id: true,
         name: true,
