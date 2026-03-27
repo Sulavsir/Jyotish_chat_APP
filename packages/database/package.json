@@ -5,9 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "prisma generate && tsc",
-    "postinstall": "prisma generate",
-    "db:generate": "prisma generate",
+    "build": "tsc",
+    "db:generate": "dotenv -e ../../../.env -- prisma generate",
     "db:push": "dotenv -e ../../../.env -- prisma db push",
     "db:migrate": "dotenv -e ../../../.env -- prisma migrate dev",
     "db:migrate:create": "dotenv -e ../../../.env -- prisma migrate dev --create-only",
@@ -22,13 +21,13 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
-    "prisma": "^5.22.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.19.27",
     "dotenv-cli": "^7.4.2",
+    "prisma": "^5.8.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

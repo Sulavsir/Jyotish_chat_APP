@@ -237,6 +237,7 @@ export function useSocket() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [isConnected, setIsConnected] = useState(sharedIsConnected);
+  const [, setSocketReady] = useState(0);
 
   useEffect(() => {
     sharedQueryClient = queryClient;
@@ -253,6 +254,7 @@ export function useSocket() {
     sharedConsumers += 1;
 
     const socket = ensureSocket();
+    setSocketReady((n) => n + 1);
     attachListenersIfNeeded(socket);
 
     if (!socket.connected) socket.connect();
