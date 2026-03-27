@@ -411,7 +411,7 @@ importers:
         specifier: ^20.19.27
         version: 20.19.27
       dotenv-cli:
-        specifier: ^7.4.2
+        specifier: ^7.4.4
         version: 7.4.4
       prisma:
         specifier: ^5.8.0
