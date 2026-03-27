@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Search, ChatIcon } from '@jyotish/ui';
@@ -31,12 +32,12 @@ import {
   ADMIN_ROWS_PER_PAGE_OPTIONS,
   AVATAR_GRADIENTS,
   ADMIN_SEARCH_DEBOUNCE_MS,
+  ADMIN_QUERY_KEYS,
 } from '@/constants';
 import { getImageUrl, formatAction, getStatusColor, getInitials, formatDate } from '@/utils';
 
 export default function ChatAuditPage() {
-  const [logs, setLogs] = useState<ChatAuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState<number>(CHAT_AUDIT_DEFAULTS.PAGE);
@@ -45,15 +46,25 @@ export default function ChatAuditPage() {
     setPageSize: setItemsPerPage,
     debouncedPageSize: debouncedItemsPerPage,
   } = useDebouncedPageSize(CHAT_AUDIT_DEFAULTS.LIMIT);
-  const [listTotal, setListTotal] = useState(0);
-  const [listTotalPages, setListTotalPages] = useState(0);
   const [statusFilter, setStatusFilter] = useState<ChatAuditStatusFilterValue>('');
   const [typeFilter, setTypeFilter] = useState<ChatAuditTypeFilterValue>('');
   const { on, off, isConnected } = useAdminSocket();
 
-  const loadLogs = useCallback(async () => {
-    try {
-      setLoading(true);
+  const {
+    data: listResponse,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery<ChatAuditListResponse>({
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.CHAT_AUDIT.LIST(),
+      currentPage,
+      debouncedSearch.trim(),
+      statusFilter,
+      typeFilter,
+      debouncedItemsPerPage,
+    ],
+    queryFn: async () => {
       const params: {
         page: number;
         limit: number;
@@ -64,35 +75,28 @@ export default function ChatAuditPage() {
         page: currentPage,
         limit: debouncedItemsPerPage,
       };
-
       if (statusFilter) params.status = statusFilter;
       if (typeFilter) params.type = typeFilter;
       const q = debouncedSearch.trim();
       if (q) params.search = q;
-
-      const response = (await adminApi.chatAudit.list(params)) as ChatAuditListResponse;
-
-      if (response?.logs) {
-        setLogs(response.logs);
+      try {
+        return (await adminApi.chatAudit.list(params)) as ChatAuditListResponse;
+      } catch (error) {
+        console.error('Failed to load chat audit logs:', error);
+        toast.error('Failed to load chat audit logs');
+        throw error;
       }
-      if (response?.pagination) {
-        setListTotal(response.pagination.total);
-        setListTotalPages(response.pagination.totalPages);
-      } else {
-        setListTotal(0);
-        setListTotalPages(0);
-      }
-    } catch (error) {
-      console.error('Failed to load chat audit logs:', error);
-      toast.error('Failed to load chat audit logs');
-    } finally {
-      setLoading(false);
-    }
-  }, [currentPage, debouncedItemsPerPage, statusFilter, typeFilter, debouncedSearch]);
+    },
+    refetchOnWindowFocus: false,
+  });
 
-  useEffect(() => {
-    void loadLogs();
-  }, [loadLogs]);
+  const logs = listResponse?.logs ?? [];
+  const pagination = listResponse?.pagination ?? {
+    page: currentPage,
+    limit: debouncedItemsPerPage,
+    total: 0,
+    totalPages: 0,
+  };
 
   const handlePageSizeChange = (size: number) => {
     if (size === itemsPerPage) return;
@@ -108,20 +112,24 @@ export default function ChatAuditPage() {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   }, [debouncedSearch, statusFilter, typeFilter]);
 
-  // Real-time updates — refetch current page so server pagination stays in sync
+  // Real-time updates — invalidate list so server pagination stays in sync
   useEffect(() => {
     if (!isConnected) return;
 
+    const invalidateChatAudit = () => {
+      void queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.CHAT_AUDIT.ALL });
+    };
+
     const handleNewChatAudit = (newLog: ChatAuditNewEvent) => {
       console.log('📋 New chat audit log:', newLog);
-      void loadLogs();
+      invalidateChatAudit();
       const clientName = newLog.client?.name || newLog.client?.phone || 'User';
       toast.info(`${clientName} sent a broadcast message`);
     };
 
     const handleChatAuditUpdate = (update: ChatAuditUpdateEvent) => {
       console.log('📋 Chat audit update:', update);
-      void loadLogs();
+      invalidateChatAudit();
 
       if (update.status === 'ACCEPTED') {
         toast.success('Broadcast message accepted by astrologer');
@@ -130,7 +138,7 @@ export default function ChatAuditPage() {
 
     const handleChatEnded = (event: ChatAuditChatEndedEvent) => {
       console.log('📋 Chat ended:', event);
-      void loadLogs();
+      invalidateChatAudit();
       toast.info('Chat has ended');
     };
 
@@ -143,7 +151,7 @@ export default function ChatAuditPage() {
       off(SOCKET_EVENTS.CHAT_AUDIT_UPDATE, handleChatAuditUpdate);
       off(SOCKET_EVENTS.CHAT_AUDIT_CHAT_ENDED, handleChatEnded);
     };
-  }, [isConnected, on, off, loadLogs]);
+  }, [isConnected, on, off, queryClient]);
 
   const hasChatAuditFilters =
     Boolean(debouncedSearch.trim()) || Boolean(statusFilter) || Boolean(typeFilter);
@@ -267,25 +275,25 @@ export default function ChatAuditPage() {
             </h2>
             <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
               <AdminRefreshButton
-                onClick={() => void loadLogs()}
-                loading={loading}
+                onClick={() => void refetch()}
+                loading={isFetching}
                 className="shrink-0"
               />
               <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
                 <ChatAuditTypeFilter
                   value={typeFilter}
                   onChange={setTypeFilter}
-                  disabled={loading}
+                  disabled={isLoading}
                 />
                 <ChatAuditStatusFilter
                   value={statusFilter}
                   onChange={setStatusFilter}
-                  disabled={loading}
+                  disabled={isLoading}
                 />
                 <AdminClearFiltersButton
                   show={hasChatAuditFilters}
                   onClear={clearChatAuditFilters}
-                  disabled={loading}
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -299,20 +307,20 @@ export default function ChatAuditPage() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2 sm:hidden w-full">
             <div className="w-full [&_button]:w-full">
-              <ChatAuditTypeFilter value={typeFilter} onChange={setTypeFilter} disabled={loading} />
+              <ChatAuditTypeFilter value={typeFilter} onChange={setTypeFilter} disabled={isLoading} />
             </div>
             <div className="flex w-full items-center gap-2 min-w-0">
               <div className="min-w-0 flex-1 [&_button]:w-full">
                 <ChatAuditStatusFilter
                   value={statusFilter}
                   onChange={setStatusFilter}
-                  disabled={loading}
+                  disabled={isLoading}
                 />
               </div>
               <AdminClearFiltersButton
                 show={hasChatAuditFilters}
                 onClear={clearChatAuditFilters}
-                disabled={loading}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -335,11 +343,11 @@ export default function ChatAuditPage() {
           <AdminTable
             data={logs}
             columns={columns}
-            loading={loading}
+            loading={isLoading}
             keyExtractor={(log) => log.id}
             showSerialNumber
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
+            currentPage={pagination.page}
+            itemsPerPage={pagination.limit}
             emptyState={{
               icon: <ChatIcon className="w-16 h-16 text-slate-600" />,
               title: hasChatAuditFilters ? 'No logs found' : 'No chat audit logs',
@@ -350,19 +358,19 @@ export default function ChatAuditPage() {
           />
         </div>
 
-        {!loading && (
+        {!isLoading && (
           <AdminListPaginationSection
             pagination={{
-              page: currentPage,
-              limit: itemsPerPage,
-              total: listTotal,
-              totalPages: listTotalPages,
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
             }}
             onPageChange={handlePageChange}
             pageSize={itemsPerPage}
             pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
             onPageSizeChange={handlePageSizeChange}
-            disabled={loading}
+            disabled={isFetching}
           />
         )}
       </div>
