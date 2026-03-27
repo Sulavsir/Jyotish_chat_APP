@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
@@ -33,7 +33,11 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
@@ -47,7 +51,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, debouncedJoinedFrom, debouncedJoinedTo, statusFilter, rowsPerPage]);
+  }, [debouncedSearch, debouncedJoinedFrom, debouncedJoinedTo, statusFilter, debouncedRowsPerPage]);
 
   const {
     data: usersResponse,
@@ -57,7 +61,7 @@ export default function UsersPage() {
   } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.USERS.LIST({
       page: currentPage,
-      limit: rowsPerPage,
+      limit: debouncedRowsPerPage,
       search: debouncedSearch || undefined,
       isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
       joinedFrom: debouncedJoinedFrom || undefined,
@@ -66,22 +70,18 @@ export default function UsersPage() {
     queryFn: () =>
       adminApi.users.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
         joinedFrom: debouncedJoinedFrom || undefined,
         joinedTo: debouncedJoinedTo || undefined,
       }),
-    staleTime: 0,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -89,7 +89,7 @@ export default function UsersPage() {
   const users = usersResponse?.users || [];
   const pagination = usersResponse?.pagination || {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -229,59 +229,81 @@ export default function UsersPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
               Users
             </h2>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isLoading || isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                className="shrink-0"
+                onClick={() => refetch()}
+                loading={isLoading || isFetching}
+              />
+              <div className="hidden sm:block">
+                <ActiveStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={isLoading || isFetching}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">Manage your platform users</p>
         </div>
 
         <div className="flex flex-col gap-3">
-          <div className="w-full min-w-0">
-            <Search
-              containerClassName="w-full"
-              placeholder="Search users by name, email, or phone..."
-              value={searchTerm}
-              onSearch={(value) => {
-                setSearchTerm(value);
-                setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-              }}
-              onChange={(e) => setSearchTerm(e.target.value)}
+          <div className="sm:hidden w-full [&_button]:w-full [&_button]:justify-between">
+            <ActiveStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading || isFetching}
             />
           </div>
-
-          <div className="flex w-full min-w-0 flex-row items-end gap-2 sm:gap-3">
+          <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3 min-[1145px]:hidden">
             <div className="min-w-0 flex-1">
               <AdminMonthRangeFilter
                 fromValue={joinedRange.from}
                 toValue={joinedRange.to}
                 onRangeChange={(from, to) => setJoinedRange({ from, to })}
                 disabled={isLoading || isFetching}
-                className="w-full min-w-0 shrink max-w-full [&_button]:!min-w-0"
+                className="w-full min-w-0"
               />
             </div>
-            <div className="shrink-0">
-              <ActiveStatusFilter
-                value={statusFilter}
-                onChange={setStatusFilter}
-                disabled={isLoading || isFetching}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
             <AdminClearFiltersButton
               show={hasUserFilters}
               onClear={clearUserFilters}
               disabled={isLoading || isFetching}
             />
+          </div>
+          <div className="flex w-full min-w-0 flex-row items-center gap-2 sm:gap-3">
+            <div className="flex-1 min-w-0">
+              <Search
+                containerClassName="w-full"
+                placeholder="Search users by name, email, or phone..."
+                value={searchTerm}
+                onSearch={(value) => {
+                  setSearchTerm(value);
+                  setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+                }}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="hidden min-[1145px]:block shrink-0">
+              <AdminMonthRangeFilter
+                fromValue={joinedRange.from}
+                toValue={joinedRange.to}
+                onRangeChange={(from, to) => setJoinedRange({ from, to })}
+                disabled={isLoading || isFetching}
+              />
+            </div>
+            <div className="hidden min-[1145px]:block shrink-0">
+              <AdminClearFiltersButton
+                show={hasUserFilters}
+                onClear={clearUserFilters}
+                disabled={isLoading || isFetching}
+              />
+            </div>
           </div>
         </div>
 

@@ -28,6 +28,7 @@ import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } fr
 import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
 import { toast } from 'sonner';
 import { Banknote, User, Eye } from 'lucide-react';
+import { useDebouncedPageSize } from '@/hooks';
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -43,7 +44,11 @@ function formatDateShort(dateString: string) {
 
 export default function KundaliMatchPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<KundaliMatchFilterValue>('ALL');
   const [reviewModalRequest, setReviewModalRequest] = useState<KundaliMatchRequest | null>(null);
   const [viewModalRequest, setViewModalRequest] = useState<KundaliMatchRequest | null>(null);
@@ -51,28 +56,29 @@ export default function KundaliMatchPage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: [...ADMIN_QUERY_KEYS.KUNDALI_MATCH.LIST(), currentPage, statusFilter, rowsPerPage],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.KUNDALI_MATCH.LIST(),
+      currentPage,
+      statusFilter,
+      debouncedRowsPerPage,
+    ],
     queryFn: () =>
       adminApi.kundaliMatch.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
-    staleTime: 0,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, rowsPerPage]);
+  }, [statusFilter, debouncedRowsPerPage]);
 
   const submitReviewMutation = useMutation({
     mutationFn: ({ id, adminReviewMessage }: { id: string; adminReviewMessage: string }) =>
@@ -89,7 +95,7 @@ export default function KundaliMatchPage() {
   const requests = data?.requests ?? [];
   const pagination = data?.pagination ?? {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -201,21 +207,30 @@ export default function KundaliMatchPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Kundali Match
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden sm:block shrink-0">
+                <KundaliMatchStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Review requests and send the kundali match report (text) to the user.
           </p>
-          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+          <div className="w-full sm:hidden [&_button]:w-full">
             <KundaliMatchStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}

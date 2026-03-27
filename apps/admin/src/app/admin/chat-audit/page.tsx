@@ -15,7 +15,7 @@ import {
   type ChatAuditStatusFilterValue,
   type ChatAuditTypeFilterValue,
 } from '@/components/admin';
-import { useAdminSocket, useDebounce } from '@/hooks';
+import { useAdminSocket, useDebounce, useDebouncedPageSize } from '@/hooks';
 import { toast } from 'sonner';
 import {
   ChatAuditLog,
@@ -40,7 +40,11 @@ export default function ChatAuditPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState<number>(CHAT_AUDIT_DEFAULTS.PAGE);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(CHAT_AUDIT_DEFAULTS.LIMIT);
+  const {
+    pageSize: itemsPerPage,
+    setPageSize: setItemsPerPage,
+    debouncedPageSize: debouncedItemsPerPage,
+  } = useDebouncedPageSize(CHAT_AUDIT_DEFAULTS.LIMIT);
   const [listTotal, setListTotal] = useState(0);
   const [listTotalPages, setListTotalPages] = useState(0);
   const [statusFilter, setStatusFilter] = useState<ChatAuditStatusFilterValue>('');
@@ -58,7 +62,7 @@ export default function ChatAuditPage() {
         search?: string;
       } = {
         page: currentPage,
-        limit: itemsPerPage,
+        limit: debouncedItemsPerPage,
       };
 
       if (statusFilter) params.status = statusFilter;
@@ -84,17 +88,14 @@ export default function ChatAuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, statusFilter, typeFilter, debouncedSearch]);
+  }, [currentPage, debouncedItemsPerPage, statusFilter, typeFilter, debouncedSearch]);
 
   useEffect(() => {
     void loadLogs();
   }, [loadLogs]);
 
   const handlePageSizeChange = (size: number) => {
-    if (size === itemsPerPage) {
-      void loadLogs();
-      return;
-    }
+    if (size === itemsPerPage) return;
     setItemsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -259,16 +260,35 @@ export default function ChatAuditPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="min-w-0 flex-1 pr-1 text-2xl font-bold text-white break-words">
               Chat Audit
             </h2>
-            <AdminRefreshButton
-              onClick={() => void loadLogs()}
-              loading={loading}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => void loadLogs()}
+                loading={loading}
+                className="shrink-0"
+              />
+              <div className="hidden sm:flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                <ChatAuditTypeFilter
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  disabled={loading}
+                />
+                <ChatAuditStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={loading}
+                />
+                <AdminClearFiltersButton
+                  show={hasChatAuditFilters}
+                  onClear={clearChatAuditFilters}
+                  disabled={loading}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Monitor broadcast messages, chat requests, and acceptances
@@ -277,6 +297,25 @@ export default function ChatAuditPage() {
         </div>
 
         <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2 sm:hidden w-full">
+            <div className="w-full [&_button]:w-full">
+              <ChatAuditTypeFilter value={typeFilter} onChange={setTypeFilter} disabled={loading} />
+            </div>
+            <div className="flex w-full items-center gap-2 min-w-0">
+              <div className="min-w-0 flex-1 [&_button]:w-full">
+                <ChatAuditStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={loading}
+                />
+              </div>
+              <AdminClearFiltersButton
+                show={hasChatAuditFilters}
+                onClear={clearChatAuditFilters}
+                disabled={loading}
+              />
+            </div>
+          </div>
           <div className="w-full min-w-0">
             <Search
               containerClassName="w-full"
@@ -287,27 +326,6 @@ export default function ChatAuditPage() {
                 setCurrentPage(CHAT_AUDIT_DEFAULTS.PAGE);
               }}
               onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex w-full min-w-0 flex-row items-end gap-2 sm:gap-3">
-            <div className="min-w-0 flex-1">
-              <ChatAuditTypeFilter value={typeFilter} onChange={setTypeFilter} disabled={loading} />
-            </div>
-            <div className="shrink-0">
-              <ChatAuditStatusFilter
-                value={statusFilter}
-                onChange={setStatusFilter}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <AdminClearFiltersButton
-              show={hasChatAuditFilters}
-              onClear={clearChatAuditFilters}
-              disabled={loading}
             />
           </div>
         </div>

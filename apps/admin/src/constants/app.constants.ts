@@ -40,6 +40,9 @@ export const ADMIN_DATE_FILTER_DEBOUNCE_MS = 400;
 /** Debounce for admin list search inputs (ms) */
 export const ADMIN_SEARCH_DEBOUNCE_MS = 400;
 
+/** Debounce for rows-per-page before API/query (ms) — avoids many requests when cycling 10/25/50/100 */
+export const ADMIN_PAGE_SIZE_DEBOUNCE_MS = 400;
+
 // Chat audit defaults
 export const CHAT_AUDIT_DEFAULTS = {
   PAGE: 1,

@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { useDebounce } from '@/hooks';
+import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Search, MoneyIcon, StarIcon } from '@jyotish/ui';
-import { AdminTable, AdminListPaginationSection, AdminRefreshButton, type AdminTableColumn } from '@/components/admin';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import type { AstrologerWithCoinEarning } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
@@ -15,41 +20,41 @@ export default function EarningsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.EARNINGS.ASTROLOGERS_WITH_COINS({
       page: currentPage,
-      limit: rowsPerPage,
+      limit: debouncedRowsPerPage,
       search: debouncedSearch || undefined,
     }),
     queryFn: () =>
       adminApi.earnings.listAstrologersWithCoins({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
       }),
-    staleTime: 0,
     placeholderData: keepPreviousData,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, rowsPerPage]);
+  }, [debouncedSearch, debouncedRowsPerPage]);
 
   const astrologers = data?.astrologers ?? [];
   const pagination = data?.pagination ?? {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -140,7 +145,7 @@ export default function EarningsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Earnings

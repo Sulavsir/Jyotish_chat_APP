@@ -33,6 +33,7 @@ import { ConfirmDialog } from '@/components/ui';
 import { toast } from 'sonner';
 import { Plus, Trash2, Pencil } from 'lucide-react';
 import { formatAdminDate } from '@/utils/helpers';
+import { useDebouncedPageSize } from '@/hooks';
 
 export default function SubhaSahitPage() {
   const router = useRouter();
@@ -42,7 +43,11 @@ export default function SubhaSahitPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [language, setLanguage] = useState<'en' | 'ne' | 'hi' | ''>('');
   const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
   const [newOccasion, setNewOccasion] = useState('');
@@ -63,36 +68,30 @@ export default function SubhaSahitPage() {
       ...(dateTo && { dateTo }),
       ...(language && { language }),
       page,
-      limit: rowsPerPage,
+      limit: debouncedRowsPerPage,
     }),
-    [occasionFilter, dateFrom, dateTo, language, page, rowsPerPage]
+    [occasionFilter, dateFrom, dateTo, language, page, debouncedRowsPerPage]
   );
 
-  /** Override global staleTime (60s) so revisiting the same page/limit still hits the API. */
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.LIST(listParams),
     queryFn: () => adminApi.subhaSahit.list(listParams),
-    staleTime: 0,
   });
 
   const dates = data?.dates ?? [];
   const pagination = data?.pagination ?? {
     page: 1,
-    limit: rowsPerPage,
+    limit: debouncedRowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
   useEffect(() => {
     setPage(PAGINATION_DEFAULTS.PAGE);
-  }, [rowsPerPage]);
+  }, [debouncedRowsPerPage]);
 
-  /** Same limit: native select may not fire onChange; when it does, refetch. New limit: state change + staleTime:0 above. */
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -193,33 +192,51 @@ export default function SubhaSahitPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold leading-tight text-white break-words">
-              Subha Sahit Dates
+              Subha Sahit
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-2">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isFetching}
+                className="shrink-0"
+              />
+              <Button
+                variant="outline"
+                onClick={() => setIsOccasionModalOpen(true)}
+                size="sm"
+                className="hidden shrink-0 border-purple-500/40 text-purple-300 hover:bg-purple-500/10 sm:inline-flex"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Occasion
+              </Button>
+              <Button
+                onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
+                className="hidden shrink-0 bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:inline-flex"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Dates
+              </Button>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Manage auspicious dates for Pandit Ji bookings
           </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-2">
+          <div className="flex flex-col gap-2 sm:hidden">
             <Button
               variant="outline"
               onClick={() => setIsOccasionModalOpen(true)}
               size="sm"
-              className="w-full border-purple-500/40 text-purple-300 hover:bg-purple-500/10 sm:w-auto"
+              className="w-full border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Occasion
             </Button>
             <Button
               onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
-              className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
+              className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Dates

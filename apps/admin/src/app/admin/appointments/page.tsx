@@ -26,15 +26,7 @@ import {
   type AppointmentFilterValue,
 } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
-import {
-  CalendarDays,
-  Clock,
-  User,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Ban,
-} from 'lucide-react';
+import { CalendarDays, Clock, User, CheckCircle2, XCircle, AlertCircle, Ban } from 'lucide-react';
 import type {
   Appointment,
   ListAppointmentsResponse,
@@ -51,6 +43,7 @@ import {
   BOOKING_TYPE_BADGE_CLASS,
 } from '@/constants/appointment.constants';
 import { toast } from 'sonner';
+import { useDebouncedPageSize } from '@/hooks';
 
 const DEFAULT_PAGINATION = (limit: number): AppointmentsPagination => ({
   page: PAGINATION_DEFAULTS.PAGE,
@@ -66,7 +59,11 @@ const CANCELLABLE_STATUSES: AppointmentStatus[] = [
 
 export default function AppointmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const {
+    pageSize: rowsPerPage,
+    setPageSize: setRowsPerPage,
+    debouncedPageSize: debouncedRowsPerPage,
+  } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<AppointmentFilterValue>('ALL');
   const [cancelModalAppointment, setCancelModalAppointment] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -75,7 +72,7 @@ export default function AppointmentsPage() {
   // Reset to page 1 when status filter or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [statusFilter, rowsPerPage]);
+  }, [statusFilter, debouncedRowsPerPage]);
 
   // Fetch appointments with TanStack Query (server-side pagination)
   const {
@@ -85,22 +82,23 @@ export default function AppointmentsPage() {
     error,
     refetch,
   } = useQuery<ListAppointmentsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(), currentPage, statusFilter, rowsPerPage],
+    queryKey: [
+      ...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(),
+      currentPage,
+      statusFilter,
+      debouncedRowsPerPage,
+    ],
     queryFn: () =>
       adminApi.appointments.list({
         page: currentPage,
-        limit: rowsPerPage,
+        limit: debouncedRowsPerPage,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
-    staleTime: 0,
     refetchInterval: 20000,
   });
 
   const handlePageSizeChange = (size: number) => {
-    if (size === rowsPerPage) {
-      void refetch();
-      return;
-    }
+    if (size === rowsPerPage) return;
     setRowsPerPage(size);
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
@@ -118,7 +116,7 @@ export default function AppointmentsPage() {
   });
 
   const appointments = appointmentsResponse?.appointments ?? [];
-  const pagination = appointmentsResponse?.pagination ?? DEFAULT_PAGINATION(rowsPerPage);
+  const pagination = appointmentsResponse?.pagination ?? DEFAULT_PAGINATION(debouncedRowsPerPage);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -268,21 +266,30 @@ export default function AppointmentsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
               Appointment Audits
             </h1>
-            <AdminRefreshButton
-              onClick={() => refetch()}
-              loading={isFetching}
-              className="shrink-0 self-start"
-            />
+            <div className="flex items-center gap-2 shrink-0 self-start flex-wrap justify-end">
+              <AdminRefreshButton
+                onClick={() => refetch()}
+                loading={isFetching}
+                className="shrink-0"
+              />
+              <div className="hidden sm:block shrink-0">
+                <AppointmentStatusFilter
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
             Real-time monitoring of all appointment bookings
           </p>
-          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+          <div className="w-full sm:hidden [&_button]:w-full">
             <AppointmentStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}

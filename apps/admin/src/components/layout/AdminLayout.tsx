@@ -926,7 +926,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </button>
               <div>
                 <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-cosmic-purple to-nebula-pink bg-clip-text text-white">
-                  Cosmic Control Center
+                  Control Center
                 </h1>
                 <p className="hidden sm:block text-sm text-slate-400">
                   Manage your Jyotish platform
