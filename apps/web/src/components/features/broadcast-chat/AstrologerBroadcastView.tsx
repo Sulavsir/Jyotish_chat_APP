@@ -20,6 +20,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
 import { ROUTE_BUILDERS } from '@/constants';
 import { useRouter } from 'next/navigation';
 import type { User as SharedUser } from '@jyotish/shared';
@@ -138,6 +139,12 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     });
 
+    socket.on('broadcast:messageExpired', (data: { messageId: string }) => {
+      const id = data?.messageId;
+      if (!id) return;
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+    });
+
     socket.on('broadcast:error', (error: { message?: string }) => {
       toast.error(error.message || 'Something went wrong');
       setAccepting(null);
@@ -148,6 +155,7 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
       socket.off('broadcast:messageAcceptedByAstrologer');
       socket.off('broadcast:messageAccepted');
       socket.off('broadcast:messageCancelled');
+      socket.off('broadcast:messageExpired');
       socket.off('broadcast:error');
     };
   }, [socket, isConnected, user, onChatCreated, router]);
@@ -230,6 +238,9 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
   const inhouse = isInhouseAstrologer(user as unknown as SharedUser | null);
   const visibleMessages = messages.filter((m) => {
     if (m.status !== BroadcastMessageStatus.PENDING) {
+      return false;
+    }
+    if (!isBroadcastPendingStillActive(m)) {
       return false;
     }
     if (inhouse) {

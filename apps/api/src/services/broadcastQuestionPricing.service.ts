@@ -48,7 +48,7 @@ export interface PerQuestionPriceEntry {
 }
 
 /**
- * Public re-export of buildPerQuestionPrices.
+ * Public re-export of buildPerQuestionPrices (bundle tiers + per-line splits for refunds).
  * Used by broadcastMessage.service to store accurate per-message refund amounts.
  */
 export async function getPerQuestionBreakdown(
@@ -59,11 +59,118 @@ export async function getPerQuestionBreakdown(
 }
 
 /**
+ * Split a bundle total into N per-question lines (refunds/coin ledger). Sum always equals `total`.
+ */
+function splitTotalAcrossN(total: number, n: number): number[] {
+  if (n <= 0) return [];
+  const base = Math.floor(total / n);
+  const remainder = total - base * n;
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    out.push(base + (i < remainder ? 1 : 0));
+  }
+  return out;
+}
+
+type TierOption = { k: number; price: number; fromDb: boolean };
+
+function buildTierOptions(tierMap: Map<number, number>, broadcastSend: number): TierOption[] {
+  const opts: TierOption[] = [];
+  for (const [k, price] of tierMap) {
+    if (k >= 1 && k <= MAX_QUESTION_COUNT) {
+      opts.push({ k, price, fromDb: true });
+    }
+  }
+  if (!tierMap.has(1)) {
+    opts.push({ k: 1, price: broadcastSend, fromDb: false });
+  }
+  return opts;
+}
+
+/**
+ * Allocate `target` across `n` slots proportionally to `weights` (integers, same length as n).
+ */
+function allocateProportional(weights: number[], target: number): number[] {
+  const n = weights.length;
+  if (n === 0) return [];
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (sum === 0) return Array(n).fill(0);
+  if (target <= 0) return Array(n).fill(0);
+  const out = weights.map((w) => Math.floor((w * target) / sum));
+  let r = target - out.reduce((a, b) => a + b, 0);
+  let i = 0;
+  while (r > 0) {
+    out[i % n]++;
+    r--;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Minimum-cost composition of admin bundle tiers (DP). E.g. tiers (1→100), (2→190) and N=3
+ * gives 190+100=290 (2-Q bundle + 1-Q), not 100+150+150 from old per-slot logic.
+ */
+function computeComposedPricing(
+  n: number,
+  tierOptions: TierOption[]
+): { basePerQuestion: number[]; tierApplied: boolean[] } | null {
+  if (n < 1) return null;
+  const INF = Number.POSITIVE_INFINITY;
+  const dp: number[] = new Array(n + 1).fill(INF);
+  const pickK: number[] = new Array(n + 1).fill(0);
+  dp[0] = 0;
+
+  for (let i = 1; i <= n; i++) {
+    for (const opt of tierOptions) {
+      const k = opt.k;
+      if (k > i || dp[i - k] === INF) continue;
+      const cand = dp[i - k] + opt.price;
+      if (cand < dp[i] || (cand === dp[i] && k > pickK[i])) {
+        dp[i] = cand;
+        pickK[i] = k;
+      }
+    }
+  }
+
+  if (dp[n] === INF) return null;
+
+  /** Segments in question order: each { k, fromDb } */
+  const segments: { k: number; fromDb: boolean }[] = [];
+  let cur = n;
+  while (cur > 0) {
+    const k = pickK[cur];
+    if (k <= 0) return null;
+    const opt = tierOptions.find((o) => o.k === k);
+    if (!opt) return null;
+    segments.unshift({ k, fromDb: opt.fromDb });
+    cur -= k;
+  }
+
+  const basePerQuestion: number[] = [];
+  const tierApplied: boolean[] = [];
+  for (const seg of segments) {
+    const part = splitTotalAcrossN(
+      tierOptions.find((o) => o.k === seg.k)!.price,
+      seg.k
+    );
+    for (let j = 0; j < seg.k; j++) {
+      basePerQuestion.push(part[j]);
+      tierApplied.push(seg.fromDb);
+    }
+  }
+
+  return { basePerQuestion, tierApplied };
+}
+
+/**
  * Build the per-question price list for N questions.
  *
- * - Position 1: BROADCAST_SEND rate, with optional first-broadcast discount.
- * - Positions 2+: custom tier for that position if set, otherwise BROADCAST_SEND.
- * - Works correctly when no custom tiers exist (all positions fall back to BROADCAST_SEND).
+ * - Admin tiers are **bundle prices** for exactly K questions. Any order size N is priced by
+ *   **composing** tiers with minimum total cost (DP), e.g. 3 questions → tier(2)+tier(1) when that is
+ *   cheaper than a single tier(3) or three singles.
+ * - First-broadcast discount % applies to the **composed** subtotal, then amounts are split per question
+ *   proportionally for refunds/display.
  */
 async function buildPerQuestionPrices(
   questionCount: number,
@@ -82,7 +189,6 @@ async function buildPerQuestionPrices(
     prisma.broadcastQuestionPricing.findMany({ orderBy: { questionCount: 'asc' } }),
   ]);
 
-  // Determine first-broadcast discount for Q1
   let discountPercent = 0;
   let isFirstBroadcast = false;
   if (clientId) {
@@ -94,31 +200,40 @@ async function buildPerQuestionPrices(
   }
   const clampedDiscount = Math.max(0, Math.min(100, discountPercent));
 
-  // Build lookup: position → tier price
   const tierMap = new Map<number, number>(allTiers.map((t) => [t.questionCount, t.amountNr]));
+  const tierOptions = buildTierOptions(tierMap, broadcastSend);
 
-  const result: PerQuestionPriceEntry[] = [];
-  for (let pos = 1; pos <= questionCount; pos++) {
-    if (pos === 1) {
-      const applyDiscount = isFirstBroadcast && clampedDiscount > 0 && broadcastSend > 0;
-      const price = applyDiscount
-        ? clampedDiscount >= 100
-          ? 0
-          : Math.round((broadcastSend * (100 - clampedDiscount)) / 100)
-        : broadcastSend;
-      result.push({ position: pos, price, isDiscounted: applyDiscount, tierApplied: false });
-    } else {
-      const tierPrice = tierMap.get(pos);
-      const price = tierPrice !== undefined ? tierPrice : broadcastSend;
-      result.push({
-        position: pos,
-        price,
-        isDiscounted: false,
-        tierApplied: tierPrice !== undefined,
-      });
-    }
+  const composed = computeComposedPricing(questionCount, tierOptions);
+  if (!composed) {
+    throw new AppError(
+      'Unable to compute broadcast question pricing',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      ERROR_CODES.SERVER_ERROR
+    );
   }
-  return result;
+
+  const { basePerQuestion, tierApplied } = composed;
+  const baseSum = basePerQuestion.reduce((a, b) => a + b, 0);
+
+  const applyDiscount =
+    Boolean(clientId) && isFirstBroadcast && clampedDiscount > 0 && baseSum > 0;
+  const finalSum = applyDiscount
+    ? clampedDiscount >= 100
+      ? 0
+      : Math.round((baseSum * (100 - clampedDiscount)) / 100)
+    : baseSum;
+
+  const finalPerQuestion =
+    applyDiscount && baseSum > 0
+      ? allocateProportional(basePerQuestion, finalSum)
+      : [...basePerQuestion];
+
+  return finalPerQuestion.map((price, i) => ({
+    position: i + 1,
+    price,
+    isDiscounted: i === 0 && applyDiscount,
+    tierApplied: tierApplied[i] ?? false,
+  }));
 }
 
 /**
@@ -322,10 +437,11 @@ export async function prepareBroadcastQuestions(
 
   const questionCount = allItems.length;
 
-  const [breakdown, baseEntries, balanceNr] = await Promise.all([
+  const [breakdown, baseEntries, balanceNr, firstBroadcastDiscountRate] = await Promise.all([
     buildPerQuestionPrices(questionCount, clientId),
     buildPerQuestionPrices(questionCount),
     getCoinBalance(clientId),
+    getRate('FIRST_BROADCAST_DISCOUNT' as PlatformCoinRateType),
   ]);
 
   const totalNr = breakdown.reduce((sum, e) => sum + e.price, 0);
@@ -333,13 +449,11 @@ export async function prepareBroadcastQuestions(
   const discountPercentApplied =
     originalTotalNr > 0 ? Math.round(((originalTotalNr - totalNr) / originalTotalNr) * 100) : 0;
 
-  // Actual admin-configured Q1 discount rate (e.g. 50 for "50% off Q1")
-  const discountedQ1 = breakdown.find((e) => e.isDiscounted && e.position === 1);
-  const baseQ1 = baseEntries.find((e) => e.position === 1);
-  const firstBroadcastDiscountPct =
-    discountedQ1 && baseQ1 && baseQ1.price > 0
-      ? Math.round((1 - discountedQ1.price / baseQ1.price) * 100)
-      : 0;
+  const hadFirstBroadcastPricing =
+    breakdown.some((e) => e.isDiscounted) && originalTotalNr > totalNr;
+  const firstBroadcastDiscountPct = hadFirstBroadcastPricing
+    ? Math.max(0, Math.min(100, firstBroadcastDiscountRate))
+    : 0;
 
   const coveredByBalance = Math.min(balanceNr, totalNr);
   const remainingNr = Math.max(0, totalNr - coveredByBalance);

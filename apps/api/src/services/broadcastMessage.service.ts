@@ -41,6 +41,16 @@ const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
 const pendingBroadcastMessagesCache = new Map<string, { expiresAt: number; messages: unknown[] }>();
 let lastPendingExpiryRunAt = 0;
 
+function scheduleBroadcastExpirySweep() {
+  const now = Date.now();
+  if (now - lastPendingExpiryRunAt > 30_000) {
+    lastPendingExpiryRunAt = now;
+    expireOldMessages().catch((err) =>
+      console.error('[broadcastMessage] Background expiry/refund failed:', err)
+    );
+  }
+}
+
 function invalidatePendingBroadcastCache() {
   pendingBroadcastMessagesCache.clear();
 }
@@ -490,8 +500,8 @@ export async function expireOldMessages() {
       const meta = (message.metadata as Record<string, unknown> | null) || {};
       const refundAmount =
         typeof meta.amountRefundNr === 'number' && meta.amountRefundNr >= 0
-          ? Math.max(1, meta.amountRefundNr)
-          : await getRate('BROADCAST_SEND').then((r) => Math.max(1, r));
+          ? meta.amountRefundNr
+          : await getRate('BROADCAST_SEND');
 
       try {
         await refundCoins(message.clientId, refundAmount);
@@ -508,15 +518,14 @@ export async function expireOldMessages() {
         data: { status: BroadcastMessageStatus.EXPIRED },
       });
 
-      // Notify the client so they can show a refund toast
+      // Notify client (refund toast) + astrologers (remove from pending popups / lists)
       try {
         const { getSocketInstance } = require('../utils/socket-instance');
         const io = getSocketInstance();
         if (io) {
-          io.to(`user:${message.clientId}`).emit('broadcast:messageExpired', {
-            messageId: message.id,
-            refundAmount,
-          });
+          const payload = { messageId: message.id, refundAmount };
+          io.to(`user:${message.clientId}`).emit('broadcast:messageExpired', payload);
+          io.to('astrologers').emit('broadcast:messageExpired', payload);
         }
       } catch {
         // Socket notification is best-effort; do not break expiry logic
@@ -636,14 +645,8 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     }
   }
 
-  // Expire old messages in the background — do not block the response
-  const now = Date.now();
-  if (now - lastPendingExpiryRunAt > 30_000) {
-    lastPendingExpiryRunAt = now;
-    expireOldMessages().catch((err) =>
-      console.error('[getPendingBroadcastMessages] Background expiry failed:', err)
-    );
-  }
+  // Refund clients + EXPIRED when overdue (also triggered from client list — see scheduleBroadcastExpirySweep)
+  scheduleBroadcastExpirySweep();
 
   // If astrologer ID is provided, get their dismissed message IDs
   let dismissedMessageIds: string[] = [];
@@ -754,6 +757,8 @@ export async function getClientBroadcastMessages(clientId: string) {
   if (!('broadcastMessage' in prisma)) {
     return [];
   }
+
+  scheduleBroadcastExpirySweep();
 
   const messages = await prisma.broadcastMessage.findMany({
     where: {
@@ -1151,17 +1156,14 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
           ? Math.max(0, msgMeta.amountRefundNr)
           : broadcastRate;
 
-      const isFreeToClient =
-        isFirstBroadcastDiscount && clientCoinsDeducted <= 0;
+      const isFreeToClient = isFirstBroadcastDiscount && clientCoinsDeducted <= 0;
 
       if (!isFreeToClient) {
         if (commissionPercent <= 0) continue;
         if (clientCoinsDeducted <= 0) continue;
       }
 
-      let astrologerCoinsEarned = Math.floor(
-        (clientCoinsDeducted * commissionPercent) / 100
-      );
+      let astrologerCoinsEarned = Math.floor((clientCoinsDeducted * commissionPercent) / 100);
 
       let sourceDetail: string | null = isFirstBroadcastDiscount
         ? 'First broadcast discount'
@@ -1325,23 +1327,11 @@ export async function getBroadcastMessageById(messageId: string) {
 }
 
 /**
- * Expire old pending broadcast messages (called by worker/cron).
- * Uses stored `expiresAt` (same rule as {@link expireOldMessages}); refunds are only applied by expireOldMessages.
+ * @deprecated Prefer {@link expireOldMessages} — refunds coins before marking EXPIRED.
+ * Kept as an alias so any future cron/worker wiring does not skip refunds.
  */
 export async function expireOldBroadcastMessages(_olderThanMinutes: number = 10) {
-  const now = new Date();
-
-  const result = await prisma.broadcastMessage.updateMany({
-    where: {
-      status: BroadcastMessageStatus.PENDING,
-      expiresAt: { lt: now },
-    },
-    data: {
-      status: BroadcastMessageStatus.EXPIRED,
-    },
-  });
-
-  return result;
+  return expireOldMessages();
 }
 
 /**

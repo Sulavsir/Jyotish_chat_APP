@@ -474,10 +474,16 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       if (msgId) markBroadcastIds([msgId], 'CANCELLED_BY_USER');
     };
 
+    const handleBroadcastExpired = (data: { messageId?: string }) => {
+      const msgId = data?.messageId;
+      if (msgId) markBroadcastIds([msgId], 'EXPIRED');
+    };
+
     socket.on('notification:new', handleNew);
     socket.on('broadcast:messageAccepted', handleAcceptedByMe);
     socket.on('broadcast:messageAcceptedByAstrologer', handleAcceptedByOthers);
     socket.on('broadcast:messageCancelled', handleMessageCancelled);
+    socket.on('broadcast:messageExpired', handleBroadcastExpired);
     socket.on('notification:requestAccepted', handleRequestAccepted);
 
     return () => {
@@ -485,6 +491,7 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
       socket.off('broadcast:messageAccepted', handleAcceptedByMe);
       socket.off('broadcast:messageAcceptedByAstrologer', handleAcceptedByOthers);
       socket.off('broadcast:messageCancelled', handleMessageCancelled);
+      socket.off('broadcast:messageExpired', handleBroadcastExpired);
       socket.off('notification:requestAccepted', handleRequestAccepted);
     };
   }, [socket, isConnected, notificationsEnabled, markBroadcastIds, loadNotifications, router]);

@@ -3,7 +3,7 @@
  * Handles business logic for astrologer ratings
  */
 
-import { prisma } from '@jyotish/database';
+import { prisma, AuditAction } from '@jyotish/database';
 import { AppError } from '../middleware/error-handler';
 import { ERROR_CODES, HTTP_STATUS } from '../constants';
 import { logAudit } from '@/utils';
@@ -70,48 +70,49 @@ export const createRating = async (params: CreateRatingParams) => {
     );
   }
 
-  // Check if rating already exists for this chat
-  if (chat.rating) {
-    throw new AppError(
-      'You have already rated this chat',
-      HTTP_STATUS.CONFLICT,
-      ERROR_CODES.DUPLICATE_ENTRY
-    );
-  }
+  const includeRating = {
+    client: {
+      select: {
+        id: true,
+        name: true,
+        profilePhoto: true,
+      },
+    },
+    astrologer: {
+      select: {
+        id: true,
+        name: true,
+        profilePhoto: true,
+      },
+    },
+  } as const;
 
-  // Create the rating
-  const newRating = await prisma.rating.create({
-    data: {
-      chatId,
-      clientId,
-      astrologerId,
-      rating,
-      feedback,
-    },
-    include: {
-      client: {
-        select: {
-          id: true,
-          name: true,
-          profilePhoto: true,
+  const newRating = chat.rating
+    ? await prisma.rating.update({
+        where: { chatId },
+        data: {
+          rating,
+          feedback: feedback ?? null,
         },
-      },
-      astrologer: {
-        select: {
-          id: true,
-          name: true,
-          profilePhoto: true,
+        include: includeRating,
+      })
+    : await prisma.rating.create({
+        data: {
+          chatId,
+          clientId,
+          astrologerId,
+          rating,
+          feedback,
         },
-      },
-    },
-  });
+        include: includeRating,
+      });
 
   // Update astrologer's aggregate rating
   await updateAstrologerRating(astrologerId);
 
-  // Log audit
+  // Log audit (schema has RATING_CREATE only; include isUpdate in metadata)
   await logAudit({
-    action: 'RATING_CREATE',
+    action: AuditAction.RATING_CREATE,
     resource: 'rating',
     resourceId: newRating.id,
     userId: clientId,
@@ -120,6 +121,8 @@ export const createRating = async (params: CreateRatingParams) => {
       chatId,
       astrologerId,
       rating,
+      isUpdate: !!chat.rating,
+      previousRating: chat.rating?.rating,
     },
   });
 
@@ -276,10 +279,6 @@ export const canRateChat = async (
 
   if (chat.status !== 'ENDED') {
     return { canRate: false, reason: 'Chat has not ended yet' };
-  }
-
-  if (chat.rating) {
-    return { canRate: false, reason: 'You have already rated this chat' };
   }
 
   return { canRate: true };

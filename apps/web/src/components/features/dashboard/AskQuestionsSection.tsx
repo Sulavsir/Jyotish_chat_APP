@@ -51,6 +51,7 @@ import coinService from '@/services/coin.service';
 import { AstrologerCategory } from '@/types/astrologer';
 import { SelectedQuestionsModal, type SelectedQuestionDetailed } from './SelectedQuestionsModal';
 import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
+import { computeBroadcastBaseTotalNr } from '@/utils/broadcastQuestionPricing.utils';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
@@ -202,34 +203,21 @@ export function AskQuestionsSection() {
   const firstBroadcastDiscountPct = coinRates?.FIRST_BROADCAST_DISCOUNT ?? 0;
 
   /**
-   * Per-position pricing preview — mirrors backend buildPerQuestionPrices.
-   * Q1 uses BROADCAST_SEND (with first-broadcast discount if available).
-   * Q_n (n>1) uses the custom tier for position n, or BROADCAST_SEND as fallback.
+   * Mirrors backend: compose bundle tiers with minimum total (e.g. 3Q → 2Q bundle + 1Q).
    */
   const getTotalNrForCount = (count: number, applyDiscount = false): number => {
     if (count <= 0) return 0;
     const broadcastSendRate = coinRates?.BROADCAST_SEND ?? 0;
     if (!broadcastSendRate && !pricingTiers.length) return 0;
-    const tierMap = new Map(pricingTiers.map((t) => [t.questionCount, t.amountNr]));
     const clampedDiscount = applyDiscount
       ? Math.max(0, Math.min(100, firstBroadcastDiscountPct))
       : 0;
-    let total = 0;
-    for (let pos = 1; pos <= count; pos++) {
-      if (pos === 1) {
-        const q1 =
-          clampedDiscount > 0
-            ? clampedDiscount >= 100
-              ? 0
-              : Math.round((broadcastSendRate * (100 - clampedDiscount)) / 100)
-            : broadcastSendRate;
-        total += q1;
-      } else {
-        const tierPrice = tierMap.get(pos);
-        total += tierPrice !== undefined ? tierPrice : broadcastSendRate;
-      }
+
+    const base = computeBroadcastBaseTotalNr(count, pricingTiers, broadcastSendRate);
+    if (applyDiscount && clampedDiscount > 0 && base > 0) {
+      return clampedDiscount >= 100 ? 0 : Math.round((base * (100 - clampedDiscount)) / 100);
     }
-    return total;
+    return base;
   };
 
   const prepareMutation = useMutation({

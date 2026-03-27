@@ -824,11 +824,8 @@ export const refundCoins = async (
   _chatId?: string
 ): Promise<CoinBalance> => {
   if (amount <= 0) {
-    throw new AppError(
-      'Amount must be greater than 0',
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
+    const balance = await getCoinBalance(userId);
+    return { userId, balance };
   }
 
   return addCoins(userId, amount, CoinTransactionReason.REFUND, undefined, undefined);

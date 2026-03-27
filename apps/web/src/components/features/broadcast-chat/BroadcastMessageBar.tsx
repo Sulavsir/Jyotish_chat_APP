@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import { ROUTE_BUILDERS } from '@/constants';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { User as SharedUser } from '@jyotish/shared';
 
@@ -185,6 +186,13 @@ export function BroadcastMessageBar() {
       setPendingMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     });
 
+    // Server expired the request (timer / refund) — same as cancel for astrologer UI
+    socket.on('broadcast:messageExpired', (data: { messageId: string }) => {
+      const id = data?.messageId;
+      if (!id) return;
+      setPendingMessages((prev) => prev.filter((m) => m.id !== id));
+    });
+
     // My acceptance was successful - remove entire batch immediately
     socket.on(
       'broadcast:messageAccepted',
@@ -244,10 +252,20 @@ export function BroadcastMessageBar() {
       socket.off('broadcast:newMessage');
       socket.off('broadcast:messageAcceptedByAstrologer');
       socket.off('broadcast:messageCancelled');
+      socket.off('broadcast:messageExpired');
       socket.off('broadcast:messageAccepted');
       socket.off('broadcast:error');
     };
   }, [socket, isConnected, user, router]);
+
+  // Drop from bar when local clock passes expiresAt (no socket yet / missed event)
+  useEffect(() => {
+    if (user?.role !== 'ASTROLOGER') return;
+    const t = setInterval(() => {
+      setPendingMessages((prev) => prev.filter((m) => isBroadcastPendingStillActive(m)));
+    }, 2000);
+    return () => clearInterval(t);
+  }, [user?.role]);
 
   async function handleAccept(messageId: string) {
     if (!socket || !isConnected) {
@@ -328,8 +346,7 @@ export function BroadcastMessageBar() {
     return `${diffMins} minutes ago`;
   }
 
-  // Don't show if not an astrologer or no pending messages
-  const visiblePendingMessages = pendingMessages;
+  const visiblePendingMessages = pendingMessages.filter((m) => isBroadcastPendingStillActive(m));
 
   if (user?.role !== 'ASTROLOGER' || visiblePendingMessages.length === 0) {
     return null;

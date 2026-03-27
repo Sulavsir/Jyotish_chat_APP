@@ -7,34 +7,24 @@ import { prisma } from '@jyotish/database';
 import { BroadcastMessageStatus } from '@prisma/client';
 
 /**
- * Check if a client has ever used broadcast before.
+ * True once the client has had at least one broadcast **accepted by an astrologer**
+ * (first-broadcast discount / `hasFreeBroadcastAvailable` only then is false).
  *
- * Behaviour detail:
- * If a broadcast message is free-trial and expires, it should not be counted as used.
+ * Does **not** consume the first-broadcast offer: **PENDING**, **EXPIRED** (no one accepted), **CANCELLED**.
  */
 export async function hasUserUsedBroadcast(clientId: string): Promise<boolean> {
   if (!('broadcastMessage' in prisma)) {
     return false;
   }
 
-  const existing = await prisma.broadcastMessage.findFirst({
+  const accepted = await prisma.broadcastMessage.findFirst({
     where: {
       clientId,
-      NOT: {
-        AND: [
-          {
-            metadata: {
-              path: ['freeTrial'],
-              equals: true,
-            },
-          },
-          { status: BroadcastMessageStatus.EXPIRED },
-        ],
-      },
+      status: BroadcastMessageStatus.ACCEPTED,
     },
     select: { id: true },
   });
 
-  return !!existing;
+  return !!accepted;
 }
 
