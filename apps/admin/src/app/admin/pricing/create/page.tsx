@@ -9,7 +9,7 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Input, Label, Textarea, ArrowLeftIcon, Button } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { ADMIN_ROUTES } from '@/constants';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { CreatePricingPlanRequest } from '@/types';
 import { toast } from 'sonner';
 
@@ -51,8 +51,8 @@ export default function CreatePricingPlanPage() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: CreatePricingPlanRequest) => adminApi.pricing.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pricing-plans'] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.PRICING.ALL });
       toast.success('Pricing plan created successfully');
       router.push(ADMIN_ROUTES.PRICING);
     },

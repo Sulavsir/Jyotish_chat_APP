@@ -1,6 +1,7 @@
 /**
  * AdminTable Component - Reusable table component for admin pages
- * Features: Indigo header, vertical separators, automatic S.N. column, pagination
+ * Features: Indigo header, vertical separators, optional S.N. column.
+ * Pagination lives outside the table — use {@link AdminListPaginationSection} below the card.
  */
 
 import React from 'react';
@@ -14,7 +15,6 @@ import {
   TableSkeleton,
   EmptyState,
 } from '@jyotish/ui';
-import { Pagination } from '../ui/Pagination';
 
 export interface AdminTableColumn<T> {
   header: string;
@@ -38,11 +38,9 @@ export interface AdminTableProps<T> {
   };
   keyExtractor: (item: T, index: number) => string;
   showSerialNumber?: boolean;
+  /** Used with {@link itemsPerPage} for correct S.N. when data is a page slice (default page 1, size 10). */
   currentPage?: number;
   itemsPerPage?: number;
-  totalItems?: number;
-  totalPages?: number;
-  onPageChange?: (page: number) => void;
   onRowClick?: (item: T) => void;
 }
 
@@ -55,9 +53,6 @@ export function AdminTable<T>({
   showSerialNumber = true,
   currentPage = 1,
   itemsPerPage = 10,
-  totalItems,
-  totalPages,
-  onPageChange,
   onRowClick,
 }: AdminTableProps<T>) {
   if (loading) {
@@ -129,17 +124,6 @@ export function AdminTable<T>({
           </TableBody>
         </Table>
       </div>
-
-      {/* Pagination */}
-      {onPageChange && totalItems && totalPages && totalPages > 1 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          itemsPerPage={itemsPerPage}
-          onPageChange={onPageChange}
-        />
-      )}
     </div>
   );
 }

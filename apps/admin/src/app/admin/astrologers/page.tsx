@@ -11,13 +11,6 @@ import {
   Search,
   PlusIcon,
   StarIcon,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
   Card,
   CardContent,
   CardHeader,
@@ -31,9 +24,12 @@ import {
   LoadingButton,
   Input,
 } from '@jyotish/ui';
-import { RefreshCw, X, Download, FileText, Trash2, Eye, EyeOff } from 'lucide-react';
+import { X, Download, FileText, Trash2, Eye, EyeOff } from 'lucide-react';
 import {
   AdminTable,
+  AdminListPaginationSection,
+  AdminClearFiltersButton,
+  AdminRefreshButton,
   AstrologerRowActions,
   type AdminTableColumn,
   ActiveStatusFilter,
@@ -41,16 +37,19 @@ import {
   OnlinePresenceFilter,
   type OnlinePresenceFilterValue,
 } from '@/components/admin';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  ADMIN_ROUTES,
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+} from '@/constants';
 import { DELETE_CONFIRM, ASTROLOGER_EDIT_PASSWORD } from '@/constants/app.constants';
 import { useAdminSocket, useDebounce } from '@/hooks';
 import type { Astrologer } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
-import { generatePageNumbers, getImageUrl } from '@/utils/helpers';
+import { getImageUrl } from '@/utils/helpers';
 import { AttachmentPreview } from '@/components/ui/AttachmentPreview';
 import { AstrologerEditPasswordModal } from '@/components/ui/AstrologerEditPasswordModal';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 interface AstrologersResponse {
   astrologers: Astrologer[];
@@ -71,6 +70,7 @@ export default function AstrologersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<ActiveFilterValue>('ALL');
   const [onlineFilter, setOnlineFilter] = useState<OnlinePresenceFilterValue>('ALL');
   const [onlineAstrologers, setOnlineAstrologers] = useState<Set<string>>(new Set());
@@ -116,6 +116,7 @@ export default function AstrologersPage() {
   const {
     data: astrologersResponse,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery<AstrologersResponse>({
     queryKey: [
@@ -124,13 +125,14 @@ export default function AstrologersPage() {
       debouncedSearch,
       statusFilter,
       onlineFilter,
+      rowsPerPage,
     ],
     queryFn: async (): Promise<AstrologersResponse> => {
       const isOnline =
         onlineFilter === 'ALL' ? undefined : onlineFilter === 'ONLINE' ? true : false;
       const response = await adminApi.astrologers.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
         isActive: statusFilter === 'ALL' ? undefined : statusFilter === 'ACTIVE',
         isOnline,
@@ -148,7 +150,7 @@ export default function AstrologersPage() {
           astrologers: response as Astrologer[],
           pagination: {
             page: 1,
-            limit: ITEMS_PER_PAGE,
+            limit: rowsPerPage,
             total: (response as Astrologer[]).length,
             totalPages: 1,
           },
@@ -156,15 +158,25 @@ export default function AstrologersPage() {
       }
       return {
         astrologers: [],
-        pagination: { page: 1, limit: ITEMS_PER_PAGE, total: 0, totalPages: 0 },
+        pagination: { page: 1, limit: rowsPerPage, total: 0, totalPages: 0 },
       };
     },
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const astrologers = astrologersResponse?.astrologers || [];
   const pagination = astrologersResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
@@ -317,10 +329,20 @@ export default function AstrologersPage() {
     }
   };
 
-  // Reset to page 1 when search term or status filter changes
+  // Reset to page 1 when search term, status filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter, onlineFilter]);
+  }, [debouncedSearch, statusFilter, onlineFilter, rowsPerPage]);
+
+  const hasAstrologersFilters =
+    Boolean(debouncedSearch.trim()) || statusFilter !== 'ALL' || onlineFilter !== 'ALL';
+
+  const clearAstrologersFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('ALL');
+    setOnlineFilterAndUrl('ALL');
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const columns: AdminTableColumn<Astrologer>[] = [
     {
@@ -482,51 +504,67 @@ export default function AstrologersPage() {
 
   return (
     <AdminLayout>
-      <div className="w-full max-w-full min-w-0 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold text-white">Astrologers</h2>
-            <p className="text-slate-400 mt-1">Manage your cosmic advisors</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ActiveStatusFilter
-              value={statusFilter}
-              onChange={setStatusFilter}
-              disabled={isLoading}
-            />
-            <OnlinePresenceFilter
-              value={onlineFilter}
-              onChange={setOnlineFilterAndUrl}
-              disabled={isLoading}
-            />
-            <Button
+      <div className="w-full max-w-full min-w-0 space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold text-white break-words">
+              Astrologers
+            </h2>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_CREATE)}
-              className="flex items-center gap-2"
-            >
-              <PlusIcon className="w-5 h-5" />
-              Add Astrologer
-            </Button>
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
+          <p className="text-sm sm:text-base text-slate-400">Manage your cosmic advisors</p>
+          <Button
+            onClick={() => router.push(ADMIN_ROUTES.ASTROLOGERS_CREATE)}
+            className="flex w-full items-center justify-center gap-2 sm:w-auto"
+          >
+            <PlusIcon className="w-5 h-5 shrink-0" />
+            Add Astrologer
+          </Button>
         </div>
 
-        {/* Search Bar */}
-        <Search
-          placeholder="Search astrologers by name, email, or phone..."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="w-full min-w-0">
+            <Search
+              containerClassName="w-full"
+              placeholder="Search astrologers by name, email, or phone..."
+              value={searchTerm}
+              onSearch={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+              }}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex w-full min-w-0 flex-row items-end gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1">
+              <ActiveStatusFilter
+                value={statusFilter}
+                onChange={setStatusFilter}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="shrink-0">
+              <OnlinePresenceFilter
+                value={onlineFilter}
+                onChange={setOnlineFilterAndUrl}
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <AdminClearFiltersButton
+              show={hasAstrologersFilters}
+              onClear={clearAstrologersFilters}
+              disabled={isLoading || isFetching}
+            />
+          </div>
+        </div>
 
         {/* Table */}
         <div className="cosmic-card w-full max-w-full min-w-0 rounded-xl overflow-hidden">
@@ -535,8 +573,11 @@ export default function AstrologersPage() {
             columns={columns}
             loading={isLoading}
             keyExtractor={(astrologer) => astrologer.id}
+            showSerialNumber
+            currentPage={pagination.page}
+            itemsPerPage={pagination.limit}
             emptyState={{
-              icon: <StarIcon className="w-20 h-20 text-slate-600" />,
+              icon: <StarIcon className="w-16 h-16 text-slate-600" />,
               title: debouncedSearch ? 'No astrologers found' : 'No astrologers yet',
               description: debouncedSearch
                 ? 'Try adjusting your search terms'
@@ -549,62 +590,20 @@ export default function AstrologersPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
 
         <AstrologerEditPasswordModal

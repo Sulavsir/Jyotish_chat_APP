@@ -7,13 +7,6 @@ import { adminApi } from '@/lib/admin-api';
 import {
   Badge,
   Button,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -26,14 +19,15 @@ import {
 } from '@jyotish/ui';
 import {
   AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
   type AdminTableColumn,
   AppointmentStatusFilter,
   type AppointmentFilterValue,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import {
   CalendarDays,
-  RefreshCw,
   Clock,
   User,
   CheckCircle2,
@@ -56,17 +50,14 @@ import {
   BOOKING_TYPE_LABELS,
   BOOKING_TYPE_BADGE_CLASS,
 } from '@/constants/appointment.constants';
-import { generatePageNumbers } from '@/utils/helpers';
 import { toast } from 'sonner';
 
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
-
-const DEFAULT_PAGINATION: AppointmentsPagination = {
+const DEFAULT_PAGINATION = (limit: number): AppointmentsPagination => ({
   page: PAGINATION_DEFAULTS.PAGE,
-  limit: PAGINATION_DEFAULTS.LIMIT,
+  limit,
   total: 0,
   totalPages: 0,
-};
+});
 
 const CANCELLABLE_STATUSES: AppointmentStatus[] = [
   APPOINTMENT_STATUS.PENDING,
@@ -75,32 +66,44 @@ const CANCELLABLE_STATUSES: AppointmentStatus[] = [
 
 export default function AppointmentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<AppointmentFilterValue>('ALL');
   const [cancelModalAppointment, setCancelModalAppointment] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const queryClient = useQueryClient();
 
-  // Reset to page 1 when status filter changes
+  // Reset to page 1 when status filter or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [statusFilter]);
+  }, [statusFilter, rowsPerPage]);
 
   // Fetch appointments with TanStack Query (server-side pagination)
   const {
     data: appointmentsResponse,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery<ListAppointmentsResponse>({
-    queryKey: [...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(), currentPage, statusFilter],
+    queryKey: [...ADMIN_QUERY_KEYS.APPOINTMENTS.LIST(), currentPage, statusFilter, rowsPerPage],
     queryFn: () =>
       adminApi.appointments.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
+    staleTime: 0,
     refetchInterval: 20000,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const cancelMutation = useMutation({
     mutationFn: ({ id, cancellationNote }: { id: string } & CancelAppointmentPayload) =>
@@ -115,7 +118,7 @@ export default function AppointmentsPage() {
   });
 
   const appointments = appointmentsResponse?.appointments ?? [];
-  const pagination = appointmentsResponse?.pagination ?? DEFAULT_PAGINATION;
+  const pagination = appointmentsResponse?.pagination ?? DEFAULT_PAGINATION(rowsPerPage);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -265,46 +268,26 @@ export default function AppointmentsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        {/* Header — same responsive pattern as Horoscopes */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">
-                Appointment Audits
-              </h1>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isLoading}
-                onClick={() => refetch()}
-                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-            <p className="text-sm sm:text-base text-slate-400 mt-1">
-              Real-time monitoring of all appointment bookings
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-            <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
-              <AppointmentStatusFilter
-                value={statusFilter}
-                onChange={setStatusFilter}
-                disabled={isLoading}
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Appointment Audits
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
+          </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Real-time monitoring of all appointment bookings
+          </p>
+          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+            <AppointmentStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
           </div>
         </div>
 
@@ -446,62 +429,20 @@ export default function AppointmentsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Pagination - same pattern as audit-logs */}
-        {!isLoading && !error && pagination.total > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="text-sm text-white font-medium text-center sm:text-left">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination className="w-full overflow-x-auto">
-                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && !error && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
     </AdminLayout>

@@ -254,14 +254,14 @@ export default function EditHoroscopePage() {
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Actions — same layout as daily predictions edit (mobile: primary full width, cancel below) */}
+          <div className="flex flex-col-reverse sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES)}
               disabled={updateMutation.isPending}
-              className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white"
+              className="border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-white w-full sm:w-auto"
             >
               Cancel
             </Button>

@@ -7,13 +7,6 @@ import { adminApi } from '@/lib/admin-api';
 import {
   Badge,
   Button,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -25,17 +18,16 @@ import {
 } from '@jyotish/ui';
 import {
   AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
   type AdminTableColumn,
   KundaliMatchStatusFilter,
   type KundaliMatchFilterValue,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
-import { generatePageNumbers } from '@/utils/helpers';
 import { toast } from 'sonner';
-import { Banknote, User, Eye, RefreshCw } from 'lucide-react';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
+import { Banknote, User, Eye } from 'lucide-react';
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -51,25 +43,36 @@ function formatDateShort(dateString: string) {
 
 export default function KundaliMatchPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<KundaliMatchFilterValue>('ALL');
   const [reviewModalRequest, setReviewModalRequest] = useState<KundaliMatchRequest | null>(null);
   const [viewModalRequest, setViewModalRequest] = useState<KundaliMatchRequest | null>(null);
   const [reviewMessage, setReviewMessage] = useState('');
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: [...ADMIN_QUERY_KEYS.KUNDALI_MATCH.LIST(), currentPage, statusFilter],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: [...ADMIN_QUERY_KEYS.KUNDALI_MATCH.LIST(), currentPage, statusFilter, rowsPerPage],
     queryFn: () =>
       adminApi.kundaliMatch.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter]);
+  }, [statusFilter, rowsPerPage]);
 
   const submitReviewMutation = useMutation({
     mutationFn: ({ id, adminReviewMessage }: { id: string; adminReviewMessage: string }) =>
@@ -86,16 +89,10 @@ export default function KundaliMatchPage() {
   const requests = data?.requests ?? [];
   const pagination = data?.pagination ?? {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
-  const pageNumbers = generatePageNumbers(
-    pagination.page,
-    pagination.totalPages,
-    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-  );
-
   const columns: AdminTableColumn<KundaliMatchRequest>[] = [
     {
       header: 'User',
@@ -204,44 +201,26 @@ export default function KundaliMatchPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        {/* Header — same responsive pattern as Horoscopes */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Kundali Match</h1>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isLoading}
-                onClick={() => refetch()}
-                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-            <p className="text-sm sm:text-base text-slate-400 mt-1">
-              Review requests and send the kundali match report (text) to the user.
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-            <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
-              <KundaliMatchStatusFilter
-                value={statusFilter}
-                onChange={setStatusFilter}
-                disabled={isLoading}
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Kundali Match
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
+          </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Review requests and send the kundali match report (text) to the user.
+          </p>
+          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+            <KundaliMatchStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              disabled={isLoading}
+            />
           </div>
         </div>
 
@@ -266,58 +245,20 @@ export default function KundaliMatchPage() {
           )}
         </div>
 
-        {/* Pagination - same pattern as admin/appointments */}
-        {!isLoading && !error && pagination.total > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="text-sm text-white font-medium text-center sm:text-left">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination className="w-full overflow-x-auto">
-                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {pageNumbers.map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && !error && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
 

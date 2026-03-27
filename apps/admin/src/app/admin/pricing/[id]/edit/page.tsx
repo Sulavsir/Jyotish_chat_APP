@@ -10,7 +10,7 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Input, Label, Textarea, ArrowLeftIcon, Button } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { ADMIN_ROUTES } from '@/constants';
+import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { UpdatePricingPlanRequest } from '@/types';
 import { toast } from 'sonner';
 
@@ -74,9 +74,8 @@ export default function EditPricingPlanPage() {
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: (data: UpdatePricingPlanRequest) => adminApi.pricing.update(planId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pricing-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['pricing-plan', planId] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.PRICING.ALL });
       toast.success('Pricing plan updated successfully');
       router.push(ADMIN_ROUTES.PRICING);
     },
@@ -200,7 +199,9 @@ export default function EditPricingPlanPage() {
                 {errors.coins && (
                   <p className="text-red-400 text-sm mt-1">{errors.coins.message}</p>
                 )}
-                <p className="text-xs text-slate-400 mt-1">Amount of balance included in this plan.</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Amount of balance included in this plan.
+                </p>
               </div>
 
               <div>

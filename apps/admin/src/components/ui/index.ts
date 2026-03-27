@@ -1,5 +1,4 @@
 export { LoadingButton } from './LoadingButton';
-export { Pagination } from './Pagination';
 export { ConfirmDialog } from './ConfirmDialog';
 export {
   Tooltip,

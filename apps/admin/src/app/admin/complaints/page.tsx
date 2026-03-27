@@ -29,21 +29,16 @@ import {
   Textarea,
   Label,
   ImagePreview,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from '@jyotish/ui';
 import {
   AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
   type AdminTableColumn,
   ComplaintStatusFilter,
   type ComplaintFilterValue,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
@@ -52,13 +47,9 @@ import {
   CheckCircle,
   X,
   Clock,
-  RefreshCw,
   MessageSquare,
   Paperclip,
 } from 'lucide-react';
-import { generatePageNumbers } from '@/utils/helpers';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 const STATUS_COLORS: Record<ComplaintStatus, string> = {
   [ComplaintStatus.PENDING]: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
@@ -88,6 +79,7 @@ export default function ComplaintsPage() {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [filterStatus, setFilterStatus] = useState<ComplaintFilterValue>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [resolution, setResolution] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
@@ -100,31 +92,42 @@ export default function ComplaintsPage() {
   const {
     data: complaintsData,
     isLoading,
+    isFetching,
     refetch,
   } = useQuery({
-    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage],
+    queryKey: [ADMIN_QUERY_KEYS.COMPLAINTS.LIST, filterStatus, currentPage, rowsPerPage],
     queryFn: () =>
       adminApi.complaints.getComplaints({
         status: filterStatus === 'ALL' ? undefined : (filterStatus as ComplaintStatus),
-        limit: ITEMS_PER_PAGE,
-        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+        limit: rowsPerPage,
+        offset: (currentPage - 1) * rowsPerPage,
       }),
+    staleTime: 0,
     refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const complaints = complaintsData?.complaints || [];
   const totalComplaints = complaintsData?.total ?? complaints.length;
   const pagination = {
     page: currentPage,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: totalComplaints,
-    totalPages: Math.ceil(totalComplaints / ITEMS_PER_PAGE),
+    totalPages: Math.ceil(totalComplaints / rowsPerPage),
   };
 
-  // Reset to page 1 when filter status changes
+  // Reset to page 1 when filter status or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [filterStatus]);
+  }, [filterStatus, rowsPerPage]);
 
   // Calculate stats using useMemo
   const stats = useMemo(() => {
@@ -390,46 +393,26 @@ export default function ComplaintsPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        {/* Header — same responsive pattern as Appointments / Horoscopes */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">
-                User Complaints
-              </h1>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isLoading}
-                onClick={() => refetch()}
-                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-            <p className="text-sm sm:text-base text-slate-400 mt-1">
-              Real-time monitoring of all user complaints
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-            <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
-              <ComplaintStatusFilter
-                value={filterStatus}
-                onChange={setFilterStatus}
-                disabled={isLoading}
-              />
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              User Complaints
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
+          </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Real-time monitoring of all user complaints
+          </p>
+          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
+            <ComplaintStatusFilter
+              value={filterStatus}
+              onChange={setFilterStatus}
+              disabled={isLoading}
+            />
           </div>
         </div>
 
@@ -488,62 +471,20 @@ export default function ComplaintsPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="text-sm text-white font-medium text-center sm:text-left">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (currentPage - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(currentPage * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination className="w-full overflow-x-auto">
-                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: currentPage,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
 

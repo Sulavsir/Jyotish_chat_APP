@@ -92,19 +92,24 @@ export function AddCoinsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 border border-purple-500/30">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+      <DialogContent
+        className={
+          'max-h-[min(90dvh,90vh)] w-[min(100%,calc(100vw-1.5rem))] max-w-md overflow-y-auto ' +
+          'bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 border border-purple-500/30 ' +
+          'p-4 sm:p-6'
+        }
+      >
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-lg sm:text-xl font-bold text-white break-words pr-6">
             Add Balance (NRs)
           </DialogTitle>
-          <DialogDescription className="text-purple-200/80">
-            Add balance to {userName}
-            {currentBalance !== undefined && `'s account.`}
+          <DialogDescription className="text-purple-200/80 text-sm sm:text-base">
+            Add balance to {userName}&apos;s account.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-1">
             <div>
               <Label className="text-purple-200 mb-2 block">User</Label>
               <p className="text-white font-semibold">{userName}</p>
@@ -129,7 +134,7 @@ export function AddCoinsModal({
                       type="number"
                       min="1"
                       placeholder="Enter amount"
-                      className="bg-slate-800/50 text-white border-purple-500/30"
+                      className="min-h-11 bg-slate-800/50 text-white border-purple-500/30 text-base sm:text-sm"
                       {...field}
                     />
                   </FormControl>
@@ -148,7 +153,7 @@ export function AddCoinsModal({
                     <Input
                       type="text"
                       placeholder="e.g., Promotional bonus, Refund, etc."
-                      className="bg-slate-800/50 text-white border-purple-500/30"
+                      className="min-h-11 bg-slate-800/50 text-white border-purple-500/30 text-base sm:text-sm"
                       {...field}
                     />
                   </FormControl>
@@ -157,24 +162,24 @@ export function AddCoinsModal({
               )}
             />
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:pt-4">
               <Button
                 type="button"
                 onClick={handleClose}
                 variant="outline"
-                className="flex-1 border-purple-500/30 text-purple-200 hover:bg-purple-900/30"
+                className="h-11 w-full shrink-0 border-purple-500/30 text-purple-200 hover:bg-purple-900/30 sm:flex-1"
                 disabled={addCoinsMutation.isPending}
               >
                 Cancel
               </Button>
               <LoadingButton
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white"
+                className="h-11 w-full shrink-0 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white sm:flex-1"
                 disabled={!form.watch('amount')}
                 isLoading={addCoinsMutation.isPending}
                 loadingText="Adding Balance..."
               >
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4 mr-2 shrink-0" />
                 Add Balance
               </LoadingButton>
             </div>

@@ -1,24 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
+import { Search, DocumentIcon } from '@jyotish/ui';
 import {
-  Button,
-  Search,
-  DocumentIcon,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@jyotish/ui';
-import { RefreshCw } from 'lucide-react';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ADMIN_ROWS_PER_PAGE_OPTIONS, PAGINATION_DEFAULTS } from '@/constants';
 import { useAdminSocket, useDebounce } from '@/hooks';
 import { toast } from 'sonner';
+
+/** Max rows loaded when searching (client filter); API has no text search yet. */
+const SEARCH_FETCH_LIMIT = 100;
 
 interface AuditLog {
   id: string;
@@ -42,32 +39,118 @@ interface AuditLog {
   };
 }
 
+function filterLogsBySearch(logs: AuditLog[], search: string): AuditLog[] {
+  if (!search.trim()) return logs;
+  const searchLower = search.toLowerCase();
+  return logs.filter(
+    (log) =>
+      log.action.toLowerCase().includes(searchLower) ||
+      log.resource.toLowerCase().includes(searchLower) ||
+      log.user?.name?.toLowerCase().includes(searchLower) ||
+      log.user?.phone?.includes(search) ||
+      log.astrologer?.name?.toLowerCase().includes(searchLower) ||
+      log.astrologer?.phone?.includes(search) ||
+      log.resourceId?.includes(search)
+  );
+}
+
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [pagination, setPagination] = useState({
+    page: PAGINATION_DEFAULTS.PAGE,
+    limit: PAGINATION_DEFAULTS.LIMIT,
+    total: 0,
+    totalPages: 0,
+  });
+  /** Filtered pool when search is active (from a single `limit: SEARCH_FETCH_LIMIT` fetch). */
+  const [searchPool, setSearchPool] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 400);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const { on, off, isConnected } = useAdminSocket();
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
+  const searchActive = Boolean(debouncedSearch.trim());
 
-  // Real-time updates
+  const fetchServerPage = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response: any = await adminApi.auditLogs.list({
+        page: currentPage,
+        limit: itemsPerPage,
+      });
+      const rawLogs = Array.isArray(response) ? response : (response?.logs ?? []);
+      const pag = response?.pagination;
+      setLogs(rawLogs);
+      setPagination(
+        pag ?? {
+          page: currentPage,
+          limit: itemsPerPage,
+          total: rawLogs.length,
+          totalPages: 1,
+        }
+      );
+    } catch (error) {
+      console.error('Failed to load logs:', error);
+      toast.error('Failed to load audit logs');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, itemsPerPage]);
+
+  const fetchSearchPool = useCallback(async () => {
+    const q = debouncedSearch.trim();
+    if (!q) return;
+    setLoading(true);
+    try {
+      const response: any = await adminApi.auditLogs.list({
+        page: 1,
+        limit: SEARCH_FETCH_LIMIT,
+      });
+      const raw = Array.isArray(response) ? response : (response?.logs ?? []);
+      setSearchPool(filterLogsBySearch(raw, q));
+    } catch (error) {
+      console.error('Failed to load logs:', error);
+      toast.error('Failed to load audit logs');
+    } finally {
+      setLoading(false);
+    }
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    if (searchActive) return;
+    void fetchServerPage();
+  }, [searchActive, fetchServerPage]);
+
+  useEffect(() => {
+    if (!searchActive) return;
+    void fetchSearchPool();
+  }, [searchActive, fetchSearchPool]);
+
+  useLayoutEffect(() => {
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  }, [debouncedSearch, itemsPerPage]);
+
+  useEffect(() => {
+    if (!searchActive) return;
+    const total = searchPool.length;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / itemsPerPage);
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [searchActive, searchPool, itemsPerPage, currentPage]);
+
   useEffect(() => {
     if (!isConnected) return;
 
     const handleNewAuditLog = (newLog: AuditLog) => {
-      console.log('📋 New audit log:', newLog);
-
-      setLogs((prev) => [newLog, ...prev]);
-
-      // Show toast notification for important events
       if (newLog.action.includes('LOGIN') || newLog.action.includes('LOGOUT')) {
         const actor = newLog.user?.name || newLog.astrologer?.name || 'User';
         toast.info(`${actor} ${newLog.action.toLowerCase().replace('_', ' ')}`);
+      }
+      if (!debouncedSearch.trim()) {
+        void fetchServerPage();
       }
     };
 
@@ -76,23 +159,44 @@ export default function AuditLogsPage() {
     return () => {
       off('auditLog:new', handleNewAuditLog);
     };
-  }, [isConnected, on, off]);
+  }, [isConnected, on, off, debouncedSearch, fetchServerPage]);
 
-  const loadLogs = async () => {
-    try {
-      const response: any = await adminApi.auditLogs.list({ limit: 100 });
-      if (Array.isArray(response)) {
-        setLogs(response);
-      } else if (response?.logs) {
-        setLogs(response.logs);
-      }
-    } catch (error) {
-      console.error('Failed to load logs:', error);
-      toast.error('Failed to load audit logs');
-    } finally {
-      setLoading(false);
+  const handlePageSizeChange = (size: number) => {
+    if (size === itemsPerPage) {
+      if (searchActive) void fetchSearchPool();
+      else void fetchServerPage();
+      return;
     }
+    setItemsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
+
+  const handleRefresh = () => {
+    if (searchActive) void fetchSearchPool();
+    else void fetchServerPage();
+  };
+
+  const { displayLogs, displayPagination } = useMemo(() => {
+    if (searchActive) {
+      const total = searchPool.length;
+      const totalPages = total === 0 ? 0 : Math.ceil(total / itemsPerPage);
+      const safePage = totalPages === 0 ? 1 : Math.min(currentPage, Math.max(1, totalPages));
+      const start = (safePage - 1) * itemsPerPage;
+      return {
+        displayLogs: searchPool.slice(start, start + itemsPerPage),
+        displayPagination: {
+          page: safePage,
+          limit: itemsPerPage,
+          total,
+          totalPages,
+        },
+      };
+    }
+    return {
+      displayLogs: logs,
+      displayPagination: pagination,
+    };
+  }, [searchActive, searchPool, logs, pagination, currentPage, itemsPerPage]);
 
   const getActionColor = (action: string) => {
     if (action.includes('CREATE') || action.includes('REGISTER'))
@@ -120,68 +224,6 @@ export default function AuditLogsPage() {
       return `${log.astrologer.name || 'Astrologer'} (${log.astrologer.phone})`;
     }
     return 'System';
-  };
-
-  const filteredLogs = logs.filter((log) => {
-    if (!debouncedSearch) return true;
-    const searchLower = debouncedSearch.toLowerCase();
-    return (
-      log.action.toLowerCase().includes(searchLower) ||
-      log.resource.toLowerCase().includes(searchLower) ||
-      log.user?.name?.toLowerCase().includes(searchLower) ||
-      log.user?.phone?.includes(debouncedSearch) ||
-      log.astrologer?.name?.toLowerCase().includes(searchLower) ||
-      log.astrologer?.phone?.includes(debouncedSearch) ||
-      log.resourceId?.includes(debouncedSearch)
-    );
-  });
-
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
-
-  // Reset to page 1 when search term changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearch]);
-
-  // Generate page numbers for pagination
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const maxVisiblePages = 5;
-
-    if (totalPages <= maxVisiblePages) {
-      // Show all pages if total is less than max
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      // Always show first page
-      pages.push(1);
-
-      if (currentPage > 3) {
-        pages.push('ellipsis-start');
-      }
-
-      // Show pages around current page
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      if (currentPage < totalPages - 2) {
-        pages.push('ellipsis-end');
-      }
-
-      // Always show last page
-      pages.push(totalPages);
-    }
-
-    return pages;
   };
 
   const columns: AdminTableColumn<AuditLog>[] = [
@@ -225,42 +267,26 @@ export default function AuditLogsPage() {
     },
   ];
 
+  const showPagination = !loading && (searchActive ? searchPool.length > 0 : pagination.total > 0);
+
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        {/* Header — same responsive pattern as Horoscopes */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Audit Logs</h1>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={loading}
-                onClick={loadLogs}
-                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-            <p className="text-sm sm:text-base text-slate-400 mt-1">
-              Track all activities and changes on the platform
-              {isConnected && <span className="ml-2 text-green-400">• Live</span>}
-            </p>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Audit Logs
+            </h1>
+            <AdminRefreshButton
+              onClick={handleRefresh}
+              loading={loading}
+              className="shrink-0 self-start"
+            />
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={loading}
-              onClick={loadLogs}
-              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Track all activities and changes on the platform
+            {isConnected && <span className="ml-2 text-green-400">• Live</span>}
+          </p>
         </div>
 
         <div className="w-full">
@@ -274,12 +300,12 @@ export default function AuditLogsPage() {
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
-            data={paginatedLogs}
+            data={displayLogs}
             columns={columns}
             loading={loading}
             keyExtractor={(log) => log.id}
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
+            currentPage={displayPagination.page}
+            itemsPerPage={displayPagination.limit}
             emptyState={{
               icon: <DocumentIcon className="w-20 h-20 text-slate-600" />,
               title: debouncedSearch ? 'No logs found' : 'No audit logs',
@@ -290,49 +316,20 @@ export default function AuditLogsPage() {
           />
         </div>
 
-        {!loading && filteredLogs.length > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <div className="text-sm text-white font-medium text-center sm:text-left">
-                Showing <span className="text-purple-400">{startIndex + 1}</span> to{' '}
-                <span className="text-purple-400">{Math.min(endIndex, filteredLogs.length)}</span>{' '}
-                of <span className="text-purple-400">{filteredLogs.length}</span> entries
-              </div>
-
-              <Pagination className="w-full overflow-x-auto">
-                <PaginationContent className="flex-wrap justify-center gap-1 sm:justify-end">
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {getPageNumbers().map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {showPagination && (
+          <AdminListPaginationSection
+            pagination={{
+              page: displayPagination.page,
+              limit: displayPagination.limit,
+              total: displayPagination.total,
+              totalPages: Math.max(1, displayPagination.totalPages),
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={itemsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={loading}
+          />
         )}
       </div>
     </AdminLayout>

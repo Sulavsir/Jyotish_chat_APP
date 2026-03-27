@@ -5,7 +5,12 @@ import { useDebounce } from '@/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -23,13 +28,6 @@ import {
   Input,
   Label,
   LoadingButton,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
   Search,
   Select,
   SelectContent,
@@ -41,9 +39,14 @@ import {
 import type { QuestionnaireCategory } from '@jyotish/shared';
 import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import { toast } from 'sonner';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
-import { generatePageNumbers } from '@/utils/helpers';
-import { RefreshCw, Plus, Trash2 } from 'lucide-react';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ConfirmDialog } from '@/components/ui';
+import { Plus, Trash2 } from 'lucide-react';
 import React from 'react';
 
 type QuestionnairesListResponse = {
@@ -55,8 +58,6 @@ type QuestionnairesListResponse = {
     totalPages: number;
   };
 };
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 type BroadcastPricingRow = { id: string; questionCount: number; amountNr: string };
 const FIRST_ROW_ID = 'row-1';
@@ -104,11 +105,15 @@ function toFormDefaults(item?: QuestionnaireCategory): QuestionnaireFormValues {
 export default function QuestionnairesManagementPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = React.useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [languageFilter, setLanguageFilter] = React.useState<string>('');
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [rowsPerPage, setRowsPerPage] = React.useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<QuestionnaireCategory | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = React.useState<QuestionnaireCategory | null>(
+    null
+  );
 
   const form = useForm<QuestionnaireFormValues>({
     resolver: zodResolver(questionnaireFormSchema),
@@ -131,15 +136,26 @@ export default function QuestionnairesManagementPage() {
       currentPage,
       debouncedSearch,
       languageFilter,
+      rowsPerPage,
     ],
     queryFn: () =>
       adminApi.website.questionnaires.list({
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
         language: languageFilter || undefined,
       }),
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const { data: pricingData } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.WEBSITE.BROADCAST_QUESTION_PRICING(),
@@ -152,7 +168,9 @@ export default function QuestionnairesManagementPage() {
     const tiers = pricingData?.tiers ?? [];
     if (tiers.length === 0) return;
     const one = tiers.find((t) => t.questionCount === 1);
-    const rest = tiers.filter((t) => t.questionCount !== 1).sort((a, b) => a.questionCount - b.questionCount);
+    const rest = tiers
+      .filter((t) => t.questionCount !== 1)
+      .sort((a, b) => a.questionCount - b.questionCount);
     setPricingRows([
       { id: FIRST_ROW_ID, questionCount: 1, amountNr: one != null ? String(one.amountNr) : '' },
       ...rest.map((t) => ({
@@ -180,14 +198,14 @@ export default function QuestionnairesManagementPage() {
   const categories = listResponse?.categories ?? [];
   const pagination = listResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
   React.useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, languageFilter]);
+  }, [debouncedSearch, languageFilter, rowsPerPage]);
 
   const createMutation = useMutation({
     mutationFn: (values: QuestionnaireFormValues) =>
@@ -244,6 +262,7 @@ export default function QuestionnairesManagementPage() {
         queryKey: ADMIN_QUERY_KEYS.WEBSITE.QUESTIONNAIRES(),
       });
       toast.success('Questionnaire deleted successfully');
+      setCategoryToDelete(null);
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete questionnaire');
@@ -274,61 +293,59 @@ export default function QuestionnairesManagementPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Questionnaires</h1>
-            <p className="text-slate-400">
-              Manage question categories, optional icons, and predefined questions shown on the
-              client dashboard.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Questionnaires
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              disabled={isLoading}
-              size="sm"
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              onClick={openCreate}
-              className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
-            >
-              Add category
-            </Button>
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Manage question categories, optional icons, and predefined questions shown on the client
+            dashboard.
+          </p>
+          <Button
+            onClick={openCreate}
+            className="gap-2 w-full sm:w-auto bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+          >
+            <Plus className="w-4 h-4" />
+            Add category
+          </Button>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="w-full flex-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+          <div className="w-full min-w-0 sm:col-span-1">
             <Search
+              containerClassName="w-full"
               placeholder="Search categories..."
               value={searchTerm}
               onSearch={setSearchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
-          <Select
-            value={languageFilter || 'ALL'}
-            onValueChange={(value) => setLanguageFilter(value === 'ALL' ? '' : value)}
-          >
-            <SelectTrigger className="w-full sm:w-[180px] border-slate-700 bg-slate-900 text-white">
-              <SelectValue placeholder="Language" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All languages</SelectItem>
-              {QUESTIONNAIRE_LANGUAGES.map((lang) => (
-                <SelectItem key={lang} value={lang}>
-                  {lang}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full min-w-0 flex justify-stretch sm:justify-end">
+            <Select
+              value={languageFilter || 'ALL'}
+              onValueChange={(value) => setLanguageFilter(value === 'ALL' ? '' : value)}
+            >
+              <SelectTrigger className="w-full sm:w-[180px] border-slate-700 bg-slate-900 text-white">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All languages</SelectItem>
+                {QUESTIONNAIRE_LANGUAGES.map((lang) => (
+                  <SelectItem key={lang} value={lang}>
+                    {lang}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
@@ -398,13 +415,8 @@ export default function QuestionnairesManagementPage() {
                       <Button
                         variant="outline"
                         className="border-red-500/40 text-red-300 hover:bg-red-500/10 hover:text-red-200"
-                        onClick={() => {
-                          const ok = window.confirm(
-                            `Delete this category?\n\n${item.name}\n\nThis cannot be undone.`
-                          );
-                          if (!ok) return;
-                          deleteMutation.mutate(item.id);
-                        }}
+                        onClick={() => setCategoryToDelete(item)}
+                        disabled={deleteMutation.isPending}
                       >
                         Delete
                       </Button>
@@ -441,83 +453,43 @@ export default function QuestionnairesManagementPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing{' '}
-                <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
 
         {/* Broadcast question pricing (NRs): 1 question + custom rows */}
         <Card className="cosmic-card border border-slate-700 overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-white">Broadcast question pricing (NRs)</CardTitle>
+          <CardHeader className="space-y-1 p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-xl text-white">
+              Broadcast question pricing (NRs)
+            </CardTitle>
             <p className="text-sm text-slate-400">
-              Set NRs per number of questions. First row is for 1 question; add custom rows for
-              more (e.g. 2 questions = 190 NRs, 5 = 400 NRs).
+              Set NRs per number of questions. First row is for 1 question; add custom rows for more
+              (e.g. 2 questions = 190 NRs, 5 = 400 NRs).
             </p>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
             <div className="space-y-3">
-              {pricingRows.map((row, index) => (
+              {pricingRows.map((row) => (
                 <div
                   key={row.id}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-600 bg-slate-800/50 p-3"
+                  className="flex flex-col gap-3 rounded-lg border border-slate-600 bg-slate-800/50 p-3 sm:flex-row sm:flex-wrap sm:items-center"
                 >
                   {row.id === FIRST_ROW_ID ? (
                     <>
-                      <span className="text-slate-300 text-sm w-32">1 question</span>
+                      <span className="text-slate-300 text-sm shrink-0 sm:w-32">1 question</span>
                       <Label className="sr-only">Price (NRs)</Label>
                       <Input
                         type="number"
@@ -528,58 +500,60 @@ export default function QuestionnairesManagementPage() {
                         onChange={(e) =>
                           setPricingRows((prev) =>
                             prev.map((r) =>
-                              r.id === FIRST_ROW_ID
-                                ? { ...r, amountNr: e.target.value }
-                                : r
+                              r.id === FIRST_ROW_ID ? { ...r, amountNr: e.target.value } : r
                             )
                           )
                         }
-                        className="bg-slate-800 border-slate-600 text-white h-9 w-28"
+                        className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-28"
                       />
                     </>
                   ) : (
                     <>
-                      <Label className="text-slate-300 text-sm">No. of questions</Label>
-                      <Input
-                        type="number"
-                        min={2}
-                        max={50}
-                        step={1}
-                        value={row.questionCount}
-                        onChange={(e) => {
-                          const v = parseInt(e.target.value, 10);
-                          if (Number.isNaN(v) || v < 2) return;
-                          setPricingRows((prev) =>
-                            prev.map((r) =>
-                              r.id === row.id
-                                ? { ...r, questionCount: Math.min(50, Math.max(2, v)) }
-                                : r
+                      <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                        <Label className="text-slate-300 text-sm shrink-0">No. of questions</Label>
+                        <Input
+                          type="number"
+                          min={2}
+                          max={50}
+                          step={1}
+                          value={row.questionCount}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (Number.isNaN(v) || v < 2) return;
+                            setPricingRows((prev) =>
+                              prev.map((r) =>
+                                r.id === row.id
+                                  ? { ...r, questionCount: Math.min(50, Math.max(2, v)) }
+                                  : r
+                              )
+                            );
+                          }}
+                          className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-24"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                        <Label className="text-slate-300 text-sm shrink-0">Price (NRs)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="NRs"
+                          value={row.amountNr}
+                          onChange={(e) =>
+                            setPricingRows((prev) =>
+                              prev.map((r) =>
+                                r.id === row.id ? { ...r, amountNr: e.target.value } : r
+                              )
                             )
-                          );
-                        }}
-                        className="bg-slate-800 border-slate-600 text-white h-9 w-24"
-                      />
-                      <Label className="text-slate-300 text-sm">Price (NRs)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        placeholder="NRs"
-                        value={row.amountNr}
-                        onChange={(e) =>
-                          setPricingRows((prev) =>
-                            prev.map((r) =>
-                              r.id === row.id ? { ...r, amountNr: e.target.value } : r
-                            )
-                          )
-                        }
-                        className="bg-slate-800 border-slate-600 text-white h-9 w-28"
-                      />
+                          }
+                          className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-28"
+                        />
+                      </div>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="text-slate-400 hover:text-red-400"
+                        className="self-end text-slate-400 hover:text-red-400 sm:self-center"
                         onClick={() =>
                           setPricingRows((prev) => prev.filter((r) => r.id !== row.id))
                         }
@@ -592,12 +566,12 @@ export default function QuestionnairesManagementPage() {
                 </div>
               ))}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="border-slate-600 text-slate-300"
+                className="w-full border-slate-600 text-slate-300 sm:w-auto"
                 onClick={() => {
                   const maxCount =
                     pricingRows.length === 0
@@ -620,6 +594,7 @@ export default function QuestionnairesManagementPage() {
               <LoadingButton
                 loading={pricingMutation.isPending}
                 loadingText="Saving..."
+                className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
                 onClick={() => {
                   const tiers = pricingRows.map((r) => {
                     const v = parseInt(r.amountNr, 10);
@@ -641,7 +616,6 @@ export default function QuestionnairesManagementPage() {
                   }
                   pricingMutation.mutate(tiers);
                 }}
-                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
               >
                 Save pricing
               </LoadingButton>
@@ -658,16 +632,16 @@ export default function QuestionnairesManagementPage() {
             }
           }}
         >
-          <DialogContent className="max-w-2xl bg-slate-900 border-slate-700 text-white">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold text-white">
+          <DialogContent className="flex max-h-[min(90vh,900px)] w-[calc(100vw-2rem)] flex-col overflow-hidden bg-slate-900 border-slate-700 text-white sm:max-w-2xl">
+            <DialogHeader className="shrink-0">
+              <DialogTitle className="text-lg sm:text-xl font-semibold text-white">
                 {editing ? 'Edit Questionnaire' : 'Add Questionnaire'}
               </DialogTitle>
             </DialogHeader>
 
             <form
               onSubmit={form.handleSubmit(handleSubmit)}
-              className="space-y-6 max-h-[65vh] overflow-y-auto pr-1"
+              className="flex min-h-0 flex-1 flex-col space-y-6 overflow-y-auto pr-1"
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2 space-y-2">
@@ -758,8 +732,8 @@ export default function QuestionnairesManagementPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
                     <Label>Predefined Questions</Label>
                     <p className="text-xs text-slate-300">
                       These questions will be suggested to clients under this category.
@@ -769,7 +743,7 @@ export default function QuestionnairesManagementPage() {
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="border-slate-700 text-slate-200 hover:bg-slate-800"
+                    className="shrink-0 self-start border-slate-700 text-slate-200 hover:bg-slate-800 sm:self-auto"
                     onClick={() =>
                       append({
                         text: '',
@@ -783,12 +757,14 @@ export default function QuestionnairesManagementPage() {
 
                 <div className="space-y-3">
                   {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2">
-                      <div className="text-xs text-slate-400 w-5 text-right">{index + 1}.</div>
+                    <div key={field.id} className="flex min-w-0 items-center gap-2">
+                      <div className="w-5 shrink-0 text-right text-xs text-slate-400">
+                        {index + 1}.
+                      </div>
                       <Input
                         {...form.register(`questions.${index}.text` as const)}
                         placeholder="Type a predefined question..."
-                        className="flex-1 bg-slate-900/80 border-slate-700 text-sm"
+                        className="min-w-0 flex-1 bg-slate-900/80 border-slate-700 text-sm"
                       />
                       <Button
                         type="button"
@@ -814,11 +790,11 @@ export default function QuestionnairesManagementPage() {
                 )}
               </div>
 
-              <DialogFooter className="mt-4">
+              <DialogFooter className="mt-4 shrink-0 border-t border-slate-700/80 pt-4">
                 <Button
                   type="button"
                   variant="outline"
-                  className="border-slate-700"
+                  className="w-full border-slate-700 sm:w-auto"
                   onClick={() => setDialogOpen(false)}
                   disabled={isSubmitting}
                 >
@@ -827,7 +803,7 @@ export default function QuestionnairesManagementPage() {
                 <LoadingButton
                   type="submit"
                   loading={isSubmitting}
-                  className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                  className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
                 >
                   {editing ? 'Save changes' : 'Create questionnaire'}
                 </LoadingButton>
@@ -835,6 +811,23 @@ export default function QuestionnairesManagementPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          isOpen={categoryToDelete !== null}
+          onClose={() => {
+            if (!deleteMutation.isPending) setCategoryToDelete(null);
+          }}
+          onConfirm={() => {
+            if (categoryToDelete) deleteMutation.mutate(categoryToDelete.id);
+          }}
+          title="Delete this category?"
+          description={categoryToDelete ? `"${categoryToDelete.name}". This cannot be undone.` : ''}
+          confirmText="Delete"
+          cancelText="Cancel"
+          isDestructive
+          isLoading={deleteMutation.isPending}
+          icon={<Trash2 className="w-6 h-6 text-red-400" />}
+        />
       </div>
     </AdminLayout>
   );

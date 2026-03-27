@@ -1,17 +1,30 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, DateInput, Label } from '@jyotish/ui';
-import { AdminTable, type AdminTableColumn } from '@/components/admin';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+} from '@/components/admin';
+import { ConfirmDialog } from '@/components/ui';
 import { getRashiDisplayName } from '@jyotish/shared';
-import { ADMIN_ROUTES, ADMIN_QUERY_KEYS, HOROSCOPE_CATEGORIES, ZODIAC_SIGNS } from '@/constants';
+import {
+  ADMIN_ROUTES,
+  ADMIN_QUERY_KEYS,
+  HOROSCOPE_CATEGORIES,
+  ZODIAC_SIGNS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+} from '@/constants';
 import type { AdminHoroscopeEntry, HoroscopeCategory, HoroscopeLanguage, ListHoroscopesParams } from '@/types';
 import { toast } from 'sonner';
-import { RefreshCw, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 
 export default function AdminHoroscopesPage() {
   const router = useRouter();
@@ -22,6 +35,8 @@ export default function AdminHoroscopesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
+  const [horoscopeToDelete, setHoroscopeToDelete] = useState<AdminHoroscopeEntry | null>(null);
 
   const listParams = useMemo<ListHoroscopesParams>(() => ({
     category: categoryFilter,
@@ -30,19 +45,36 @@ export default function AdminHoroscopesPage() {
     ...(dateFrom && { dateFrom }),
     ...(dateTo && { dateTo }),
     page,
-    limit: 20,
-  }), [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, page]);
+    limit: rowsPerPage,
+  }), [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, page, rowsPerPage]);
 
-  const { data, isLoading, refetch } = useQuery({
+  useEffect(() => {
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  }, [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, rowsPerPage]);
+
+  /** Override global staleTime (60s) so revisiting the same page/limit still hits the API. */
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.LIST(listParams),
     queryFn: () => adminApi.horoscopes.list(listParams),
+    staleTime: 0,
+    placeholderData: keepPreviousData,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => adminApi.horoscopes.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.ALL });
       toast.success('Horoscope deleted');
+      setHoroscopeToDelete(null);
     },
     onError: (e: Error) => toast.error(e?.message || 'Delete failed'),
   });
@@ -105,9 +137,7 @@ export default function AdminHoroscopesPage() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              if (confirm('Delete this horoscope entry?')) deleteMutation.mutate(row.id);
-            }}
+            onClick={() => setHoroscopeToDelete(row)}
             disabled={deleteMutation.isPending}
             className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
             title="Delete"
@@ -123,44 +153,27 @@ export default function AdminHoroscopesPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-2xl sm:text-3xl font-bold cosmic-text truncate">Horoscopes</h1>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isLoading}
-                onClick={() => refetch()}
-                className="border-slate-700 text-white hover:bg-slate-800 shrink-0 w-auto sm:hidden"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-            <p className="text-sm sm:text-base text-slate-400 mt-1">
-              Manage daily, weekly, monthly and yearly horoscope content by Rashi
-            </p>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isLoading}
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Horoscopes
+            </h1>
+            <AdminRefreshButton
               onClick={() => refetch()}
-              className="hidden sm:inline-flex border-slate-700 text-white hover:bg-slate-800 w-full sm:w-auto"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE)}
-              className="gap-2 w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4" />
-              Add Horoscope
-            </Button>
+              loading={isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
+          <p className="text-sm sm:text-base text-slate-400">
+            Manage daily, weekly, monthly and yearly horoscope content by Rashi
+          </p>
+          <Button
+            onClick={() => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE)}
+            className="gap-2 w-full sm:w-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Add Horoscope
+          </Button>
         </div>
 
         <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end">
@@ -243,32 +256,50 @@ export default function AdminHoroscopesPage() {
           />
         </div>
 
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex flex-wrap justify-center items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="border-slate-600 text-white"
-            >
-              Previous
-            </Button>
-            <span className="flex items-center px-2 sm:px-4 text-slate-400 text-xs sm:text-sm text-center">
-              Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= pagination.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-              className="border-slate-600 text-white"
-            >
-              Next
-            </Button>
-          </div>
+        {!isLoading && pagination && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={horoscopeToDelete !== null}
+        onClose={() => {
+          if (!deleteMutation.isPending) setHoroscopeToDelete(null);
+        }}
+        onConfirm={() => {
+          if (horoscopeToDelete) deleteMutation.mutate(horoscopeToDelete.id);
+        }}
+        title="Delete horoscope entry?"
+        description={
+          horoscopeToDelete
+            ? `${new Date(horoscopeToDelete.date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })} · ${getRashiDisplayName(
+                horoscopeToDelete.zodiacSign,
+                (horoscopeToDelete.language ?? 'NEPALI') as 'NEPALI' | 'HINDI' | 'ENGLISH'
+              )} · ${horoscopeToDelete.category}. This cannot be undone.`
+            : ''
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive
+        isLoading={deleteMutation.isPending}
+        icon={<Trash2 className="w-6 h-6 text-red-400" />}
+      />
     </AdminLayout>
   );
 }

@@ -14,11 +14,11 @@ import {
   MoneyIcon,
   DocumentIcon,
 } from '@jyotish/ui';
-import { ClipboardList, RefreshCw } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
 import type { DashboardStats } from '@/types';
 import { useAdminSocket } from '@/hooks';
-import { LoadingButton } from '@/components/ui/LoadingButton';
+import { AdminRefreshButton } from '@/components/admin';
 
 /** Must match statCards length when stats are loaded */
 const DASHBOARD_STAT_CARD_COUNT = 12;
@@ -402,17 +402,11 @@ export default function DashboardPage() {
               Welcome back! Here's what's happening today.
             </p>
           </div>
-          <LoadingButton
+          <AdminRefreshButton
             onClick={() => refetch()}
-            variant="outline"
-            size="sm"
-            isLoading={isRefetching}
-            loadingText="Refreshing"
-            className="border-slate-700 text-white hover:bg-slate-800 self-start sm:self-auto"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </LoadingButton>
+            loading={isRefetching}
+            className="self-start sm:self-auto"
+          />
         </div>
 
         {/* Stats Grid */}

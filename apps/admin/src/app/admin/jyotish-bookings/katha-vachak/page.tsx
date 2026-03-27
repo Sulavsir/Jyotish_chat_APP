@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import { useDebounce } from '@/hooks';
 import { adminApi } from '@/lib/admin-api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -19,24 +24,20 @@ import {
   Search,
   Textarea,
   LoadingButton,
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
   Avatar,
   AvatarImage,
   AvatarFallback,
 } from '@jyotish/ui';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
-import { AdminTable, type AdminTableColumn, BookingStatusFilter, type BookingStatusFilterValue } from '@/components/admin';
+import {
+  AdminTable,
+  AdminListPaginationSection,
+  AdminRefreshButton,
+  type AdminTableColumn,
+  BookingStatusFilter,
+  type BookingStatusFilterValue,
+} from '@/components/admin';
 import { formatAdminDate, getImageUrl } from '@/utils/helpers';
-import { generatePageNumbers } from '@/utils/helpers';
-import { RefreshCw } from 'lucide-react';
-
-const ITEMS_PER_PAGE = PAGINATION_DEFAULTS.LIMIT;
 
 interface JyotishBookingsResponse {
   bookings: Array<
@@ -67,23 +68,32 @@ interface JyotishBookingsResponse {
 
 type ActionState =
   | { open: false }
-  | { open: true; id: string; status: JyotishBookingStatus.APPROVED | JyotishBookingStatus.REJECTED };
+  | {
+      open: true;
+      id: string;
+      status: JyotishBookingStatus.APPROVED | JyotishBookingStatus.REJECTED;
+    };
 
 function statusBadge(status: JyotishBookingStatus) {
   if (status === JyotishBookingStatus.APPROVED) {
-    return <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Approved</Badge>;
+    return (
+      <Badge className="bg-green-500/15 text-green-300 border border-green-500/30">Approved</Badge>
+    );
   }
   if (status === JyotishBookingStatus.REJECTED) {
     return <Badge className="bg-red-500/15 text-red-300 border border-red-500/30">Rejected</Badge>;
   }
-  return <Badge className="bg-yellow-500/15 text-yellow-200 border border-yellow-500/30">Pending</Badge>;
+  return (
+    <Badge className="bg-yellow-500/15 text-yellow-200 border border-yellow-500/30">Pending</Badge>
+  );
 }
 
 export default function KathaVachakBookingsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
@@ -97,31 +107,42 @@ export default function KathaVachakBookingsPage() {
     queryKey: [
       ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
       currentPage,
-      searchTerm,
+      debouncedSearch,
       statusFilter,
+      rowsPerPage,
     ],
     queryFn: () =>
       adminApi.jyotishBookings.list({
         type: JyotishBookingType.KATHA_VACHAK,
         page: currentPage,
-        limit: ITEMS_PER_PAGE,
+        limit: rowsPerPage,
         search: debouncedSearch || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
       }),
+    staleTime: 0,
   });
+
+  const handlePageSizeChange = (size: number) => {
+    if (size === rowsPerPage) {
+      void refetch();
+      return;
+    }
+    setRowsPerPage(size);
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const bookings = bookingsResponse?.bookings ?? [];
   const pagination = bookingsResponse?.pagination || {
     page: 1,
-    limit: ITEMS_PER_PAGE,
+    limit: rowsPerPage,
     total: 0,
     totalPages: 0,
   };
 
-  // Reset to page 1 when search term or status filter changes
+  // Reset to page 1 when search term, status filter, or rows per page changes
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, rowsPerPage]);
 
   const updateStatusMutation = useMutation({
     mutationFn: (input: {
@@ -262,37 +283,41 @@ export default function KathaVachakBookingsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Katha Vachak Requests</h1>
-            <p className="text-slate-400">Approve or reject Katha Vachak booking requests</p>
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">
+              Katha Vachak Requests
+            </h1>
+            <AdminRefreshButton
+              onClick={() => refetch()}
+              loading={isLoading || isFetching}
+              className="shrink-0 self-start"
+            />
           </div>
-          <div className="flex items-center gap-3">
+          <p className="text-sm sm:text-base text-slate-400">
+            Approve or reject Katha Vachak booking requests
+          </p>
+          <div className="w-full [&_button]:w-full sm:w-auto sm:[&_button]:w-auto">
             <BookingStatusFilter
               value={statusFilter}
               onChange={setStatusFilter}
               disabled={isLoading}
             />
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isLoading}
-              size="sm"
-              className="border-slate-700 text-white hover:bg-slate-800"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
           </div>
         </div>
 
-        <Search
-          placeholder="Search by reason, remarks, client....."
-          value={searchTerm}
-          onSearch={setSearchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="w-full min-w-0">
+            <Search
+              containerClassName="w-full"
+              placeholder="Search by reason, remarks, client....."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">
           <AdminTable
@@ -303,7 +328,12 @@ export default function KathaVachakBookingsPage() {
             showSerialNumber
             emptyState={{
               icon: (
-                <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-12 h-12 text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -312,7 +342,9 @@ export default function KathaVachakBookingsPage() {
                   />
                 </svg>
               ),
-              title: debouncedSearch ? 'No Katha Vachak booking requests found' : 'No Katha Vachak booking requests',
+              title: debouncedSearch
+                ? 'No Katha Vachak booking requests found'
+                : 'No Katha Vachak booking requests',
               description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Requests submitted by clients will appear here.',
@@ -320,58 +352,20 @@ export default function KathaVachakBookingsPage() {
           />
         </div>
 
-        {/* Pagination */}
-        {!isLoading && pagination.totalPages > 0 && (
-          <div className="rounded-xl p-4">
-            <div className="flex flex-col gap-2 items-center justify-between">
-              <div className="text-sm text-white font-medium">
-                Showing <span className="text-purple-400">
-                  {pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1}
-                </span> to{' '}
-                <span className="text-purple-400">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span> of{' '}
-                <span className="text-purple-400">{pagination.total}</span> entries
-              </div>
-
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-
-                  {generatePageNumbers(
-                    currentPage,
-                    pagination.totalPages,
-                    PAGINATION_DEFAULTS.MAX_VISIBLE_PAGES
-                  ).map((page, index) => (
-                    <PaginationItem key={index}>
-                      {typeof page === 'number' ? (
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      ) : (
-                        <PaginationEllipsis />
-                      )}
-                    </PaginationItem>
-                  ))}
-
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                      disabled={currentPage === pagination.totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </div>
+        {!isLoading && (
+          <AdminListPaginationSection
+            pagination={{
+              page: pagination.page,
+              limit: pagination.limit,
+              total: pagination.total,
+              totalPages: pagination.totalPages,
+            }}
+            onPageChange={setCurrentPage}
+            pageSize={rowsPerPage}
+            pageSizeOptions={ADMIN_ROWS_PER_PAGE_OPTIONS}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={isFetching}
+          />
         )}
 
         <Dialog
@@ -380,14 +374,16 @@ export default function KathaVachakBookingsPage() {
             if (!open) setAction({ open: false });
           }}
         >
-          <DialogContent className="bg-slate-900 border-slate-700 text-white">
+          <DialogContent className="flex max-h-[min(90vh,800px)] w-[calc(100vw-2rem)] flex-col overflow-y-auto bg-slate-900 border-slate-700 text-white sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-white">
-                {action.open && action.status === JyotishBookingStatus.APPROVED ? 'Approve request' : 'Reject request'}
+                {action.open && action.status === JyotishBookingStatus.APPROVED
+                  ? 'Approve request'
+                  : 'Reject request'}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label className="text-white">Admin notes (optional)</Label>
               <Textarea
                 value={adminNotes}
@@ -398,17 +394,25 @@ export default function KathaVachakBookingsPage() {
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="outline" onClick={() => setAction({ open: false })} className="border-slate-700">
+              <Button
+                variant="outline"
+                onClick={() => setAction({ open: false })}
+                className="w-full border-slate-700 sm:w-auto"
+              >
                 Cancel
               </Button>
               <LoadingButton
                 onClick={() => {
                   if (!action.open) return;
-                  updateStatusMutation.mutate({ id: action.id, status: action.status, adminNotes: adminNotes.trim() || undefined });
+                  updateStatusMutation.mutate({
+                    id: action.id,
+                    status: action.status,
+                    adminNotes: adminNotes.trim() || undefined,
+                  });
                 }}
                 loading={updateStatusMutation.isPending}
                 loadingText="Saving..."
-                className="bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
+                className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
               >
                 Confirm
               </LoadingButton>
@@ -419,4 +423,3 @@ export default function KathaVachakBookingsPage() {
     </AdminLayout>
   );
 }
-

@@ -31,6 +31,9 @@ export const PAGINATION_DEFAULTS = {
   MAX_VISIBLE_PAGES: 5,
 } as const;
 
+/** Options for admin "rows per page" selectors (shared across list pages). */
+export const ADMIN_ROWS_PER_PAGE_OPTIONS = [10, 25, 50, 100] as const;
+
 /** Debounce for admin date filters (ms) — avoids refetch on every keystroke */
 export const ADMIN_DATE_FILTER_DEBOUNCE_MS = 400;
 
