@@ -43,11 +43,10 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const { data: chatUnreadNav = 0 } = useQuery({
     queryKey: QUERY_KEYS.CHAT.UNREAD_COUNT,
     queryFn: () => getUnreadCount(),
-    staleTime: 15 * 1000,
-    refetchOnWindowFocus: true,
+    /** Updates via socket (invalidate on CHAT_RECEIVE) + setQueryData after mark-read; avoid polling */
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: true,
-    /** Backup if a socket event is missed */
-    refetchInterval: 45 * 1000,
     enabled: !!user?.id && user?.role === USER_ROLES.ASTROLOGER,
   });
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);

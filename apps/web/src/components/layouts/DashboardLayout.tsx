@@ -6,7 +6,8 @@
 
 'use client';
 
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -25,7 +26,8 @@ import {
 import { AppSidebar } from '@jyotish/ui';
 import { AppLogo } from '@/components/ui/AppLogo';
 import { useAuth, useRequireAuth } from '@/hooks';
-import { ROUTES } from '@/constants';
+import { ROUTES, QUERY_KEYS, USER_ROLES } from '@/constants';
+import { getUnreadCount } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
 import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
@@ -106,25 +108,51 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
 
   const showProfileAlert = Boolean(user && (!user.profileCompleted || !user.hasPassword));
 
-  const sidebarItems = [
-    { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: <LayoutDashboard className="h-4 w-4" /> },
-    { name: 'Astrologers', href: ROUTES.ASTROLOGERS, icon: <Sparkles className="h-4 w-4" /> },
-    { name: 'Chat', href: ROUTES.CHAT, icon: <MessageCircle className="h-4 w-4" /> },
-    { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: <CalendarCheck className="h-4 w-4" /> },
-    { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: <Star className="h-4 w-4" /> },
-    { name: 'Pricing', href: ROUTES.PRICING, icon: <Wallet className="h-4 w-4" /> },
-    {
-      name: 'Transactions History',
-      href: ROUTES.TRANSACTIONS,
-      icon: <Wallet className="h-4 w-4" />,
-    },
-    {
-      name: 'Profile',
-      href: ROUTES.PROFILE,
-      icon: <User className="h-4 w-4" />,
-      badge: <ProfileBadge showProfileAlert={showProfileAlert} />,
-    },
-  ];
+  const { data: chatUnreadNav = 0 } = useQuery({
+    queryKey: QUERY_KEYS.CHAT.UNREAD_COUNT,
+    queryFn: () => getUnreadCount(),
+    /** Updates via socket (invalidate on CHAT_RECEIVE) + setQueryData after mark-read; avoid polling */
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    enabled: !!user?.id && user?.role === USER_ROLES.CLIENT,
+  });
+
+  const sidebarItems = useMemo(
+    () => [
+      { name: 'Dashboard', href: ROUTES.DASHBOARD, icon: <LayoutDashboard className="h-4 w-4" /> },
+      { name: 'Astrologers', href: ROUTES.ASTROLOGERS, icon: <Sparkles className="h-4 w-4" /> },
+      {
+        name: 'Chat',
+        href: ROUTES.CHAT,
+        icon: <MessageCircle className="h-4 w-4" />,
+        badge:
+          chatUnreadNav > 0 ? (
+            <span
+              className="ml-auto flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-1 ring-white/10"
+              aria-hidden
+            >
+              {chatUnreadNav > 99 ? '99+' : chatUnreadNav}
+            </span>
+          ) : undefined,
+      },
+      { name: 'My Bookings', href: ROUTES.MY_BOOKINGS, icon: <CalendarCheck className="h-4 w-4" /> },
+      { name: 'Horoscope', href: ROUTES.HOROSCOPE, icon: <Star className="h-4 w-4" /> },
+      { name: 'Pricing', href: ROUTES.PRICING, icon: <Wallet className="h-4 w-4" /> },
+      {
+        name: 'Transactions History',
+        href: ROUTES.TRANSACTIONS,
+        icon: <Wallet className="h-4 w-4" />,
+      },
+      {
+        name: 'Profile',
+        href: ROUTES.PROFILE,
+        icon: <User className="h-4 w-4" />,
+        badge: <ProfileBadge showProfileAlert={showProfileAlert} />,
+      },
+    ],
+    [chatUnreadNav, showProfileAlert]
+  );
 
   const handleLogoutClick = () => setIsLogoutModalOpen(true);
 

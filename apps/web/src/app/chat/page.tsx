@@ -774,6 +774,8 @@ export default function ChatPage() {
         await chatService.markMessagesAsRead(chatId);
         // Update unread count in chat list
         setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unreadCount: 0 } : c)));
+        const count = await chatService.getUnreadCount();
+        queryClient.setQueryData(QUERY_KEYS.CHAT.UNREAD_COUNT, count);
       } catch (error) {
         console.error('Error marking messages as read:', error);
       }
@@ -885,6 +887,8 @@ export default function ChatPage() {
       await chatService.markMessagesAsRead(activeChatId);
       // Update unread count in chat list
       setChats((prev) => prev.map((c) => (c.id === activeChatId ? { ...c, unreadCount: 0 } : c)));
+      const count = await chatService.getUnreadCount();
+      queryClient.setQueryData(QUERY_KEYS.CHAT.UNREAD_COUNT, count);
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
