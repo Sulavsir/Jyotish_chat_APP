@@ -88,6 +88,9 @@ function attachListenersIfNeeded(socket: Socket) {
     // Browser notifications must only show for the actual receiver.
     const currentUserId = useAuthStore.getState().user?.id;
     if (currentUserId && message.receiverId === currentUserId) {
+      if (sharedQueryClient) {
+        void sharedQueryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.UNREAD_COUNT });
+      }
       if (
         typeof globalThis.Notification !== 'undefined' &&
         globalThis.Notification.permission === 'granted'

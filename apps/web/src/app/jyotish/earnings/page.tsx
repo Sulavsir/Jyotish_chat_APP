@@ -61,14 +61,14 @@ export default function JyotishEarningsPage() {
   const { isCheckingAccess } = useRequireAuth({ requiredRole: USER_ROLES.ASTROLOGER });
   const [page, setPage] = useState(0);
   const [dateRange, setDateRange] = useState(getAllTimeDateRange);
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   const fromParam = dateRange.from || undefined;
   const toParam = dateRange.to || undefined;
 
   useEffect(() => {
     setPage(0);
-  }, [fromParam, toParam]);
+  }, [fromParam, toParam, limit]);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: QUERY_KEYS.JYOTISH_EARNINGS.LIST({
@@ -91,6 +91,12 @@ export default function JyotishEarningsPage() {
     () => (data?.total != null ? Math.max(1, Math.ceil(data.total / limit)) : 1),
     [data?.total, limit]
   );
+
+  useEffect(() => {
+    if (data?.total == null || data.total <= 0) return;
+    const maxPageIdx = Math.max(0, Math.ceil(data.total / limit) - 1);
+    if (page > maxPageIdx) setPage(maxPageIdx);
+  }, [data?.total, limit, page]);
 
   const earningsColumns: JyotishDataTableColumn<AstrologerCoinEarningRow>[] = useMemo(
     () => [
@@ -250,7 +256,15 @@ export default function JyotishEarningsPage() {
                     />
                   </div>
                   {data && data.total > 0 && (
-                    <JyotishPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+                    <JyotishPagination
+                      page={page}
+                      totalPages={totalPages}
+                      onPageChange={setPage}
+                      totalItems={data.total}
+                      pageSize={limit}
+                      pageSizeOptions={[10, 20, 50, 100]}
+                      onPageSizeChange={setLimit}
+                    />
                   )}
                 </>
               ))}

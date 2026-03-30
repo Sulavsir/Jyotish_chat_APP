@@ -80,6 +80,8 @@ export const QUERY_KEYS = {
   CHAT: {
     CONVERSATIONS: ['chat', 'conversations'] as const,
     HISTORY: (userId: string) => ['chat', 'history', userId] as const,
+    /** GET /api/v1/chat/unread-count — total unread messages for current user (jyotish nav badge) */
+    UNREAD_COUNT: ['chat', 'unread-count'] as const,
   },
 
   // Client Chat History (astrologer-only, anonymous aggregated)

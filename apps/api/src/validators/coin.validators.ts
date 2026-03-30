@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { parseEarningsDateQueryParam } from '../utils/date-query.utils';
 
 /**
  * Validator for adding coins
@@ -99,17 +100,19 @@ export const updatePlatformCoinRatesSchema = z
     message: 'At least one rate must be provided',
   });
 
-const optionalDateString = z
-  .string()
-  .optional()
-  .transform((val) => (val ? new Date(val) : undefined));
-
 /**
  * Validator for astrologer earnings list query
+ * `from` / `to` as YYYY-MM-DD use inclusive UTC day range (see parseEarningsDateQueryParam).
  */
 export const getAstrologerEarningsQuerySchema = z.object({
-  from: optionalDateString,
-  to: optionalDateString,
+  from: z
+    .string()
+    .optional()
+    .transform((val) => parseEarningsDateQueryParam(val, 'start')),
+  to: z
+    .string()
+    .optional()
+    .transform((val) => parseEarningsDateQueryParam(val, 'end')),
   limit: z
     .string()
     .optional()
@@ -124,6 +127,8 @@ export const getAstrologerEarningsQuerySchema = z.object({
     .enum(['CHAT_MESSAGE', 'BROADCAST_MESSAGE', 'APPOINTMENT', 'KUNDALI_REVIEW'])
     .optional(),
 });
+
+export type GetAstrologerEarningsQuery = z.infer<typeof getAstrologerEarningsQuerySchema>;
 
 /**
  * Validator for admin list astrologers with coin earnings query

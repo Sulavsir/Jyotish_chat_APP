@@ -95,8 +95,17 @@ export const deleteMessage = async (messageId: string): Promise<void> => {
  * Get unread message count
  */
 export const getUnreadCount = async (): Promise<number> => {
-  const response = await apiClient.get<{ count: number }>(API_ENDPOINTS.CHAT.UNREAD_COUNT);
-  return response?.count || 0;
+  const response = await apiClient.get<
+    | { count: number }
+    | { message?: string; data?: { count: number } }
+  >(API_ENDPOINTS.CHAT.UNREAD_COUNT);
+  if (response && typeof response === 'object') {
+    if ('count' in response && typeof response.count === 'number') return response.count;
+    if ('data' in response && response.data && typeof response.data.count === 'number') {
+      return response.data.count;
+    }
+  }
+  return 0;
 };
 
 /**

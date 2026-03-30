@@ -8,6 +8,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   MessageSquare,
@@ -20,7 +21,8 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth, useRequireAuth, useAstrologerPresenceSync } from '@/hooks';
-import { ROUTES, USER_ROLES } from '@/constants';
+import { ROUTES, USER_ROLES, QUERY_KEYS } from '@/constants';
+import { getUnreadCount } from '@/services/chat.service';
 import { cn } from '@/lib/utils';
 import { LogoutModal } from '@/components/modals';
 import { ProfileDropdown, NotificationBell, AppLogo } from '@/components/ui';
@@ -37,6 +39,17 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const pathname = usePathname();
   const { user } = useRequireAuth();
   const { handleLogout } = useAuth();
+
+  const { data: chatUnreadNav = 0 } = useQuery({
+    queryKey: QUERY_KEYS.CHAT.UNREAD_COUNT,
+    queryFn: () => getUnreadCount(),
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    /** Backup if a socket event is missed */
+    refetchInterval: 45 * 1000,
+    enabled: !!user?.id && user?.role === USER_ROLES.ASTROLOGER,
+  });
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [requestsDrawerOpen, setRequestsDrawerOpen] = useState(false);
@@ -125,6 +138,8 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
             >
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
+                const showChatBadge =
+                  item.href === ROUTES.JYOTISH_CHAT && chatUnreadNav > 0;
                 return (
                   <Link
                     key={item.href}
@@ -136,7 +151,17 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
                         : 'border-transparent text-[#a8a29e] hover:bg-white/[0.04] hover:text-[#fafaf9]'
                     )}
                   >
-                    {item.icon}
+                    <span className="relative inline-flex shrink-0">
+                      {item.icon}
+                      {showChatBadge && (
+                        <span
+                          className="absolute -right-2 -top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[10px] font-bold leading-none text-white shadow-md ring-2 ring-[#0f0e14]"
+                          aria-hidden
+                        >
+                          {chatUnreadNav > 99 ? '99+' : chatUnreadNav}
+                        </span>
+                      )}
+                    </span>
                     <span className="max-w-[140px] truncate lg:max-w-none">{item.name}</span>
                   </Link>
                 );
@@ -208,6 +233,8 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
         <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-white/[0.06] bg-[#0f0e14]/90 backdrop-blur-xl md:hidden">
           {navItems.slice(0, 4).map((item) => {
             const isActive = pathname === item.href;
+            const showChatBadge =
+              item.href === ROUTES.JYOTISH_CHAT && chatUnreadNav > 0;
             return (
               <Link
                 key={item.name}
@@ -218,7 +245,17 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
                 )}
               >
                 {item.icon && (
-                  <span className="flex h-5 w-5 items-center justify-center">{item.icon}</span>
+                  <span className="relative flex h-5 w-5 items-center justify-center">
+                    {item.icon}
+                    {showChatBadge && (
+                      <span
+                        className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-[#0f0e14]"
+                        aria-hidden
+                      >
+                        {chatUnreadNav > 99 ? '99+' : chatUnreadNav}
+                      </span>
+                    )}
+                  </span>
                 )}
                 <span className="text-[10px] font-medium">{item.name}</span>
               </Link>

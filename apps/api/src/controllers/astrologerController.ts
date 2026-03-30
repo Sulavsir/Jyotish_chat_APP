@@ -28,6 +28,7 @@ import { getAstrologerDashboardStats } from '../services/astrologerDashboard.ser
 import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { getClientIp } from '../utils/request-utils';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
+import type { GetAstrologerEarningsQuery } from '../validators/coin.validators';
 
 /**
  * Astrologer login with phone/email and password
@@ -296,21 +297,15 @@ export async function getMyEarnings(req: AuthRequest, res: Response, next: NextF
     if (!astrologerId) {
       throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
-    const filters = req.query as {
-      from?: string;
-      to?: string;
-      limit?: string;
-      offset?: string;
-      source?: 'CHAT_MESSAGE' | 'BROADCAST_MESSAGE' | 'APPOINTMENT' | 'KUNDALI_REVIEW';
-    };
-    const parsed = {
-      from: filters.from ? new Date(filters.from) : undefined,
-      to: filters.to ? new Date(filters.to) : undefined,
-      limit: filters.limit ? parseInt(filters.limit, 10) : undefined,
-      offset: filters.offset ? parseInt(filters.offset, 10) : undefined,
-      source: filters.source,
-    };
-    const result = await astrologerEarningsService.getAstrologerEarnings(astrologerId, parsed);
+    // validateQuery(getAstrologerEarningsQuerySchema) already parses dates (inclusive YYYY-MM-DD) and limit/offset
+    const q = req.query as unknown as GetAstrologerEarningsQuery;
+    const result = await astrologerEarningsService.getAstrologerEarnings(astrologerId, {
+      from: q.from,
+      to: q.to,
+      limit: q.limit,
+      offset: q.offset,
+      source: q.source,
+    });
     return sendSuccess(res, result);
   } catch (error) {
     next(error);

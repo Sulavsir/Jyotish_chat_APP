@@ -200,10 +200,7 @@ export const getUnreadCount = async (req: AuthRequest, res: Response, next: Next
     const userId = req.user!.id;
     const count = await chatService.getUnreadCount(userId);
 
-    return sendSuccess(res, {
-      message: 'Unread count retrieved',
-      data: { count },
-    });
+    return sendSuccess(res, { count });
   } catch (error) {
     next(error);
   }

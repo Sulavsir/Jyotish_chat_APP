@@ -6,10 +6,11 @@
 
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
-import { USER_ROLES, ROUTE_BUILDERS } from '@/constants';
+import { USER_ROLES, ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { LoadingScreenWithBackground } from '@/components/ui';
 import { ChatList, ChatWindow, ChatConnectionBanner } from '@/components/features/chat';
 import { sortChatsByRecentActivity } from '@/utils/chat-sort.utils';
@@ -44,6 +45,7 @@ export default function JyotishChatPage() {
   const currentOtherUserId = useRef<string | null>(null);
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
 
+  const queryClient = useQueryClient();
   const { sendMessage, sendTypingIndicator, isConnected, socket } = useSocket();
   const chatMessages = useStore((state) => state.messages);
 
@@ -432,6 +434,7 @@ export default function JyotishChatPage() {
     try {
       const count = await chatService.getUnreadCount();
       setUnreadCount(count);
+      queryClient.setQueryData(QUERY_KEYS.CHAT.UNREAD_COUNT, count);
     } catch (error) {
       console.error('Error loading unread count:', error);
     }
@@ -846,6 +849,7 @@ export default function JyotishChatPage() {
       await chatService.markMessagesAsRead(activeChatId);
       // Update unread count in chat list
       setChats((prev) => prev.map((c) => (c.id === activeChatId ? { ...c, unreadCount: 0 } : c)));
+      await loadUnreadCount();
       console.log('✅ Messages marked as read on input focus');
     } catch (error) {
       console.error('Error marking messages as read:', error);
