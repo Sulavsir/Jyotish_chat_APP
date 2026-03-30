@@ -34,6 +34,7 @@ import {
 } from './broadcast-request.utils';
 import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { cn } from '@/lib/utils';
 
 export interface BroadcastMessageBarProps {
   onHasItemsChange?: (hasPending: boolean) => void;
@@ -483,11 +484,11 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
                             : 'rounded-md bg-slate-200/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-700/80 dark:text-slate-200'
                         }
                       >
-                        {isFirstBroadcast ? 'Included' : 'Free'}
+                        Free
                       </span>
                     ) : (
-                      <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold tabular-nums text-white shadow-sm dark:bg-emerald-500">
-                        Rs. {amt.toLocaleString('en-NP')}
+                      <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm dark:bg-emerald-500">
+                        Paid
                       </span>
                     )}
                   </div>
@@ -548,11 +549,16 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Price</p>
-          <p className="text-2xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-            {batchTotalNr > 0
-              ? `Rs. ${batchTotalNr.toLocaleString('en-NP')}`
-              : 'Free'}
-          </p>
+          <span
+            className={cn(
+              'mt-1 inline-flex rounded-lg px-3 py-1.5 text-sm font-bold uppercase tracking-wide',
+              batchTotalNr > 0
+                ? 'bg-emerald-600 text-white shadow-sm dark:bg-emerald-500'
+                : 'bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-white'
+            )}
+          >
+            {batchTotalNr > 0 ? 'Paid' : 'Free'}
+          </span>
         </div>
       </div>
 
@@ -669,10 +675,10 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
                   >
                     <MessageSquare className="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" />
                     <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                      {currentMessage.client?.name || currentMessage.client?.phone || 'Client'} —
-                      {batchTotalNr > 0
-                        ? `Rs. ${batchTotalNr.toLocaleString('en-NP')}`
-                        : 'Free'}
+                      {currentMessage.client?.name || currentMessage.client?.phone || 'Client'} —{' '}
+                      <span className="font-bold uppercase text-teal-700 dark:text-teal-300">
+                        {batchTotalNr > 0 ? 'Paid' : 'Free'}
+                      </span>
                     </span>
                   </button>
                   <button

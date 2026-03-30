@@ -24,9 +24,9 @@ export interface RequestItemProps {
   className?: string;
 }
 
-function formatRs(amount: number): string {
-  if (amount > 0) return `Rs. ${amount.toLocaleString('en-NP')}`;
-  return 'Free';
+/** Astrologer-facing: no rupee amounts — only Paid vs Free. */
+function paidOrFreeLabel(totalNr: number): 'Paid' | 'Free' {
+  return totalNr > 0 ? 'Paid' : 'Free';
 }
 
 export function RequestItem({
@@ -100,7 +100,7 @@ export function RequestItem({
           </div>
           <span
             className={cn(
-              'flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums shadow-sm',
+              'flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide shadow-sm',
               totalNr > 0
                 ? highValue
                   ? 'bg-emerald-500 text-white'
@@ -110,7 +110,7 @@ export function RequestItem({
                   : 'bg-slate-500 text-white'
             )}
           >
-            {formatRs(totalNr)}
+            {paidOrFreeLabel(totalNr)}
           </span>
         </div>
 
