@@ -54,5 +54,25 @@ export const sendBroadcastQuestionsBodySchema = z.object({
     .optional(),
 });
 
+/** Direct chat: tiered multi-question bundle (same total rules as broadcast prepare) */
+export const sendDirectQuestionBundleBodySchema = z.object({
+  astrologerId: z.string().min(1, 'Astrologer ID is required'),
+  questionItems: z
+    .array(questionItemSchema)
+    .min(1, 'At least one question is required')
+    .max(40, 'Maximum 40 questions per batch'),
+  totalNr: z.number().int().min(0, 'Total NRs must be non-negative'),
+  birthDetails: z
+    .object({
+      dateOfBirth: z.string().optional(),
+      timeOfBirth: z.string().optional(),
+      placeOfBirth: z.string().optional(),
+      gender: z.string().optional(),
+    })
+    .optional(),
+  questionCategory: z.string().optional(),
+});
+
 export type PrepareBroadcastQuestionsBody = z.infer<typeof prepareBroadcastQuestionsBodySchema>;
 export type SendBroadcastQuestionsBody = z.infer<typeof sendBroadcastQuestionsBodySchema>;
+export type SendDirectQuestionBundleBody = z.infer<typeof sendDirectQuestionBundleBodySchema>;

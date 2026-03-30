@@ -7,7 +7,7 @@ import { Server, Socket } from 'socket.io';
 import * as broadcastMessageService from '../services/broadcastMessage.service';
 import { prisma } from '@jyotish/database';
 import { NotificationService } from '../services/notification.service';
-import { NotificationType, AstrologerCategory } from '@jyotish/shared';
+import { NotificationType, CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 
 export function broadcastMessageHandlers(io: Server, socket: Socket) {
   const userId = socket.data.userId;
@@ -43,9 +43,9 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
           });
           return;
         }
-        if (content.length > 60) {
+        if (content.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
           socket.emit('broadcast:error', {
-            message: 'Message cannot exceed 60 characters',
+            message: `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`,
             code: 'VALIDATION_ERROR',
           });
           return;

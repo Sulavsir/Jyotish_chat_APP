@@ -5,6 +5,7 @@
  */
 
 import { Response, NextFunction } from 'express';
+import { UserRole } from '@jyotish/shared';
 import { AuthRequest } from '@/types/common.types';
 import { sendSuccess, sendError } from '../utils';
 import * as chatService from '../services/chatService';
@@ -150,6 +151,41 @@ export const sendMessage = async (req: AuthRequest, res: Response, next: NextFun
       },
       201
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /chat/send-direct-question-bundle — tiered multi-question direct chat (same pricing as broadcast prepare)
+ */
+export const sendDirectQuestionBundle = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (req.user!.role !== UserRole.CLIENT) {
+      return sendError(res, 'Only clients can send direct question bundles', 403);
+    }
+    const { astrologerId, questionItems, totalNr, birthDetails, questionCategory } = req.body as {
+      astrologerId: string;
+      questionItems: { id: string; text: string }[];
+      totalNr: number;
+      birthDetails?: Record<string, string>;
+      questionCategory?: string;
+    };
+
+    const result = await chatService.sendDirectQuestionBundle({
+      clientId: req.user!.id,
+      astrologerId,
+      questionItems,
+      totalNr,
+      birthDetails,
+      questionCategory,
+    });
+
+    return sendSuccess(res, result, 201);
   } catch (error) {
     next(error);
   }

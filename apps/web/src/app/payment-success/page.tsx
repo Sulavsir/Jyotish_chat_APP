@@ -8,12 +8,15 @@ import { Loader2, CheckCircle2, XCircle, Banknote, ArrowLeft } from 'lucide-reac
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentService } from '@/services/payment.service';
 import broadcastMessageService from '@/services/broadcastMessage.service';
-import { QUERY_KEYS, ROUTES } from '@/constants';
+import { sendDirectQuestionBundle } from '@/services/chat.service';
+import { QUERY_KEYS, ROUTES, ROUTE_BUILDERS } from '@/constants';
 import { toast } from 'sonner';
 import { showErrorToast } from '@/lib/error-handler';
 import {
   getPendingBroadcastQuestions,
   clearPendingBroadcastQuestions,
+  getPendingDirectQuestionBundle,
+  clearPendingDirectQuestionBundle,
 } from '@/components/modals/BroadcastRemainingPayModal';
 import {
   getPendingKundaliBooking,
@@ -22,6 +25,45 @@ import {
 import appointmentService from '@/services/appointment.service';
 import type { QueryClient } from '@tanstack/react-query';
 import { PaymentChargeDisputeNotice } from '@/components/payment';
+
+async function completePendingDirectQuestionBundleAfterTopUp(
+  queryClient: QueryClient,
+  router: { push: (href: string) => void }
+): Promise<void> {
+  const pending = getPendingDirectQuestionBundle();
+  if (!pending?.questionItems?.length || pending.totalNr < 0) return;
+  try {
+    clearPendingDirectQuestionBundle();
+    const res = await sendDirectQuestionBundle({
+      astrologerId: pending.astrologerId,
+      questionItems: pending.questionItems.map((q) => ({ id: q.id, text: q.text })),
+      totalNr: pending.totalNr,
+      birthDetails: pending.birthDetails,
+      questionCategory: pending.questionCategory,
+    });
+    if (res.coinsDeducted > 0) {
+      toast.info(`${res.coinsDeducted} NRs deducted from your balance`, { duration: 4000 });
+    }
+    toast.success(
+      `${res.messageCount} question${res.messageCount === 1 ? '' : 's'} sent to your Jyotish.`
+    );
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.CONVERSATIONS });
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+    const chatUrl = ROUTE_BUILDERS.CHAT_WITH_ID(res.chatId);
+    const pid = pending.selectedProfileId;
+    const urlWithProfile =
+      pid && pid !== 'me'
+        ? `${chatUrl}${chatUrl.includes('?') ? '&' : '?'}profileId=${encodeURIComponent(pid)}`
+        : chatUrl;
+    router.push(urlWithProfile);
+  } catch (e) {
+    toast.error(
+      e instanceof Error
+        ? e.message
+        : 'Could not send your questions. Try again from the dashboard.'
+    );
+  }
+}
 
 async function completePendingKundaliBookingAfterTopUp(queryClient: QueryClient): Promise<void> {
   const pending = getPendingKundaliBooking();
@@ -179,9 +221,10 @@ export default function PaymentSuccessPage() {
     
     toast.success('Payment successful! Balance has been added to your account.');
     
-    // Handle pending broadcast questions
+    // Handle pending direct multi-question bundle, then broadcast
     (async () => {
       try {
+        await completePendingDirectQuestionBundleAfterTopUp(queryClient, router);
         const pending = getPendingBroadcastQuestions();
         if (pending?.questionItems?.length && pending.totalNr >= 0) {
           clearPendingBroadcastQuestions();
@@ -214,7 +257,7 @@ export default function PaymentSuccessPage() {
     } catch {
       // ignore
     }
-  }, [isPreVerified, queryClient]);
+  }, [isPreVerified, queryClient, router]);
 
   // When in iframe (3DS return), open success URL in new tab / redirect top. Next.js or embedded contexts
   // may not expose window.self the same way — use window.location or document.location for the current URL.
@@ -258,6 +301,7 @@ export default function PaymentSuccessPage() {
         setStatus('success');
         toast.success(data.message);
         try {
+          await completePendingDirectQuestionBundleAfterTopUp(queryClient, router);
           const pending = getPendingBroadcastQuestions();
           if (pending?.questionItems?.length && pending.totalNr >= 0) {
             clearPendingBroadcastQuestions();

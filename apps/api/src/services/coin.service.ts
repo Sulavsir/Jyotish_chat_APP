@@ -5,7 +5,7 @@
 
 import { prisma } from '@jyotish/database';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, AstrologerCoinEarningSource } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -16,7 +16,11 @@ import {
   CoinBalance,
   CoinTransaction,
 } from '../types/coin.types';
-import { requiresCoinsForChat, COIN_REASON_MAPPING } from '../constants/coin.constants';
+import {
+  requiresCoinsForChat,
+  COIN_REASON_MAPPING,
+  toSharedAstrologerCategory,
+} from '../constants/coin.constants';
 import { getRate } from './platformCoinRate.service';
 import { astrologerCoinsFromClientDeduction } from '../utils/astrologer-coin-earning.util';
 
@@ -812,6 +816,106 @@ export const deductCoinsForBroadcastQuestions = async (
   return {
     userId: updatedUser.id,
     balance: updatedUser.coins,
+  };
+};
+
+/**
+ * Deduct coins for direct chat multi-question bundle (same tiered total as broadcast prepare).
+ * One deduction; astrologer earning uses chat message commission %.
+ */
+export const deductCoinsForDirectQuestionBundle = async (
+  userId: string,
+  totalNr: number,
+  chatId: string,
+  astrologerId: string
+): Promise<{ userId: string; balance: number; coinsDeducted: number }> => {
+  if (totalNr <= 0) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance, coinsDeducted: 0 };
+  }
+
+  const hasUnlimited = await hasActiveUnlimitedPlan(userId);
+  if (hasUnlimited) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance, coinsDeducted: 0 };
+  }
+
+  const astrologer = await prisma.astrologer.findUnique({
+    where: { id: astrologerId },
+    select: { chatMessageCommissionPercent: true, category: true },
+  });
+
+  if (!astrologer) {
+    throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  const sharedCategory = toSharedAstrologerCategory(astrologer.category);
+  if (!requiresCoinsForChat(sharedCategory)) {
+    const balance = await getCoinBalance(userId);
+    return { userId, balance, coinsDeducted: 0 };
+  }
+
+  const transactionReason = COIN_REASON_MAPPING[sharedCategory];
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
+    select: { coins: true, id: true },
+  });
+
+  if (!user) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+
+  if (user.coins < totalNr) {
+    throw new AppError(
+      `Insufficient balance. Required: ${totalNr} NRs, Available: ${user.coins} NRs.`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.INSUFFICIENT_COINS
+    );
+  }
+
+  const balanceBefore = user.coins;
+  const balanceAfter = balanceBefore - totalNr;
+  const pct = astrologer.chatMessageCommissionPercent ?? 0;
+  const astrologerCoins = astrologerCoinsFromClientDeduction(totalNr, pct);
+
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const coinTx = await tx.coinTransaction.create({
+      data: {
+        userId,
+        amount: -totalNr,
+        type: CoinTransactionType.DEDUCT,
+        reason: transactionReason,
+        balanceBefore,
+        balanceAfter,
+        chatId,
+      },
+    });
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: totalNr } },
+      select: { id: true, coins: true },
+    });
+    if (astrologerCoins > 0) {
+      await tx.astrologerCoinEarning.create({
+        data: {
+          astrologerId,
+          coinTransactionId: coinTx.id,
+          chatId,
+          source: AstrologerCoinEarningSource.CHAT_MESSAGE,
+          clientCoinsDeducted: totalNr,
+          commissionPercent: pct,
+          astrologerCoinsEarned: astrologerCoins,
+        },
+      });
+    }
+    return updated;
+  });
+
+  return {
+    userId: updatedUser.id,
+    balance: updatedUser.coins,
+    coinsDeducted: totalNr,
   };
 };
 

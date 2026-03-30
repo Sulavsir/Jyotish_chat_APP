@@ -3,6 +3,7 @@
  * Handles all chat-related business logic
  */
 
+import { randomUUID } from 'crypto';
 import { CreateChatParams, GetChatHistoryParams, SendMessageParams } from '@/types/chat.type';
 import { prisma } from '@jyotish/database';
 import {
@@ -10,6 +11,7 @@ import {
   AstrologerCategory,
   CHAT_MESSAGE_MAX_LENGTH_CLIENT,
   CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+  MessageType as SharedMessageType,
 } from '@jyotish/shared';
 import {
   ParticipantType,
@@ -29,6 +31,8 @@ import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { notificationService } from './notification.service';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
+import { getRate } from './platformCoinRate.service';
+import type { PlatformCoinRateType } from '@prisma/client';
 
 const chatInclude = {
   clientParticipant: {
@@ -754,12 +758,22 @@ export const getChatHistory = async (
   };
 };
 
+type SendMessageInternalOptions = {
+  /** Server-only: prepaid multi-message bundle (no per-message deduction) */
+  skipCoinDeduction?: boolean;
+  bundleIndex?: number;
+  bundleTotal?: number;
+};
+
 /**
  * Send a message
  * Deducts coins per message for clients (not for astrologers)
  */
-export const sendMessage = async (params: SendMessageParams & { senderRole: UserRole }) => {
-  const { chatId, senderId, receiverId, content, type = 'TEXT', metadata, senderRole } = params;
+export const sendMessage = async (
+  params: SendMessageParams & { senderRole: UserRole; _internal?: SendMessageInternalOptions }
+) => {
+  const { chatId, senderId, receiverId, content, type = 'TEXT', metadata, senderRole, _internal } =
+    params;
 
   if (!content?.trim()) {
     if (hasChatFileMetadata(metadata)) {
@@ -876,7 +890,7 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
 
   // Deduct coins per message (only for clients, not astrologers)
   // PREMIUM astrologers don't require coins (already checked above)
-  if (senderRole === UserRole.CLIENT) {
+  if (senderRole === UserRole.CLIENT && !_internal?.skipCoinDeduction) {
     if (astrologerCategory && requiresCoinsForChat(astrologerCategory)) {
       // Check if this chat is from a broadcast message; reopened chats use instant fee
       const broadcastMessage = await prisma.broadcastMessage.findFirst({
@@ -945,9 +959,16 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
   // Apply turn-based updates if enabled
   if (chat.turnBasedEnabled) {
     if (senderRole === UserRole.CLIENT) {
-      // Client sent message - now waiting for astrologer reply
-      (chatUpdateData as any).waitingForReply = true;
+      const bundleTotal = _internal?.bundleTotal;
+      const bundleIndex = _internal?.bundleIndex;
+      const isLastInBundle =
+        bundleTotal == null ||
+        bundleIndex == null ||
+        bundleTotal <= 1 ||
+        bundleIndex >= bundleTotal - 1;
       (chatUpdateData as any).lastClientMessageAt = new Date();
+      // Only after the last message in a multi-question batch does the client wait for a reply
+      (chatUpdateData as any).waitingForReply = isLastInBundle;
     } else if (senderRole === UserRole.ASTROLOGER) {
       // Astrologer replied - client can send again
       (chatUpdateData as any).waitingForReply = false;
@@ -1092,6 +1113,180 @@ export const sendMessage = async (params: SendMessageParams & { senderRole: User
 
   return { message, coinsDeducted };
 };
+
+export interface SendDirectQuestionBundleParams {
+  clientId: string;
+  astrologerId: string;
+  questionItems: { id: string; text: string }[];
+  totalNr: number;
+  birthDetails?: {
+    dateOfBirth?: string;
+    timeOfBirth?: string;
+    placeOfBirth?: string;
+    gender?: string;
+  };
+  questionCategory?: string;
+}
+
+/**
+ * Direct chat: send multiple questions; total NRs = count × this Jyotish's per-message fee (same as single DM / instant chat).
+ */
+export async function sendDirectQuestionBundle(
+  params: SendDirectQuestionBundleParams
+): Promise<{ chatId: string; messageCount: number; coinsDeducted: number }> {
+  const { clientId, astrologerId, questionItems, totalNr, birthDetails, questionCategory } = params;
+  const count = questionItems.length;
+  if (count === 0) {
+    throw new AppError(
+      'At least one question is required',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const astrologer = await prisma.astrologer.findUnique({
+    where: { id: astrologerId },
+    select: { id: true, category: true, name: true, chatMessageFee: true },
+  });
+  if (!astrologer) {
+    throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+  if (!requiresCoinsForChat(astrologer.category)) {
+    throw new AppError(
+      'Multi-question bundle pricing is only available for Ordinary or Professional Jyotish. Send a single message for this astrologer.',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  let perMessageFee = 0;
+  if (astrologer.chatMessageFee && astrologer.chatMessageFee > 0) {
+    perMessageFee = astrologer.chatMessageFee;
+  }
+  if (perMessageFee <= 0) {
+    perMessageFee = await getRate('CHAT_PER_MESSAGE' as PlatformCoinRateType);
+  }
+
+  const expectedTotal = count * perMessageFee;
+  if (totalNr !== expectedTotal) {
+    throw new AppError(
+      `Pricing mismatch. Expected ${expectedTotal} NRs (${count} × ${perMessageFee} NRs per message for this Jyotish).`,
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const blockingChat = await prisma.chat.findFirst({
+    where: {
+      status: ChatStatus.ACTIVE,
+      isLocked: false,
+      participant1Id: clientId,
+      participant2Id: { not: astrologerId },
+    },
+  });
+  if (blockingChat) {
+    throw new AppError(
+      'You have an active chat. End your current chat before starting a new one.',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const hasBirthDetails =
+    birthDetails &&
+    (birthDetails.dateOfBirth || birthDetails.timeOfBirth || birthDetails.placeOfBirth);
+
+  const clientProfile = await prisma.user.findFirst({
+    where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
+    select: {
+      name: true,
+      dateOfBirth: true,
+      timeOfBirth: true,
+      placeOfBirth: true,
+    },
+  });
+  if (!clientProfile) {
+    throw new AppError('User not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+  }
+  if (!hasBirthDetails) {
+    const missingFields: string[] = [];
+    if (!clientProfile.name || clientProfile.name.trim() === '') missingFields.push('Name');
+    if (!clientProfile.dateOfBirth) missingFields.push('Date of Birth');
+    if (!clientProfile.timeOfBirth || clientProfile.timeOfBirth.trim() === '')
+      missingFields.push('Time of Birth');
+    if (!clientProfile.placeOfBirth || clientProfile.placeOfBirth.trim() === '')
+      missingFields.push('Place of Birth');
+    if (missingFields.length > 0) {
+      throw new AppError(
+        `Please complete your profile before sending. Missing: ${missingFields.join(', ')}`,
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+  }
+
+  const chat = await findOrCreateChat({
+    participant1Id: clientId,
+    participant2Id: astrologerId,
+    currentUserRole: UserRole.CLIENT,
+  });
+
+  if (!chat) {
+    throw new AppError('Could not open chat', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+  }
+
+  if (chat.turnBasedEnabled && chat.waitingForReply) {
+    throw new AppError(
+      'Please wait for the astrologer to reply before sending another message.',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
+  }
+
+  const { deductCoinsForDirectQuestionBundle } = await import('./coin.service');
+  const ded = await deductCoinsForDirectQuestionBundle(clientId, totalNr, chat.id, astrologerId);
+  const coinsDeducted = ded.coinsDeducted;
+
+  const batchId = randomUUID();
+  const metadataBase =
+    hasBirthDetails && birthDetails && Object.keys(birthDetails).length > 0
+      ? { birthDetails }
+      : undefined;
+
+  for (let i = 0; i < questionItems.length; i++) {
+    const item = questionItems[i];
+    const metadata: Record<string, unknown> = {
+      directQuestionBundle: true,
+      batchId,
+      batchIndex: i,
+      totalInBatch: count,
+      amountRefundNr: perMessageFee,
+      perMessageFeeNr: perMessageFee,
+      ...(questionCategory ? { questionCategory } : {}),
+      ...metadataBase,
+    };
+    await sendMessage({
+      chatId: chat.id,
+      senderId: clientId,
+      receiverId: astrologerId,
+      content: item.text,
+      type: SharedMessageType.TEXT,
+      metadata,
+      senderRole: UserRole.CLIENT,
+      _internal: {
+        skipCoinDeduction: true,
+        bundleIndex: i,
+        bundleTotal: count,
+      },
+    });
+  }
+
+  return {
+    chatId: chat.id,
+    messageCount: count,
+    coinsDeducted,
+  };
+}
 
 /**
  * Mark messages as read

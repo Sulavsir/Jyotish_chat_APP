@@ -3,6 +3,7 @@
  * Request validation for broadcast message routes
  */
 
+import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 import { z } from 'zod';
 
 /**
@@ -19,7 +20,7 @@ export const createBroadcastMessageBodySchema = z.object({
   content: z
     .string()
     .min(1, 'Message cannot be empty')
-    .max(60, 'Message cannot exceed 60 characters'),
+    .max(CHAT_MESSAGE_MAX_LENGTH_CLIENT, `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`),
   type: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
   birthDetails: z

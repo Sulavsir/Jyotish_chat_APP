@@ -5,10 +5,11 @@
 
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
-import { validateParams } from '../middleware/validate';
+import { validateParams, validateBody } from '../middleware/validate';
 import { chatUploadSingle } from '../middleware/chatUpload';
 import { chatIdParamSchema } from '../validators/query.validators';
 import * as chatController from '../controllers/chatController';
+import { sendDirectQuestionBundleBodySchema } from '../validators/broadcastQuestion.validators';
 
 const router = Router();
 
@@ -29,6 +30,13 @@ router.get('/history/:otherUserId', chatController.getChatHistory);
 
 // Send a message (HTTP fallback, WebSocket is preferred)
 router.post('/messages', chatController.sendMessage);
+
+// Direct chat: multi-question bundle (tiered pricing like broadcast prepare)
+router.post(
+  '/send-direct-question-bundle',
+  validateBody(sendDirectQuestionBundleBodySchema),
+  chatController.sendDirectQuestionBundle
+);
 
 // Upload file for chat
 router.post('/upload-file', chatUploadSingle('file'), chatController.uploadChatFile);

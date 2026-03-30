@@ -8,7 +8,7 @@ export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
 /** Direct chat: max characters per message (socket + HTTP + UI). Clients: 100; astrologers can send longer readings. */
-export const CHAT_MESSAGE_MAX_LENGTH_CLIENT = 100;
+export const CHAT_MESSAGE_MAX_LENGTH_CLIENT = 500;
 export const CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER = 10000;
 
 // Consultation durations (in minutes)

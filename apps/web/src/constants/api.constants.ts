@@ -90,6 +90,7 @@ export const API_ENDPOINTS = {
     SEARCH: '/api/v1/chat/search',
     UPLOAD_FILE: '/api/v1/chat/upload-file',
     ACTIVE_CHAT: '/api/v1/chat/active-chat',
+    SEND_DIRECT_QUESTION_BUNDLE: '/api/v1/chat/send-direct-question-bundle',
   },
   BROADCAST: {
     MESSAGES: '/api/v1/broadcast-messages',

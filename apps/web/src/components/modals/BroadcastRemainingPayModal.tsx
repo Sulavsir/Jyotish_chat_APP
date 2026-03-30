@@ -70,6 +70,44 @@ export function clearPendingBroadcastQuestions(): void {
   }
 }
 
+const PENDING_DIRECT_KEY = 'pendingDirectQuestionBundle';
+
+/** Session storage for payment redirect — direct chat multi-question bundle */
+export interface PendingDirectQuestionBundlePayload {
+  astrologerId: string;
+  questionItems: { id: string; text: string; isCustom?: boolean }[];
+  totalNr: number;
+  birthDetails?: Record<string, string>;
+  questionCategory?: string;
+  selectedProfileId?: string;
+}
+
+export function storePendingDirectQuestionBundle(payload: PendingDirectQuestionBundlePayload): void {
+  try {
+    sessionStorage.setItem(PENDING_DIRECT_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore
+  }
+}
+
+export function getPendingDirectQuestionBundle(): PendingDirectQuestionBundlePayload | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_DIRECT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PendingDirectQuestionBundlePayload;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingDirectQuestionBundle(): void {
+  try {
+    sessionStorage.removeItem(PENDING_DIRECT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface BroadcastPaymentDetailsModalProps {
@@ -84,6 +122,11 @@ interface BroadcastPaymentDetailsModalProps {
   onPublish: () => void | Promise<void>;
   /** Whether the publish action is in progress */
   isPublishing?: boolean;
+  /** Direct chat: copy and styling for "send to one Jyotish" */
+  variant?: 'broadcast' | 'direct';
+  directAstrologerName?: string;
+  /** Stored before redirect when user must top up (direct bundle only) */
+  directPendingPayload?: PendingDirectQuestionBundlePayload | null;
 }
 
 /** @deprecated Use BroadcastPaymentDetailsModal instead */
@@ -99,6 +142,9 @@ export function BroadcastPaymentDetailsModal({
   payload,
   onPublish,
   isPublishing = false,
+  variant = 'broadcast',
+  directAstrologerName,
+  directPendingPayload,
 }: BroadcastPaymentDetailsModalProps) {
   const [previewQuestion, setPreviewQuestion] = React.useState<{
     index: number;
@@ -116,7 +162,11 @@ export function BroadcastPaymentDetailsModal({
   const savedAmount = hasDiscount ? originalTotal - payload.totalNr : 0;
 
   const handlePay = () => {
-    storePendingBroadcastQuestions(payload);
+    if (variant === 'direct' && directPendingPayload) {
+      storePendingDirectQuestionBundle(directPendingPayload);
+    } else {
+      storePendingBroadcastQuestions(payload);
+    }
     onClose();
     window.location.href = `${ROUTES.PAYMENT}?amount=${remainingNr}&coins=${remainingNr}`;
   };
@@ -140,9 +190,13 @@ export function BroadcastPaymentDetailsModal({
             Your Payment Details
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            {hasSufficientBalance
-              ? 'Review your order below, then publish your questions to all Jyotish.'
-              : 'Your balance covers part of the cost. Pay the remaining amount to publish.'}
+            {variant === 'direct' && directAstrologerName
+              ? hasSufficientBalance
+                ? `Review your order below, then send your questions to ${directAstrologerName}.`
+                : 'Your balance covers part of the cost. Pay the remaining amount to send your questions.'
+              : hasSufficientBalance
+                ? 'Review your order below, then publish your questions to all Jyotish.'
+                : 'Your balance covers part of the cost. Pay the remaining amount to publish.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -268,9 +322,13 @@ export function BroadcastPaymentDetailsModal({
             <LoadingButton
               onClick={onPublish}
               loading={isPublishing}
-              className="bg-gradient-to-r from-orange-600 to-red-600 hover:opacity-90 text-white"
+              className={
+                variant === 'direct'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white'
+                  : 'bg-gradient-to-r from-orange-600 to-red-600 hover:opacity-90 text-white'
+              }
             >
-              Publish{' '}
+              {variant === 'direct' ? 'Send ' : 'Publish '}
               {questions.length > 0
                 ? `${questions.length} Question${questions.length !== 1 ? 's' : ''}`
                 : 'Now'}

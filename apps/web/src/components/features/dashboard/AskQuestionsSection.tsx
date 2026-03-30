@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, MessageSquare } from 'lucide-react';
 import {
   Select,
@@ -37,7 +38,8 @@ import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
 import { useTranslations } from '@/hooks/useTranslations';
-import chatService from '@/services/chat.service';
+import chatService, { sendDirectQuestionBundle } from '@/services/chat.service';
+import { ROUTE_BUILDERS } from '@/constants';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
@@ -53,12 +55,38 @@ import {
   computeBroadcastTotalNrWithQ1Discount,
 } from '@/utils/broadcastQuestionPricing.utils';
 import { useBroadcastPendingStore } from '@/store/broadcast-pending.store';
+import type { BroadcastPriceBreakdownEntry } from '@/types/broadcast';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
 
+/** Order matches checklist selection order, then custom texts (same as broadcast prepare). */
+function buildDirectBundleQuestionItems(
+  orderedIds: string[],
+  categories: QuestionnaireCategory[],
+  customTexts: string[]
+): { id: string; text: string; isCustom?: boolean }[] {
+  const idToText = new Map<string, string>();
+  for (const cat of categories) {
+    for (const q of cat.questions) {
+      idToText.set(q.id, q.text);
+    }
+  }
+  const items: { id: string; text: string; isCustom?: boolean }[] = [];
+  for (const id of orderedIds) {
+    const text = idToText.get(id);
+    if (text) items.push({ id, text });
+  }
+  customTexts.forEach((t, i) => {
+    const trimmed = t.trim();
+    if (trimmed) items.push({ id: `custom:${i}`, text: trimmed, isCustom: true });
+  });
+  return items;
+}
+
 export function AskQuestionsSection() {
   const { t } = useTranslations();
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { socket, isConnected } = useSocket();
   const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
@@ -101,6 +129,12 @@ export function AskQuestionsSection() {
     Record<string, string> | undefined
   >(undefined);
   const [showRemainingPayModal, setShowRemainingPayModal] = useState(false);
+  /** After profile confirm, tiered direct-chat payment uses same modal as broadcast */
+  const [paymentFlow, setPaymentFlow] = useState<'broadcast' | 'direct' | null>(null);
+  const [directBundleAfterProfile, setDirectBundleAfterProfile] = useState<{
+    astrologerId: string;
+    profileId: string;
+  } | null>(null);
   const [directMessageError, setDirectMessageError] = useState<string>('');
   const [broadcastMessageError, setBroadcastMessageError] = useState<string>('');
   const [showProfileIncompleteDialog, setShowProfileIncompleteDialog] = useState(false);
@@ -139,21 +173,14 @@ export function AskQuestionsSection() {
       ? selectedAstrologerFee
       : (coinRates?.CHAT_PER_MESSAGE ?? 0);
   const requiredCoinsDirect = isAppointmentOnlyDirect ? 0 : basePerMessageNr;
-  const showInsufficientCoinsBanner =
-    !!selectedAstrologerId && requiredCoinsDirect > 0 && coinBalance < requiredCoinsDirect;
 
-  const {
-    isSending,
-    setIsSending,
-    isWaitingForAcceptance,
-    markSending,
-    clearWaiting,
-  } = useBroadcastPending({
-    onInsufficientCoins: (coins) => {
-      setBroadcastRequiredCoins(coins);
-      setIsBroadcastCoinModalOpen(true);
-    },
-  });
+  const { isSending, setIsSending, isWaitingForAcceptance, markSending, clearWaiting } =
+    useBroadcastPending({
+      onInsufficientCoins: (coins) => {
+        setBroadcastRequiredCoins(coins);
+        setIsBroadcastCoinModalOpen(true);
+      },
+    });
 
   // Load question categories when user interacts with Ask Questions (direct or broadcast tab)
   const needsQuestionnaires = mode === 'direct' || mode === 'broadcast';
@@ -172,7 +199,7 @@ export function AskQuestionsSection() {
   const { data: pricingData } = useQuery({
     queryKey: QUERY_KEYS.BROADCAST.QUESTION_PRICING,
     queryFn: () => broadcastMessageService.getQuestionPricing(),
-    enabled: mode === 'broadcast',
+    enabled: mode === 'broadcast' && !!user,
   });
   const pricingTiers = React.useMemo(() => pricingData?.tiers ?? [], [pricingData]);
 
@@ -209,6 +236,25 @@ export function AskQuestionsSection() {
     }
     return computeBroadcastBaseTotalNr(count, pricingTiers, broadcastSendRate);
   };
+
+  const directBundleQuestionCount =
+    selectedDirectQuestionIds.length + (directMessage.trim() ? 1 : 0);
+  const directPerMessageNr =
+    basePerMessageNr > 0 ? basePerMessageNr : (coinRates?.CHAT_PER_MESSAGE ?? 0);
+  const estimatedDirectBundleNr =
+    selectedDirectQuestionIds.length > 0 &&
+    !isAppointmentOnlyDirect &&
+    directBundleQuestionCount > 0
+      ? directBundleQuestionCount * directPerMessageNr
+      : null;
+  const coinsNeededForDirect =
+    !isAppointmentOnlyDirect &&
+    selectedDirectQuestionIds.length > 0 &&
+    estimatedDirectBundleNr != null
+      ? estimatedDirectBundleNr
+      : requiredCoinsDirect;
+  const showInsufficientCoinsBanner =
+    !!selectedAstrologerId && coinsNeededForDirect > 0 && coinBalance < coinsNeededForDirect;
 
   const prepareMutation = useMutation({
     mutationFn: (params: { questionIds: string[]; customTexts?: string[] }) =>
@@ -296,14 +342,13 @@ export function AskQuestionsSection() {
     [questionCategories, selectedDirectQuestionIds]
   );
 
-  /** Same construction as handleStartChat / backend first message (must stay ≤ server limit). */
+  /** Preview / validation: checklist questions + optional custom line (bundle: N × this Jyotish per-message fee). */
   const directOutgoingMessage = React.useMemo(() => {
     const trimmed = directMessage.trim();
-    const joined =
-      !trimmed && selectedDirectQuestionsDetailed.length > 0
-        ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
-        : '';
-    return trimmed || joined;
+    const fromChecklist = selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n');
+    if (selectedDirectQuestionsDetailed.length === 0) return trimmed;
+    if (!trimmed) return fromChecklist;
+    return `${fromChecklist}\n\n${trimmed}`;
   }, [directMessage, selectedDirectQuestionsDetailed]);
 
   const handleAstrologerSelect = (
@@ -350,28 +395,14 @@ export function AskQuestionsSection() {
 
   const handleDirectQuestionToggle = (questionId: string, checked: boolean) => {
     setDirectMessageError('');
-    setSelectedDirectQuestionIds((prev) => {
-      const next = checked ? [...prev, questionId] : prev.filter((id) => id !== questionId);
-      const detailed = buildSelectedQuestionsDetailed(next, questionCategories);
-      if (detailed.length > 0) {
-        const joined = detailed.map((q) => q.text).join('\n\n');
-        if (joined.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
-          setDirectMessageError(
-            `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters. Select fewer questions or shorten the text below.`
-          );
-          setDirectMessage(joined.slice(0, CHAT_MESSAGE_MAX_LENGTH_CLIENT));
-        } else {
-          setDirectMessage(joined);
-        }
-      } else {
-        setDirectMessage('');
-      }
-      return next;
-    });
+    setSelectedDirectQuestionIds((prev) =>
+      checked ? [...prev, questionId] : prev.filter((id) => id !== questionId)
+    );
   };
 
   const handleDirectMessageChange = (value: string) => {
-    setDirectMessage(value.slice(0, CHAT_MESSAGE_MAX_LENGTH_CLIENT));
+    const max = selectedDirectQuestionIds.length > 0 ? 60 : CHAT_MESSAGE_MAX_LENGTH_CLIENT;
+    setDirectMessage(value.slice(0, max));
   };
 
   // Broadcast tab handlers
@@ -408,18 +439,27 @@ export function AskQuestionsSection() {
   const handleStartChat = () => {
     if (!selectedAstrologerId || !user) return;
     const trimmed = directMessage.trim();
-    const joinedSelected =
-      !trimmed && selectedDirectQuestionsDetailed.length > 0
-        ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
-        : '';
-    const messageToSend = trimmed || joinedSelected;
-    if (!messageToSend) {
-      setDirectMessageError(t('messageCannotBeEmpty'));
-      return;
-    }
-    if (messageToSend.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
-      setDirectMessageError(`Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`);
-      return;
+    const useTieredBundle = selectedDirectQuestionIds.length > 0 && !isAppointmentOnlyDirect;
+
+    if (useTieredBundle) {
+      if (trimmed.length > 60) {
+        setDirectMessageError('Additional question cannot exceed 60 characters.');
+        return;
+      }
+    } else {
+      const joinedSelected =
+        !trimmed && selectedDirectQuestionsDetailed.length > 0
+          ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
+          : '';
+      const messageToSend = trimmed || joinedSelected;
+      if (!messageToSend) {
+        setDirectMessageError(t('messageCannotBeEmpty'));
+        return;
+      }
+      if (messageToSend.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
+        setDirectMessageError(`Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`);
+        return;
+      }
     }
     setDirectMessageError('');
     setShowDirectProfileModal(true);
@@ -430,6 +470,71 @@ export function AskQuestionsSection() {
     if (!selectedAstrologerId || !user) return;
 
     const trimmed = directMessage.trim();
+    const useTieredBundle = selectedDirectQuestionIds.length > 0 && !isAppointmentOnlyDirect;
+
+    if (useTieredBundle) {
+      if (trimmed.length > 60) {
+        setDirectMessageError('Additional question cannot exceed 60 characters.');
+        return;
+      }
+      setDirectMessageError('');
+
+      if (profileId === 'me') {
+        const profileCheck = checkClientProfileCompletion(user);
+        if (!profileCheck.isComplete) {
+          setMissingProfileFields(profileCheck.missingFields);
+          setShowProfileIncompleteDialog(true);
+          return;
+        }
+      }
+
+      setBroadcastProfileId(profileId);
+      setDirectBundleAfterProfile({ astrologerId: selectedAstrologerId, profileId });
+
+      try {
+        setIsSending(true);
+        const customTexts = trimmed ? [trimmed.slice(0, 60)] : [];
+        const questionItems = buildDirectBundleQuestionItems(
+          selectedDirectQuestionIds,
+          questionCategories,
+          customTexts
+        );
+        const perMsg = directPerMessageNr;
+        const totalNr = questionItems.length * perMsg;
+        const breakdown: BroadcastPriceBreakdownEntry[] = questionItems.map((q, i) => ({
+          position: i + 1,
+          price: perMsg,
+          isDiscounted: false,
+          tierApplied: false,
+          isCustom: q.isCustom,
+        }));
+        const remainingNr = Math.max(0, totalNr - coinBalance);
+
+        const birthDetailsObj = getBirthDetailsForProfile(user, familyProfiles, profileId);
+        const birthDetailsRecord =
+          birthDetailsObj && Object.keys(birthDetailsObj).length > 0
+            ? (birthDetailsObj as Record<string, string>)
+            : undefined;
+        setPendingBroadcastBirthDetails(birthDetailsRecord);
+        setPrepareResult({
+          totalNr,
+          originalTotalNr: totalNr,
+          discountPercentApplied: 0,
+          firstBroadcastDiscountPct: 0,
+          breakdown,
+          remainingNr,
+          questions: questionItems,
+        });
+        setPaymentFlow('direct');
+        setShowRemainingPayModal(true);
+      } catch {
+        setDirectBundleAfterProfile(null);
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
+
     const joinedSelected =
       !trimmed && selectedDirectQuestionsDetailed.length > 0
         ? selectedDirectQuestionsDetailed.map((q) => q.text).join('\n\n')
@@ -445,7 +550,6 @@ export function AskQuestionsSection() {
     }
     setDirectMessageError('');
 
-    // Persist selection for future broadcasts
     setBroadcastProfileId(profileId);
 
     if (profileId === 'me') {
@@ -572,6 +676,7 @@ export function AskQuestionsSection() {
           questions: result.questions,
         });
         // Always show "Your Payment Details" modal so user can review before publishing
+        setPaymentFlow('broadcast');
         setShowRemainingPayModal(true);
       } catch {
         // prepareMutation already toasts onError
@@ -652,6 +757,7 @@ export function AskQuestionsSection() {
       isTextOnly: true,
       textMessage: messageToSend,
     });
+    setPaymentFlow('broadcast');
     setShowRemainingPayModal(true);
   };
 
@@ -832,7 +938,9 @@ export function AskQuestionsSection() {
                     </label>
                     <textarea
                       value={directMessage}
-                      maxLength={CHAT_MESSAGE_MAX_LENGTH_CLIENT}
+                      maxLength={
+                        selectedDirectQuestionIds.length > 0 ? 60 : CHAT_MESSAGE_MAX_LENGTH_CLIENT
+                      }
                       onChange={(e) => {
                         setDirectMessageError('');
                         handleDirectMessageChange(e.target.value);
@@ -846,12 +954,18 @@ export function AskQuestionsSection() {
                     />
                     <p
                       className={`text-xs mt-0.5 text-right ${
-                        directOutgoingMessage.length >= CHAT_MESSAGE_MAX_LENGTH_CLIENT
+                        (selectedDirectQuestionIds.length > 0
+                          ? directMessage.length
+                          : directOutgoingMessage.length) >=
+                        (selectedDirectQuestionIds.length > 0 ? 60 : CHAT_MESSAGE_MAX_LENGTH_CLIENT)
                           ? 'text-amber-400'
                           : 'text-gray-500'
                       }`}
                     >
-                      {directOutgoingMessage.length}/{CHAT_MESSAGE_MAX_LENGTH_CLIENT}
+                      {selectedDirectQuestionIds.length > 0
+                        ? directMessage.length
+                        : directOutgoingMessage.length}
+                      /{selectedDirectQuestionIds.length > 0 ? 60 : CHAT_MESSAGE_MAX_LENGTH_CLIENT}
                     </p>
                     {directMessageError && (
                       <p className="text-xs text-red-400 mt-1">{directMessageError}</p>
@@ -864,13 +978,13 @@ export function AskQuestionsSection() {
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2">
                     <p className="text-sm text-amber-100">
                       {t('youNeedCoins', {
-                        count: requiredCoinsDirect,
+                        count: coinsNeededForDirect,
                         balance: coinBalance,
                       })}
                     </p>
                     <Button
                       onClick={() => {
-                        setDirectRequiredCoins(requiredCoinsDirect);
+                        setDirectRequiredCoins(coinsNeededForDirect);
                         setShowDirectCoinModal(true);
                       }}
                       className="bg-amber-600 hover:bg-amber-700 text-white"
@@ -887,8 +1001,10 @@ export function AskQuestionsSection() {
                     disabled={
                       !selectedAstrologerId ||
                       showInsufficientCoinsBanner ||
-                      directOutgoingMessage.trim().length === 0 ||
-                      directOutgoingMessage.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT
+                      (selectedDirectQuestionIds.length > 0 && !isAppointmentOnlyDirect
+                        ? directMessage.trim().length > 60
+                        : directOutgoingMessage.trim().length === 0 ||
+                          directOutgoingMessage.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT)
                     }
                     className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
                   >
@@ -1119,7 +1235,7 @@ export function AskQuestionsSection() {
         onConfirm={handleDirectProfileConfirm}
         title={t('selectProfile')}
         confirmLabel={t('startChat')}
-        feePerMessageNr={requiredCoinsDirect}
+        feePerMessageNr={coinsNeededForDirect}
         astrologerName={selectedAstrologer?.name}
       />
 
@@ -1130,6 +1246,8 @@ export function AskQuestionsSection() {
           onClose={() => {
             setShowRemainingPayModal(false);
             setPrepareResult(null);
+            setPaymentFlow(null);
+            setDirectBundleAfterProfile(null);
           }}
           remainingNr={prepareResult.remainingNr}
           questions={prepareResult.questions}
@@ -1142,11 +1260,68 @@ export function AskQuestionsSection() {
             breakdown: prepareResult.breakdown,
             birthDetails: pendingBroadcastBirthDetails,
           }}
-          onPublish={() => {
-            setShowRemainingPayModal(false);
+          variant={paymentFlow === 'direct' ? 'direct' : 'broadcast'}
+          directAstrologerName={selectedAstrologer?.name}
+          directPendingPayload={
+            paymentFlow === 'direct' && directBundleAfterProfile
+              ? {
+                  astrologerId: directBundleAfterProfile.astrologerId,
+                  questionItems: prepareResult.questions,
+                  totalNr: prepareResult.totalNr,
+                  birthDetails: pendingBroadcastBirthDetails,
+                  questionCategory: directCategory || undefined,
+                  selectedProfileId: directBundleAfterProfile.profileId,
+                }
+              : undefined
+          }
+          onPublish={async () => {
             const current = prepareResult;
+            const flow = paymentFlow;
+            const directCtx = directBundleAfterProfile;
+            const jyotishName = selectedAstrologer?.name;
+
+            setShowRemainingPayModal(false);
             setPrepareResult(null);
+            setPaymentFlow(null);
+            setDirectBundleAfterProfile(null);
+
             if (!current) return;
+
+            if (flow === 'direct' && directCtx) {
+              try {
+                setIsSending(true);
+                const res = await sendDirectQuestionBundle({
+                  astrologerId: directCtx.astrologerId,
+                  questionItems: current.questions.map((q) => ({ id: q.id, text: q.text })),
+                  totalNr: current.totalNr,
+                  birthDetails: pendingBroadcastBirthDetails,
+                  questionCategory: directCategory || undefined,
+                });
+                if (res.coinsDeducted > 0) {
+                  toast.info(`${res.coinsDeducted} NRs deducted from your balance`, {
+                    duration: 4000,
+                  });
+                }
+                toast.success(
+                  `${res.messageCount} question${res.messageCount === 1 ? '' : 's'} sent to ${jyotishName ?? 'your Jyotish'}.`
+                );
+                void refreshUser();
+                void refetchClientBalanceAndStats(queryClient);
+                queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.CONVERSATIONS });
+                const chatUrl = ROUTE_BUILDERS.CHAT_WITH_ID(res.chatId);
+                const pid = directCtx.profileId;
+                const urlWithProfile =
+                  pid && pid !== 'me'
+                    ? `${chatUrl}${chatUrl.includes('?') ? '&' : '?'}profileId=${encodeURIComponent(pid)}`
+                    : chatUrl;
+                router.push(urlWithProfile);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Failed to send questions');
+              } finally {
+                setIsSending(false);
+              }
+              return;
+            }
 
             if (current.isTextOnly) {
               if (!socket || !isConnected) {
@@ -1155,7 +1330,6 @@ export function AskQuestionsSection() {
               }
               try {
                 setIsSending(true);
-                // Show waiting modal; server will confirm via broadcast:messageSent
                 markSending();
                 socket.emit('broadcast:sendMessage', {
                   content: current.textMessage ?? '',
@@ -1179,7 +1353,7 @@ export function AskQuestionsSection() {
               });
             }
           }}
-          isPublishing={sendQuestionsMutation.isPending}
+          isPublishing={sendQuestionsMutation.isPending || isSending}
         />
       )}
     </>

@@ -162,12 +162,28 @@ export const getActiveChat = async (): Promise<Chat | null> => {
   return response;
 };
 
+export async function sendDirectQuestionBundle(payload: {
+  astrologerId: string;
+  questionItems: { id: string; text: string }[];
+  totalNr: number;
+  birthDetails?: Record<string, string>;
+  questionCategory?: string;
+}): Promise<{ chatId: string; messageCount: number; coinsDeducted: number }> {
+  const res = await apiClient.post<{
+    chatId: string;
+    messageCount: number;
+    coinsDeducted: number;
+  }>(API_ENDPOINTS.CHAT.SEND_DIRECT_QUESTION_BUNDLE, payload);
+  return res;
+}
+
 const chatService = {
   getConversations,
   getOrCreateChat,
   getChatById,
   getChatHistory,
   sendMessage,
+  sendDirectQuestionBundle,
   markMessagesAsRead,
   deleteMessage,
   getUnreadCount,
