@@ -6,52 +6,64 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Card, Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Avatar, AvatarImage, AvatarFallback, Card } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
+import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { useSocket } from '@/hooks/useSocket';
 import { useAuthStore } from '@/store/auth-store';
 import type { BroadcastMessage } from '@/types';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import { toast } from 'sonner';
-import {
-  MessageSquare,
-  X,
-  Clock,
-  User,
-  Minus,
-  Maximize2,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { MessageSquare, User, X, Minus, Maximize2 } from 'lucide-react';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { useRouter } from 'next/navigation';
 import { ROUTE_BUILDERS } from '@/constants';
-import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import { SidebarRequestList } from './SidebarRequestList';
+import { ProgressBar } from './ProgressBar';
+import {
+  getBatchTotalNr,
+  getMessageAmountNr,
+  getPriceTierClass,
+  sortBroadcastGroupsNewestFirst,
+  splitBroadcastMessagesByPayment,
+  isFirstBroadcastDiscountQuestion,
+} from './broadcast-request.utils';
 import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import type { User as SharedUser } from '@jyotish/shared';
 
-export function BroadcastMessageBar() {
+export interface BroadcastMessageBarProps {
+  onHasItemsChange?: (hasPending: boolean) => void;
+}
+
+export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarProps) {
   const { socket, isConnected } = useSocket();
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
   const [pendingMessages, setPendingMessages] = useState<BroadcastMessage[]>([]);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [messageIdToDiscard, setMessageIdToDiscard] = useState<string | null>(null);
+  const [activeGroupKey, setActiveGroupKey] = useState<string | null>(null);
+  const [detailExpired, setDetailExpired] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
-
-  // Simple draggable state
+  const [mounted, setMounted] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null);
-  const dragFrameRef = useRef<number | null>(null);
-  const pendingDeltaRef = useRef<{ dx: number; dy: number } | null>(null);
 
   function handleDragMouseDown(event: React.MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (
+      target.closest(
+        'button,a,input,textarea,select,[data-no-drag],[role="button"],[role="slider"]'
+      )
+    ) {
+      return;
+    }
     isDraggingRef.current = true;
     lastMousePositionRef.current = { x: event.clientX, y: event.clientY };
     event.preventDefault();
@@ -74,13 +86,13 @@ export function BroadcastMessageBar() {
 
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        const cardWidth = 420;
+        const cardWidth = 440;
         const margin = 16;
 
         const minX = -(viewportWidth - cardWidth - margin);
         const maxX = 0;
 
-        const headerHeight = 120; // ensure header area always visible
+        const headerHeight = 120;
         const minY = -(viewportHeight - headerHeight - margin);
         const maxY = 0;
 
@@ -106,6 +118,10 @@ export function BroadcastMessageBar() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   // Setup socket listeners
@@ -275,6 +291,7 @@ export function BroadcastMessageBar() {
 
     try {
       setAccepting(messageId);
+      setDetailOpen(false);
 
       // Emit via socket
       socket.emit('broadcast:acceptMessage', { messageId });
@@ -335,311 +352,396 @@ export function BroadcastMessageBar() {
     handleDismiss(messageIdToDiscard);
   }
 
-  function getTimeRemaining(createdAt: string | Date): string {
-    const created = typeof createdAt === 'string' ? new Date(createdAt) : createdAt;
-    const now = new Date();
-    const diffMs = now.getTime() - created.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+  const visiblePendingMessages = useMemo(
+    () => pendingMessages.filter((m) => isBroadcastPendingStillActive(m)),
+    [pendingMessages]
+  );
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins === 1) return '1 minute ago';
-    return `${diffMins} minutes ago`;
-  }
+  useEffect(() => {
+    if (user?.role !== 'ASTROLOGER') {
+      onHasItemsChange?.(false);
+      return;
+    }
+    onHasItemsChange?.(visiblePendingMessages.length > 0);
+  }, [user?.role, visiblePendingMessages.length, onHasItemsChange]);
 
-  const visiblePendingMessages = pendingMessages.filter((m) => isBroadcastPendingStillActive(m));
-
-  if (user?.role !== 'ASTROLOGER' || visiblePendingMessages.length === 0) {
-    return null;
-  }
-
-  // Group messages so multi-question broadcasts (batchId) appear as one request
   type MessageGroup = {
     key: string;
     messages: BroadcastMessage[];
   };
 
-  const groupsMap = new Map<string, BroadcastMessage[]>();
-  for (const message of visiblePendingMessages) {
-    const metadata = (message.metadata || {}) as Record<string, unknown>;
-    const batchId = typeof metadata.batchId === 'string' ? metadata.batchId : null;
-    const key = batchId || message.id;
-    const existing = groupsMap.get(key) || [];
-    groupsMap.set(key, [...existing, message]);
+  const groups: MessageGroup[] = useMemo(() => {
+    const groupsMap = new Map<string, BroadcastMessage[]>();
+    for (const message of visiblePendingMessages) {
+      const metadata = (message.metadata || {}) as Record<string, unknown>;
+      const batchId = typeof metadata.batchId === 'string' ? metadata.batchId : null;
+      const key = batchId || message.id;
+      const existing = groupsMap.get(key) || [];
+      groupsMap.set(key, [...existing, message]);
+    }
+    return Array.from(groupsMap.entries()).map(([key, messages]) => ({
+      key,
+      messages: messages.sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      ),
+    }));
+  }, [visiblePendingMessages]);
+
+  const sortedGroups = useMemo(() => sortBroadcastGroupsNewestFirst(groups), [groups]);
+
+  useEffect(() => {
+    if (sortedGroups.length === 0) return;
+    const firstKey = sortedGroups[0].key;
+    if (activeGroupKey == null || !sortedGroups.some((g) => g.key === activeGroupKey)) {
+      setActiveGroupKey(firstKey);
+    }
+  }, [sortedGroups, activeGroupKey]);
+
+  useEffect(() => {
+    setDetailExpired(false);
+  }, [activeGroupKey]);
+
+  if (user?.role !== 'ASTROLOGER' || visiblePendingMessages.length === 0) {
+    return null;
   }
 
-  const groups: MessageGroup[] = Array.from(groupsMap.entries()).map(([key, messages]) => ({
-    key,
-    messages: messages.sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    ),
-  }));
-
-  // Ensure activeGroupIndex is always valid
-  const safeActiveIndex = Math.min(activeGroupIndex, Math.max(groups.length - 1, 0));
-  if (safeActiveIndex !== activeGroupIndex) {
-    setActiveGroupIndex(safeActiveIndex);
-  }
-
-  const currentGroup = groups[safeActiveIndex];
+  const currentGroup = sortedGroups.find((g) => g.key === activeGroupKey) ?? sortedGroups[0];
   const currentMessage = currentGroup.messages[0];
   const questionCount = currentGroup.messages.length;
-  const totalRequests = groups.length;
+  const totalRequests = sortedGroups.length;
+  const batchTotalNr = getBatchTotalNr(currentGroup.messages);
+  const maxNrAll = Math.max(0, ...sortedGroups.map((g) => getBatchTotalNr(g.messages)));
+  const priceHighlightClass = getPriceTierClass(batchTotalNr, maxNrAll);
+  const { freeOrOffer, paid: paidMessages } = splitBroadcastMessagesByPayment(currentGroup.messages);
+  const onlyPaid = paidMessages.length > 0 && freeOrOffer.length === 0;
+  const hasBoth = freeOrOffer.length > 0 && paidMessages.length > 0;
 
-  return (
+  const firstBroadcastIncluded = freeOrOffer.filter((m) => isFirstBroadcastDiscountQuestion(m));
+  const otherFree = freeOrOffer.filter((m) => !isFirstBroadcastDiscountQuestion(m));
+
+  const otherFreeLabel =
+    otherFree.length > 1 ? 'Questions' : 'Question';
+  const otherFreeSectionLabel =
+    hasBoth && firstBroadcastIncluded.length > 0 && otherFree.length > 0
+      ? 'Included free question(s)'
+      : otherFreeLabel;
+
+  let paidSectionLabel: string;
+  if (onlyPaid) {
+    paidSectionLabel = questionCount > 1 ? 'Paid questions' : 'Question';
+  } else {
+    paidSectionLabel = 'Paid questions';
+  }
+
+  const renderQuestionBlock = (
+    items: BroadcastMessage[],
+    label: string,
+    variant: 'firstBroadcast' | 'free' | 'paid'
+  ) => {
+    const isPaid = variant === 'paid';
+    const isFirstBroadcast = variant === 'firstBroadcast';
+    const boxClass = isPaid
+      ? 'max-h-52 overflow-y-auto rounded-xl border-2 border-emerald-500/55 bg-emerald-100 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:border-emerald-500/45 dark:bg-emerald-950/80 dark:shadow-none'
+      : isFirstBroadcast
+        ? 'max-h-40 overflow-y-auto rounded-xl border-2 border-amber-400/85 bg-gradient-to-b from-amber-50/95 to-amber-50/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_0_0_1px_rgba(251,191,36,0.2)] dark:border-amber-500/60 dark:from-amber-950/50 dark:to-amber-950/30'
+        : 'max-h-40 overflow-y-auto rounded-xl border border-slate-200/90 bg-slate-50/90 p-3 shadow-sm dark:border-slate-600/60 dark:bg-slate-900/40';
+
+    const labelClass = isPaid
+      ? 'text-emerald-800 dark:text-emerald-300'
+      : isFirstBroadcast
+        ? 'text-amber-800 dark:text-amber-200'
+        : 'text-slate-500';
+
+    return (
+      <div className="space-y-2">
+        <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${labelClass}`}>
+          {label}
+        </p>
+        <div data-no-drag className={boxClass}>
+          <ul className="space-y-4 text-sm text-slate-900 dark:text-slate-100">
+            {items.map((msg, index) => {
+              const amt = getMessageAmountNr(msg);
+              const innerRow = isPaid
+                ? 'border-emerald-400/60 bg-emerald-50/90 dark:border-emerald-600/50 dark:bg-emerald-900/40'
+                : isFirstBroadcast
+                  ? 'border-amber-300/90 bg-white/80 dark:border-amber-700/50 dark:bg-amber-950/20'
+                  : 'border-slate-200 bg-white/90 dark:border-slate-600/50 dark:bg-slate-800/30';
+              const qTitle = isPaid
+                ? 'font-bold text-emerald-900 dark:text-emerald-200'
+                : isFirstBroadcast
+                  ? 'font-bold text-amber-900 dark:text-amber-100'
+                  : 'font-bold text-slate-800 dark:text-slate-100';
+              return (
+                <li key={msg.id} className={`rounded-lg border p-3 leading-relaxed ${innerRow}`}>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className={qTitle}>Q{index + 1}</span>
+                    {amt === 0 ? (
+                      <span
+                        className={
+                          isFirstBroadcast
+                            ? 'rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 dark:bg-amber-900/60 dark:text-amber-100'
+                            : 'rounded-md bg-slate-200/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:bg-slate-700/80 dark:text-slate-200'
+                        }
+                      >
+                        {isFirstBroadcast ? 'Included' : 'Free'}
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold tabular-nums text-white shadow-sm dark:bg-emerald-500">
+                        Rs. {amt.toLocaleString('en-NP')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[15px] leading-relaxed text-slate-800 dark:text-slate-100">
+                    {msg.content}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    );
+  };
+
+  const detailPanel = (
     <div
-      className="fixed bottom-6 right-6 z-[9999] animate-in slide-in-from-bottom-8 fade-in transition-transform cursor-move"
-      style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
-      }}
-      onMouseDown={handleDragMouseDown}
+      className={`flex min-w-0 flex-col rounded-2xl border border-emerald-200/50 bg-gradient-to-b from-white to-slate-50/90 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border-emerald-900/40 dark:from-slate-900 dark:to-slate-950/90 ${priceHighlightClass}`}
     >
-      <Card className="w-[420px] bg-white border-0 shadow-2xl ring-4 ring-purple-500/20 overflow-hidden pointer-events-auto">
-        {/* Animated gradient header */}
-        <div className="h-2 bg-gradient-to-r from-purple-600 via-pink-500 to-indigo-600 animate-gradient-x"></div>
+      <div className="mb-4 flex items-start gap-3">
+        <Avatar className="h-14 w-14 shrink-0 ring-2 ring-amber-200 ring-offset-2 dark:ring-amber-700/50 dark:ring-offset-slate-900">
+          <AvatarImage
+            src={getImageUrl(currentMessage.client?.profilePhoto) || undefined}
+            alt={currentMessage.client?.name || 'Client'}
+          />
+          <AvatarFallback className="bg-gradient-to-br from-amber-600 to-orange-700 text-xl font-bold text-white">
+            {!currentMessage.client?.profilePhoto && !currentMessage.client?.name ? (
+              <User className="h-7 w-7 text-white" />
+            ) : (
+              (currentMessage.client?.name || currentMessage.client?.phone || 'C')
+                .charAt(0)
+                .toUpperCase()
+            )}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="text-xl font-bold leading-tight text-gray-900 dark:text-white">
+            {currentMessage.client?.name || currentMessage.client?.phone || 'Client'}
+          </p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+              Time remaining
+            </p>
+            <CountdownTimer
+              key={currentMessage.id}
+              createdAt={currentMessage.createdAt}
+              expiresAt={currentMessage.expiresAt}
+              expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+              showIcon
+              className="text-base font-bold tabular-nums"
+            />
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {formatDistanceToNowStrict(new Date(currentMessage.createdAt), {
+              addSuffix: true,
+            })}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Price</p>
+          <p className="text-2xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+            {batchTotalNr > 0
+              ? `Rs. ${batchTotalNr.toLocaleString('en-NP')}`
+              : 'Free'}
+          </p>
+        </div>
+      </div>
 
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-start justify-between mb-4 select-none">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl shadow-lg">
-                <MessageSquare className="h-6 w-6 text-white animate-pulse" />
-              </div>
-              <div>
-                <h3 className="text-gray-900 font-bold text-lg">
-                  New Client Request
-                  {questionCount > 1 && (
-                    <span className="ml-2 text-xs font-semibold text-purple-600">
-                      ({questionCount} questions)
-                    </span>
-                  )}
-                </h3>
-                {totalRequests > 1 && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-xs text-gray-600 font-medium">
-                      {safeActiveIndex + 1} of {totalRequests} requests
-                    </span>
-                    <div className="flex items-center gap-1">
+      <div className="mb-4 space-y-5">
+        {firstBroadcastIncluded.length > 0 &&
+          renderQuestionBlock(
+            firstBroadcastIncluded,
+            'First broadcast (offer)',
+            'firstBroadcast'
+          )}
+        {otherFree.length > 0 &&
+          renderQuestionBlock(otherFree, otherFreeSectionLabel, 'free')}
+        {paidMessages.length > 0 && renderQuestionBlock(paidMessages, paidSectionLabel, 'paid')}
+      </div>
+
+      <div className="mb-4" data-no-drag>
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          Time left
+        </p>
+        <ProgressBar
+          key={currentMessage.id}
+          createdAt={currentMessage.createdAt}
+          expiresAt={currentMessage.expiresAt}
+          expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+          variant="prominent"
+          onExpire={() => {
+            setDetailExpired(true);
+            socket?.emit('broadcast:getPendingMessages');
+          }}
+        />
+      </div>
+
+      <div className="flex gap-3 pt-1" data-no-drag>
+        <LoadingButton
+          isLoading={accepting === currentMessage.id}
+          disabled={accepting === currentMessage.id || detailExpired}
+          onClick={() => handleAccept(currentMessage.id)}
+          className="flex h-12 min-h-12 flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-teal-500 via-emerald-500 to-fuchsia-600 px-4 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl"
+        >
+          <MessageSquare className="mr-2 h-4 w-4 shrink-0" />
+          Accept
+        </LoadingButton>
+        <button
+          type="button"
+          onClick={() => {
+            setDetailOpen(false);
+            setMessageIdToDiscard(currentMessage.id);
+          }}
+          disabled={accepting === currentMessage.id || detailExpired}
+          className="flex h-12 min-h-12 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+        >
+          Reject
+        </button>
+      </div>
+    </div>
+  );
+
+  const floatingDetail =
+    mounted && typeof document !== 'undefined' && detailOpen && totalRequests > 0
+      ? createPortal(
+          <div
+            className="pointer-events-auto fixed bottom-6 right-6 z-[10050] w-[min(96vw,440px)] cursor-grab animate-in fade-in zoom-in-95 duration-200 active:cursor-grabbing"
+            style={{
+              transform: `translate(${position.x}px, ${position.y}px)`,
+            }}
+            onMouseDown={handleDragMouseDown}
+          >
+            <Card className="overflow-hidden rounded-xl border-2 border-slate-300/90 bg-white shadow-2xl ring-1 ring-slate-400/25 dark:border-slate-600 dark:bg-slate-950 dark:ring-slate-500/30">
+              {!isMinimized && (
+                <div className="border-b border-slate-800 bg-slate-900 px-4 py-3 dark:bg-slate-950">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1 select-none">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-400">
+                        Request detail
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5">
                       <button
                         type="button"
-                        className="p-1 rounded hover:bg-gray-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveGroupIndex((prev) => (prev <= 0 ? totalRequests - 1 : prev - 1));
+                        onClick={() => {
+                          setIsMinimized((m) => {
+                            const next = !m;
+                            if (next) setPosition({ x: 0, y: 0 });
+                            return next;
+                          });
                         }}
+                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                        aria-label="Minimize"
                       >
-                        <ChevronLeft className="h-3 w-3 text-gray-500" />
+                        <Minus className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
-                        className="p-1 rounded hover:bg-gray-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveGroupIndex((prev) => (prev >= totalRequests - 1 ? 0 : prev + 1));
-                        }}
+                        onClick={() => setDetailOpen(false)}
+                        className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                        aria-label="Close"
                       >
-                        <ChevronRight className="h-3 w-3 text-gray-500" />
+                        <X className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMinimized((prev) => !prev);
-                  if (!isMinimized && typeof window !== 'undefined') {
-                    // When minimizing, reset position so next expand is fully visible
-                    setPosition({ x: 0, y: 0 });
-                  }
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors group"
-              >
-                {isMinimized ? (
-                  <Maximize2 className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
-                ) : (
-                  <Minus className="h-4 w-4 text-gray-400 group-hover:text-gray-600" />
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMessageIdToDiscard(currentMessage.id);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors group"
-                disabled={accepting === currentMessage.id}
-              >
-                <X className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
-              </button>
-            </div>
-          </div>
-
-          {isMinimized ? (
-            <div
-              className="flex items-center justify-between gap-3 py-2 px-3 rounded-lg bg-purple-50 border border-purple-100 cursor-pointer"
-              onClick={() => {
-                setIsMinimized(false);
-                // Ensure header is always visible when expanding
-                setPosition({ x: 0, y: 0 });
-              }}
-            >
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-gray-900">New Client Requests</span>
-                <span className="text-xs text-gray-600">
-                  {totalRequests === 1
-                    ? questionCount === 1
-                      ? '1 question pending'
-                      : `${questionCount} questions pending`
-                    : `Request ${safeActiveIndex + 1} of ${totalRequests} (${questionCount} questions)`}
-                </span>
-              </div>
-              {totalRequests > 1 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className="p-1 rounded hover:bg-purple-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveGroupIndex((prev) => (prev <= 0 ? totalRequests - 1 : prev - 1));
-                    }}
-                  >
-                    <ChevronLeft className="h-3 w-3 text-purple-700" />
-                  </button>
-                  <button
-                    type="button"
-                    className="p-1 rounded hover:bg-purple-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveGroupIndex((prev) => (prev >= totalRequests - 1 ? 0 : prev + 1));
-                    }}
-                  >
-                    <ChevronRight className="h-3 w-3 text-purple-700" />
-                  </button>
                 </div>
               )}
-            </div>
-          ) : (
-            <>
-              {/* Client Info Card */}
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 mb-4 border border-purple-100">
-                <div className="flex items-start gap-3">
-                  <Avatar className="h-14 w-14 ring-2 ring-purple-200 ring-offset-2">
-                    <AvatarImage
-                      src={getImageUrl(currentMessage.client?.profilePhoto) || undefined}
-                      alt={currentMessage.client?.name || 'Client'}
-                    />
-                    <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold text-xl">
-                      {!currentMessage.client?.profilePhoto && !currentMessage.client?.name ? (
-                        <User className="h-7 w-7 text-white" />
-                      ) : (
-                        (currentMessage.client?.name || currentMessage.client?.phone || 'C')
-                          .charAt(0)
-                          .toUpperCase()
-                      )}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-gray-900 font-bold text-lg mb-1">
-                      {currentMessage.client?.name || currentMessage.client?.phone}
-                    </p>
-                    <div className="flex items-center gap-2 text-gray-600 text-sm">
-                      <Clock className="h-4 w-4" />
-                      <CountdownTimer
-                        createdAt={currentMessage.createdAt}
-                        expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
-                        expiresAt={currentMessage.expiresAt}
-                        showIcon={false}
-                        onExpire={() => {
-                          // Re-sync with server so expiration is driven by backend status
-                          socket?.emit('broadcast:getPendingMessages');
-                        }}
-                      />
-                    </div>
-                  </div>
+
+              {isMinimized ? (
+                <div className="flex items-center gap-2 bg-gradient-to-r from-slate-50 to-slate-100/95 px-3 py-2.5 dark:from-slate-900 dark:to-slate-950">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMinimized(false);
+                      setPosition({ x: 0, y: 0 });
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <MessageSquare className="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" />
+                    <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                      {currentMessage.client?.name || currentMessage.client?.phone || 'Client'} —
+                      {batchTotalNr > 0
+                        ? `Rs. ${batchTotalNr.toLocaleString('en-NP')}`
+                        : 'Free'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMinimized(false);
+                      setPosition({ x: 0, y: 0 });
+                    }}
+                    className="shrink-0 rounded-lg p-2 text-teal-700 hover:bg-white/60 dark:text-teal-300 dark:hover:bg-white/10"
+                    aria-label="Expand"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetailOpen(false)}
+                    className="shrink-0 rounded-lg p-2 text-slate-500 hover:bg-white/60 dark:hover:bg-white/10"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
+              ) : (
+                <div className="max-h-[min(78vh,560px)] overflow-y-auto p-4">{detailPanel}</div>
+              )}
+            </Card>
+          </div>,
+          document.body
+        )
+      : null;
 
-                {/* Message Content */}
-                <div className="mt-4 bg-white rounded-lg p-4 shadow-sm border border-purple-100 max-h-60 overflow-y-auto">
-                  {questionCount > 1 ? (
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      {currentGroup.messages.map((msg, index) => {
-                        const isFirst = index === 0;
-                        const baseClasses =
-                          'flex items-start gap-2 rounded-md px-3 py-2 border transition-colors';
-                        const paletteClasses = isFirst
-                          ? 'bg-purple-50 border-purple-100'
-                          : 'bg-emerald-50 border-emerald-200';
+  return (
+    <>
+      <SidebarRequestList
+        stacked
+        hideHeader
+        className="min-w-0"
+        groups={sortedGroups}
+        activeKey={activeGroupKey ?? sortedGroups[0]?.key ?? ''}
+        acceptingMessageId={accepting}
+        onSelectGroup={(key) => {
+          setActiveGroupKey(key);
+          setDetailOpen(true);
+          setIsMinimized(false);
+        }}
+        onAccept={(id) => handleAccept(id)}
+        onReject={(id) => setMessageIdToDiscard(id)}
+      />
 
-                        return (
-                          <li key={msg.id} className={`${baseClasses} ${paletteClasses}`}>
-                            <span
-                              className={`mt-[2px] flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
-                                isFirst
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : 'bg-emerald-100 text-emerald-700'
-                              }`}
-                            >
-                              {index + 1}
-                            </span>
-                            <p className="leading-relaxed">{msg.content}</p>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-700 text-sm leading-relaxed line-clamp-3">
-                      {currentMessage.content}
-                    </p>
-                  )}
-                </div>
-              </div>
+      {floatingDetail}
 
-              {/* Actions */}
-              <div className="flex gap-3">
-                <LoadingButton
-                  isLoading={accepting === currentMessage.id}
-                  disabled={accepting === currentMessage.id}
-                  onClick={() => handleAccept(currentMessage.id)}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Accept & Chat
-                </LoadingButton>
-                <button
-                  type="button"
-                  onClick={() => setMessageIdToDiscard(currentMessage.id)}
-                  disabled={accepting === currentMessage.id}
-                  className="px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
-                >
-                  Later
-                </button>
-              </div>
-            </>
-          )}
+      <ConfirmDialog
+        isOpen={messageIdToDiscard !== null}
+        onClose={() => setMessageIdToDiscard(null)}
+        onConfirm={handleConfirmDiscard}
+        title="Discard this request?"
+        description="Are you sure you want to discard this request? The client will need to send a new request to connect with an astrologer."
+        confirmText="Yes, discard"
+        cancelText="Cancel"
+        isDestructive
+        overlayClassName="z-[10060]"
+      />
 
-          <ConfirmDialog
-            isOpen={messageIdToDiscard !== null}
-            onClose={() => setMessageIdToDiscard(null)}
-            onConfirm={handleConfirmDiscard}
-            title="Discard this request?"
-            description="Are you sure you want to discard this request? The client will need to send a new request to connect with an astrologer."
-            confirmText="Yes, discard"
-            cancelText="Cancel"
-            isDestructive
-          />
-
-          {/* Connection Status */}
-          {!isConnected && (
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-lg py-2 px-3 border border-amber-200">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-amber-600"></div>
-              <span className="font-medium">Reconnecting...</span>
-            </div>
-          )}
+      {!isConnected && (
+        <div className="mt-2 flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-600 dark:border-amber-800 dark:bg-amber-950/40">
+          <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-amber-600" />
+          <span className="font-medium">Reconnecting…</span>
         </div>
-      </Card>
-    </div>
+      )}
+    </>
   );
 }

@@ -8,7 +8,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
-import { MessageSquare, X, Clock, Check, User } from 'lucide-react';
+import { Check, User } from 'lucide-react';
+import { formatDistanceToNowStrict } from 'date-fns';
+import { ProgressBar } from '@/components/features/broadcast-chat/ProgressBar';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -34,7 +36,14 @@ interface InstantChatRequest {
   };
 }
 
-export const InstantChatRequestBar: React.FC = () => {
+export interface InstantChatRequestBarProps {
+  /** Fires when this queue has items (for unified empty state in layout). */
+  onHasItemsChange?: (hasItems: boolean) => void;
+}
+
+export const InstantChatRequestBar: React.FC<InstantChatRequestBarProps> = ({
+  onHasItemsChange,
+}) => {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
   const [requests, setRequests] = useState<InstantChatRequest[]>([]);
@@ -149,6 +158,10 @@ export const InstantChatRequestBar: React.FC = () => {
     };
   }, [socket, router, autoRemoveTimers, isConnected]);
 
+  useEffect(() => {
+    onHasItemsChange?.(requests.length > 0);
+  }, [requests.length, onHasItemsChange]);
+
   const handleAccept = (requestId: string) => {
     if (!socket || !isConnected) {
       toast.error('Connection not ready. Please wait and try again.');
@@ -176,19 +189,17 @@ export const InstantChatRequestBar: React.FC = () => {
 
   return (
     <>
-      <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-2xl w-full px-4">
-        <div className="space-y-3">
-          {requests.map((request) => (
-            <InstantChatRequestCard
-              key={request.id}
-              request={request}
-              accepting={accepting === request.id}
-              onAccept={() => handleAccept(request.id)}
-              onDismissClick={() => setRequestIdToDiscard(request.id)}
-              onExpire={() => handleDismiss(request.id)}
-            />
-          ))}
-        </div>
+      <div className="space-y-2">
+        {requests.map((request) => (
+          <InstantChatRequestCard
+            key={request.id}
+            request={request}
+            accepting={accepting === request.id}
+            onAccept={() => handleAccept(request.id)}
+            onDismissClick={() => setRequestIdToDiscard(request.id)}
+            onExpire={() => handleDismiss(request.id)}
+          />
+        ))}
       </div>
 
       <ConfirmDialog
@@ -220,90 +231,86 @@ const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
   onDismissClick,
   onExpire,
 }) => {
-  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [expired, setExpired] = useState(false);
 
-  useEffect(() => {
-    const calculateTimeRemaining = () => {
-      const expiresAt = new Date(request.expiresAt).getTime();
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-      setTimeRemaining(remaining);
-
-      if (remaining === 0) {
-        onExpire();
-      }
-    };
-
-    calculateTimeRemaining();
-    const interval = setInterval(calculateTimeRemaining, 1000);
-
-    return () => clearInterval(interval);
-  }, [request.expiresAt, onExpire]);
+  const created = new Date(request.createdAt).getTime();
+  const ends = new Date(request.expiresAt).getTime();
+  const windowMs = Math.max(60_000, ends - created);
 
   return (
-    <div className="bg-gradient-to-r from-orange-600 to-amber-600 text-white p-4 rounded-lg shadow-2xl animate-in slide-in-from-top duration-300">
-      <div className="flex items-start gap-4">
-        {/* Avatar */}
-        <Avatar className="h-14 w-14 ring-2 ring-white/50">
-          <AvatarImage
-            src={getImageUrl(request.client.profilePhoto) || undefined}
-            alt={request.client.name || 'Client'}
-          />
-          <AvatarFallback className="bg-white text-orange-600 font-bold text-lg">
-            {!request.client.profilePhoto && !request.client.name ? (
-              <User className="h-6 w-6 text-orange-600" />
-            ) : (
-              (request.client.name || request.client.phone || 'C').charAt(0).toUpperCase()
-            )}
-          </AvatarFallback>
-        </Avatar>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <MessageSquare className="h-5 w-5" />
-            <h4 className="font-bold text-lg">New Instant Chat Request</h4>
-          </div>
-          <p className="text-white/90 mb-1">
-            <span className="font-semibold">{request.client.name || 'Someone'}</span> is looking for
-            an astrologer
-          </p>
-          {request.message && (
-            <p className="text-sm text-white/80 mb-2 line-clamp-2">&quot;{request.message}&quot;</p>
-          )}
-          <div className="flex items-center gap-2 text-sm text-white/80">
-            <Clock className="h-4 w-4" />
-            <span>
-              Expires in {Math.floor(timeRemaining / 60)}:
-              {(timeRemaining % 60).toString().padStart(2, '0')}
-            </span>
+    <div className="rounded-xl bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/90 p-3 text-white shadow-lg ring-1 ring-amber-500/30 transition-shadow animate-in slide-in-from-top duration-300 hover:ring-amber-400/50">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <Avatar className="h-12 w-12 ring-2 ring-amber-400/40 shrink-0">
+            <AvatarImage
+              src={getImageUrl(request.client.profilePhoto) || undefined}
+              alt={request.client.name || 'Client'}
+            />
+            <AvatarFallback className="bg-amber-600 text-white font-bold text-lg">
+              {!request.client.profilePhoto && !request.client.name ? (
+                <User className="h-6 w-6 text-white" />
+              ) : (
+                (request.client.name || request.client.phone || 'C').charAt(0).toUpperCase()
+              )}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="font-bold text-base leading-tight truncate">
+              {request.client.name || request.client.phone || 'Client'}
+            </p>
+            <p className="text-[11px] text-white/50 font-mono truncate mt-0.5">
+              {request.clientId.length > 12
+                ? `${request.clientId.slice(0, 6)}…${request.clientId.slice(-4)}`
+                : request.clientId}
+            </p>
+            <p className="text-[11px] text-amber-200/90 mt-1">
+              {formatDistanceToNowStrict(new Date(request.createdAt), { addSuffix: true })}
+            </p>
           </div>
         </div>
+        <span className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-200 text-xs font-bold border border-amber-400/30">
+          Instant
+        </span>
+      </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2">
-          <LoadingButton onClick={onAccept} isLoading={accepting} disabled={accepting} size="sm">
-            <Check className="mr-1 h-4 w-4" />
-            Accept
-          </LoadingButton>
-          <button
-            type="button"
-            onClick={onDismissClick}
-            disabled={accepting}
-            className="text-sm px-2 py-1.5 hover:bg-white/20 rounded transition-colors"
-          >
-            Later
-          </button>
-          <button
-            type="button"
-            onClick={onDismissClick}
-            disabled={accepting}
-            className="p-1 hover:bg-white/20 rounded transition-colors"
-            title="Discard"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      {request.message && (
+        <p className="text-sm text-white/85 line-clamp-2 mb-3 leading-snug border-l-2 border-amber-500/60 pl-2">
+          {request.message}
+        </p>
+      )}
+
+      <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+        <ProgressBar
+          key={request.id}
+          createdAt={request.createdAt}
+          expiresAt={request.expiresAt}
+          expiryMs={windowMs}
+          variant="prominent"
+          onExpire={() => {
+            setExpired(true);
+            onExpire();
+          }}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <LoadingButton
+          onClick={onAccept}
+          isLoading={accepting}
+          disabled={accepting || expired}
+          className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold shadow-lg"
+        >
+          <Check className="mr-1 h-4 w-4" />
+          Accept
+        </LoadingButton>
+        <button
+          type="button"
+          onClick={onDismissClick}
+          disabled={accepting || expired}
+          className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold disabled:opacity-50"
+        >
+          Reject
+        </button>
       </div>
     </div>
   );
