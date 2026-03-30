@@ -43,8 +43,6 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const { data: chatUnreadNav = 0 } = useQuery({
     queryKey: QUERY_KEYS.CHAT.UNREAD_COUNT,
     queryFn: () => getUnreadCount(),
-    /** Updates via socket (invalidate on CHAT_RECEIVE) + setQueryData after mark-read; avoid polling */
-    staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     enabled: !!user?.id && user?.role === USER_ROLES.ASTROLOGER,
@@ -56,8 +54,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
   const { canAccessAppointments: hasAppointmentAccess, canAcceptBroadcastMessages } =
     getAstrologerPermissionsFromUser(user);
 
-  const showRequestsSidebar =
-    user?.role === USER_ROLES.ASTROLOGER && canAcceptBroadcastMessages;
+  const showRequestsSidebar = user?.role === USER_ROLES.ASTROLOGER && canAcceptBroadcastMessages;
 
   useEffect(() => {
     setRequestsDrawerOpen(false);
@@ -137,8 +134,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
             >
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
-                const showChatBadge =
-                  item.href === ROUTES.JYOTISH_CHAT && chatUnreadNav > 0;
+                const showChatBadge = item.href === ROUTES.JYOTISH_CHAT && chatUnreadNav > 0;
                 return (
                   <Link
                     key={item.href}
@@ -232,8 +228,7 @@ export function JyotishLayout({ children }: JyotishLayoutProps) {
         <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-white/[0.06] bg-[#0f0e14]/90 backdrop-blur-xl md:hidden">
           {navItems.slice(0, 4).map((item) => {
             const isActive = pathname === item.href;
-            const showChatBadge =
-              item.href === ROUTES.JYOTISH_CHAT && chatUnreadNav > 0;
+            const showChatBadge = item.href === ROUTES.JYOTISH_CHAT && chatUnreadNav > 0;
             return (
               <Link
                 key={item.name}
