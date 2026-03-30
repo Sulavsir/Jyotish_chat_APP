@@ -88,26 +88,6 @@ function buildTierOptions(tierMap: Map<number, number>, broadcastSend: number): 
 }
 
 /**
- * Allocate `target` across `n` slots proportionally to `weights` (integers, same length as n).
- */
-function allocateProportional(weights: number[], target: number): number[] {
-  const n = weights.length;
-  if (n === 0) return [];
-  const sum = weights.reduce((a, b) => a + b, 0);
-  if (sum === 0) return Array(n).fill(0);
-  if (target <= 0) return Array(n).fill(0);
-  const out = weights.map((w) => Math.floor((w * target) / sum));
-  let r = target - out.reduce((a, b) => a + b, 0);
-  let i = 0;
-  while (r > 0) {
-    out[i % n]++;
-    r--;
-    i++;
-  }
-  return out;
-}
-
-/**
  * Minimum-cost composition of admin bundle tiers (DP). E.g. tiers (1→100), (2→190) and N=3
  * gives 190+100=290 (2-Q bundle + 1-Q), not 100+150+150 from old per-slot logic.
  */
@@ -169,8 +149,8 @@ function computeComposedPricing(
  * - Admin tiers are **bundle prices** for exactly K questions. Any order size N is priced by
  *   **composing** tiers with minimum total cost (DP), e.g. 3 questions → tier(2)+tier(1) when that is
  *   cheaper than a single tier(3) or three singles.
- * - First-broadcast discount % applies to the **composed** subtotal, then amounts are split per question
- *   proportionally for refunds/display.
+ * - First-broadcast discount % applies **only to question 1** (first slot in composed order), not the
+ *   whole bundle total.
  */
 async function buildPerQuestionPrices(
   questionCount: number,
@@ -213,20 +193,16 @@ async function buildPerQuestionPrices(
   }
 
   const { basePerQuestion, tierApplied } = composed;
-  const baseSum = basePerQuestion.reduce((a, b) => a + b, 0);
+  const q1Base = basePerQuestion[0] ?? 0;
 
   const applyDiscount =
-    Boolean(clientId) && isFirstBroadcast && clampedDiscount > 0 && baseSum > 0;
-  const finalSum = applyDiscount
-    ? clampedDiscount >= 100
-      ? 0
-      : Math.round((baseSum * (100 - clampedDiscount)) / 100)
-    : baseSum;
+    Boolean(clientId) && isFirstBroadcast && clampedDiscount > 0 && q1Base > 0;
 
-  const finalPerQuestion =
-    applyDiscount && baseSum > 0
-      ? allocateProportional(basePerQuestion, finalSum)
-      : [...basePerQuestion];
+  const finalPerQuestion = [...basePerQuestion];
+  if (applyDiscount) {
+    finalPerQuestion[0] =
+      clampedDiscount >= 100 ? 0 : Math.round((q1Base * (100 - clampedDiscount)) / 100);
+  }
 
   return finalPerQuestion.map((price, i) => ({
     position: i + 1,

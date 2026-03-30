@@ -34,6 +34,7 @@ import { ChevronDown } from 'lucide-react';
 import { LogoutModal } from '@/components/modals';
 import { ProfileDropdown, NotificationBell, CoinDisplay } from '@/components/ui';
 import { ClientDashboardProvider } from '@/providers/ClientDashboardProvider';
+import { BroadcastPendingBridge } from '@/components/features/broadcast-chat/BroadcastPendingBridge';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -139,6 +140,7 @@ export function DashboardLayout({ children, hideBackground }: DashboardLayoutPro
 
   return (
     <ClientDashboardProvider>
+      <BroadcastPendingBridge />
       <div className={cn('min-h-screen relative', hideBackground && 'bg-black')}>
         {!hideBackground && (
           <div

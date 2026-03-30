@@ -4,5 +4,6 @@
 
 export { BroadcastChatWindow } from './BroadcastChatWindow';
 export { BroadcastMessageBar } from './BroadcastMessageBar';
+export { BroadcastPendingBridge } from './BroadcastPendingBridge';
 
 

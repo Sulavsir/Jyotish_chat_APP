@@ -237,25 +237,6 @@ export default function ChatPage() {
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
 
-    // Listen for broadcast acceptance (when your broadcast is accepted by an astrologer)
-    const handleYourBroadcastAccepted = async (data: any) => {
-      console.log('📢 Your broadcast accepted, opening chat:', data);
-
-      // Reload conversations to get the new chat
-      const freshConversations = await loadConversations();
-
-      // Auto-open the chat that was just created
-      if (data.chat && data.chat.id) {
-        // Close broadcast chat window
-        setIsBroadcastChatActive(false);
-
-        // Open the new chat
-        setTimeout(() => {
-          loadAndSelectChatFromUrl(data.chat.id, freshConversations);
-        }, 500);
-      }
-    };
-
     const handleNewMessage = async (message: any) => {
       // Note: Balance only changes when client SENDS (coin deduction). Receiving a message doesn't change balance.
 
@@ -551,7 +532,6 @@ export default function ChatPage() {
     socket.on('chat:abandoned', handleChatAbandoned);
     socket.on('chat:unblocked', handleChatUnblocked);
     socket.on('chat:error', handleChatError);
-    socket.on('broadcast:yourMessageAccepted', handleYourBroadcastAccepted);
     socket.on('chat:sent', handleSentInNewMode);
 
     return () => {
@@ -562,7 +542,6 @@ export default function ChatPage() {
       socket.off('chat:abandoned', handleChatAbandoned);
       socket.off('chat:unblocked', handleChatUnblocked);
       socket.off('chat:error', handleChatError);
-      socket.off('broadcast:yourMessageAccepted', handleYourBroadcastAccepted);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, isConnected, user, activeChatId]);

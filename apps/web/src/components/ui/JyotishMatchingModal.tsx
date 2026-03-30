@@ -20,6 +20,9 @@ interface JyotishMatchingModalProps {
   timeRemaining?: number; // Time remaining in seconds
   title?: string;
   subtitle?: string;
+  /** Controlled minimize (e.g. global broadcast overlay — survives navigation when lifted to layout) */
+  minimized?: boolean;
+  onMinimizeChange?: (minimized: boolean) => void;
 }
 
 interface JyotishNode {
@@ -46,9 +49,20 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
   timeRemaining,
   title = 'Searching for Available Jyotish',
   subtitle = 'Please wait while we find the best match for you...',
+  minimized: minimizedProp,
+  onMinimizeChange,
 }) => {
   const user = useAuthStore((state) => state.user);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [internalMinimized, setInternalMinimized] = useState(false);
+  const isControlledMinimize = minimizedProp !== undefined;
+  const isMinimized = minimizedProp ?? internalMinimized;
+  const setMinimized = (next: boolean) => {
+    if (isControlledMinimize) {
+      onMinimizeChange?.(next);
+    } else {
+      setInternalMinimized(next);
+    }
+  };
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [currentTargetIndex, setCurrentTargetIndex] = useState(0);
   const [signalState, setSignalState] = useState<'traveling' | 'waiting' | 'returning'>(
@@ -151,15 +165,17 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
     };
   }, [isOpen, isMinimized, currentTargetIndex, signalState, jyotishNodes]);
 
-  // Reset animation when modal opens
+  // Reset animation when modal opens (do not clear controlled minimize — user may have minimized then navigated)
   useEffect(() => {
     if (isOpen) {
       setCurrentTargetIndex(0);
       setSignalState('traveling');
-      setIsMinimized(false);
+      if (!isControlledMinimize) {
+        setInternalMinimized(false);
+      }
       setSignalProgress(0);
     }
-  }, [isOpen]);
+  }, [isOpen, isControlledMinimize]);
 
   if (!isOpen) return null;
 
@@ -246,7 +262,7 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
       {!isMinimized && (
         <div
           className="fixed inset-0 z-[100002] bg-black/20 backdrop-blur-sm"
-          onClick={() => setIsMinimized(true)}
+          onClick={() => setMinimized(true)}
         />
       )}
 
@@ -273,7 +289,7 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsMinimized(true)}
+                  onClick={() => setMinimized(true)}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   title="Minimize"
                 >
@@ -439,7 +455,7 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
               e.target === e.currentTarget ||
               (e.target as HTMLElement).closest('.minimized-content')
             ) {
-              setIsMinimized(false);
+              setMinimized(false);
             }
           }}
         >
@@ -462,7 +478,7 @@ export const JyotishMatchingModal: React.FC<JyotishMatchingModalProps> = ({
             </div>
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <button
-                onClick={() => setIsMinimized(false)}
+                onClick={() => setMinimized(false)}
                 className="p-1 hover:bg-white/20 rounded transition-colors"
                 title="Expand"
               >

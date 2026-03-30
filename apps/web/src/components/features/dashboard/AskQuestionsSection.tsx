@@ -20,8 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@jyotish/ui';
-import { useRouter } from 'next/navigation';
-import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
+import { QUERY_KEYS } from '@/constants';
 import { JyotishSelector } from './JyotishSelector';
 import { useChat, CoinPurchaseModalWrapper } from '@/hooks/useChat';
 import { useBroadcastPending } from '@/hooks/useBroadcastPending';
@@ -36,10 +35,8 @@ import broadcastMessageService from '@/services/broadcastMessage.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
 import { useSocket } from '@/hooks/useSocket';
 import { toast } from 'sonner';
-import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { useAskQuestionsLayoutStore } from '@/store/ask-questions-layout.store';
 import { useTranslations } from '@/hooks/useTranslations';
-import { useClientDashboard } from '@/providers/ClientDashboardProvider';
 import chatService from '@/services/chat.service';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
@@ -51,14 +48,17 @@ import coinService from '@/services/coin.service';
 import { AstrologerCategory } from '@/types/astrologer';
 import { SelectedQuestionsModal, type SelectedQuestionDetailed } from './SelectedQuestionsModal';
 import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
-import { computeBroadcastBaseTotalNr } from '@/utils/broadcastQuestionPricing.utils';
+import {
+  computeBroadcastBaseTotalNr,
+  computeBroadcastTotalNrWithQ1Discount,
+} from '@/utils/broadcastQuestionPricing.utils';
+import { useBroadcastPendingStore } from '@/store/broadcast-pending.store';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
 
 export function AskQuestionsSection() {
   const { t } = useTranslations();
-  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const { socket, isConnected } = useSocket();
   const [mode, setMode] = useState<'direct' | 'broadcast'>('direct');
@@ -86,8 +86,6 @@ export function AskQuestionsSection() {
   const [broadcastProfileId, setBroadcastProfileId] = useState<string>('me');
   const [showSelectedQuestionsModal, setShowSelectedQuestionsModal] = useState(false);
   const [showSelectedDirectQuestionsModal, setShowSelectedDirectQuestionsModal] = useState(false);
-  const [isBatchBroadcast, setIsBatchBroadcast] = useState(false);
-
   const [prepareResult, setPrepareResult] = useState<{
     totalNr: number;
     originalTotalNr: number;
@@ -144,25 +142,13 @@ export function AskQuestionsSection() {
   const showInsufficientCoinsBanner =
     !!selectedAstrologerId && requiredCoinsDirect > 0 && coinBalance < requiredCoinsDirect;
 
-  const { stats } = useClientDashboard() ?? {};
   const {
     isSending,
     setIsSending,
     isWaitingForAcceptance,
-    pendingMessage,
-    timeRemaining,
     markSending,
     clearWaiting,
-    handleCancelRequest,
   } = useBroadcastPending({
-    hasPendingBroadcast: stats?.hasPendingBroadcast,
-    onAccepted: (data) => {
-      setBroadcastMessage('');
-      setBroadcastQuestion('');
-      setBroadcastCategory('');
-      setIsBatchBroadcast(false);
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chat.id));
-    },
     onInsufficientCoins: (coins) => {
       setBroadcastRequiredCoins(coins);
       setIsBroadcastCoinModalOpen(true);
@@ -213,11 +199,15 @@ export function AskQuestionsSection() {
       ? Math.max(0, Math.min(100, firstBroadcastDiscountPct))
       : 0;
 
-    const base = computeBroadcastBaseTotalNr(count, pricingTiers, broadcastSendRate);
-    if (applyDiscount && clampedDiscount > 0 && base > 0) {
-      return clampedDiscount >= 100 ? 0 : Math.round((base * (100 - clampedDiscount)) / 100);
+    if (applyDiscount && clampedDiscount > 0) {
+      return computeBroadcastTotalNrWithQ1Discount(
+        count,
+        pricingTiers,
+        broadcastSendRate,
+        clampedDiscount
+      );
     }
-    return base;
+    return computeBroadcastBaseTotalNr(count, pricingTiers, broadcastSendRate);
   };
 
   const prepareMutation = useMutation({
@@ -232,7 +222,7 @@ export function AskQuestionsSection() {
       totalNr: number;
       birthDetails?: Record<string, string>;
     }) => broadcastMessageService.sendQuestions(payload),
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       void refreshUser();
       void refetchClientBalanceAndStats(queryClient);
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
@@ -240,17 +230,23 @@ export function AskQuestionsSection() {
       setBroadcastMessage('');
       setBroadcastQuestion('');
       setBroadcastCategory('');
+      // Deduction toast + balance sync: BroadcastPendingBridge handles via `broadcast:questionsSent` socket;
+      // if socket is unavailable, still restore pending UI from API.
+      try {
+        const msgs = await broadcastMessageService.getMyMessages();
+        useBroadcastPendingStore.getState().hydrateFromMessages(msgs);
+      } catch {
+        /* ignore */
+      }
       if (variables.totalNr > 0) {
-        toast.info(`${variables.totalNr} NRs deducted from your balance`);
+        toast.info(`${variables.totalNr} NRs deducted from your balance`, { duration: 4000 });
       }
       toast.success(
         `${variables.questionItems.length} question${variables.questionItems.length === 1 ? '' : 's'} published to all Jyotish. Waiting for acceptance...`
       );
-      // markSending() already called before this API request; just ensure state is correct
     },
     onError: (err) => {
       // Reset the waiting modal that was shown optimistically before this call
-      setIsBatchBroadcast(false);
       clearWaiting();
       toast.error(err instanceof Error ? err.message : 'Failed to send questions');
     },
@@ -680,25 +676,6 @@ export function AskQuestionsSection() {
    * Derived values for the Pricing Guide panel.
    * Shows: Q1 (with optional first-broadcast discount), each custom tier, and the standard rate.
    */
-
-  // If waiting for acceptance, show matching modal (portal-rendered full-screen overlay)
-  if (isWaitingForAcceptance && pendingMessage) {
-    return (
-      <>
-        <JyotishMatchingModal
-          isOpen={isWaitingForAcceptance && !!pendingMessage}
-          onCancel={handleCancelRequest}
-          timeRemaining={timeRemaining}
-          title={t('searchingForJyotish')}
-          subtitle={
-            isBatchBroadcast
-              ? 'Your questions have been published to all Jyotish. Waiting for one to accept...'
-              : t('messageBroadcastedWaiting')
-          }
-        />
-      </>
-    );
-  }
 
   return (
     <>
@@ -1194,7 +1171,6 @@ export function AskQuestionsSection() {
                 clearWaiting();
               }
             } else {
-              setIsBatchBroadcast(true);
               markSending();
               sendQuestionsMutation.mutate({
                 questionItems: current.questions,

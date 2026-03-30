@@ -395,11 +395,7 @@ export async function getQuestionPricing(req: AuthRequest, res: Response) {
 export async function prepareQuestions(req: AuthRequest, res: Response) {
   try {
     if (req.user!.role !== UserRole.CLIENT) {
-      return sendError(
-        res,
-        'Only clients can prepare broadcast questions',
-        HTTP_STATUS.FORBIDDEN
-      );
+      return sendError(res, 'Only clients can prepare broadcast questions', HTTP_STATUS.FORBIDDEN);
     }
 
     const { questionIds = [], customTexts = [] } = req.body as {
@@ -429,11 +425,7 @@ export async function prepareQuestions(req: AuthRequest, res: Response) {
 export async function sendQuestions(req: AuthRequest, res: Response) {
   try {
     if (req.user!.role !== UserRole.CLIENT) {
-      return sendError(
-        res,
-        'Only clients can send broadcast questions',
-        HTTP_STATUS.FORBIDDEN
-      );
+      return sendError(res, 'Only clients can send broadcast questions', HTTP_STATUS.FORBIDDEN);
     }
 
     const { questionItems, totalNr, birthDetails } = req.body as {
@@ -499,6 +491,14 @@ export async function sendQuestions(req: AuthRequest, res: Response) {
         type: 'BROADCAST_MESSAGE',
         title: 'New Chat Request',
         message: 'A client is requesting to chat with an astrologer',
+      });
+    }
+
+    // Client UI: sync pending broadcast + deduction toast (HTTP path has no broadcast:messageSent)
+    if (io && messages.length > 0) {
+      io.to(`user:${clientId}`).emit('broadcast:questionsSent', {
+        messages,
+        totalNr: typeof totalNr === 'number' ? totalNr : 0,
       });
     }
 

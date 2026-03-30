@@ -13,10 +13,9 @@ import { Button } from '@jyotish/ui';
 import { MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ROUTES, ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
+import { ROUTES, QUERY_KEYS } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
 import { AnimatedCursorButton } from '@/components/ui/AnimatedCursorButton';
-import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { CoinPurchaseModal } from '@/components/modals';
@@ -40,28 +39,13 @@ export const RequestInstantChatButton: React.FC = () => {
   const [requiredCoins, setRequiredCoins] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  const {
-    isSending,
-    setIsSending,
-    isWaitingForAcceptance,
-    pendingMessage,
-    timeRemaining,
-    markSending,
-    clearWaiting,
-    handleCancelRequest,
-  } = useBroadcastPending({
-    onAccepted: (data) => {
-      toast.success(
-        `${data.astrologer?.name || 'An astrologer'} accepted your request! Opening chat...`,
-        { description: 'You can now start chatting with your astrologer', duration: 3000 }
-      );
-      router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chat.id));
-    },
-    onInsufficientCoins: (coins) => {
-      setRequiredCoins(coins);
-      setShowCoinPurchaseModal(true);
-    },
-  });
+  const { isSending, setIsSending, isWaitingForAcceptance, markSending, clearWaiting } =
+    useBroadcastPending({
+      onInsufficientCoins: (coins) => {
+        setRequiredCoins(coins);
+        setShowCoinPurchaseModal(true);
+      },
+    });
 
   const { data: balanceData } = useQuery({
     queryKey: QUERY_KEYS.COINS.BALANCE,
@@ -112,31 +96,6 @@ export const RequestInstantChatButton: React.FC = () => {
     }
     setIsModalOpen(true);
   };
-
-  // If waiting for acceptance, show matching modal (same UX as Publish to all Jyotish)
-  if (isWaitingForAcceptance && pendingMessage) {
-    return (
-      <>
-        <Button
-          ref={buttonRef}
-          onClick={handleButtonClick}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg relative opacity-0 pointer-events-none"
-          size="lg"
-          style={{ position: 'absolute', visibility: 'hidden' }}
-        >
-          <MessageSquare className="mr-2 h-5 w-5" />
-          Request Instant Chat
-        </Button>
-        <JyotishMatchingModal
-          isOpen={isWaitingForAcceptance && !!pendingMessage}
-          onCancel={handleCancelRequest}
-          timeRemaining={timeRemaining}
-          title="Searching for Available Jyotish"
-          subtitle="Your message has been broadcasted. Waiting for an astrologer to accept..."
-        />
-      </>
-    );
-  }
 
   return (
     <>
