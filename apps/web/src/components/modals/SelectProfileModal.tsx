@@ -94,8 +94,8 @@ export function SelectProfileModal({
               <div>
                 <p className="text-sm font-medium text-amber-100">
                   {astrologerName
-                    ? `${astrologerName} charges NRs ${feePerMessageNr.toLocaleString()} per message`
-                    : `NRs ${feePerMessageNr.toLocaleString()} per message`}
+                    ? `${astrologerName} charges NRs ${feePerMessageNr.toLocaleString()} for your message`
+                    : `NRs ${feePerMessageNr.toLocaleString()} for your message`}
                 </p>
                 <p className="text-xs text-amber-200/80 mt-0.5">
                   This amount will be deducted when you send your first message.

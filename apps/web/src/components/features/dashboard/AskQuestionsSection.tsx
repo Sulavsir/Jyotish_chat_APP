@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, MessageSquare } from 'lucide-react';
+import { Coins, Eye, MessageSquare } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -82,6 +82,12 @@ function buildDirectBundleQuestionItems(
     if (trimmed) items.push({ id: `custom:${i}`, text: trimmed, isCustom: true });
   });
   return items;
+}
+
+function truncateQuestionPreview(text: string, maxChars = 56): string {
+  const t = text.trim();
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
 }
 
 export function AskQuestionsSection() {
@@ -237,22 +243,51 @@ export function AskQuestionsSection() {
     return computeBroadcastBaseTotalNr(count, pricingTiers, broadcastSendRate);
   };
 
-  const directBundleQuestionCount =
-    selectedDirectQuestionIds.length + (directMessage.trim() ? 1 : 0);
   const directPerMessageNr =
     basePerMessageNr > 0 ? basePerMessageNr : (coinRates?.CHAT_PER_MESSAGE ?? 0);
-  const estimatedDirectBundleNr =
-    selectedDirectQuestionIds.length > 0 &&
-    !isAppointmentOnlyDirect &&
-    directBundleQuestionCount > 0
-      ? directBundleQuestionCount * directPerMessageNr
-      : null;
-  const coinsNeededForDirect =
-    !isAppointmentOnlyDirect &&
-    selectedDirectQuestionIds.length > 0 &&
-    estimatedDirectBundleNr != null
-      ? estimatedDirectBundleNr
-      : requiredCoinsDirect;
+
+  /** Lines shown in direct pricing card + used for total (matches send bundle / single message). */
+  const directOrderLineItems = React.useMemo(() => {
+    if (!selectedAstrologerId || isAppointmentOnlyDirect) return [];
+    const trimmed = directMessage.trim();
+    if (selectedDirectQuestionIds.length > 0) {
+      const customTexts = trimmed ? [trimmed.slice(0, 60)] : [];
+      return buildDirectBundleQuestionItems(
+        selectedDirectQuestionIds,
+        questionCategories,
+        customTexts
+      );
+    }
+    if (trimmed) {
+      return [{ id: 'typed', text: trimmed, isCustom: true }];
+    }
+    return [];
+  }, [
+    selectedAstrologerId,
+    isAppointmentOnlyDirect,
+    directMessage,
+    selectedDirectQuestionIds,
+    questionCategories,
+  ]);
+
+  const directOrderTotalNr = React.useMemo(() => {
+    const n = directOrderLineItems.length;
+    if (n === 0) return 0;
+    return n * directPerMessageNr;
+  }, [directOrderLineItems, directPerMessageNr]);
+
+  const coinsNeededForDirect = React.useMemo(() => {
+    if (!selectedAstrologerId || isAppointmentOnlyDirect) return requiredCoinsDirect;
+    if (directOrderLineItems.length === 0) return requiredCoinsDirect;
+    return directOrderTotalNr;
+  }, [
+    selectedAstrologerId,
+    isAppointmentOnlyDirect,
+    directOrderLineItems.length,
+    directOrderTotalNr,
+    requiredCoinsDirect,
+  ]);
+
   const showInsufficientCoinsBanner =
     !!selectedAstrologerId && coinsNeededForDirect > 0 && coinBalance < coinsNeededForDirect;
 
@@ -994,6 +1029,57 @@ export function AskQuestionsSection() {
                   </div>
                 )}
 
+                {/* Direct chat: per-question breakdown + total (jyotish per-message rate × N) */}
+                {selectedAstrologerId &&
+                  !isAppointmentOnlyDirect &&
+                  directOrderLineItems.length > 0 && (
+                    <div className="rounded-xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/12 via-indigo-500/8 to-transparent p-4 space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-emerald-500/25 border border-emerald-400/40 shrink-0">
+                          <Coins className="h-4 w-4 text-emerald-200" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-white leading-snug">
+                            {t('startChat')} · {selectedAstrologer?.name ?? 'Jyotish'}
+                          </p>
+                          <p className="text-[11px] text-emerald-200/90 mt-0.5">
+                            {directPerMessageNr.toLocaleString()} NRs per message — your total is{' '}
+                            {directOrderLineItems.length} message
+                            {directOrderLineItems.length === 1 ? '' : 's'} × this rate.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/25 max-h-[180px] overflow-y-auto">
+                        {directOrderLineItems.map((q, i) => (
+                          <div
+                            key={`${q.id}-${i}`}
+                            className="flex items-start justify-between gap-2 px-3 py-2 text-xs border-b border-white/5 last:border-b-0"
+                          >
+                            <span className="text-gray-200 min-w-0 flex-1 leading-relaxed">
+                              <span className="text-gray-500 mr-1">Q{i + 1}.</span>
+                              {truncateQuestionPreview(q.text)}
+                              {q.isCustom ? (
+                                <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-500/20 text-violet-200 border border-violet-400/35">
+                                  Custom
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="text-emerald-300 font-medium shrink-0 tabular-nums">
+                              {directPerMessageNr.toLocaleString()} NRs
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10 text-sm">
+                        <span className="text-gray-300">Total</span>
+                        <span className="font-semibold text-white tabular-nums text-right">
+                          {directOrderLineItems.length} × {directPerMessageNr.toLocaleString()} ={' '}
+                          {directOrderTotalNr.toLocaleString()} NRs
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                 {/* Action Button */}
                 <div className="flex gap-2 mt-auto">
                   <Button
@@ -1008,8 +1094,15 @@ export function AskQuestionsSection() {
                     }
                     className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2.5 flex items-center justify-center gap-2 transition-all font-medium"
                   >
-                    <MessageSquare className="h-4 w-4" />
-                    {t('startChat')}
+                    <MessageSquare className="h-4 w-4 shrink-0" />
+                    <span className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-center">
+                      {t('startChat')}
+                      {directOrderLineItems.length > 0 && !isAppointmentOnlyDirect ? (
+                        <span className="text-xs font-normal opacity-95">
+                          ({directOrderLineItems.length} · NRs {directOrderTotalNr.toLocaleString()})
+                        </span>
+                      ) : null}
+                    </span>
                   </Button>
                 </div>
               </>
