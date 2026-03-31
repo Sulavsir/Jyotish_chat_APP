@@ -35,7 +35,24 @@ export const getCoinRates = async (req: AuthRequest, res: Response, next: NextFu
   try {
     const { getRatesForClient } = await import('../services/platformCoinRate.service');
     const rates = await getRatesForClient();
-    return sendSuccess(res, { rates });
+
+    /** Warn when admin DB rows look like misconfiguration (Flutter often confuses COINS_PER_NPR=1 with chat rates). */
+    const pricingSanityNotes: string[] = [];
+    if (rates.CHAT_PER_MESSAGE <= 1) {
+      pricingSanityNotes.push(
+        'CHAT_PER_MESSAGE is <= 1 NPR. Check Admin → platform coin rates (`platform_coin_rate.CHAT_PER_MESSAGE`). For bundle preview use `CHAT_PER_MESSAGE` or astrologer `chatMessageFee`, never `COINS_PER_NPR`.'
+      );
+    }
+    if (rates.BROADCAST_PER_MESSAGE <= 1) {
+      pricingSanityNotes.push(
+        'BROADCAST_PER_MESSAGE is <= 1 NPR. Check Admin → platform coin rates (`platform_coin_rate.BROADCAST_PER_MESSAGE`).'
+      );
+    }
+
+    return sendSuccess(res, {
+      rates,
+      ...(pricingSanityNotes.length > 0 ? { pricingSanityNotes } : {}),
+    });
   } catch (error) {
     next(error);
   }

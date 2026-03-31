@@ -1195,6 +1195,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
           commissionPercent,
           astrologerCoinsEarned,
           sourceDetail,
+          questionCount: 1,
         },
       });
     }
@@ -1274,12 +1275,15 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     },
   });
 
-  // Update chat with last message info so it shows in conversation list
+  // Update chat: astrologer welcome counts as a reply — client may send again (e.g. direct
+  // question bundle). Without this, waitingForReply stayed true and blocked all client sends.
   await prisma.chat.update({
     where: { id: chat.id },
     data: {
       lastMessageText: welcomeMessageContent,
       lastMessageAt: new Date(),
+      waitingForReply: false,
+      lastAstrologerReplyAt: new Date(),
     },
   });
 

@@ -96,6 +96,9 @@ export async function getRate(rateType: PlatformCoinRateType): Promise<number> {
 /**
  * Get platform coin rates as a simple map (for client display / pre-checks)
  * Uses same fallback defaults as getRate when a row is missing.
+ *
+ * **Important for mobile clients:** `COINS_PER_NPR` is often **1** (1 coin = 1 NPR). It is **not**
+ * the per-message chat fee. Use `CHAT_PER_MESSAGE` / `BROADCAST_PER_MESSAGE` for bundle pricing UI.
  */
 export async function getRatesForClient(): Promise<
   Record<PlatformCoinRateType, number>

@@ -21,6 +21,34 @@ import { toast } from 'sonner';
 import { MessageSquare } from 'lucide-react';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 
+/** Socket payloads sometimes omit role/birth fields; align with active chat client for instant UI. */
+function mergeJyotishIncomingSender(m: Record<string, unknown>, activeChat: Chat | null): Message['sender'] {
+  const client = activeChat?.clientParticipant;
+  const base = m.sender as Message['sender'] | undefined;
+  const senderId = typeof m.senderId === 'string' ? m.senderId : '';
+  if (client && senderId === client.id) {
+    return {
+      id: client.id,
+      name:
+        (base?.name && base.name !== 'Unknown User' && base.name !== 'Unknown'
+          ? base.name
+          : client.name) ?? 'Unknown',
+      profilePhoto: base?.profilePhoto ?? client.profilePhoto ?? undefined,
+      role: USER_ROLES.CLIENT,
+      dateOfBirth: base?.dateOfBirth,
+      timeOfBirth: base?.timeOfBirth,
+      placeOfBirth: base?.placeOfBirth,
+    };
+  }
+  return (
+    base ?? {
+      id: senderId,
+      name: 'Unknown',
+      profilePhoto: undefined,
+    }
+  );
+}
+
 export default function JyotishChatPage() {
   const searchParams = useSearchParams();
   const chatIdFromUrl = searchParams?.get('chatId');
@@ -54,25 +82,6 @@ export default function JyotishChatPage() {
   // Real-time conversation updates from socket
   useEffect(() => {
     if (!socket || !isConnected || !user) return;
-
-    // Listen for broadcast acceptance (when astrologer accepts a broadcast)
-    const handleBroadcastAccepted = async (result: any) => {
-      console.log('📢 [JYOTISH] Broadcast accepted, opening chat:', result);
-
-      try {
-        // Small delay to ensure backend has finished creating messages
-        await new Promise((resolve) => setTimeout(resolve, 800));
-
-        // Navigate to the chat - the URL watcher will handle reloading conversations and opening the chat
-        if (result.chat && result.chat.id) {
-          console.log('📂 Navigating to chat:', result.chat.id);
-          router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));
-        }
-      } catch (error) {
-        console.error('❌ Error in handleBroadcastAccepted:', error);
-        toast.error('Failed to open chat. Please refresh the page.');
-      }
-    };
 
     const handleNewMessage = async (message: any) => {
       // DON'T add message here - it's already added by useSocket hook to Zustand store
@@ -317,8 +326,6 @@ export default function JyotishChatPage() {
     socket.on('chat:reopened', handleChatReopened);
     socket.on('chat:abandoned', handleChatAbandoned);
     socket.on('chat:unblocked', handleChatUnblocked);
-    socket.on('broadcast:messageAccepted', handleBroadcastAccepted); // ✅ Listen for broadcast acceptance
-
     return () => {
       socket.off('chat:receive', handleNewMessage);
       socket.off('chat:sent', handleNewMessage);
@@ -326,7 +333,6 @@ export default function JyotishChatPage() {
       socket.off('chat:reopened', handleChatReopened);
       socket.off('chat:abandoned', handleChatAbandoned);
       socket.off('chat:unblocked', handleChatUnblocked);
-      socket.off('broadcast:messageAccepted', handleBroadcastAccepted);
     };
   }, [socket, isConnected, user, activeChatId, router]);
 
@@ -429,6 +435,36 @@ export default function JyotishChatPage() {
       toast.error('Failed to open chat');
     }
   };
+
+  const loadAndSelectChatFromUrlRef = useRef(loadAndSelectChatFromUrl);
+  loadAndSelectChatFromUrlRef.current = loadAndSelectChatFromUrl;
+  const loadConversationsRef = useRef(loadConversations);
+  loadConversationsRef.current = loadConversations;
+
+  useEffect(() => {
+    if (!socket || !isConnected || !user) return;
+
+    const handleBroadcastAccepted = async (result: { chat?: { id?: string } }) => {
+      if (!result?.chat?.id) return;
+      console.log('📢 [JYOTISH] Broadcast accepted, opening chat:', result);
+      try {
+        await new Promise((r) => setTimeout(r, 400));
+        const fresh = await loadConversationsRef.current();
+        lastUrlSelectionKeyRef.current = null;
+        await loadAndSelectChatFromUrlRef.current(result.chat!.id, fresh);
+        router.replace(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));
+        lastUrlSelectionKeyRef.current = `chat:${result.chat.id}`;
+      } catch (error) {
+        console.error('❌ Error in handleBroadcastAccepted:', error);
+        toast.error('Failed to open chat. Please refresh the page.');
+      }
+    };
+
+    socket.on('broadcast:messageAccepted', handleBroadcastAccepted);
+    return () => {
+      socket.off('broadcast:messageAccepted', handleBroadcastAccepted);
+    };
+  }, [socket, isConnected, user, router]);
 
   const loadUnreadCount = async () => {
     try {
@@ -727,17 +763,13 @@ export default function JyotishChatPage() {
                 updatedAt: m.updatedAt || m.createdAt, // ✅ Add updatedAt
                 isRead: m.isRead,
                 isDeleted: m.isDeleted || false, // ✅ Add isDeleted
-                sender: m.sender || {
-                  id: m.senderId,
-                  name: 'Unknown',
-                  profilePhoto: undefined,
-                },
+                sender: mergeJyotishIncomingSender(m, activeChat),
               }) as Message
           );
         return [...prevMessages, ...uniqueNewMessages];
       });
     }
-  }, [chatMessages, activeChatId]);
+  }, [chatMessages, activeChatId, activeChat]);
 
   // Reload conversations when specific chat gets new messages (debounced)
   useEffect(() => {
@@ -946,7 +978,9 @@ export default function JyotishChatPage() {
                 />
               </div>
             </div>
-            <div className={`flex-1 min-w-0 flex flex-col ${activeChat ? 'bg-white' : 'bg-transparent'}`}>
+            <div
+              className={`flex min-h-0 min-w-0 flex-1 flex-col ${activeChat ? 'bg-white' : 'bg-transparent'}`}
+            >
               <ChatWindow
                 key={activeChat?.id || 'no-chat'}
                 chat={activeChat}

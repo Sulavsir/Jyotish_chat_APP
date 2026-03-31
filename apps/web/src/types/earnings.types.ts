@@ -21,6 +21,8 @@ export interface AstrologerCoinEarningRow {
   commissionPercent: number;
   /** Your credited balance from this line (NRs) */
   astrologerCoinsEarned: number;
+  /** Questions represented by this DB row (bundle size); omit for legacy rows */
+  questionCount?: number | null;
   /** e.g. "First broadcast discount" when earning is from a discounted first broadcast */
   sourceDetail?: string;
   createdAt: string;

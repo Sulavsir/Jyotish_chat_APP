@@ -17,7 +17,11 @@ import {
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import { ERROR_CODES } from '@/constants/http.constants';
 import { notificationService } from '../services/notification.service';
-import { mergeClientSenderWithBirthMetadata } from '../services/chatService';
+import {
+  mergeClientSenderWithBirthMetadata,
+  sendDirectQuestionBundle as sendDirectQuestionBundleService,
+} from '../services/chatService';
+import { sendDirectQuestionBundleBodySchema } from '../validators/broadcastQuestion.validators';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
@@ -754,6 +758,51 @@ export function chatHandlers(io: Server, socket: Socket) {
       }
     }
   );
+
+  /**
+   * Same as POST /api/v1/chat/send-direct-question-bundle: multiple list questions in one
+   * atomic send, one balance deduction, turn-based waits only after the last question in the batch.
+   * Use this instead of several chat:send events (which are blocked by turn-based after the first).
+   */
+  socket.on('chat:sendDirectQuestionBundle', async (raw: unknown) => {
+    try {
+      if (user.role !== UserRole.CLIENT) {
+        socket.emit('chat:error', { message: 'Only clients can send direct question bundles' });
+        return;
+      }
+
+      const parsed = sendDirectQuestionBundleBodySchema.safeParse(raw);
+      if (!parsed.success) {
+        const first = parsed.error.flatten().fieldErrors;
+        const msg = Object.values(first).flat()[0] || 'Invalid bundle payload';
+        socket.emit('chat:error', { message: msg, code: ERROR_CODES.VALIDATION_ERROR });
+        return;
+      }
+
+      const { astrologerId, questionItems, totalNr, birthDetails, questionCategory } = parsed.data;
+
+      const result = await sendDirectQuestionBundleService({
+        clientId: user.id,
+        astrologerId,
+        questionItems,
+        totalNr,
+        birthDetails,
+        questionCategory,
+      });
+
+      socket.emit('chat:direct_bundle_sent', {
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      const code = error?.code ?? ERROR_CODES.VALIDATION_ERROR;
+      socket.emit('chat:error', {
+        message: error?.message || 'Failed to send question bundle',
+        code,
+        requiredCoins: error?.requiredCoins,
+      });
+    }
+  });
 
   // Typing indicator (room-based for multi-instance)
   socket.on('chat:typing', (data: { receiverId: string; isTyping: boolean }) => {

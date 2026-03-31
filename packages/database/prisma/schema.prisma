@@ -1337,6 +1337,7 @@ model AstrologerCoinEarning {
   clientCoinsDeducted   Int
   commissionPercent     Float
   astrologerCoinsEarned Int
+  questionCount         Int? // questions/messages this line represents (e.g. multi-question direct bundle)
   sourceDetail          String?                     // e.g. "First broadcast discount" when discount applied
   createdAt             DateTime                     @default(now())
   astrologer            Astrologer                   @relation(fields: [astrologerId], references: [id], onDelete: Cascade)

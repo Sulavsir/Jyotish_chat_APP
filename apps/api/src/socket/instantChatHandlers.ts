@@ -20,18 +20,20 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
   }
 
   /**
-   * Client creates instant chat request
-   * Broadcasts to all online astrologers
+   * Client creates instant chat request (broadcast to eligible online astrologers).
+   * Also registered as `instantChat:request` for Flutter (optional `astrologerId` is ignored).
    */
-  socket.on('instantChat:create', async (data: { message?: string }) => {
+  const runInstantChatCreate = async (data: { message?: string }) => {
     try {
       const request = await instantChatService.createInstantChatRequest(userId, data.message);
 
       // Send confirmation to client
-      socket.emit('instantChat:created', {
+      const ack = {
         success: true,
         request,
-      });
+      };
+      socket.emit('instantChat:created', ack);
+      socket.emit('instantChat:requested', ack);
 
       // Get eligible astrologers (ORDINARY and PROFESSIONAL only, exclude PREMIUM)
       const eligibleAstrologers = await prisma.astrologer.findMany({
@@ -98,7 +100,18 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
         message: error.message || 'Failed to create instant chat request',
       });
     }
+  };
+
+  socket.on('instantChat:create', async (data: { message?: string }) => {
+    await runInstantChatCreate(data);
   });
+
+  socket.on(
+    'instantChat:request',
+    async (data: { message?: string; astrologerId?: string }) => {
+      await runInstantChatCreate({ message: data?.message });
+    }
+  );
 
   /**
    * Astrologer accepts instant chat request
@@ -138,10 +151,25 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
       });
 
       // Notify client that their request was accepted
-      io.to(`user:${result.request.clientId}`).emit('instantChat:requestAccepted', {
+      const clientAcceptedPayload = {
         request: result.request,
         chatId: result.chatId,
         astrologer: result.request.acceptedAstrologer,
+      };
+      io.to(`user:${result.request.clientId}`).emit('instantChat:requestAccepted', clientAcceptedPayload);
+
+      const ast = result.request.acceptedAstrologer;
+      io.to(`user:${result.request.clientId}`).emit('instantChat:accepted', {
+        chat: { id: result.chatId },
+        astrologer: ast
+          ? {
+              id: ast.id,
+              name: ast.name,
+              profilePhoto: ast.profilePhoto ?? null,
+            }
+          : undefined,
+        request: result.request,
+        chatId: result.chatId,
       });
 
       // Broadcast to all other astrologers that this request is no longer available

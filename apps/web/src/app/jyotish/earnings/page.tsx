@@ -25,7 +25,12 @@ import {
   type JyotishDataTableColumn,
 } from '@/components/jyotish/JyotishTable';
 import { getAstrologerEarnings } from '@/services/astrologerEarnings.service';
-import type { AstrologerCoinEarningSource, AstrologerCoinEarningRow } from '@/types/earnings.types';
+import type { AstrologerCoinEarningSource } from '@/types/earnings.types';
+import {
+  formatYouEarnedLine,
+  stackAstrologerEarningsRows,
+  type StackedAstrologerEarningRow,
+} from '@/utils/astrologerEarningsDisplay.utils';
 import { Banknote, MessageSquare, Radio, Calendar, BookOpen } from 'lucide-react';
 
 const SOURCE_LABELS: Record<AstrologerCoinEarningSource, string> = {
@@ -98,7 +103,12 @@ export default function JyotishEarningsPage() {
     if (page > maxPageIdx) setPage(maxPageIdx);
   }, [data?.total, limit, page]);
 
-  const earningsColumns: JyotishDataTableColumn<AstrologerCoinEarningRow>[] = useMemo(
+  const stackedItems = useMemo(
+    () => stackAstrologerEarningsRows(data?.items ?? []),
+    [data?.items]
+  );
+
+  const earningsColumns: JyotishDataTableColumn<StackedAstrologerEarningRow>[] = useMemo(
     () => [
       {
         id: 'sn',
@@ -109,7 +119,7 @@ export default function JyotishEarningsPage() {
       {
         id: 'date',
         header: 'Date',
-        cell: (row) => formatDate(row.createdAt),
+        cell: (row) => formatDate(row.displayCreatedAt),
         cellClassName: 'whitespace-nowrap text-white/70',
       },
       {
@@ -143,7 +153,8 @@ export default function JyotishEarningsPage() {
         header: 'You earned',
         headerClassName: 'border-r-0',
         cellClassName: 'font-medium text-emerald-400 border-r-0',
-        cell: (row) => `+ NRs ${row.astrologerCoinsEarned}`,
+        cell: (row) =>
+          formatYouEarnedLine(row.source, row.astrologerCoinsEarned, row.questionCount),
       },
     ],
     [page, limit]
@@ -220,7 +231,8 @@ export default function JyotishEarningsPage() {
           <CardHeader>
             <CardTitle className="text-white">Recent earnings</CardTitle>
             <p className="text-sm text-white/60">
-              Per-message and per-session balance credits (NRs)
+              Per-message and per-session balance credits (NRs). Multiple questions credited at the
+              same time are shown as one row with DirectQN or BroadcastQN counts.
             </p>
           </CardHeader>
           <CardContent>
@@ -249,9 +261,9 @@ export default function JyotishEarningsPage() {
               ) : (
                 <>
                   <div className="overflow-x-auto rounded-lg border border-white/10">
-                    <JyotishDataTable<AstrologerCoinEarningRow>
+                    <JyotishDataTable<StackedAstrologerEarningRow>
                       columns={earningsColumns}
-                      data={data?.items ?? []}
+                      data={stackedItems}
                       getRowId={(row) => row.id}
                     />
                   </div>

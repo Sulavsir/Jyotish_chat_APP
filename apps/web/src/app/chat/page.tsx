@@ -14,7 +14,12 @@ import { useAuthStore } from '@/store/auth-store';
 import { useRequireAuth } from '@/hooks';
 import { USER_ROLES } from '@/constants';
 import { useSocket } from '@/hooks/useSocket';
-import { ChatList, ChatWindow, OnlineUsers, ChatConnectionBanner } from '@/components/features/chat';
+import {
+  ChatList,
+  ChatWindow,
+  OnlineUsers,
+  ChatConnectionBanner,
+} from '@/components/features/chat';
 import { sortChatsByRecentActivity } from '@/utils/chat-sort.utils';
 import { BroadcastChatWindow } from '@/components/features/broadcast-chat/BroadcastChatWindow';
 import chatService from '@/services/chat.service';
@@ -189,9 +194,7 @@ export default function ChatPage() {
 
       if (parsed.content.trim().length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
         sessionStorage.removeItem('pendingChatMessage');
-        toast.error(
-          `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
-        );
+        toast.error(`Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`);
         return;
       }
 
@@ -799,6 +802,39 @@ export default function ChatPage() {
     [handleSelectChat]
   );
 
+  const handleDirectQuestionBundleSent = async (result: {
+    chatId: string;
+    messageCount: number;
+    coinsDeducted: number;
+  }) => {
+    const fresh = await loadConversations();
+    if (activeChatId?.startsWith('new-') && result.chatId) {
+      migrateSelectionToChatId(activeChatId, result.chatId);
+      const profileIdToKeep = getSelectedProfileForChat(result.chatId);
+      const profileQuery =
+        profileIdToKeep && profileIdToKeep !== 'me'
+          ? `&profileId=${encodeURIComponent(profileIdToKeep)}`
+          : '';
+      router.replace(`/chat?chatId=${result.chatId}${profileQuery}`);
+      await loadAndSelectChatFromUrl(result.chatId, fresh);
+    } else {
+      const otherId = activeChat?.astrologerParticipant?.id ?? currentOtherUserId.current;
+      if (otherId) {
+        await loadMessages(otherId);
+      }
+    }
+  };
+
+  const handleInsufficientCoinsForBundle = (requiredNr: number) => {
+    setRequiredCoins(requiredNr);
+    setShowCoinPurchaseModal(true);
+  };
+
+  const handleQuestionBundleProfileIncomplete = (missingFields: string[]) => {
+    setMissingProfileFields(missingFields);
+    setShowProfileIncompleteDialog(true);
+  };
+
   // Handle sending message (profile from Zustand store per chat)
   const handleSendMessage = async (content: string, attachment?: FileAttachment) => {
     if (!activeChat || !user || !activeChatId) return;
@@ -992,7 +1028,7 @@ export default function ChatPage() {
 
         {/* Chat Interface - Fixed Height */}
         <Card className="bg-black/40 backdrop-blur-md border-purple-500/30 overflow-hidden">
-          <div className="flex h-[600px]">
+          <div className="flex h-[600px] min-h-0">
             {/* Conversations List */}
             <div
               className={`${showMobileChat ? 'hidden' : 'block'} lg:block w-full lg:w-80 border-r border-purple-500/20 h-full`}
@@ -1011,7 +1047,9 @@ export default function ChatPage() {
             </div>
 
             {/* Chat Window */}
-            <div className={`${showMobileChat ? 'block' : 'hidden'} lg:block flex-1 h-full`}>
+            <div
+              className={`${showMobileChat ? 'block' : 'hidden'} lg:block flex min-h-0 h-full min-w-0 flex-1 flex-col`}
+            >
               {isBroadcastChatActive ? (
                 <BroadcastChatWindow onChatCreated={handleChatCreatedFromBroadcast} />
               ) : (
@@ -1036,6 +1074,9 @@ export default function ChatPage() {
                     setSelectedProfileForChat(activeChatId!, profileId)
                   }
                   familyProfiles={familyProfiles}
+                  onDirectQuestionBundleSent={handleDirectQuestionBundleSent}
+                  onInsufficientCoinsForBundle={handleInsufficientCoinsForBundle}
+                  onQuestionBundleProfileIncomplete={handleQuestionBundleProfileIncomplete}
                 />
               )}
             </div>

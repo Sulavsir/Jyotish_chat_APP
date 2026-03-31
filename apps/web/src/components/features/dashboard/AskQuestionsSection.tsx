@@ -56,33 +56,10 @@ import {
 } from '@/utils/broadcastQuestionPricing.utils';
 import { useBroadcastPendingStore } from '@/store/broadcast-pending.store';
 import type { BroadcastPriceBreakdownEntry } from '@/types/broadcast';
+import { buildDirectBundleQuestionItems } from '@/utils/directQuestionBundle.utils';
 
 const ACTIVE_CHAT_ERROR =
   'You have an active chat. End your current chat before starting a new one.';
-
-/** Order matches checklist selection order, then custom texts (same as broadcast prepare). */
-function buildDirectBundleQuestionItems(
-  orderedIds: string[],
-  categories: QuestionnaireCategory[],
-  customTexts: string[]
-): { id: string; text: string; isCustom?: boolean }[] {
-  const idToText = new Map<string, string>();
-  for (const cat of categories) {
-    for (const q of cat.questions) {
-      idToText.set(q.id, q.text);
-    }
-  }
-  const items: { id: string; text: string; isCustom?: boolean }[] = [];
-  for (const id of orderedIds) {
-    const text = idToText.get(id);
-    if (text) items.push({ id, text });
-  }
-  customTexts.forEach((t, i) => {
-    const trimmed = t.trim();
-    if (trimmed) items.push({ id: `custom:${i}`, text: trimmed, isCustom: true });
-  });
-  return items;
-}
 
 function truncateQuestionPreview(text: string, maxChars = 56): string {
   const t = text.trim();

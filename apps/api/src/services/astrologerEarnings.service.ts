@@ -17,6 +17,8 @@ export interface AstrologerCoinEarningRow {
   clientCoinsDeducted: number;
   commissionPercent: number;
   astrologerCoinsEarned: number;
+  /** Questions represented by this line (bundle size or stacked rows); null for legacy rows */
+  questionCount: number | null;
   sourceDetail?: string | null;
   createdAt: Date;
   clientName: string | null;
@@ -143,6 +145,7 @@ export async function getAstrologerEarnings(
         clientCoinsDeducted: e.clientCoinsDeducted,
         commissionPercent: e.commissionPercent,
         astrologerCoinsEarned: e.astrologerCoinsEarned,
+        questionCount: e.questionCount ?? null,
         sourceDetail: e.sourceDetail ?? undefined,
         createdAt: e.createdAt,
         clientName,

@@ -69,13 +69,8 @@ export function useChat() {
     }
 
     const trimmedInitial = initialMessage?.trim();
-    if (
-      trimmedInitial &&
-      trimmedInitial.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT
-    ) {
-      toast.error(
-        `Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`
-      );
+    if (trimmedInitial && trimmedInitial.length > CHAT_MESSAGE_MAX_LENGTH_CLIENT) {
+      toast.error(`Message cannot exceed ${CHAT_MESSAGE_MAX_LENGTH_CLIENT} characters`);
       return null;
     }
 

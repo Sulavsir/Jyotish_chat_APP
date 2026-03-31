@@ -772,8 +772,16 @@ type SendMessageInternalOptions = {
 export const sendMessage = async (
   params: SendMessageParams & { senderRole: UserRole; _internal?: SendMessageInternalOptions }
 ) => {
-  const { chatId, senderId, receiverId, content, type = 'TEXT', metadata, senderRole, _internal } =
-    params;
+  const {
+    chatId,
+    senderId,
+    receiverId,
+    content,
+    type = 'TEXT',
+    metadata,
+    senderRole,
+    _internal,
+  } = params;
 
   if (!content?.trim()) {
     if (hasChatFileMetadata(metadata)) {
@@ -783,7 +791,11 @@ export const sendMessage = async (
         ERROR_CODES.ATTACHMENT_REQUIRES_TEXT
       );
     }
-    throw new AppError('Message cannot be empty', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    throw new AppError(
+      'Message cannot be empty',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
   }
 
   const effectiveType = type ?? MessageType.TEXT;
@@ -997,11 +1009,24 @@ export const sendMessage = async (
       name: string | null;
       profilePhoto: string | null;
       phone?: string | null;
+      dateOfBirth?: Date | null;
+      timeOfBirth?: string | null;
+      placeOfBirth?: string | null;
+      role?: string | null;
     } | null = null;
     if (senderRole === UserRole.CLIENT) {
       sender = await prisma.user.findFirst({
         where: { id: senderId, ...ACTIVE_CLIENT_USER_WHERE },
-        select: { id: true, name: true, profilePhoto: true, phone: true },
+        select: {
+          id: true,
+          name: true,
+          profilePhoto: true,
+          phone: true,
+          dateOfBirth: true,
+          timeOfBirth: true,
+          placeOfBirth: true,
+          role: true,
+        },
       });
     } else {
       sender = await prisma.astrologer.findUnique({
@@ -1010,6 +1035,8 @@ export const sendMessage = async (
       });
     }
     const senderName = sender?.name || sender?.phone || 'someone';
+
+    const mergedSender = mergeClientSenderWithBirthMetadata(sender, message);
 
     const messageWithSender = {
       id: message.id,
@@ -1025,9 +1052,7 @@ export const sendMessage = async (
       isDeleted: message.isDeleted,
       createdAt: message.createdAt.toISOString(),
       updatedAt: message.updatedAt.toISOString(),
-      sender: sender
-        ? { id: sender.id, name: sender.name ?? 'Unknown User', profilePhoto: sender.profilePhoto }
-        : { id: senderId, name: 'Unknown User', profilePhoto: null },
+      sender: mergedSender,
       ...(coinsDeducted != null && senderRole === UserRole.CLIENT ? { coinsDeducted } : {}),
     };
 
@@ -1129,7 +1154,33 @@ export interface SendDirectQuestionBundleParams {
 }
 
 /**
- * Direct chat: send multiple questions; total NRs = count × this Jyotish's per-message fee (same as single DM / instant chat).
+ * True when this client–astrologer chat exists and was opened from an accepted broadcast (same rule as deductCoinsForMessage).
+ */
+async function isBroadcastOriginatedChatSession(
+  clientId: string,
+  astrologerId: string
+): Promise<boolean> {
+  const chat = await prisma.chat.findUnique({
+    where: {
+      participant1Id_participant2Id: {
+        participant1Id: clientId,
+        participant2Id: astrologerId,
+      },
+    },
+    select: { id: true, reopenedAfterEnded: true },
+  });
+  if (!chat) return false;
+  const broadcastMessage = await prisma.broadcastMessage.findFirst({
+    where: { chatId: chat.id },
+    select: { id: true },
+  });
+  return !!broadcastMessage && !chat.reopenedAfterEnded;
+}
+
+/**
+ * Multi-question bundle:
+ * - **Direct / instant chat**: total = count × jyotish `chatMessageFee` (or `CHAT_PER_MESSAGE`).
+ * - **Broadcast-originated chat** (accepted broadcast linked to this chat): total = count × platform `BROADCAST_PER_MESSAGE` (matches per-message sends in that session).
  */
 export async function sendDirectQuestionBundle(
   params: SendDirectQuestionBundleParams
@@ -1159,18 +1210,27 @@ export async function sendDirectQuestionBundle(
     );
   }
 
+  const broadcastSession = await isBroadcastOriginatedChatSession(clientId, astrologerId);
+
   let perMessageFee = 0;
-  if (astrologer.chatMessageFee && astrologer.chatMessageFee > 0) {
-    perMessageFee = astrologer.chatMessageFee;
-  }
-  if (perMessageFee <= 0) {
-    perMessageFee = await getRate('CHAT_PER_MESSAGE' as PlatformCoinRateType);
+  if (broadcastSession) {
+    perMessageFee = await getRate('BROADCAST_PER_MESSAGE' as PlatformCoinRateType);
+  } else {
+    if (astrologer.chatMessageFee && astrologer.chatMessageFee > 0) {
+      perMessageFee = astrologer.chatMessageFee;
+    }
+    if (perMessageFee <= 0) {
+      perMessageFee = await getRate('CHAT_PER_MESSAGE' as PlatformCoinRateType);
+    }
   }
 
   const expectedTotal = count * perMessageFee;
   if (totalNr !== expectedTotal) {
+    const rateHint = broadcastSession
+      ? `${count} × ${perMessageFee} NRs (broadcast chat rate BROADCAST_PER_MESSAGE)`
+      : `${count} × ${perMessageFee} NRs per message for this Jyotish`;
     throw new AppError(
-      `Pricing mismatch. Expected ${expectedTotal} NRs (${count} × ${perMessageFee} NRs per message for this Jyotish).`,
+      `Pricing mismatch. Expected ${expectedTotal} NRs (${rateHint}).`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );
@@ -1232,7 +1292,11 @@ export async function sendDirectQuestionBundle(
   });
 
   if (!chat) {
-    throw new AppError('Could not open chat', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    throw new AppError(
+      'Could not open chat',
+      HTTP_STATUS.BAD_REQUEST,
+      ERROR_CODES.VALIDATION_ERROR
+    );
   }
 
   if (chat.turnBasedEnabled && chat.waitingForReply) {
@@ -1244,7 +1308,13 @@ export async function sendDirectQuestionBundle(
   }
 
   const { deductCoinsForDirectQuestionBundle } = await import('./coin.service');
-  const ded = await deductCoinsForDirectQuestionBundle(clientId, totalNr, chat.id, astrologerId);
+  const ded = await deductCoinsForDirectQuestionBundle(
+    clientId,
+    totalNr,
+    chat.id,
+    astrologerId,
+    count
+  );
   const coinsDeducted = ded.coinsDeducted;
 
   const batchId = randomUUID();

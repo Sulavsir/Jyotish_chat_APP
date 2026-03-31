@@ -257,6 +257,7 @@ export const deductCoinsForMessage = async (
               clientCoinsDeducted: coinCost,
               commissionPercent: pct,
               astrologerCoinsEarned: astrologerCoins,
+              questionCount: 1,
             },
           });
         }
@@ -581,6 +582,7 @@ export const deductCoinsForAppointment = async (
             clientCoinsDeducted: coinCost,
             commissionPercent: pct,
             astrologerCoinsEarned: astrologerCoins,
+            questionCount: 1,
           },
         });
       }
@@ -669,6 +671,7 @@ export const deductCoinsForBooking = async (
             clientCoinsDeducted: coinCost,
             commissionPercent: pct,
             astrologerCoinsEarned: astrologerCoins,
+            questionCount: 1,
           },
         });
       }
@@ -820,14 +823,17 @@ export const deductCoinsForBroadcastQuestions = async (
 };
 
 /**
- * Deduct coins for direct chat multi-question bundle (same tiered total as broadcast prepare).
- * One deduction; astrologer earning uses chat message commission %.
+ * Deduct coins for direct chat multi-question bundle (one deduction for the whole batch).
+ * - **Direct chat**: astrologer share uses `chatMessageCommissionPercent`, source CHAT_MESSAGE.
+ * - **Broadcast-originated chat**: same per-message rate as `deductCoinsForMessage` (BROADCAST_PER_MESSAGE × N);
+ *   astrologer share uses `broadcastMessageCommissionPercent`, source BROADCAST_MESSAGE.
  */
 export const deductCoinsForDirectQuestionBundle = async (
   userId: string,
   totalNr: number,
   chatId: string,
-  astrologerId: string
+  astrologerId: string,
+  questionCount: number
 ): Promise<{ userId: string; balance: number; coinsDeducted: number }> => {
   if (totalNr <= 0) {
     const balance = await getCoinBalance(userId);
@@ -842,7 +848,11 @@ export const deductCoinsForDirectQuestionBundle = async (
 
   const astrologer = await prisma.astrologer.findUnique({
     where: { id: astrologerId },
-    select: { chatMessageCommissionPercent: true, category: true },
+    select: {
+      chatMessageCommissionPercent: true,
+      broadcastMessageCommissionPercent: true,
+      category: true,
+    },
   });
 
   if (!astrologer) {
@@ -856,6 +866,23 @@ export const deductCoinsForDirectQuestionBundle = async (
   }
 
   const transactionReason = COIN_REASON_MAPPING[sharedCategory];
+
+  const chat = await prisma.chat.findUnique({
+    where: { id: chatId },
+    select: { reopenedAfterEnded: true },
+  });
+  const broadcastMessage = await prisma.broadcastMessage.findFirst({
+    where: { chatId },
+    select: { id: true },
+  });
+  const isBroadcastSession = !!broadcastMessage && !chat?.reopenedAfterEnded;
+
+  const pct = isBroadcastSession
+    ? (astrologer.broadcastMessageCommissionPercent ?? 0)
+    : (astrologer.chatMessageCommissionPercent ?? 0);
+  const earningSource = isBroadcastSession
+    ? AstrologerCoinEarningSource.BROADCAST_MESSAGE
+    : AstrologerCoinEarningSource.CHAT_MESSAGE;
 
   const user = await prisma.user.findFirst({
     where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
@@ -876,7 +903,6 @@ export const deductCoinsForDirectQuestionBundle = async (
 
   const balanceBefore = user.coins;
   const balanceAfter = balanceBefore - totalNr;
-  const pct = astrologer.chatMessageCommissionPercent ?? 0;
   const astrologerCoins = astrologerCoinsFromClientDeduction(totalNr, pct);
 
   const updatedUser = await prisma.$transaction(async (tx) => {
@@ -902,10 +928,11 @@ export const deductCoinsForDirectQuestionBundle = async (
           astrologerId,
           coinTransactionId: coinTx.id,
           chatId,
-          source: AstrologerCoinEarningSource.CHAT_MESSAGE,
+          source: earningSource,
           clientCoinsDeducted: totalNr,
           commissionPercent: pct,
           astrologerCoinsEarned: astrologerCoins,
+          questionCount: Math.max(1, questionCount),
         },
       });
     }

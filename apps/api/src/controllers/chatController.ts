@@ -322,9 +322,7 @@ export const endChat = async (req: AuthRequest, res: Response, next: NextFunctio
 
     // Create notification for the OTHER participant (who did not end the chat)
     try {
-      const { createChatEndedNotification } = await import(
-        '../services/chatNotification.service'
-      );
+      const { createChatEndedNotification } = await import('../services/chatNotification.service');
       await createChatEndedNotification(updatedChat);
     } catch (notifErr) {
       console.error('Error creating chat-ended notification:', notifErr);

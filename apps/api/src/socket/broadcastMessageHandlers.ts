@@ -147,9 +147,10 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
   );
 
   /**
-   * Astrologer accepts a broadcast message
+   * Astrologer accepts a broadcast message.
+   * Also registered as `broadcast:accept` (Flutter alias).
    */
-  socket.on('broadcast:acceptMessage', async (data: { messageId: string }) => {
+  const handleBroadcastAcceptMessage = async (data: { messageId: string }) => {
     try {
       if (userRole !== 'ASTROLOGER') {
         socket.emit('broadcast:error', {
@@ -283,7 +284,10 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         code: errorCode,
       });
     }
-  });
+  };
+
+  socket.on('broadcast:acceptMessage', handleBroadcastAcceptMessage);
+  socket.on('broadcast:accept', handleBroadcastAcceptMessage);
 
   /**
    * Get pending broadcast messages (astrologers)

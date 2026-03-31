@@ -71,8 +71,11 @@ export const sendMessage = async (
     | { data?: Message; coinsDeducted?: number }
     | Message;
   const payload = res as { data?: Message; coinsDeducted?: number };
-  const msg = payload?.data ?? (typeof res === 'object' && res !== null && !('data' in res) ? res : null);
-  return { ...(msg || {}), coinsDeducted: payload?.coinsDeducted } as Message & { coinsDeducted?: number };
+  const msg =
+    payload?.data ?? (typeof res === 'object' && res !== null && !('data' in res) ? res : null);
+  return { ...(msg || {}), coinsDeducted: payload?.coinsDeducted } as Message & {
+    coinsDeducted?: number;
+  };
 };
 
 /**
@@ -96,8 +99,7 @@ export const deleteMessage = async (messageId: string): Promise<void> => {
  */
 export const getUnreadCount = async (): Promise<number> => {
   const response = await apiClient.get<
-    | { count: number }
-    | { message?: string; data?: { count: number } }
+    { count: number } | { message?: string; data?: { count: number } }
   >(API_ENDPOINTS.CHAT.UNREAD_COUNT);
   if (response && typeof response === 'object') {
     if ('count' in response && typeof response.count === 'number') return response.count;

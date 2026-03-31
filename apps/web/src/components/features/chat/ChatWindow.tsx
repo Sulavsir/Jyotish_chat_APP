@@ -47,12 +47,17 @@ import { clientHasChatHistory as clientHasChatHistoryFn } from '@/services/clien
 import { ComplaintCategory, COMPLAINT_CATEGORY_LABELS } from '@/types/complaint';
 import { InlineChatRating } from '@/components/features/ratings';
 import { ERROR_CODES, QUERY_KEYS } from '@/constants';
-import { ClientDetailsModal, SelectProfileModal, ClientChatHistoryModal } from '@/components/modals';
+import {
+  ClientDetailsModal,
+  SelectProfileModal,
+  ClientChatHistoryModal,
+} from '@/components/modals';
 import type { ClientProfile } from '@jyotish/shared';
 import {
   CHAT_MESSAGE_MAX_LENGTH_CLIENT,
   CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
 } from '@jyotish/shared';
+import { ChatClientQuestionBundle } from './ChatClientQuestionBundle';
 
 interface SystemMessage {
   id: string;
@@ -92,6 +97,14 @@ interface ChatWindowProps {
   draftValue?: string;
   /** Called whenever the input draft changes */
   onDraftChange?: (value: string) => void;
+  /** Client: after send-direct-question-bundle succeeds — migrate new-chat, reload messages */
+  onDirectQuestionBundleSent?: (result: {
+    chatId: string;
+    messageCount: number;
+    coinsDeducted: number;
+  }) => void | Promise<void>;
+  onInsufficientCoinsForBundle?: (requiredNr: number) => void;
+  onQuestionBundleProfileIncomplete?: (missingFields: string[]) => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -116,6 +129,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   familyProfiles = [],
   draftValue,
   onDraftChange,
+  onDirectQuestionBundleSent,
+  onInsufficientCoinsForBundle,
+  onQuestionBundleProfileIncomplete,
 }) => {
   const isJyotish = variant === 'jyotish';
   const emptyStateDark = emptyStateTheme === 'dark';
@@ -152,10 +168,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const { data: hasClientChatHistoryData } = useQuery({
     queryKey: QUERY_KEYS.CLIENT_CHAT_HISTORY.HAS_HISTORY(clientIdForHistory ?? ''),
     queryFn: () => clientHasChatHistoryFn(clientIdForHistory!),
-    enabled:
-      !!clientIdForHistory &&
-      user?.role === UserRole.ASTROLOGER &&
-      !!chat,
+    enabled: !!clientIdForHistory && user?.role === UserRole.ASTROLOGER && !!chat,
     staleTime: 60_000,
   });
 
@@ -278,7 +291,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     // Listen for received messages to update turn state
-    const handleMessageReceived = (data: { chatId: string; turnState?: { waitingForReply?: boolean } }) => {
+    const handleMessageReceived = (data: {
+      chatId: string;
+      turnState?: { waitingForReply?: boolean };
+    }) => {
       if (data.chatId !== chat.id) return;
 
       console.log('📥 [ChatWindow] Message received event:', data);
@@ -524,7 +540,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex min-h-0 flex-col h-full bg-white">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
         <div className="flex items-center gap-3">
           {onBack && (
@@ -630,7 +646,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 bg-gray-50"
+        className="min-h-0 flex-1 overflow-y-auto p-4 bg-gray-50"
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -835,9 +851,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 been restricted by the administration.
               </p>
               {chat?.abandonReason && (
-                <p className="text-xs text-red-600 mt-2 italic">
-                  Reason: {chat.abandonReason}
-                </p>
+                <p className="text-xs text-red-600 mt-2 italic">Reason: {chat.abandonReason}</p>
               )}
               {user?.role === UserRole.CLIENT && (
                 <div className="mt-4">
@@ -872,13 +886,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
             <div className="text-center">
               <p className="font-semibold text-gray-900">Chat Session Ended</p>
-              <p className="mt-1 text-sm text-gray-600">
-                You can no longer message this person
-              </p>
+              <p className="mt-1 text-sm text-gray-600">You can no longer message this person</p>
               {user?.role === UserRole.CLIENT && (
-                <p className="mt-2 font-medium text-gray-700">
-                  Want to ask one more question?
-                </p>
+                <p className="mt-2 font-medium text-gray-700">Want to ask one more question?</p>
               )}
             </div>
 
@@ -904,7 +914,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-col bg-white">
           {/* Waiting for Reply Banner - only for clients */}
           {user?.role === UserRole.CLIENT && waitingForReply && (
             <div className="px-4 py-3 bg-blue-50 border-t border-blue-200">
@@ -933,6 +943,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </div>
           )}
 
+          {user?.role === UserRole.CLIENT &&
+            chat &&
+            onDirectQuestionBundleSent &&
+            onInsufficientCoinsForBundle && (
+              <ChatClientQuestionBundle
+                astrologerId={chat.astrologerParticipant.id}
+                isBroadcastOriginatedChat={chat.isBroadcastChat === true}
+                disabled={!isConnected || waitingForReply}
+                selectedProfileId={selectedProfileId}
+                familyProfiles={familyProfiles as ClientProfile[]}
+                user={user}
+                onSuccess={(res) => {
+                  void onDirectQuestionBundleSent(res);
+                  setWaitingForReply(true);
+                }}
+                onInsufficientCoins={onInsufficientCoinsForBundle}
+                onProfileIncomplete={onQuestionBundleProfileIncomplete}
+              />
+            )}
+
           <ChatInput
             onSendMessage={handleSendMessage}
             onTyping={onTyping}
@@ -954,7 +984,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 : CHAT_MESSAGE_MAX_LENGTH_CLIENT
             }
           />
-        </>
+        </div>
       )}
 
       {/* End Chat Confirmation Dialog */}
