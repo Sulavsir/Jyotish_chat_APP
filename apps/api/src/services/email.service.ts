@@ -3,6 +3,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import { getFrontendOrigin } from '../constants/frontend.constants';
 
 interface SendEmailOptions {
   to: string;
@@ -153,6 +154,7 @@ class EmailService {
     appointmentFee?: number | null
   ): Promise<boolean> {
     const subject = 'Your Astrologer Registration Has Been Approved - Chat Jyotishi';
+    const frontendOrigin = getFrontendOrigin();
 
     const html = `
       <!DOCTYPE html>
@@ -186,7 +188,7 @@ class EmailService {
             <p style="font-size: 16px;">You can now log in to your account and start providing consultations to clients.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL!}/jyotish/login" 
+              <a href="${frontendOrigin}/jyotish/login" 
                  style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                 Login to Your Account
               </a>
@@ -270,7 +272,7 @@ class EmailService {
     }
   ): Promise<boolean> {
     const { appointmentTypeLabel, clientName, scheduledAt, durationMinutes } = options;
-    const websiteUrl = process.env.FRONTEND_URL;
+    const websiteUrl = getFrontendOrigin();
     const scheduledFormatted = scheduledAt.toLocaleString(undefined, {
       weekday: 'short',
       year: 'numeric',

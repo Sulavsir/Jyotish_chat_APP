@@ -2,13 +2,16 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest, FacebookMobileLoginResponse } from '../types';
 import type { FacebookMobileLoginInput } from '../validators';
 import { setAuthCookies } from '../utils';
-import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { HTTP_STATUS, ERROR_CODES, getFrontendOrigin } from '../constants';
 import { facebookOAuthService } from '../services/facebook-oauth.service';
 import { AppError } from '../middleware/error-handler';
 import { logUserLogin, logUserRegister } from '../utils';
 import { getClientIp } from '../utils/request-utils';
-
-const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:3000';
+import {
+  OAUTH_FRONTEND_COOKIE,
+  resolveOAuthRedirectBase,
+  setOAuthFrontendCookieIfAllowed,
+} from '../utils/oauth-frontend-redirect.utils';
 
 const OAUTH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -70,12 +73,21 @@ export async function facebookMobileLogin(req: AuthRequest, res: Response, _next
 export async function facebookLogin(req: AuthRequest, res: Response, _next: NextFunction) {
   const { url, state } = facebookOAuthService.createAuthorizationParams();
 
+  setOAuthFrontendCookieIfAllowed(res, OAUTH_FRONTEND_COOKIE.FACEBOOK, req.query.frontend);
+
   res.cookie('facebook_oauth_state', state, OAUTH_COOKIE_OPTIONS);
 
   return res.redirect(url.toString());
 }
 
 export async function facebookCallback(req: AuthRequest, res: Response, _next: NextFunction) {
+  const frontendBase = resolveOAuthRedirectBase(
+    req,
+    res,
+    OAUTH_FRONTEND_COOKIE.FACEBOOK,
+    getFrontendOrigin()
+  );
+
   const { code, state } = req.query as { code?: string; state?: string };
   const storedState = req.cookies?.facebook_oauth_state as string | undefined;
 
@@ -83,13 +95,13 @@ export async function facebookCallback(req: AuthRequest, res: Response, _next: N
 
   if (!code || !state || !storedState) {
     return res.redirect(
-      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent('Missing OAuth parameters. Please try again.')}`
+      `${frontendBase}/auth/login?error=${encodeURIComponent('Missing OAuth parameters. Please try again.')}`
     );
   }
 
   if (state !== storedState) {
     return res.redirect(
-      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`
+      `${frontendBase}/auth/login?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`
     );
   }
 
@@ -117,7 +129,7 @@ export async function facebookCallback(req: AuthRequest, res: Response, _next: N
       });
     }
 
-    return res.redirect(`${FRONTEND_URL()}/auth/facebook/callback?success=true`);
+    return res.redirect(`${frontendBase}/auth/facebook/callback?success=true`);
   } catch (error) {
     const message =
       error instanceof AppError
@@ -126,6 +138,6 @@ export async function facebookCallback(req: AuthRequest, res: Response, _next: N
 
     console.error('Facebook OAuth callback error:', error);
 
-    return res.redirect(`${FRONTEND_URL()}/auth/login?error=${encodeURIComponent(message)}`);
+    return res.redirect(`${frontendBase}/auth/login?error=${encodeURIComponent(message)}`);
   }
 }

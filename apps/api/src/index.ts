@@ -18,6 +18,7 @@ import routes from './routes';
 import { setupRecurringJobs } from './workers';
 import { getVersion } from './controllers/version.controller';
 import { maintenanceMiddleware } from './middleware/maintenance.middleware';
+import { getFrontendOrigin } from './constants/frontend.constants';
 
 // Load environment variables from apps/api/.env only (MAINTENANCE_MODE defaults off when unset)
 const envPath = path.resolve(__dirname, '../.env');
@@ -79,9 +80,7 @@ const getAllowedOrigins = (): string[] => {
     .map((url) => normalizeOrigin(url))
     .filter(Boolean);
   const set = new Set(list);
-  if (process.env.FRONTEND_URL) {
-    set.add(normalizeOrigin(process.env.FRONTEND_URL));
-  }
+  set.add(normalizeOrigin(getFrontendOrigin()));
   return Array.from(set);
 };
 

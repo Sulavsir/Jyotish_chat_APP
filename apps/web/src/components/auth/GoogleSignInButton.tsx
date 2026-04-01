@@ -37,7 +37,10 @@ export function GoogleSignInButton({ className, variant = 'full' }: GoogleSignIn
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
-    window.location.href = `${API_BASE_URL}${API_ENDPOINTS.AUTH.GOOGLE_LOGIN}`;
+    const params = new URLSearchParams({
+      frontend: typeof window !== 'undefined' ? window.location.origin : '',
+    });
+    window.location.href = `${API_BASE_URL}${API_ENDPOINTS.AUTH.GOOGLE_LOGIN}?${params.toString()}`;
   };
 
   if (variant === 'icon') {

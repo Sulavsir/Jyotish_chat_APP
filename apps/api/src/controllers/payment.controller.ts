@@ -5,7 +5,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import { sendSuccess, sendError } from '../utils';
-import { HTTP_STATUS } from '../constants';
+import { HTTP_STATUS, getFrontendOrigin } from '../constants';
 import * as paymentService from '../services/payment.service';
 import type {
   CreateOrderBody,
@@ -15,8 +15,6 @@ import type {
   CreateFonepayCardOrderBody,
 } from '../validators/payment.validators';
 import type { FonepayCardCallbackQuery } from '../services/payment.service';
-
-const FRONTEND_ORIGIN = (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 
 /** GetPay may append token with ? so query can be orderId=xxx?token=yyy - normalize. */
 function getOrderIdAndToken(query: Request['query']): { orderId: string; token: string } {
@@ -42,9 +40,10 @@ export async function successRedirect(req: Request, res: Response, next: NextFun
     if (orderId) params.set('orderId', orderId);
     if (token) params.set('token', token);
     const qs = params.toString();
+    const frontendOrigin = getFrontendOrigin();
     const frontendUrl = qs
-      ? `${FRONTEND_ORIGIN}/payment-success?${qs}`
-      : `${FRONTEND_ORIGIN}/payment-success`;
+      ? `${frontendOrigin}/payment-success?${qs}`
+      : `${frontendOrigin}/payment-success`;
 
     const useLanding = String(req.query.landing ?? '').toLowerCase() === '1';
     if (useLanding) {
@@ -81,7 +80,7 @@ export async function failRedirect(req: Request, res: Response, next: NextFuncti
     const params = new URLSearchParams();
     if (orderId) params.set('orderId', orderId);
     if (message) params.set('message', message);
-    res.redirect(302, `${FRONTEND_ORIGIN}/payment-fail?${params.toString()}`);
+    res.redirect(302, `${getFrontendOrigin()}/payment-fail?${params.toString()}`);
   } catch (error) {
     next(error);
   }
@@ -101,7 +100,7 @@ export async function createOrder(req: AuthRequest, res: Response, next: NextFun
     const body = req.body as CreateOrderBody;
     const baseOrigin =
       (req.headers.origin ?? req.headers.referer ?? '').replace(/\/$/, '') ||
-      process.env.FRONTEND_URL!;
+      getFrontendOrigin();
 
     const result = await paymentService.createOrder(userId, body, baseOrigin);
     return sendSuccess(res, result, HTTP_STATUS.CREATED);
@@ -234,8 +233,7 @@ export async function createFonepayCardOrder(
  * Supports both GET (query params) and POST (body params) for different gateway behaviors.
  */
 export async function fonepayCardCallback(req: Request, res: Response, _next: NextFunction) {
-  const frontendOrigin = (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-  const failUrl = `${frontendOrigin}/payment-fail`;
+  const failUrl = `${getFrontendOrigin()}/payment-fail`;
   
   try {
     // Support both GET query params and POST body params

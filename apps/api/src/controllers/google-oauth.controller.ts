@@ -1,12 +1,17 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest, GoogleMobileLoginResponse } from '../types';
 import { setAuthCookies } from '../utils';
-import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { HTTP_STATUS, ERROR_CODES, getFrontendOrigin } from '../constants';
 import { googleOAuthService } from '../services/google-oauth.service';
 import { AppError } from '../middleware/error-handler';
 import { logUserLogin, logUserRegister } from '../utils';
 import { getClientIp } from '../utils/request-utils';
 import type { GoogleMobileLoginInput } from '../validators';
+import {
+  OAUTH_FRONTEND_COOKIE,
+  resolveOAuthRedirectBase,
+  setOAuthFrontendCookieIfAllowed,
+} from '../utils/oauth-frontend-redirect.utils';
 
 /**
  * Handle Google Sign-In from mobile apps (Flutter)
@@ -68,8 +73,6 @@ export async function googleMobileLogin(req: AuthRequest, res: Response, _next: 
   }
 }
 
-const FRONTEND_URL = () => process.env.FRONTEND_URL || 'http://localhost:3000';
-
 const OAUTH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -88,6 +91,8 @@ const OAUTH_COOKIE_OPTIONS = {
 export async function googleLogin(req: AuthRequest, res: Response, _next: NextFunction) {
   const { url, state, codeVerifier } = googleOAuthService.createAuthorizationParams();
 
+  setOAuthFrontendCookieIfAllowed(res, OAUTH_FRONTEND_COOKIE.GOOGLE, req.query.frontend);
+
   res.cookie('google_oauth_state', state, OAUTH_COOKIE_OPTIONS);
   res.cookie('google_oauth_code_verifier', codeVerifier, OAUTH_COOKIE_OPTIONS);
 
@@ -103,6 +108,13 @@ export async function googleLogin(req: AuthRequest, res: Response, _next: NextFu
  * sets auth cookies, and redirects to the frontend.
  */
 export async function googleCallback(req: AuthRequest, res: Response, _next: NextFunction) {
+  const frontendBase = resolveOAuthRedirectBase(
+    req,
+    res,
+    OAUTH_FRONTEND_COOKIE.GOOGLE,
+    getFrontendOrigin()
+  );
+
   const { code, state } = req.query as { code?: string; state?: string };
   const storedState = req.cookies?.google_oauth_state as string | undefined;
   const storedCodeVerifier = req.cookies?.google_oauth_code_verifier as string | undefined;
@@ -113,13 +125,13 @@ export async function googleCallback(req: AuthRequest, res: Response, _next: Nex
 
   if (!code || !state || !storedState || !storedCodeVerifier) {
     return res.redirect(
-      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent('Missing OAuth parameters. Please try again.')}`
+      `${frontendBase}/auth/login?error=${encodeURIComponent('Missing OAuth parameters. Please try again.')}`
     );
   }
 
   if (state !== storedState) {
     return res.redirect(
-      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`
+      `${frontendBase}/auth/login?error=${encodeURIComponent('Invalid OAuth state. Please try again.')}`
     );
   }
 
@@ -147,7 +159,7 @@ export async function googleCallback(req: AuthRequest, res: Response, _next: Nex
       });
     }
 
-    return res.redirect(`${FRONTEND_URL()}/auth/google/callback?success=true`);
+    return res.redirect(`${frontendBase}/auth/google/callback?success=true`);
   } catch (error) {
     const message =
       error instanceof AppError
@@ -157,7 +169,7 @@ export async function googleCallback(req: AuthRequest, res: Response, _next: Nex
     console.error('Google OAuth callback error:', error);
 
     return res.redirect(
-      `${FRONTEND_URL()}/auth/login?error=${encodeURIComponent(message)}`
+      `${frontendBase}/auth/login?error=${encodeURIComponent(message)}`
     );
   }
 }

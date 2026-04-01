@@ -143,6 +143,10 @@ export const API_ENDPOINTS = {
     REGISTER: '/api/v1/astrologer/register',
     LOGOUT: '/api/v1/astrologer/auth/logout',
     ME: '/api/v1/astrologer/auth/me',
+    /** PATCH — self-service profile (jyotish app); returns same shape as GET ME */
+    PATCH_ME: '/api/v1/astrologer/auth/me',
+    /** POST upload / DELETE remove profile photo (astrologer row) */
+    ME_PHOTO: '/api/v1/astrologer/auth/me/photo',
     CHANGE_PASSWORD: '/api/v1/astrologer/auth/change-password',
     FORGOT_PASSWORD: '/api/v1/astrologer/auth/forgot-password',
     RESET_PASSWORD_TOKEN: '/api/v1/astrologer/auth/reset-password-token',

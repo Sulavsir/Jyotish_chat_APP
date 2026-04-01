@@ -226,7 +226,7 @@ export async function listAstrologers(req: AuthRequest, res: Response, next: Nex
 export async function getAstrologer(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
-    const astrologer = await astrologerService.findById(id);
+    const astrologer = await astrologerService.findByIdForAdmin(id);
 
     return sendSuccess(res, { astrologer });
   } catch (error) {

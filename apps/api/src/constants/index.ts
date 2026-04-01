@@ -17,3 +17,4 @@ export * from './sms.constants';
 export * from './apple-oauth.constants';
 export * from './google-oauth.constants';
 export * from './facebook-oauth.constants';
+export * from './frontend.constants';

@@ -7,7 +7,10 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { changePasswordSchema } from '@jyotish/shared';
 import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators';
-import { getDashboardStatsQuerySchema } from '../validators/astrologer.validators';
+import {
+  astrologerSelfPatchSchema,
+  getDashboardStatsQuerySchema,
+} from '../validators/astrologer.validators';
 import {
   createSlotsBulkSchema,
   listSlotsQuerySchema,
@@ -24,6 +27,7 @@ import * as astrologerController from '../controllers/astrologerController';
 import * as slotController from '../controllers/slotController';
 import * as clientChatHistoryController from '../controllers/clientChatHistory.controller';
 import { astrologerRegistrationUpload } from '../middleware/astrologerRegistrationUpload';
+import { uploadProfilePhoto } from '../middleware/upload';
 import {
   clientChatHistoryQuerySchema,
   clientHasChatHistoryParamSchema,
@@ -68,6 +72,17 @@ router.use(authenticate); // All routes below require authentication
 
 router.post('/auth/logout', asyncHandler(astrologerController.astrologerLogout));
 router.get('/auth/me', asyncHandler(astrologerController.getAstrologerProfile));
+router.patch(
+  '/auth/me',
+  validateBody(astrologerSelfPatchSchema),
+  asyncHandler(astrologerController.patchAstrologerMe)
+);
+router.post(
+  '/auth/me/photo',
+  uploadProfilePhoto(),
+  asyncHandler(astrologerController.uploadAstrologerProfilePhoto)
+);
+router.delete('/auth/me/photo', asyncHandler(astrologerController.removeAstrologerProfilePhoto));
 router.post(
   '/auth/change-password',
   validateBody(changePasswordSchema),

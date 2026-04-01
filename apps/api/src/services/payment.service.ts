@@ -23,6 +23,7 @@ import {
   GETPAY_RESPONSE_STATUS_AUTHORIZED,
   GETPAY_RESPONSE_MESSAGE_SUCCESS,
 } from '../constants/payment.constants';
+import { getFrontendOrigin } from '../constants/frontend.constants';
 import * as fonepayQr from '../payments/fonepay/qr';
 import * as fonepayWeb from '../payments/fonepay/web';
 import type {
@@ -98,7 +99,11 @@ export async function createOrder(
     );
   }
 
-  const origin = baseOrigin || process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || '';
+  const origin =
+    baseOrigin ||
+    (process.env.FRONTEND_URL?.trim() ? getFrontendOrigin() : '') ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    '';
 
   if (!origin) {
     throw new AppError(

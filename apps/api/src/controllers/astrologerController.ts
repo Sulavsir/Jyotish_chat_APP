@@ -16,7 +16,7 @@ import { sendSuccess } from '../utils';
 import { HTTP_STATUS, ERROR_CODES, PASSWORD_RESET_ACTOR } from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
-import { AstrologerCategory } from '@prisma/client';
+import { AstrologerCategory, type Prisma } from '@prisma/client';
 import { prisma } from '@jyotish/database';
 import { getSocketInstance } from '../utils/socket-instance';
 import {
@@ -237,6 +237,21 @@ export async function verifyAstrologerPasswordResetOtp(
   });
 }
 
+/** Full astrologer "me" payload (same shape as GET /astrologer/auth/me). */
+export async function getAstrologerMePayload(astrologerId: string) {
+  const astrologer = await astrologerService.findById(astrologerId);
+  const canAccessAppointmentsFlag = canAcceptAppointments(astrologer.category);
+  const canAcceptBroadcastMessagesFlag =
+    canAcceptBroadcastMessages(astrologer.category) || astrologer.inhouseAstrologer === true;
+  return {
+    astrologer: {
+      ...astrologer,
+      canAccessAppointments: canAccessAppointmentsFlag,
+      canAcceptBroadcastMessages: canAcceptBroadcastMessagesFlag,
+    },
+  };
+}
+
 /**
  * Get current astrologer profile
  * GET /api/v1/astrologer/auth/me
@@ -249,19 +264,189 @@ export async function getAstrologerProfile(req: AuthRequest, res: Response, next
       throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    const astrologer = await astrologerService.findById(astrologerId);
+    const payload = await getAstrologerMePayload(astrologerId);
+    return sendSuccess(res, payload);
+  } catch (error) {
+    next(error);
+  }
+}
 
-    const canAccessAppointmentsFlag = canAcceptAppointments(astrologer.category);
-    const canAcceptBroadcastMessagesFlag =
-      canAcceptBroadcastMessages(astrologer.category) || astrologer.inhouseAstrologer === true;
+/**
+ * Update current astrologer profile (jyotish app — not PATCH /users/me)
+ * PATCH /api/v1/astrologer/auth/me
+ */
+export async function patchAstrologerMe(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const astrologerId = req.user?.id;
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
 
-    return sendSuccess(res, {
-      astrologer: {
-        ...astrologer,
-        canAccessAppointments: canAccessAppointmentsFlag,
-        canAcceptBroadcastMessages: canAcceptBroadcastMessagesFlag,
-      },
+    const body = req.body as {
+      name?: string;
+      email?: string | '';
+      gender?: 'MALE' | 'FEMALE' | 'OTHER' | null;
+      bio?: string | null;
+      address?: string | null;
+      country?: string | null;
+    };
+
+    const data: Prisma.AstrologerUpdateInput = {};
+    if (body.name !== undefined) data.name = body.name;
+    if (body.email !== undefined) {
+      data.email =
+        body.email === null || String(body.email).trim() === ''
+          ? null
+          : String(body.email).trim();
+    }
+    if (body.gender !== undefined) data.gender = body.gender;
+    if (body.bio !== undefined) data.bio = body.bio;
+    if (body.address !== undefined) data.address = body.address;
+    if (body.country !== undefined) data.country = body.country;
+
+    if (Object.keys(data).length > 0) {
+      await prisma.astrologer.update({
+        where: { id: astrologerId },
+        data,
+      });
+    }
+
+    const payload = await getAstrologerMePayload(astrologerId);
+    try {
+      const io = getSocketInstance();
+      io.emit('astrologer:updated', {
+        astrologerId,
+        name: payload.astrologer.name,
+        profilePhoto: payload.astrologer.profilePhoto,
+        category: payload.astrologer.category,
+      });
+    } catch {
+      /* noop */
+    }
+    return sendSuccess(res, payload);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Upload profile photo (astrologer table)
+ * POST /api/v1/astrologer/auth/me/photo
+ */
+export async function uploadAstrologerProfilePhoto(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const astrologerId = req.user?.id;
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const file =
+      (req as Express.Request & { file?: Express.Multer.File }).file ||
+      (req as Express.Request & { files?: Record<string, Express.Multer.File[]> }).files?.['photo']?.[0] ||
+      (req as Express.Request & { files?: Record<string, Express.Multer.File[]> }).files?.['file']?.[0] ||
+      (req as Express.Request & { files?: Record<string, Express.Multer.File[]> }).files?.['image']?.[0];
+
+    if (!file) {
+      throw new AppError('No file uploaded', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const existing = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { profilePhoto: true },
     });
+    const currentProfilePhoto = existing?.profilePhoto ?? null;
+
+    if (currentProfilePhoto) {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const oldPhotoPath = path.join(process.cwd(), currentProfilePhoto);
+        if (fs.existsSync(oldPhotoPath)) {
+          fs.unlinkSync(oldPhotoPath);
+        }
+      } catch (e) {
+        console.error('Error deleting old astrologer profile photo:', e);
+      }
+    }
+
+    const fileUrl = `/uploads/profiles/${file.filename}`;
+    await prisma.astrologer.update({
+      where: { id: astrologerId },
+      data: { profilePhoto: fileUrl },
+    });
+
+    const payload = await getAstrologerMePayload(astrologerId);
+    try {
+      const io = getSocketInstance();
+      io.emit('astrologer:updated', {
+        astrologerId,
+        name: payload.astrologer.name,
+        profilePhoto: payload.astrologer.profilePhoto,
+        category: payload.astrologer.category,
+      });
+    } catch {
+      /* noop */
+    }
+    return sendSuccess(res, payload);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Remove profile photo (astrologer table)
+ * DELETE /api/v1/astrologer/auth/me/photo
+ */
+export async function removeAstrologerProfilePhoto(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const astrologerId = req.user?.id;
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const row = await prisma.astrologer.findUnique({
+      where: { id: astrologerId },
+      select: { profilePhoto: true },
+    });
+    const currentProfilePhoto = row?.profilePhoto ?? null;
+
+    if (!currentProfilePhoto) {
+      throw new AppError(
+        'No profile photo to remove',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const photoPath = path.join(process.cwd(), currentProfilePhoto);
+      if (fs.existsSync(photoPath)) {
+        fs.unlinkSync(photoPath);
+      }
+    } catch (e) {
+      console.error('Error deleting astrologer profile photo file:', e);
+    }
+
+    await prisma.astrologer.update({
+      where: { id: astrologerId },
+      data: { profilePhoto: null },
+    });
+
+    const payload = await getAstrologerMePayload(astrologerId);
+    try {
+      const io = getSocketInstance();
+      io.emit('astrologer:updated', {
+        astrologerId,
+        name: payload.astrologer.name,
+        profilePhoto: payload.astrologer.profilePhoto,
+        category: payload.astrologer.category,
+      });
+    } catch {
+      /* noop */
+    }
+    return sendSuccess(res, payload);
   } catch (error) {
     next(error);
   }
@@ -478,11 +663,6 @@ export async function changeAstrologerPassword(
         isActive: true,
         isOnline: true,
         isVerified: true,
-        chatMessageCommissionPercent: true,
-        broadcastMessageCommissionPercent: true,
-        firstBroadcastCommissionPercent: true,
-        kundaliReviewCommissionPercent: true,
-        appointmentCommissionPercent: true,
         languages: true,
         createdAt: true,
         updatedAt: true,

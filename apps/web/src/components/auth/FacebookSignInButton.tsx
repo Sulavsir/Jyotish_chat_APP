@@ -25,7 +25,10 @@ export function FacebookSignInButton({ className, variant = 'full' }: FacebookSi
 
   const handleFacebookLogin = () => {
     setIsLoading(true);
-    window.location.href = `${API_BASE_URL}${API_ENDPOINTS.AUTH.FACEBOOK_LOGIN}`;
+    const params = new URLSearchParams({
+      frontend: typeof window !== 'undefined' ? window.location.origin : '',
+    });
+    window.location.href = `${API_BASE_URL}${API_ENDPOINTS.AUTH.FACEBOOK_LOGIN}?${params.toString()}`;
   };
 
   if (variant === 'icon') {

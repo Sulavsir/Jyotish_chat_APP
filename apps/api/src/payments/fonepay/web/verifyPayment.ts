@@ -21,6 +21,7 @@ import {
   notifyClientPaymentSuccess,
 } from '../../../services/paymentNotification.service';
 import type { FonepayWebCallbackQuery } from '../../../types/fonepay.types';
+import { getFrontendOrigin } from '../../../constants/frontend.constants';
 
 // Common Fonepay failure response codes
 const FONEPAY_RC_CANCELLED = 'cancelled';
@@ -61,7 +62,7 @@ function getFailureMessage(rc: string | undefined, ps: string | undefined): stri
 export async function verifyPayment(
   query: FonepayWebCallbackQuery
 ): Promise<{ redirectTo: string }> {
-  const frontendOrigin = (process.env.FRONTEND_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const frontendOrigin = getFrontendOrigin();
   const successUrl = `${frontendOrigin}/payment-success`;
   const failUrl = `${frontendOrigin}/payment-fail`;
 

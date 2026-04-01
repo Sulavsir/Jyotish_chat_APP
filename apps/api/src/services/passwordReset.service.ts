@@ -5,7 +5,13 @@
 
 import { prisma } from '@jyotish/database';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
-import { HTTP_STATUS, ERROR_CODES, OTP_CONFIG, PASSWORD_RESET_ACTOR } from '../constants';
+import {
+  HTTP_STATUS,
+  ERROR_CODES,
+  OTP_CONFIG,
+  PASSWORD_RESET_ACTOR,
+  getFrontendOrigin,
+} from '../constants';
 import { AppError } from '../middleware/error-handler';
 import { isProduction, isDevelopment } from '../utils';
 import { authService } from './auth.service';
@@ -22,9 +28,6 @@ export interface PasswordResetEntity {
   phone: string;
   name: string | null;
 }
-
-const FRONTEND_BASE = () =>
-  (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
 
 const RESET_PATH: Record<PasswordResetActor, string> = {
   [PASSWORD_RESET_ACTOR.USER]: '/auth/reset-password',
@@ -146,7 +149,7 @@ export async function handleRequestPasswordReset(
   if (entity.email) {
     const token = generateResetToken(entity.id, actor);
     const path = RESET_PATH[actor];
-    const resetUrl = `${FRONTEND_BASE()}${path}?token=${encodeURIComponent(token)}`;
+    const resetUrl = `${getFrontendOrigin()}${path}?token=${encodeURIComponent(token)}`;
     await emailService.sendPasswordResetEmail(entity.name, entity.email, resetUrl);
     return {
       method: 'email',

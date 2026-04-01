@@ -12,9 +12,9 @@ export enum AppointmentStatus {
 }
 
 export enum AstrologerCategory {
-  ORDINARY = 'ORDINARY',       // Can receive chat requests, no appointments
+  ORDINARY = 'ORDINARY', // Can receive chat requests, no appointments
   PROFESSIONAL = 'PROFESSIONAL', // Can receive chat requests and appointments, lower fee
-  PREMIUM = 'PREMIUM',          // Only appointments, no direct chat (higher fee)
+  PREMIUM = 'PREMIUM', // Only appointments, no direct chat (higher fee)
 }
 
 export interface Appointment {
@@ -64,6 +64,8 @@ export interface Astrologer {
   bio: string | null;
   specialization: string[];
   experience: number | null;
+  address: string | null;
+  country: string | null;
   rating: number;
   totalConsultations: number;
   category: AstrologerCategory;
@@ -111,6 +113,3 @@ export interface UpdateAppointmentData {
   review?: string;
   cancellationNote?: string;
 }
-
-
-

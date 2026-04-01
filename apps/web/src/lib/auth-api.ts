@@ -165,7 +165,25 @@ export const authApi = {
     return apiClient.post<ProfileSetupResponse>(API_ENDPOINTS.USER.PROFILE_SETUP, jsonData);
   },
 
-  updateProfile: async (data: { name?: string; email?: string }): Promise<User> => {
+  updateProfile: async (data: {
+    name?: string;
+    email?: string;
+    /** Form values may be plain strings before narrowing */
+    gender?: GenderType | string | null;
+  }): Promise<User> => {
+    const state = useAuthStore.getState();
+    const isAstrologer =
+      state.user?.role === UserRole.ASTROLOGER ||
+      (typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish'));
+
+    if (isAstrologer) {
+      const response = await apiClient.patch<{ astrologer: User }>(
+        API_ENDPOINTS.ASTROLOGER.PATCH_ME,
+        data
+      );
+      return { ...response.astrologer, role: UserRole.ASTROLOGER };
+    }
+
     return apiClient.patch<User>(API_ENDPOINTS.USER.ME, data);
   },
 
@@ -188,10 +206,33 @@ export const authApi = {
   uploadProfilePhoto: async (file: File): Promise<User> => {
     const formData = new FormData();
     formData.append('photo', file);
+    const state = useAuthStore.getState();
+    const isAstrologer =
+      state.user?.role === UserRole.ASTROLOGER ||
+      (typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish'));
+
+    if (isAstrologer) {
+      const response = await apiClient.uploadFile<{ astrologer: User }>(
+        API_ENDPOINTS.ASTROLOGER.ME_PHOTO,
+        formData
+      );
+      return { ...response.astrologer, role: UserRole.ASTROLOGER };
+    }
+
     return apiClient.uploadFile<User>(API_ENDPOINTS.USER.UPLOAD_PHOTO, formData);
   },
 
   removeProfilePhoto: async (): Promise<User> => {
+    const state = useAuthStore.getState();
+    const isAstrologer =
+      state.user?.role === UserRole.ASTROLOGER ||
+      (typeof window !== 'undefined' && window.location.pathname.startsWith('/jyotish'));
+
+    if (isAstrologer) {
+      const response = await apiClient.delete<{ astrologer: User }>(API_ENDPOINTS.ASTROLOGER.ME_PHOTO);
+      return { ...response.astrologer, role: UserRole.ASTROLOGER };
+    }
+
     return apiClient.delete<User>(API_ENDPOINTS.USER.REMOVE_PHOTO);
   },
 

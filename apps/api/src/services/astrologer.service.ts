@@ -45,6 +45,48 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
+        inhouseAstrologer: true,
+        languages: true,
+        gender: true,
+        country: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!astrologer) {
+      throw new AppError('Astrologer not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
+    }
+
+    return astrologer;
+  }
+
+  /**
+   * Same as {@link findById} but includes per-source commission % (admin-only; not exposed on astrologer app).
+   */
+  async findByIdForAdmin(id: string) {
+    const astrologer = await prisma.astrologer.findFirst({
+      where: { id, isDeleted: false },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        name: true,
+        profilePhoto: true,
+        address: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        category: true,
+        appointmentFee: true,
+        chatMessageFee: true,
+        proofOfAstrology: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
         chatMessageCommissionPercent: true,
         broadcastMessageCommissionPercent: true,
         firstBroadcastCommissionPercent: true,
@@ -88,11 +130,6 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        chatMessageCommissionPercent: true,
-        broadcastMessageCommissionPercent: true,
-        firstBroadcastCommissionPercent: true,
-        kundaliReviewCommissionPercent: true,
-        appointmentCommissionPercent: true,
         inhouseAstrologer: true,
         languages: true,
         gender: true,
@@ -130,11 +167,6 @@ export class AstrologerService {
         isActive: true,
         isOnline: true,
         isVerified: true,
-        chatMessageCommissionPercent: true,
-        broadcastMessageCommissionPercent: true,
-        firstBroadcastCommissionPercent: true,
-        kundaliReviewCommissionPercent: true,
-        appointmentCommissionPercent: true,
         inhouseAstrologer: true,
         languages: true,
         gender: true,
@@ -336,11 +368,6 @@ export class AstrologerService {
         isOnline: true,
         isVerified: true,
         accountStatus: true,
-        chatMessageCommissionPercent: true,
-        broadcastMessageCommissionPercent: true,
-        firstBroadcastCommissionPercent: true,
-        kundaliReviewCommissionPercent: true,
-        appointmentCommissionPercent: true,
         languages: true,
         gender: true,
         country: true,
