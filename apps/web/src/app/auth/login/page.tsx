@@ -32,7 +32,7 @@ import {
 } from '@/lib/validations';
 import { useSearchParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { SocialOAuthSignInRow } from '@/components/auth/SocialOAuthSignInRow';
 
 type LoginMethod = 'password' | 'otp';
 type OTPStep = 'request' | 'verify';
@@ -321,9 +321,9 @@ export default function LoginPage() {
                   Sign In
                 </LoadingButton>
 
-                <div className="flex items-center justify-center gap-2 pt-1 pb-0">
-                  <span className="text-xs text-slate-500">Or Sign in with:</span>
-                  <GoogleSignInButton variant="icon" />
+                <div className="flex flex-col items-center gap-2 pt-1 pb-0">
+                  <span className="text-xs text-slate-500">Or continue with:</span>
+                  <SocialOAuthSignInRow variant="icon" />
                 </div>
               </form>
             )}

@@ -2,6 +2,8 @@
  * API Configuration Constants
  */
 
+import { AUTH_OAUTH_API_PATHS } from '@jyotish/shared';
+
 // API Base URLs
 // Use direct backend URL to avoid Next.js proxy issues with POST/credentials
 // The backend has CORS properly configured to accept requests from localhost:3000
@@ -46,6 +48,7 @@ export const API_ENDPOINTS = {
     MY: '/api/v1/kundali-match/my',
   },
   AUTH: {
+    ...AUTH_OAUTH_API_PATHS,
     CHECK_PHONE: '/api/v1/auth/check-phone',
     SEND_OTP: '/api/v1/auth/send-otp',
     VERIFY_OTP: '/api/v1/auth/verify-otp',
@@ -62,7 +65,6 @@ export const API_ENDPOINTS = {
     RESET_PASSWORD_TOKEN: '/api/v1/auth/reset-password-token',
     RESET_PASSWORD_OTP: '/api/v1/auth/reset-password-otp',
     VERIFY_PASSWORD_RESET_OTP: '/api/v1/auth/verify-password-reset-otp',
-    GOOGLE_LOGIN: '/api/v1/auth/google/login',
   },
   USER: {
     ME: '/api/v1/users/me',

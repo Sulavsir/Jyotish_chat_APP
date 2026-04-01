@@ -14,6 +14,8 @@ model User {
   email                        String?
   password                     String?
   googleId                     String?
+  facebookId                   String?
+  appleId                      String?
   name                         String?
   role                         UserRole               @default(CLIENT)
   isActive                     Boolean                @default(true)

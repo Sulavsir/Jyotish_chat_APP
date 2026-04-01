@@ -12,6 +12,9 @@ export const ROUTES = {
 
   // Client Auth Routes
   LOGIN: '/auth/login',
+  /** OAuth redirect targets — API sets cookies then redirects here */
+  GOOGLE_OAUTH_CALLBACK: '/auth/google/callback',
+  FACEBOOK_OAUTH_CALLBACK: '/auth/facebook/callback',
   VERIFY_OTP: '/auth/verify-otp',
   SET_PASSWORD: '/auth/set-password',
   FORGOT_PASSWORD: '/auth/forgot-password',

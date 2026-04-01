@@ -22,6 +22,21 @@ export interface LoginResult {
   token?: string;
 }
 
+/** Facebook / Apple only — Google account linking stays in `google-oauth.service.ts` */
+export type OAuthLinkProvider = 'facebook' | 'apple';
+
+export interface OAuthLinkProfile {
+  provider: OAuthLinkProvider;
+  providerUserId: string;
+  /**
+   * Facebook: always set before calling the link service.
+   * Apple: may be omitted when JWT has no `email`; primary key is `providerUserId` (`appleId`).
+   */
+  email?: string;
+  name?: string;
+  picture?: string;
+}
+
 // ─── Google OAuth Types ───────────────────────────────────────────────────
 
 export interface GoogleUserInfo {
@@ -48,15 +63,53 @@ export interface GoogleTokenPayload {
   azp?: string;
 }
 
-export interface GoogleLoginResult extends LoginResult {
+export interface SocialLoginResult extends LoginResult {
   isNewUser: boolean;
 }
+
+export type GoogleLoginResult = SocialLoginResult;
 
 export interface GoogleMobileLoginResponse {
   accessToken: string;
   refreshToken: string;
   user: UserResponse;
   isNewUser: boolean;
+}
+
+export interface FacebookMobileLoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: UserResponse;
+  isNewUser: boolean;
+}
+
+export interface AppleMobileLoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: UserResponse;
+  isNewUser: boolean;
+}
+
+// ─── Facebook OAuth ───────────────────────────────────────────────────────
+
+export interface FacebookGraphUser {
+  id: string;
+  name?: string;
+  email?: string;
+  picture?: { data?: { url?: string } };
+}
+
+// ─── Apple Sign In (mobile identity token claims) ───────────────────────────
+
+export interface AppleIdTokenPayload {
+  iss: string;
+  aud: string;
+  exp: number;
+  iat: number;
+  sub: string;
+  email?: string;
+  email_verified?: boolean | string;
+  is_private_email?: boolean | string;
 }
 
 export interface RefreshTokenPayload {

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authController } from '../controllers';
 import * as googleOAuthController from '../controllers/google-oauth.controller';
+import * as facebookOAuthController from '../controllers/facebook-oauth.controller';
+import * as appleOAuthController from '../controllers/apple-oauth.controller';
 import { validateBody } from '../middleware/validate';
 import { asyncHandler } from '../utils';
 import { authenticate } from '../middleware/auth';
@@ -19,6 +21,8 @@ import {
   resetPasswordWithOtpSchema,
   verifyPasswordResetOtpSchema,
   googleMobileLoginSchema,
+  facebookMobileLoginSchema,
+  appleMobileLoginSchema,
 } from '../validators';
 
 const router = Router();
@@ -116,6 +120,38 @@ router.post(
   '/google/mobile',
   validateBody(googleMobileLoginSchema),
   asyncHandler(googleOAuthController.googleMobileLogin)
+);
+
+// ─── Facebook OAuth ─────────────────────────────────────────────────
+
+router.get('/facebook/login', asyncHandler(facebookOAuthController.facebookLogin));
+
+router.get('/facebook/callback', asyncHandler(facebookOAuthController.facebookCallback));
+
+router.post(
+  '/facebook/verify-token',
+  validateBody(facebookMobileLoginSchema),
+  asyncHandler(facebookOAuthController.facebookMobileLogin)
+);
+
+router.post(
+  '/facebook/mobile',
+  validateBody(facebookMobileLoginSchema),
+  asyncHandler(facebookOAuthController.facebookMobileLogin)
+);
+
+// ─── Apple Sign In (native apps only) ───────────────────────────────
+
+router.post(
+  '/apple/verify-token',
+  validateBody(appleMobileLoginSchema),
+  asyncHandler(appleOAuthController.appleMobileLogin)
+);
+
+router.post(
+  '/apple/mobile',
+  validateBody(appleMobileLoginSchema),
+  asyncHandler(appleOAuthController.appleMobileLogin)
 );
 
 // ─── Phone / Password Auth ──────────────────────────────────────────

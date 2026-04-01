@@ -23,6 +23,24 @@ export const googleMobileLoginSchema = z.object({
 
 export type GoogleMobileLoginInput = z.infer<typeof googleMobileLoginSchema>;
 
+export const facebookMobileLoginSchema = z.object({
+  accessToken: z.string().min(1, 'Facebook access token is required'),
+});
+
+export type FacebookMobileLoginInput = z.infer<typeof facebookMobileLoginSchema>;
+
+export const appleMobileLoginSchema = z.object({
+  identityToken: z
+    .string()
+    .min(1, 'Apple identity token is required')
+    .refine(
+      (token) => token.split('.').length === 3,
+      'Invalid identity token format (expected JWT)'
+    ),
+});
+
+export type AppleMobileLoginInput = z.infer<typeof appleMobileLoginSchema>;
+
 // ─── Phone / Password Validators ───────────────────────────────────────────
 
 const nepaliPhoneRegex = /^(98|97)\d{8}$/;

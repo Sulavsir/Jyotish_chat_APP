@@ -8,8 +8,18 @@ import { authService } from './auth.service';
 import { sessionService } from './session.service';
 import { toUserResponse } from '../utils';
 import { AppError } from '../middleware/error-handler';
-import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import type { GoogleUserInfo, GoogleTokenPayload, GoogleLoginResult, UserEntity } from '../types';
+import {
+  GOOGLE_OAUTH_TOKENINFO_URL,
+  GOOGLE_OIDC_USERINFO_URL,
+  HTTP_STATUS,
+  ERROR_CODES,
+} from '../constants';
+import type {
+  GoogleUserInfo,
+  GoogleTokenPayload,
+  GoogleLoginResult,
+  UserEntity,
+} from '../types';
 
 function resolveGoogleDisplayName(googleUser: GoogleUserInfo): string | undefined {
   const direct = googleUser.name?.trim();
@@ -26,6 +36,19 @@ function createGoogleClient(): Google {
     config.GOOGLE_CLIENT_SECRET,
     config.GOOGLE_REDIRECT_URI
   );
+}
+
+/** OAuth client IDs allowed as `aud` on Google ID tokens (web + optional native clients). Deduped if iOS equals web. */
+function getAllowedGoogleIdTokenAudiences(): string[] {
+  const config = getGoogleOAuthConfig();
+  const ids = [config.GOOGLE_CLIENT_ID];
+  if (config.GOOGLE_IOS_CLIENT_ID) {
+    ids.push(config.GOOGLE_IOS_CLIENT_ID);
+  }
+  if (config.GOOGLE_ANDROID_CLIENT_ID) {
+    ids.push(config.GOOGLE_ANDROID_CLIENT_ID);
+  }
+  return [...new Set(ids)];
 }
 
 class GoogleOAuthService {
@@ -48,7 +71,7 @@ class GoogleOAuthService {
     const tokens = await google.validateAuthorizationCode(code, codeVerifier);
     const accessToken = tokens.accessToken();
 
-    const response = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+    const response = await fetch(GOOGLE_OIDC_USERINFO_URL, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -62,7 +85,8 @@ class GoogleOAuthService {
 
     const userInfo = (await response.json()) as GoogleUserInfo;
 
-    if (!userInfo.email || !userInfo.email_verified) {
+    const email = userInfo.email?.trim() ?? '';
+    if (!email || !userInfo.email_verified) {
       throw new AppError(
         'Google account email is not verified',
         HTTP_STATUS.BAD_REQUEST,
@@ -70,24 +94,22 @@ class GoogleOAuthService {
       );
     }
 
-    const resolved = resolveGoogleDisplayName(userInfo);
+    const normalized: GoogleUserInfo = { ...userInfo, email };
+
+    const resolved = resolveGoogleDisplayName(normalized);
     if (resolved) {
-      return { ...userInfo, name: resolved };
+      return { ...normalized, name: resolved };
     }
-    return userInfo;
+    return normalized;
   }
 
   /**
-   * Verify ID token from mobile apps (Flutter google_sign_in)
-   * Uses Google's tokeninfo endpoint to verify the token
+   * Verify ID token from mobile apps (Flutter `google_sign_in`).
+   * Uses tokeninfo, then ensures JWT `aud` is one of web + optional iOS/Android OAuth client IDs from env.
    */
   async verifyIdToken(idToken: string): Promise<GoogleUserInfo> {
-    const config = getGoogleOAuthConfig();
-    const GOOGLE_TOKEN_INFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
-
-    // Verify token with Google's tokeninfo endpoint
     const response = await fetch(
-      `${GOOGLE_TOKEN_INFO_URL}?id_token=${encodeURIComponent(idToken)}`
+      `${GOOGLE_OAUTH_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`
     );
 
     if (!response.ok) {
@@ -102,15 +124,7 @@ class GoogleOAuthService {
 
     const payload = (await response.json()) as GoogleTokenPayload;
 
-    // Build list of valid audiences (Web client ID is always required, mobile IDs are optional)
-    const validAudiences: string[] = [config.GOOGLE_CLIENT_ID];
-
-    if (config.GOOGLE_IOS_CLIENT_ID) {
-      validAudiences.push(config.GOOGLE_IOS_CLIENT_ID);
-    }
-    if (config.GOOGLE_ANDROID_CLIENT_ID) {
-      validAudiences.push(config.GOOGLE_ANDROID_CLIENT_ID);
-    }
+    const validAudiences = getAllowedGoogleIdTokenAudiences();
 
     if (!validAudiences.includes(payload.aud)) {
       console.error('[GoogleOAuth] Token audience mismatch:', {
@@ -137,8 +151,8 @@ class GoogleOAuthService {
       }
     }
 
-    // Verify email is present and verified
-    if (!payload.email || payload.email_verified !== 'true') {
+    const email = payload.email?.trim() ?? '';
+    if (!email || payload.email_verified !== 'true') {
       throw new AppError(
         'Google account email is not verified',
         HTTP_STATUS.BAD_REQUEST,
@@ -148,7 +162,7 @@ class GoogleOAuthService {
 
     const merged: GoogleUserInfo = {
       sub: payload.sub,
-      email: payload.email,
+      email,
       email_verified: payload.email_verified === 'true',
       name: payload.name ?? '',
       given_name: payload.given_name,
@@ -159,11 +173,26 @@ class GoogleOAuthService {
     return resolved ? { ...merged, name: resolved } : merged;
   }
 
+  /**
+   * Find or create user for Google only — kept separate from Facebook/Apple (`oauth-social.service.ts`).
+   *
+   * Email resolution uses the same case-insensitive matching as password/OTP login (`authService.findUserByEmail`)
+   * so web + iOS + Android Google sign-in attach to one account and preserve an existing Nepali `phone` from OTP.
+   * Google does not provide phone in this flow; we never write `phone` from Google.
+   */
   async findOrCreateUser(
     googleUser: GoogleUserInfo,
     metadata?: { userAgent?: string; ipAddress?: string }
   ): Promise<GoogleLoginResult> {
-    // Check if user exists by googleId
+    const emailTrimmed = googleUser.email.trim();
+    if (!emailTrimmed) {
+      throw new AppError(
+        'Google account email is missing',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
     let user = await prisma.user.findFirst({
       where: { googleId: googleUser.sub, ...ACTIVE_CLIENT_USER_WHERE },
     });
@@ -173,13 +202,9 @@ class GoogleOAuthService {
     const googleDisplayName = resolveGoogleDisplayName(googleUser);
 
     if (!user) {
-      // Check if user exists by email (link accounts)
-      user = await prisma.user.findFirst({
-        where: { email: googleUser.email, ...ACTIVE_CLIENT_USER_WHERE },
-      });
+      user = await authService.findUserByEmail(emailTrimmed);
 
       if (user) {
-        // Link Google account to existing user
         user = await prisma.user.update({
           where: { id: user.id },
           data: {
@@ -187,6 +212,7 @@ class GoogleOAuthService {
             emailVerified: user.emailVerified ?? new Date(),
             profilePhoto: user.profilePhoto ?? googleUser.picture ?? undefined,
             name: user.name?.trim() ? user.name : (googleDisplayName ?? undefined),
+            // phone omitted — keep existing phone from OTP signup
           },
         });
       } else {
@@ -194,7 +220,7 @@ class GoogleOAuthService {
           user = await prisma.user.create({
             data: {
               googleId: googleUser.sub,
-              email: googleUser.email,
+              email: emailTrimmed,
               emailVerified: new Date(),
               name: googleDisplayName ?? undefined,
               profilePhoto: googleUser.picture ?? undefined,
@@ -211,9 +237,10 @@ class GoogleOAuthService {
             where: {
               OR: [
                 { googleId: googleUser.sub, ...ACTIVE_CLIENT_USER_WHERE },
-                ...(googleUser.email
-                  ? [{ email: googleUser.email, ...ACTIVE_CLIENT_USER_WHERE }]
-                  : []),
+                {
+                  email: { equals: emailTrimmed, mode: 'insensitive' },
+                  ...ACTIVE_CLIENT_USER_WHERE,
+                },
               ],
             },
           });
@@ -227,7 +254,7 @@ class GoogleOAuthService {
         }
       }
     } else {
-      const needsEmail = !user.email?.trim() && !!googleUser.email;
+      const needsEmail = !user.email?.trim() && !!emailTrimmed;
       const needsName = !user.name?.trim() && !!googleDisplayName;
       const needsPhoto = !user.profilePhoto && !!googleUser.picture;
       if (needsEmail || needsName || needsPhoto) {
@@ -235,7 +262,7 @@ class GoogleOAuthService {
           where: { id: user.id },
           data: {
             ...(needsEmail && {
-              email: googleUser.email,
+              email: emailTrimmed,
               emailVerified: user.emailVerified ?? new Date(),
             }),
             ...(needsName && googleDisplayName && { name: googleDisplayName }),

@@ -13,6 +13,9 @@ export const QUERY_KEYS = {
   AUTH: {
     ME: ['auth', 'me'] as const,
     ASTROLOGER_ME: ['auth', 'astrologer', 'me'] as const,
+    /** One-shot profile fetch after OAuth redirect (cookies set by API) */
+    OAUTH_COMPLETE: (provider: 'google' | 'facebook') =>
+      ['auth', 'oauth-complete', provider] as const,
   },
 
   // Dashboard

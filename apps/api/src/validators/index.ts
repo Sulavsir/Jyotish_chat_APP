@@ -38,7 +38,11 @@ export {
   resetPasswordWithOtpSchema,
   verifyPasswordResetOtpSchema,
   googleMobileLoginSchema,
+  facebookMobileLoginSchema,
+  appleMobileLoginSchema,
   type GoogleMobileLoginInput,
+  type FacebookMobileLoginInput,
+  type AppleMobileLoginInput,
 } from './auth.validators';
 export * from './query.validators';
 export * from './coin.validators';

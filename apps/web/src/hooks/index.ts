@@ -16,6 +16,7 @@ export * from './useBirthDetailsNepaliDate';
 export * from './useChatBirthDetailsNepaliMap';
 export * from './useBsMonthQuery';
 export * from './useLocationQueries';
+export * from './use-oauth-profile-complete';
 
 // Payment hooks - TanStack Query based
 export * from './useGetPayPayment';
