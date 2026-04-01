@@ -1277,7 +1277,8 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
 
   // Update chat: astrologer welcome counts as a reply — client may send again (e.g. direct
   // question bundle). Without this, waitingForReply stayed true and blocked all client sends.
-  await prisma.chat.update({
+
+  chat = await prisma.chat.update({
     where: { id: chat.id },
     data: {
       lastMessageText: welcomeMessageContent,
