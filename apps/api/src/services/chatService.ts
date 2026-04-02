@@ -24,13 +24,14 @@ import {
 } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
-import { deductCoinsForChat } from './coin.service';
+import { deductCoinsForChat, isBroadcastPricedSession } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getSocketInstance } from '../utils/socket-instance';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { notificationService } from './notification.service';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
+import { isAstrologerAutoWelcomeMetadata } from '../utils/chat-turn.utils';
 import { getRate } from './platformCoinRate.service';
 import type { PlatformCoinRateType } from '@prisma/client';
 
@@ -904,13 +905,6 @@ export const sendMessage = async (
   // PREMIUM astrologers don't require coins (already checked above)
   if (senderRole === UserRole.CLIENT && !_internal?.skipCoinDeduction) {
     if (astrologerCategory && requiresCoinsForChat(astrologerCategory)) {
-      // Check if this chat is from a broadcast message; reopened chats use instant fee
-      const broadcastMessage = await prisma.broadcastMessage.findFirst({
-        where: { chatId },
-        select: { id: true },
-      });
-      const isBroadcastChat = !!broadcastMessage && !chat.reopenedAfterEnded;
-
       // Import here to avoid circular dependency
       const { deductCoinsForMessage } = await import('./coin.service');
       const { toSharedAstrologerCategory } = await import('../constants/coin.constants');
@@ -919,7 +913,7 @@ export const sendMessage = async (
           senderId,
           toSharedAstrologerCategory(astrologerCategory),
           chatId,
-          isBroadcastChat
+          false
         );
         (chat as any)._coinsDeducted = dedResult.coinsDeducted;
       } catch (error: any) {
@@ -982,9 +976,12 @@ export const sendMessage = async (
       // Only after the last message in a multi-question batch does the client wait for a reply
       (chatUpdateData as any).waitingForReply = isLastInBundle;
     } else if (senderRole === UserRole.ASTROLOGER) {
-      // Astrologer replied - client can send again
-      (chatUpdateData as any).waitingForReply = false;
-      (chatUpdateData as any).lastAstrologerReplyAt = new Date();
+      if (!isAstrologerAutoWelcomeMetadata(metadata)) {
+        (chatUpdateData as any).waitingForReply = false;
+        (chatUpdateData as any).lastAstrologerReplyAt = new Date();
+      } else {
+        (chatUpdateData as any).waitingForReply = true;
+      }
     }
   }
 
@@ -1151,6 +1148,8 @@ export interface SendDirectQuestionBundleParams {
     gender?: string;
   };
   questionCategory?: string;
+  /** When true (Ask Questions dashboard), block if the client has any open chat with messages. */
+  fromDashboard?: boolean;
 }
 
 /**
@@ -1170,11 +1169,7 @@ async function isBroadcastOriginatedChatSession(
     select: { id: true, reopenedAfterEnded: true },
   });
   if (!chat) return false;
-  const broadcastMessage = await prisma.broadcastMessage.findFirst({
-    where: { chatId: chat.id },
-    select: { id: true },
-  });
-  return !!broadcastMessage && !chat.reopenedAfterEnded;
+  return await isBroadcastPricedSession(chat.id, chat.reopenedAfterEnded);
 }
 
 /**
@@ -1185,7 +1180,15 @@ async function isBroadcastOriginatedChatSession(
 export async function sendDirectQuestionBundle(
   params: SendDirectQuestionBundleParams
 ): Promise<{ chatId: string; messageCount: number; coinsDeducted: number }> {
-  const { clientId, astrologerId, questionItems, totalNr, birthDetails, questionCategory } = params;
+  const {
+    clientId,
+    astrologerId,
+    questionItems,
+    totalNr,
+    birthDetails,
+    questionCategory,
+    fromDashboard = false,
+  } = params;
   const count = questionItems.length;
   if (count === 0) {
     throw new AppError(
@@ -1236,17 +1239,25 @@ export async function sendDirectQuestionBundle(
     );
   }
 
-  const blockingChat = await prisma.chat.findFirst({
-    where: {
-      status: ChatStatus.ACTIVE,
-      isLocked: false,
-      participant1Id: clientId,
-      participant2Id: { not: astrologerId },
-    },
-  });
+  const blockingChatWhere = fromDashboard
+    ? {
+        status: ChatStatus.ACTIVE,
+        isLocked: false,
+        participant1Id: clientId,
+        lastMessageAt: { not: null },
+      }
+    : {
+        status: ChatStatus.ACTIVE,
+        isLocked: false,
+        participant1Id: clientId,
+        participant2Id: { not: astrologerId },
+      };
+  const blockingChat = await prisma.chat.findFirst({ where: blockingChatWhere });
   if (blockingChat) {
     throw new AppError(
-      'You have an active chat. End your current chat before starting a new one.',
+      fromDashboard
+        ? 'You have an active chat. End it before sending from Ask Questions, or continue in Chat.'
+        : 'You have an active chat. End your current chat before starting a new one.',
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );
@@ -1589,7 +1600,14 @@ export const getActiveChat = async (userId: string) => {
     },
   });
 
-  return activeChat;
+  if (!activeChat) return null;
+
+  const broadcastPricedSession = await isBroadcastPricedSession(
+    activeChat.id,
+    activeChat.reopenedAfterEnded
+  );
+
+  return { ...activeChat, broadcastPricedSession };
 };
 
 /** Anonymous astrologer display name for Client Chat History */

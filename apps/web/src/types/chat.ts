@@ -22,6 +22,8 @@ export interface Chat {
   lastClientMessageAt?: Date | null;
   lastAstrologerReplyAt?: Date | null;
   turnBasedEnabled?: boolean;
+  /** Present on GET /active-chat: per-message rate uses BROADCAST_PER_MESSAGE when true. */
+  broadcastPricedSession?: boolean;
   createdAt: Date;
   updatedAt: Date;
   clientParticipant: {

@@ -15,7 +15,14 @@ import { ROUTES } from '@/constants';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { UserRole } from '@/types';
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@jyotish/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@jyotish/ui';
 
 interface SendMessageButtonProps {
   astrologerId: string;
@@ -119,12 +126,17 @@ export function SendMessageButton({
           </DialogHeader>
 
           <p className="text-sm text-gray-300">
-            Are you sure you want to spend <span className="font-semibold">Nrs.{chatMessageFee ?? 0}</span> to
-            communicate with this Jyotish?
+            Are you sure you want to spend{' '}
+            <span className="font-semibold">Nrs.{chatMessageFee ?? 0}</span> to communicate with
+            this Jyotish?
           </p>
 
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setShowFeeConfirm(false)} disabled={isStartingChat}>
+            <Button
+              variant="outline"
+              onClick={() => setShowFeeConfirm(false)}
+              disabled={isStartingChat}
+            >
               Cancel
             </Button>
             <Button

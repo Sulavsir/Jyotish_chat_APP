@@ -28,7 +28,11 @@ import { useBroadcastPending } from '@/hooks/useBroadcastPending';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { useAuthStore } from '@/store/auth-store';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
-import { CoinPurchaseModal, BroadcastPaymentDetailsModal } from '@/components/modals';
+import {
+  CoinPurchaseModal,
+  BroadcastPaymentDetailsModal,
+  ActiveChatConflictModal,
+} from '@/components/modals';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { QuestionnaireCategory } from '@jyotish/shared';
 import { questionnaireService } from '@/services/questionnaire.service';
@@ -57,9 +61,7 @@ import {
 import { useBroadcastPendingStore } from '@/store/broadcast-pending.store';
 import type { BroadcastPriceBreakdownEntry } from '@/types/broadcast';
 import { buildDirectBundleQuestionItems } from '@/utils/directQuestionBundle.utils';
-
-const ACTIVE_CHAT_ERROR =
-  'You have an active chat. End your current chat before starting a new one.';
+import type { Chat } from '@/types/chat';
 
 function truncateQuestionPreview(text: string, maxChars = 56): string {
   const t = text.trim();
@@ -125,6 +127,11 @@ export function AskQuestionsSection() {
   // Broadcast balance state (for broadcast tab errors)
   const [broadcastRequiredCoins, setBroadcastRequiredCoins] = useState(1);
   const [isBroadcastCoinModalOpen, setIsBroadcastCoinModalOpen] = useState(false);
+  const [activeChatGate, setActiveChatGate] = useState<{
+    pendingContinue: () => void | Promise<void>;
+  } | null>(null);
+  const [activeChatForGate, setActiveChatForGate] = useState<Chat | null>(null);
+  const [isEndingActiveChat, setIsEndingActiveChat] = useState(false);
   const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
   const queryClient = useQueryClient();
   // Direct-chat coin state comes from useChat
@@ -156,6 +163,16 @@ export function AskQuestionsSection() {
       ? selectedAstrologerFee
       : (coinRates?.CHAT_PER_MESSAGE ?? 0);
   const requiredCoinsDirect = isAppointmentOnlyDirect ? 0 : basePerMessageNr;
+
+  const { data: activeChatPricing } = useQuery({
+    queryKey: QUERY_KEYS.CHAT.ACTIVE_CHAT,
+    queryFn: () => chatService.getActiveChat(),
+    enabled: !!user && mode === 'direct' && !!selectedAstrologerId,
+  });
+  const isBroadcastPricedForSelectedPair =
+    !!selectedAstrologerId &&
+    activeChatPricing?.participant2Id === selectedAstrologerId &&
+    activeChatPricing?.broadcastPricedSession === true;
 
   const { isSending, setIsSending, isWaitingForAcceptance, markSending, clearWaiting } =
     useBroadcastPending({
@@ -220,8 +237,17 @@ export function AskQuestionsSection() {
     return computeBroadcastBaseTotalNr(count, pricingTiers, broadcastSendRate);
   };
 
-  const directPerMessageNr =
-    basePerMessageNr > 0 ? basePerMessageNr : (coinRates?.CHAT_PER_MESSAGE ?? 0);
+  const directPerMessageNr = React.useMemo(() => {
+    if (isBroadcastPricedForSelectedPair) {
+      return coinRates?.BROADCAST_PER_MESSAGE ?? 0;
+    }
+    return basePerMessageNr > 0 ? basePerMessageNr : (coinRates?.CHAT_PER_MESSAGE ?? 0);
+  }, [
+    isBroadcastPricedForSelectedPair,
+    basePerMessageNr,
+    coinRates?.BROADCAST_PER_MESSAGE,
+    coinRates?.CHAT_PER_MESSAGE,
+  ]);
 
   /** Lines shown in direct pricing card + used for total (matches send bundle / single message). */
   const directOrderLineItems = React.useMemo(() => {
@@ -448,7 +474,34 @@ export function AskQuestionsSection() {
     setShowExtraInfoCards(shouldShow);
   }, [mode, selectedAstrologerId, setShowExtraInfoCards]);
 
-  const handleStartChat = () => {
+  const handleOpenChatFromGate = () => {
+    if (!activeChatForGate) return;
+    const chatUrl = ROUTE_BUILDERS.CHAT_WITH_ID(activeChatForGate.id);
+    setActiveChatGate(null);
+    setActiveChatForGate(null);
+    router.push(chatUrl);
+  };
+
+  const handleEndActiveChatAndContinue = async () => {
+    if (!activeChatForGate || !activeChatGate) return;
+    try {
+      setIsEndingActiveChat(true);
+      await chatService.endChat(activeChatForGate.id);
+      toast.success('Chat ended.');
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.ACTIVE_CHAT });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.CONVERSATIONS });
+      const fn = activeChatGate.pendingContinue;
+      setActiveChatGate(null);
+      setActiveChatForGate(null);
+      await fn();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not end chat.');
+    } finally {
+      setIsEndingActiveChat(false);
+    }
+  };
+
+  const handleStartChat = async () => {
     if (!selectedAstrologerId || !user) return;
     const trimmed = directMessage.trim();
     const useTieredBundle = selectedDirectQuestionIds.length > 0 && !isAppointmentOnlyDirect;
@@ -474,6 +527,20 @@ export function AskQuestionsSection() {
       }
     }
     setDirectMessageError('');
+    try {
+      const activeChat = await chatService.getActiveChat();
+      if (activeChat?.lastMessageAt) {
+        setActiveChatForGate(activeChat);
+        setActiveChatGate({
+          pendingContinue: () => {
+            setShowDirectProfileModal(true);
+          },
+        });
+        return;
+      }
+    } catch {
+      /* allow profile modal if active-chat check fails */
+    }
     setShowDirectProfileModal(true);
   };
 
@@ -631,10 +698,12 @@ export function AskQuestionsSection() {
     setBroadcastMessageError('');
     try {
       const activeChat = await chatService.getActiveChat();
-      if (activeChat) {
-        toast.error(ACTIVE_CHAT_ERROR, {
-          description: 'End your current chat before starting a new one.',
-          duration: 5000,
+      if (activeChat?.lastMessageAt) {
+        setActiveChatForGate(activeChat);
+        setActiveChatGate({
+          pendingContinue: async () => {
+            await handleBroadcastProfileConfirm(broadcastProfileId);
+          },
         });
         return;
       }
@@ -708,18 +777,6 @@ export function AskQuestionsSection() {
       return;
     }
     setBroadcastMessageError('');
-    try {
-      const activeChat = await chatService.getActiveChat();
-      if (activeChat) {
-        toast.error(ACTIVE_CHAT_ERROR, {
-          description: 'End your current chat before starting a new one.',
-          duration: 5000,
-        });
-        return;
-      }
-    } catch {
-      // Ignore; allow user to proceed
-    }
 
     // For text-only broadcasts, show the unified "Your Payment Details" modal as well.
     // Pricing mirrors backend createBroadcastMessage: BROADCAST_SEND with first-broadcast discount once.
@@ -1076,7 +1133,8 @@ export function AskQuestionsSection() {
                       {t('startChat')}
                       {directOrderLineItems.length > 0 && !isAppointmentOnlyDirect ? (
                         <span className="text-xs font-normal opacity-95">
-                          ({directOrderLineItems.length} · NRs {directOrderTotalNr.toLocaleString()})
+                          ({directOrderLineItems.length} · NRs {directOrderTotalNr.toLocaleString()}
+                          )
                         </span>
                       ) : null}
                     </span>
@@ -1265,6 +1323,20 @@ export function AskQuestionsSection() {
         missingFields={missingProfileFields}
       />
 
+      <ActiveChatConflictModal
+        isOpen={!!activeChatGate && !!activeChatForGate}
+        onClose={() => {
+          if (!isEndingActiveChat) {
+            setActiveChatGate(null);
+            setActiveChatForGate(null);
+          }
+        }}
+        activeChat={activeChatForGate}
+        onOpenChat={handleOpenChatFromGate}
+        onEndChatAndContinue={handleEndActiveChatAndContinue}
+        isEnding={isEndingActiveChat}
+      />
+
       {/* Balance / Top-up Modal (for broadcast tab insufficient balance) */}
       <CoinPurchaseModal
         isOpen={isBroadcastCoinModalOpen}
@@ -1366,6 +1438,7 @@ export function AskQuestionsSection() {
                   totalNr: current.totalNr,
                   birthDetails: pendingBroadcastBirthDetails,
                   questionCategory: directCategory || undefined,
+                  fromDashboard: true,
                 });
                 if (res.coinsDeducted > 0) {
                   toast.info(`${res.coinsDeducted} NRs deducted from your balance`, {
@@ -1378,6 +1451,7 @@ export function AskQuestionsSection() {
                 void refreshUser();
                 void refetchClientBalanceAndStats(queryClient);
                 queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.CONVERSATIONS });
+                queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT.ACTIVE_CHAT });
                 const chatUrl = ROUTE_BUILDERS.CHAT_WITH_ID(res.chatId);
                 const pid = directCtx.profileId;
                 const urlWithProfile =

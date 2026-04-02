@@ -168,13 +168,15 @@ export const sendDirectQuestionBundle = async (
     if (req.user!.role !== UserRole.CLIENT) {
       return sendError(res, 'Only clients can send direct question bundles', 403);
     }
-    const { astrologerId, questionItems, totalNr, birthDetails, questionCategory } = req.body as {
-      astrologerId: string;
-      questionItems: { id: string; text: string }[];
-      totalNr: number;
-      birthDetails?: Record<string, string>;
-      questionCategory?: string;
-    };
+    const { astrologerId, questionItems, totalNr, birthDetails, questionCategory, fromDashboard } =
+      req.body as {
+        astrologerId: string;
+        questionItems: { id: string; text: string }[];
+        totalNr: number;
+        birthDetails?: Record<string, string>;
+        questionCategory?: string;
+        fromDashboard?: boolean;
+      };
 
     const result = await chatService.sendDirectQuestionBundle({
       clientId: req.user!.id,
@@ -183,6 +185,7 @@ export const sendDirectQuestionBundle = async (
       totalNr,
       birthDetails,
       questionCategory,
+      fromDashboard: fromDashboard === true,
     });
 
     return sendSuccess(res, result, 201);

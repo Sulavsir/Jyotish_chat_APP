@@ -170,6 +170,8 @@ export async function sendDirectQuestionBundle(payload: {
   totalNr: number;
   birthDetails?: Record<string, string>;
   questionCategory?: string;
+  /** Set true for Ask Questions dashboard; in-chat bundle should omit (server allows same active chat). */
+  fromDashboard?: boolean;
 }): Promise<{ chatId: string; messageCount: number; coinsDeducted: number }> {
   const res = await apiClient.post<{
     chatId: string;

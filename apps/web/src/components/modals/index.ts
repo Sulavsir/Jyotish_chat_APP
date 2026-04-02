@@ -10,3 +10,4 @@ export * from './ClientDetailsModal';
 export * from './ClientChatHistoryModal';
 export * from './AddFamilyMemberModal';
 export * from './SelectProfileModal';
+export * from './ActiveChatConflictModal';

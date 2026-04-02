@@ -738,12 +738,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
               // Birth-details deduplication for batch broadcast questions:
               // Only the LAST message of each batch should render the birth-details card.
+              // Same for direct send-direct-question-bundle (metadata.directQuestionBundle + batchId).
               // For non-batch messages let MessageBubble decide (undefined = auto).
               let showBirthDetails: boolean | undefined = undefined;
               const msgMeta =
                 (regularMessage.metadata as Record<string, unknown> | undefined) ?? {};
               const batchId = typeof msgMeta.batchId === 'string' ? msgMeta.batchId : null;
               const isOriginalBroadcast = msgMeta.originalBroadcast === true;
+              const isDirectQuestionBundle = msgMeta.directQuestionBundle === true;
 
               if (isOriginalBroadcast && batchId) {
                 // Find the last message in this batch among all visible messages
@@ -763,6 +765,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   }
                 }
                 // Only the last batch question shows the birth details
+                showBirthDetails = index === lastBatchIndex;
+              } else if (isDirectQuestionBundle && batchId) {
+                let lastBatchIndex = index;
+                for (let j = index + 1; j < uniqueMessages.length; j++) {
+                  const candidate = uniqueMessages[j];
+                  if ('isSystemMessage' in candidate) break;
+                  const candidateMeta =
+                    ((candidate as Message).metadata as Record<string, unknown> | undefined) ?? {};
+                  if (
+                    candidateMeta.directQuestionBundle === true &&
+                    candidateMeta.batchId === batchId
+                  ) {
+                    lastBatchIndex = j;
+                  } else {
+                    break;
+                  }
+                }
                 showBirthDetails = index === lastBatchIndex;
               }
 

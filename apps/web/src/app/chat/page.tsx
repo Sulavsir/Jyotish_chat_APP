@@ -818,7 +818,14 @@ export default function ChatPage() {
       router.replace(`/chat?chatId=${result.chatId}${profileQuery}`);
       await loadAndSelectChatFromUrl(result.chatId, fresh);
     } else {
-      const otherId = activeChat?.astrologerParticipant?.id ?? currentOtherUserId.current;
+      const updated = fresh.find((c) => c.id === result.chatId);
+      if (updated && activeChatId === result.chatId) {
+        setActiveChat(updated);
+      }
+      const otherId =
+        updated?.astrologerParticipant?.id ??
+        activeChat?.astrologerParticipant?.id ??
+        currentOtherUserId.current;
       if (otherId) {
         await loadMessages(otherId);
       }

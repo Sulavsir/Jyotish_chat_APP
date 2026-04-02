@@ -71,8 +71,13 @@ export const sendDirectQuestionBundleBodySchema = z.object({
     })
     .optional(),
   questionCategory: z.string().optional(),
+  /** Ask Questions dashboard: enforce "no other active chat" including same Jyotish pair. */
+  fromDashboard: z.boolean().optional(),
 });
 
 export type PrepareBroadcastQuestionsBody = z.infer<typeof prepareBroadcastQuestionsBodySchema>;
 export type SendBroadcastQuestionsBody = z.infer<typeof sendBroadcastQuestionsBodySchema>;
-export type SendDirectQuestionBundleBody = z.infer<typeof sendDirectQuestionBundleBodySchema>;
+/** Intersection ensures `fromDashboard` is present for TS (some versions narrow z.infer oddly on optional flags). */
+export type SendDirectQuestionBundleBody = z.infer<typeof sendDirectQuestionBundleBodySchema> & {
+  fromDashboard?: boolean;
+};

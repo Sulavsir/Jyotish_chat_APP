@@ -190,37 +190,36 @@ export default function PaymentSuccessPage() {
   const verifiedRef = useRef(false);
   const verifyInFlightRef = useRef(false);
   const iframeHandledRef = useRef(false);
-  
+
   // Check if this is a pre-verified source (Fonepay Card/QR - verified on backend)
   const source = searchParams.get('source') ?? '';
-  const isPreVerified = PRE_VERIFIED_SOURCES.includes(source as typeof PRE_VERIFIED_SOURCES[number]);
-  
+  const isPreVerified = PRE_VERIFIED_SOURCES.includes(
+    source as (typeof PRE_VERIFIED_SOURCES)[number]
+  );
+
   // Parse orderId and token from URL; normalize ?orderId=xxx?token=yyy (GetPay quirk) to & so both are parsed
   const [urlParams, setUrlParams] = useState<{ orderId: string; token: string }>(() =>
     typeof window !== 'undefined' ? getParamsFromUrl() : { orderId: '', token: '' }
   );
   const orderId = cleanOrderId(
-    urlParams.orderId ||
-      searchParams.get('orderId') ||
-      searchParams.get('orderid') ||
-      ''
+    urlParams.orderId || searchParams.get('orderId') || searchParams.get('orderid') || ''
   );
   const token = urlParams.token;
 
   // Handle pre-verified sources (Fonepay Card/QR) - coins already added on backend
   useEffect(() => {
     if (!isPreVerified || verifiedRef.current) return;
-    
+
     verifiedRef.current = true;
     setStatus('success');
-    
+
     // Invalidate caches to refresh balance
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRICING.PLANS });
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
-    
+
     toast.success('Payment successful! Balance has been added to your account.');
-    
+
     // Handle pending direct multi-question bundle, then broadcast
     (async () => {
       try {
@@ -239,12 +238,14 @@ export default function PaymentSuccessPage() {
         }
       } catch (sendErr) {
         toast.error(
-          sendErr instanceof Error ? sendErr.message : 'Failed to publish questions. You can try again from the dashboard.'
+          sendErr instanceof Error
+            ? sendErr.message
+            : 'Failed to publish questions. You can try again from the dashboard.'
         );
       }
       await completePendingKundaliBookingAfterTopUp(queryClient);
     })();
-    
+
     // Clean up session storage
     try {
       if (typeof sessionStorage !== 'undefined') {
@@ -263,14 +264,13 @@ export default function PaymentSuccessPage() {
   // may not expose window.self the same way — use window.location or document.location for the current URL.
   useEffect(() => {
     if (typeof window === 'undefined' || iframeHandledRef.current) return;
-    const inIframe =
-      typeof window.top !== 'undefined' &&
-      window.top !== window.self;
+    const inIframe = typeof window.top !== 'undefined' && window.top !== window.self;
     if (!inIframe) return;
     iframeHandledRef.current = true;
     const url =
       (typeof window.location !== 'undefined' && window.location.href) ||
-      (typeof document !== 'undefined' && (document as { location?: { href?: string } }).location?.href) ||
+      (typeof document !== 'undefined' &&
+        (document as { location?: { href?: string } }).location?.href) ||
       '';
     if (!url) return;
     console.log('Payment success: iframe detected, opening in new tab and redirecting top');
@@ -316,7 +316,9 @@ export default function PaymentSuccessPage() {
           }
         } catch (sendErr) {
           toast.error(
-            sendErr instanceof Error ? sendErr.message : 'Failed to publish questions. You can try again from the dashboard.'
+            sendErr instanceof Error
+              ? sendErr.message
+              : 'Failed to publish questions. You can try again from the dashboard.'
           );
         }
         await completePendingKundaliBookingAfterTopUp(queryClient);
@@ -410,16 +412,12 @@ export default function PaymentSuccessPage() {
         {status === 'verifying' && (
           <Card className="bg-gradient-to-br from-purple-950 via-indigo-950/90 to-slate-950 border border-purple-500/40">
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-white">
-                Verifying Payment
-              </CardTitle>
+              <CardTitle className="text-3xl font-bold text-white">Verifying Payment</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center py-12">
                 <Loader2 className="h-12 w-12 text-purple-200 animate-spin mx-auto mb-6" />
-                <p className="text-purple-100/80">
-                  Please wait while we confirm your payment.
-                </p>
+                <p className="text-purple-100/80">Please wait while we confirm your payment.</p>
               </div>
             </CardContent>
           </Card>
@@ -428,9 +426,7 @@ export default function PaymentSuccessPage() {
         {status === 'success' && (
           <Card className="bg-gradient-to-br from-green-950 via-emerald-950/90 to-green-900 border border-green-500/40">
             <CardHeader className="text-center pb-8">
-              <CardTitle className="text-3xl font-bold text-white">
-                Payment Successful
-              </CardTitle>
+              <CardTitle className="text-3xl font-bold text-white">Payment Successful</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center py-12">
@@ -477,7 +473,8 @@ export default function PaymentSuccessPage() {
                   We couldn&apos;t verify your payment
                 </h3>
                 <p className="text-red-50/90 mb-4 max-w-lg mx-auto">
-                  We could not confirm this payment with the gateway. Your order may still be pending.
+                  We could not confirm this payment with the gateway. Your order may still be
+                  pending.
                 </p>
                 <div className="mb-6 max-w-lg mx-auto text-left">
                   <PaymentChargeDisputeNotice className="border-amber-500/35 bg-amber-950/25" />

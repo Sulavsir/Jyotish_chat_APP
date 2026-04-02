@@ -22,7 +22,10 @@ import { MessageSquare } from 'lucide-react';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 
 /** Socket payloads sometimes omit role/birth fields; align with active chat client for instant UI. */
-function mergeJyotishIncomingSender(m: Record<string, unknown>, activeChat: Chat | null): Message['sender'] {
+function mergeJyotishIncomingSender(
+  m: Record<string, unknown>,
+  activeChat: Chat | null
+): Message['sender'] {
   const client = activeChat?.clientParticipant;
   const base = m.sender as Message['sender'] | undefined;
   const senderId = typeof m.senderId === 'string' ? m.senderId : '';
@@ -78,6 +81,10 @@ export default function JyotishChatPage() {
   const chatMessages = useStore((state) => state.messages);
 
   const lastUrlSelectionKeyRef = useRef<string | null>(null);
+  const activeChatRef = useRef<Chat | null>(null);
+  const activeChatIdRef = useRef<string | null>(null);
+  activeChatRef.current = activeChat;
+  activeChatIdRef.current = activeChatId;
 
   // Real-time conversation updates from socket
   useEffect(() => {
@@ -138,6 +145,25 @@ export default function JyotishChatPage() {
 
         return updatedChats;
       });
+
+      // Client sent messages can reopen a closed chat (e.g. send-direct-question-bundle). Refresh
+      // active chat from API so ChatWindow doesn't keep showing "Chat Session Ended" until refresh.
+      const cid = message.chatId as string | undefined;
+      if (
+        cid &&
+        cid === activeChatIdRef.current &&
+        typeof message.senderId === 'string' &&
+        message.senderId !== user.id
+      ) {
+        const ac = activeChatRef.current;
+        if (ac?.id === cid && (ac.isLocked || ac.status === 'ENDED')) {
+          void chatService.getChatById(cid).then((updated) => {
+            if (activeChatIdRef.current === updated.id) {
+              setActiveChat(updated);
+            }
+          });
+        }
+      }
     };
 
     // Handle chat ended event
@@ -476,7 +502,11 @@ export default function JyotishChatPage() {
     }
   };
 
-  const loadMessages = async (otherUserId: string, reset = true, chatIdForMerge?: string | null) => {
+  const loadMessages = async (
+    otherUserId: string,
+    reset = true,
+    chatIdForMerge?: string | null
+  ) => {
     try {
       setIsLoadingMessages(true);
       if (reset) {
@@ -560,8 +590,7 @@ export default function JyotishChatPage() {
           const senderName = typeof senderLike?.name === 'string' ? senderLike.name : 'Unknown';
           const senderProfilePhoto =
             typeof senderLike?.profilePhoto === 'string' ? senderLike.profilePhoto : undefined;
-          const senderRole =
-            typeof senderLike?.role === 'string' ? senderLike.role : undefined;
+          const senderRole = typeof senderLike?.role === 'string' ? senderLike.role : undefined;
           const senderDateOfBirth = senderLike?.dateOfBirth ?? undefined;
           const senderTimeOfBirth =
             typeof senderLike?.timeOfBirth === 'string' ? senderLike.timeOfBirth : undefined;
@@ -779,10 +808,12 @@ export default function JyotishChatPage() {
     const currentMessages = chatMessages[activeChatId];
     if (currentMessages.length === 0) return;
 
-    // Debounce conversation reload to avoid excessive API calls
-    const timeoutId = setTimeout(() => {
-      loadConversations();
-    }, 2000); // Wait 2 seconds after last message
+    // Debounce conversation reload; also refresh activeChat so lock/ended flags match server
+    const timeoutId = setTimeout(async () => {
+      const fresh = await loadConversations();
+      const u = fresh.find((c) => c.id === activeChatId);
+      if (u) setActiveChat(u);
+    }, 400);
 
     return () => clearTimeout(timeoutId);
   }, [activeChatId, chatMessages]);
@@ -910,9 +941,7 @@ export default function JyotishChatPage() {
             <h1 className="text-2xl sm:text-3xl font-semibold text-[#fafaf9] tracking-tight">
               Chats
             </h1>
-            <p className="text-sm text-[#78716c]">
-              Communicate with your clients in real-time
-            </p>
+            <p className="text-sm text-[#78716c]">Communicate with your clients in real-time</p>
           </div>
         </div>
 
@@ -927,7 +956,8 @@ export default function JyotishChatPage() {
             <CardContent>
               <div className="text-2xl font-semibold text-white tracking-tight">{totalChats}</div>
               <p className="text-xs text-white/70 mt-1">
-                {chats.filter((c) => c.status === 'ACTIVE').length} active · {chats.filter((c) => c.status === 'ENDED').length} ended
+                {chats.filter((c) => c.status === 'ACTIVE').length} active ·{' '}
+                {chats.filter((c) => c.status === 'ENDED').length} ended
               </p>
             </CardContent>
           </Card>
@@ -946,7 +976,9 @@ export default function JyotishChatPage() {
           <Card className="bg-black/50 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden shadow-lg">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium text-white/90">Status</CardTitle>
-              <div className={`p-2 rounded-lg ${isConnected ? 'bg-emerald-500/40 text-emerald-200' : 'bg-white/20 text-white/80'}`}>
+              <div
+                className={`p-2 rounded-lg ${isConnected ? 'bg-emerald-500/40 text-emerald-200' : 'bg-white/20 text-white/80'}`}
+              >
                 <span className="text-lg leading-none">{isConnected ? '●' : '○'}</span>
               </div>
             </CardHeader>

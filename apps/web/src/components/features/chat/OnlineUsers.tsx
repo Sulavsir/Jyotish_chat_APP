@@ -88,7 +88,11 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
           const name = (u.name || '').toLowerCase();
           const category = (u.category || '').toLowerCase();
           const zodiac = (u.zodiacSign || '').toLowerCase();
-          return name.includes(normalizedSearch) || category.includes(normalizedSearch) || zodiac.includes(normalizedSearch);
+          return (
+            name.includes(normalizedSearch) ||
+            category.includes(normalizedSearch) ||
+            zodiac.includes(normalizedSearch)
+          );
         });
 
   const handleChatNow = async (userId: string) => {
@@ -218,23 +222,25 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
       <CardHeader>
         <div className="relative flex flex-col gap-3">
           <div className="flex items-center justify-between">
-          <CardTitle className="text-white flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-            </span>
-            {title ||
-              (currentUser?.role === UserRole.ASTROLOGER ? 'Active Clients' : 'Online Astrologers')}
-            <span className="text-sm font-normal text-gray-400">
-              ({onlineUsersSearched.length} online)
-            </span>
-          </CardTitle>
-          <button
-            onClick={handleRefresh}
-            className="text-sm text-purple-400 hover:text-purple-300 transition-colors font-medium"
-          >
-            Refresh list
-          </button>
+            <CardTitle className="text-white flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              {title ||
+                (currentUser?.role === UserRole.ASTROLOGER
+                  ? 'Active Clients'
+                  : 'Online Astrologers')}
+              <span className="text-sm font-normal text-gray-400">
+                ({onlineUsersSearched.length} online)
+              </span>
+            </CardTitle>
+            <button
+              onClick={handleRefresh}
+              className="text-sm text-purple-400 hover:text-purple-300 transition-colors font-medium"
+            >
+              Refresh list
+            </button>
           </div>
 
           {/* Search */}
@@ -269,8 +275,8 @@ export const OnlineUsers: React.FC<OnlineUsersProps> = ({ title, maxHeight = '40
                 : 'No astrologer with this name is active'}
             </p>
             <p className="text-sm text-gray-400 mt-1 max-w-md">
-              Try a different name, category, or zodiac sign. You can also clear the search to see all
-              active users.
+              Try a different name, category, or zodiac sign. You can also clear the search to see
+              all active users.
             </p>
             <div className="mt-4 flex items-center gap-2">
               <button

@@ -82,6 +82,8 @@ export const QUERY_KEYS = {
   // Chat
   CHAT: {
     CONVERSATIONS: ['chat', 'conversations'] as const,
+    /** GET /api/v1/chat/active-chat — client active conversation guard */
+    ACTIVE_CHAT: ['chat', 'active'] as const,
     HISTORY: (userId: string) => ['chat', 'history', userId] as const,
     /** GET /api/v1/chat/unread-count — total unread messages for current user (jyotish nav badge) */
     UNREAD_COUNT: ['chat', 'unread-count'] as const,

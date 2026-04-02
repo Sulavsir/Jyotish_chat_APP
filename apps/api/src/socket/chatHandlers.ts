@@ -21,10 +21,14 @@ import {
   mergeClientSenderWithBirthMetadata,
   sendDirectQuestionBundle as sendDirectQuestionBundleService,
 } from '../services/chatService';
-import { sendDirectQuestionBundleBodySchema } from '../validators/broadcastQuestion.validators';
+import {
+  sendDirectQuestionBundleBodySchema,
+  type SendDirectQuestionBundleBody,
+} from '../validators/broadcastQuestion.validators';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
+import { isAstrologerAutoWelcomeMetadata } from '../utils/chat-turn.utils';
 
 export function chatHandlers(io: Server, socket: Socket) {
   const user = socket.data.user;
@@ -473,22 +477,13 @@ export function chatHandlers(io: Server, socket: Socket) {
             const { requiresCoinsForChat, toSharedAstrologerCategory } =
               await import('../constants/coin.constants');
             if (requiresCoinsForChat(astrologer.category)) {
-              const broadcastMessage = await prisma.broadcastMessage.findFirst({
-                where: { chatId: chat!.id },
-                select: { id: true },
-              });
-              // Reopened chats (ended then reactivated) use instant chat fee, not broadcast.
-              // Source follows the rate used: BROADCAST_PER_MESSAGE → BROADCAST_MESSAGE, chatMessageFee → CHAT_MESSAGE.
-              const isBroadcastChat =
-                !!broadcastMessage &&
-                !(chat as { reopenedAfterEnded?: boolean }).reopenedAfterEnded;
               const { deductCoinsForMessage } = await import('../services/coin.service');
               try {
                 const dedResult = await deductCoinsForMessage(
                   user.id,
                   toSharedAstrologerCategory(astrologer.category),
                   chat!.id,
-                  isBroadcastChat
+                  false
                 );
                 coinsDeductedForSender = dedResult.coinsDeducted;
               } catch (error: any) {
@@ -605,9 +600,12 @@ export function chatHandlers(io: Server, socket: Socket) {
             turnBasedUpdates.waitingForReply = true;
             turnBasedUpdates.lastClientMessageAt = new Date();
           } else if (user.role === UserRole.ASTROLOGER) {
-            // Astrologer replied - client can send again
-            turnBasedUpdates.waitingForReply = false;
-            turnBasedUpdates.lastAstrologerReplyAt = new Date();
+            if (!isAstrologerAutoWelcomeMetadata(metadata)) {
+              turnBasedUpdates.waitingForReply = false;
+              turnBasedUpdates.lastAstrologerReplyAt = new Date();
+            } else {
+              turnBasedUpdates.waitingForReply = true;
+            }
           }
         }
 
@@ -779,7 +777,14 @@ export function chatHandlers(io: Server, socket: Socket) {
         return;
       }
 
-      const { astrologerId, questionItems, totalNr, birthDetails, questionCategory } = parsed.data;
+      const {
+        astrologerId,
+        questionItems,
+        totalNr,
+        birthDetails,
+        questionCategory,
+        fromDashboard,
+      } = parsed.data as SendDirectQuestionBundleBody;
 
       const result = await sendDirectQuestionBundleService({
         clientId: user.id,
@@ -788,6 +793,7 @@ export function chatHandlers(io: Server, socket: Socket) {
         totalNr,
         birthDetails,
         questionCategory,
+        fromDashboard: fromDashboard === true,
       });
 
       socket.emit('chat:direct_bundle_sent', {

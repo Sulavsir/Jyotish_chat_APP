@@ -5,7 +5,11 @@
 
 import { prisma } from '@jyotish/database';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
-import { AppointmentStatus, AstrologerCoinEarningSource } from '@prisma/client';
+import {
+  AppointmentStatus,
+  AstrologerCoinEarningSource,
+  InstantChatRequestStatus,
+} from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -49,6 +53,41 @@ export const hasActiveUnlimitedPlan = async (userId: string): Promise<boolean> =
 /**
  * Get user's coin balance
  */
+/**
+ * True when per-message pricing should use BROADCAST_PER_MESSAGE (and broadcast commission).
+ * False when the thread is direct/instant: reopened-after-ended, or an accepted InstantChatRequest
+ * is linked to this chat (same client–astrologer pair as a prior broadcast acceptance).
+ */
+export async function isBroadcastPricedSession(
+  chatId: string,
+  reopenedAfterEndedKnown?: boolean | null
+): Promise<boolean> {
+  let reopened: boolean | null | undefined = reopenedAfterEndedKnown;
+  if (reopened !== true && reopened !== false) {
+    const row = await prisma.chat.findUnique({
+      where: { id: chatId },
+      select: { reopenedAfterEnded: true },
+    });
+    if (!row) return false;
+    reopened = row.reopenedAfterEnded;
+  }
+  if (reopened === true) return false;
+
+  const broadcastMessage = await prisma.broadcastMessage.findFirst({
+    where: { chatId },
+    select: { id: true },
+  });
+  if (!broadcastMessage) return false;
+
+  const acceptedInstant = await prisma.instantChatRequest.findFirst({
+    where: { chatId, status: InstantChatRequestStatus.ACCEPTED },
+    select: { id: true },
+  });
+  if (acceptedInstant) return false;
+
+  return true;
+}
+
 export const getCoinBalance = async (userId: string): Promise<number> => {
   const user = await prisma.user.findFirst({
     where: { id: userId, ...ACTIVE_CLIENT_USER_WHERE },
@@ -99,15 +138,7 @@ export const deductCoinsForMessage = async (
     },
   });
 
-  const broadcastMessage = chat
-    ? await (prisma as any).broadcastMessage.findFirst({
-        where: { chatId },
-        select: { id: true },
-      })
-    : null;
-
-  const isBroadcastSession =
-    !!broadcastMessage && !(chat as { reopenedAfterEnded?: boolean } | null)?.reopenedAfterEnded;
+  const isBroadcastSession = await isBroadcastPricedSession(chatId, chat?.reopenedAfterEnded);
 
   if (!isBroadcastSession && chat) {
     const now = new Date();
@@ -871,11 +902,7 @@ export const deductCoinsForDirectQuestionBundle = async (
     where: { id: chatId },
     select: { reopenedAfterEnded: true },
   });
-  const broadcastMessage = await prisma.broadcastMessage.findFirst({
-    where: { chatId },
-    select: { id: true },
-  });
-  const isBroadcastSession = !!broadcastMessage && !chat?.reopenedAfterEnded;
+  const isBroadcastSession = await isBroadcastPricedSession(chatId, chat?.reopenedAfterEnded);
 
   const pct = isBroadcastSession
     ? (astrologer.broadcastMessageCommissionPercent ?? 0)
