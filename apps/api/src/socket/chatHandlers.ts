@@ -395,7 +395,7 @@ export function chatHandlers(io: Server, socket: Socket) {
               } catch (error: any) {
                 await prisma.chat.delete({ where: { id: newChat.id } });
                 socket.emit('chat:error', {
-                  message: error.message || 'Insufficient coins to send message',
+                  message: error.message || 'insufficient balance to send message',
                   code: ERROR_CODES.INSUFFICIENT_COINS,
                   requiredCoins: error.requiredCoins,
                 });
@@ -488,7 +488,7 @@ export function chatHandlers(io: Server, socket: Socket) {
                 coinsDeductedForSender = dedResult.coinsDeducted;
               } catch (error: any) {
                 socket.emit('chat:error', {
-                  message: error.message || 'Insufficient coins to send message',
+                  message: error.message || 'insufficient balance to send message',
                   code: ERROR_CODES.INSUFFICIENT_COINS,
                   requiredCoins: error.requiredCoins,
                 });

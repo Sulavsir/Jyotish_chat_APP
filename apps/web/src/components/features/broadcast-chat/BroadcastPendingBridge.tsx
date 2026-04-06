@@ -13,10 +13,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { QUERY_KEYS, ROUTE_BUILDERS } from '@/constants';
 import { useAuthStore } from '@/store/auth-store';
 import broadcastMessageService from '@/services/broadcastMessage.service';
-import {
-  useBroadcastPendingStore,
-  SENDING_PLACEHOLDER_ID,
-} from '@/store/broadcast-pending.store';
+import { useBroadcastPendingStore, SENDING_PLACEHOLDER_ID } from '@/store/broadcast-pending.store';
 import { getBroadcastExpiresAtMs } from '@/utils/broadcastMessage.utils';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
@@ -135,7 +132,7 @@ export function BroadcastPendingBridge() {
       useBroadcastPendingStore.getState().clearWaiting();
       const errorMessage = error.message || 'Failed to send message';
       if (
-        errorMessage.toLowerCase().includes('insufficient coins') ||
+        errorMessage.toLowerCase().includes('insufficient balance') ||
         errorMessage.toLowerCase().includes('required:')
       ) {
         useBroadcastPendingStore.setState({
@@ -168,9 +165,12 @@ export function BroadcastPendingBridge() {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       const refundNr = data.refundAmount ?? 0;
       if (refundNr > 0) {
-        toast.success(`Broadcast expired. ${refundNr} NRs have been refunded to your App account.`, {
-          duration: 5000,
-        });
+        toast.success(
+          `Broadcast expired. ${refundNr} NRs have been refunded to your App account.`,
+          {
+            duration: 5000,
+          }
+        );
       }
     };
 

@@ -257,7 +257,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
     const err = error as { code?: string };
     if (err.code === ERROR_CODES.INSUFFICIENT_COINS) {
       throw new Error(
-        'Insufficient coins to send a broadcast message. Please top up your balance.'
+        'insufficient balance to send a broadcast message. Please top up your balance.'
       );
     }
     throw error;

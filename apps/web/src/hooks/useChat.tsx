@@ -182,12 +182,12 @@ export function useChat() {
       console.error('Error starting chat:', error);
 
       // Our apiClient wraps backend errors into plain Error with a message string.
-      // Detect insufficient coins by inspecting the error message.
+      // Detect insufficient balance by inspecting the error message.
       const errorMessage =
-        error instanceof Error ? error.message : 'Insufficient coins to start chat';
+        error instanceof Error ? error.message : 'insufficient balance to start chat';
       const isInsufficientCoins =
         typeof errorMessage === 'string' &&
-        errorMessage.toLowerCase().startsWith('insufficient coins');
+        errorMessage.toLowerCase().startsWith('insufficient balance');
 
       if (isInsufficientCoins) {
         const coins = extractRequiredCoins(errorMessage);

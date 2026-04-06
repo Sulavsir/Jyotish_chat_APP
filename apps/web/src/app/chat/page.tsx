@@ -472,13 +472,13 @@ export default function ChatPage() {
       );
     };
 
-    // Handle chat errors (e.g., insufficient coins)
+    // Handle chat errors (e.g., insufficient balance)
     const handleChatError = (data: { message: string; code?: string; requiredCoins?: number }) => {
       console.error('Chat error:', data);
 
       if (
         data.code === ERROR_CODES.INSUFFICIENT_COINS ||
-        data.message?.toLowerCase().includes('insufficient coins')
+        data.message?.toLowerCase().includes('insufficient balance')
       ) {
         const coins = data.requiredCoins || extractRequiredCoins(data.message);
         toast.error(data.message || 'Insufficient balance to send message');

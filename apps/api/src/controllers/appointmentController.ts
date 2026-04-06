@@ -47,20 +47,14 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       const coinService = await import('../services/coin.service');
       let deduction: { coinTransactionId: string; coinCost: number } | undefined;
       try {
-        const result = await coinService.deductCoinsForBooking(
-          clientId,
-          astrologerId,
-          bookingType
-        );
+        const result = await coinService.deductCoinsForBooking(clientId, astrologerId, bookingType);
         if (result.coinCost > 0) {
           deduction = { coinTransactionId: result.coinTransactionId, coinCost: result.coinCost };
         }
       } catch (coinError: any) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
-          message:
-            coinError.message ||
-            'Insufficient coins. Please top up to book.',
+          message: coinError.message || 'insufficient balance. Please top up to book.',
         });
       }
 
@@ -149,10 +143,7 @@ export const getBookingQuote = async (req: AuthRequest, res: Response) => {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to get booking quote';
-    const status =
-      error instanceof AppError
-        ? error.statusCode
-        : HTTP_STATUS.BAD_REQUEST;
+    const status = error instanceof AppError ? error.statusCode : HTTP_STATUS.BAD_REQUEST;
     return res.status(status).json({
       success: false,
       message,
@@ -418,7 +409,7 @@ export const confirmAppointment = async (req: AuthRequest, res: Response) => {
         success: false,
         message:
           coinError.message ||
-          'Cannot confirm: client has insufficient coins. Ask them to top up.',
+          'Cannot confirm: client has insufficient balance. Ask them to top up.',
       });
     }
 

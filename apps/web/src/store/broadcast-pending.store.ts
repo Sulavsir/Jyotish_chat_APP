@@ -18,7 +18,7 @@ interface BroadcastPendingState {
   timeRemaining: number;
   isMinimized: boolean;
   isBatchBroadcast: boolean;
-  /** Set by bridge on broadcast:error (insufficient coins) for consumers to open purchase modal */
+  /** Set by bridge on broadcast:error (insufficient balance) for consumers to open purchase modal */
   lastInsufficientCoins: number | null;
 
   setIsSending: (v: boolean) => void;

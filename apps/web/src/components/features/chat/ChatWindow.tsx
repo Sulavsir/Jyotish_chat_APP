@@ -469,7 +469,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       // No need to reload the page
     } catch (error: unknown) {
       console.error('Error reopening chat:', error);
-      // Check if it's insufficient coins error
+      // Check if it's insufficient balance error
       const axiosError = error as {
         response?: { data?: { error?: { code?: string; message?: string } } };
       };

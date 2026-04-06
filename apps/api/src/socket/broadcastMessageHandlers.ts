@@ -132,7 +132,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
 
         const messageText: string = err?.message || 'Failed to send message';
         const isActiveChat = messageText.toLowerCase().includes('active chat');
-        const isInsufficientCoins = messageText.toLowerCase().includes('insufficient coins');
+        const isInsufficientCoins = messageText.toLowerCase().includes('insufficient balance');
 
         socket.emit('broadcast:error', {
           message: messageText,

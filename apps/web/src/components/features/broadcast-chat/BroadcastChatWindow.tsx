@@ -201,7 +201,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           description: 'End your current chat before starting a new one.',
         });
       } else if (
-        errorMessage.toLowerCase().includes('insufficient coins') ||
+        errorMessage.toLowerCase().includes('insufficient balance') ||
         errorMessage.toLowerCase().includes('required:')
       ) {
         // Extract required coins from backend error and open purchase modal

@@ -226,7 +226,7 @@ export class PricingService {
 
       if (balance < plan.coinPrice) {
         throw new AppError(
-          `Insufficient coins. Required: ${plan.coinPrice}, Available: ${balance}`,
+          `insufficient balance. Required: ${plan.coinPrice}, Available: ${balance}`,
           HTTP_STATUS.BAD_REQUEST,
           ERROR_CODES.INSUFFICIENT_COINS
         );

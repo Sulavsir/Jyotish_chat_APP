@@ -236,7 +236,7 @@ export const deductCoinsForMessage = async (
   // Check if user has enough coins
   if (user.coins < coinCost) {
     throw new AppError(
-      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      `insufficient balance. Required: ${coinCost}, Available: ${user.coins}`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.INSUFFICIENT_COINS
     );
@@ -347,7 +347,7 @@ export const deductCoinsForChat = async (params: CoinDeductionParams): Promise<C
   // Check if user has enough coins
   if (user.coins < coinCost) {
     throw new AppError(
-      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      `insufficient balance. Required: ${coinCost}, Available: ${user.coins}`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.INSUFFICIENT_COINS
     );
@@ -419,7 +419,7 @@ export const deductCoinsForBroadcastMessage = async (
   // Check if user has enough coins
   if (user.coins < coinCost) {
     throw new AppError(
-      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      `insufficient balance. Required: ${coinCost}, Available: ${user.coins}`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.INSUFFICIENT_COINS
     );
@@ -565,7 +565,7 @@ export const deductCoinsForAppointment = async (
 
   if (user.coins < coinCost) {
     throw new AppError(
-      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      `insufficient balance. Required: ${coinCost}, Available: ${user.coins}`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.INSUFFICIENT_COINS
     );
@@ -660,7 +660,7 @@ export const deductCoinsForBooking = async (
 
   if (user.coins < coinCost) {
     throw new AppError(
-      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      `insufficient balance. Required: ${coinCost}, Available: ${user.coins}`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.INSUFFICIENT_COINS
     );
@@ -741,7 +741,7 @@ export const deductCoinsForKundaliMatch = async (
 
   if (user.coins < coinCost) {
     throw new AppError(
-      `Insufficient coins. Required: ${coinCost}, Available: ${user.coins}`,
+      `insufficient balance. Required: ${coinCost}, Available: ${user.coins}`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.INSUFFICIENT_COINS
     );
