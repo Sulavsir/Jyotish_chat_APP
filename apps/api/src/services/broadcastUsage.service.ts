@@ -25,6 +25,32 @@ export async function hasUserUsedBroadcast(clientId: string): Promise<boolean> {
     select: { id: true },
   });
 
-  return !!accepted;
-}
+  if (accepted) return true;
+  const currentUser = await prisma.user.findUnique({
+    where: { id: clientId },
+    select: { phone: true, email: true },
+  });
 
+  const phone = currentUser?.phone?.trim();
+  const email = currentUser?.email?.trim();
+
+  if (!phone && !email) {
+    return false;
+  }
+
+  const identityAccepted = await prisma.broadcastMessage.findFirst({
+    where: {
+      status: BroadcastMessageStatus.ACCEPTED,
+      clientId: { not: clientId },
+      client: {
+        OR: [
+          ...(phone ? [{ phone }] : []),
+          ...(email ? [{ email: { equals: email, mode: 'insensitive' as const } }] : []),
+        ],
+      },
+    },
+    select: { id: true },
+  });
+
+  return !!identityAccepted;
+}
