@@ -16,12 +16,10 @@ import {
 } from '@jyotish/ui';
 import { ClipboardList } from 'lucide-react';
 import { ADMIN_ROUTES, ADMIN_QUERY_KEYS } from '@/constants';
+import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 import type { DashboardStats } from '@/types';
 import { useAdminSocket } from '@/hooks';
 import { AdminRefreshButton } from '@/components/admin';
-
-/** Must match statCards length when stats are loaded */
-const DASHBOARD_STAT_CARD_COUNT = 12;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -46,6 +44,10 @@ export default function DashboardPage() {
   // Listen for real-time stats updates
   useEffect(() => {
     if (!isConnected) return;
+
+    const handleSidebarInvalidate = () => {
+      void refetch();
+    };
 
     const handleStatsUpdate = (updatedStats: Partial<DashboardStats>) => {
       queryClient.setQueryData<{ stats: DashboardStats } | DashboardStats>(
@@ -180,6 +182,7 @@ export default function DashboardPage() {
     on('chat:ended', handleChatEnded);
     on('earning:new', handleNewEarning);
     on('consultation:new', handleNewConsultation);
+    on(ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE, handleSidebarInvalidate);
 
     return () => {
       off('stats:update', handleStatsUpdate);
@@ -189,8 +192,9 @@ export default function DashboardPage() {
       off('chat:ended', handleChatEnded);
       off('earning:new', handleNewEarning);
       off('consultation:new', handleNewConsultation);
+      off(ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE, handleSidebarInvalidate);
     };
-  }, [isConnected, on, off, queryClient, stats]);
+  }, [isConnected, on, off, queryClient, stats, refetch]);
 
   type StatCardConfig = {
     title: string;
@@ -198,7 +202,6 @@ export default function DashboardPage() {
     icon: ReactNode;
     color: string;
     route?: string;
-    /** Appended to route for pre-filtered lists (e.g. online jyotish). */
     routeSearch?: string;
   };
 

@@ -10,8 +10,16 @@ export interface BsMonthResponse {
 
 export type GetBsMonthFn = (year: number, month: number) => Promise<BsMonthResponse>;
 
+export interface NepaliDateMapping {
+  nepaliDate: string; // YYYY-MM-DD (BS)
+  days: string;
+}
+
+export type GetNepaliByEnglishDateFn = (date: string) => Promise<NepaliDateMapping | null>;
+
 export interface NepaliDateApiContextValue {
   getBsMonth?: GetBsMonthFn;
+  getNepaliByEnglishDate?: GetNepaliByEnglishDateFn;
 }
 
 const NepaliDateApiContext = React.createContext<NepaliDateApiContextValue>({});
@@ -19,13 +27,18 @@ const NepaliDateApiContext = React.createContext<NepaliDateApiContextValue>({});
 export function NepaliDateApiProvider({
   children,
   getBsMonth,
+  getNepaliByEnglishDate,
 }: {
   children: React.ReactNode;
   getBsMonth?: GetBsMonthFn;
+  getNepaliByEnglishDate?: GetNepaliByEnglishDateFn;
 }) {
   const value = React.useMemo(
-    () => (getBsMonth ? { getBsMonth } : {}),
-    [getBsMonth]
+    () =>
+      getBsMonth || getNepaliByEnglishDate
+        ? { getBsMonth, getNepaliByEnglishDate }
+        : {},
+    [getBsMonth, getNepaliByEnglishDate]
   );
   return (
     <NepaliDateApiContext.Provider value={value}>

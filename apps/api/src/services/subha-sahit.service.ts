@@ -4,6 +4,12 @@
 
 import { prisma, SubhaSahitDate as PrismaSubhaSahitDate, Prisma } from '@jyotish/database';
 import { normalizeToDbLanguageCode, type DbLanguageCode } from '@jyotish/shared';
+import {
+  type ReportingYmd,
+  getReportingYmd,
+  reportingDayEndInclusive,
+  reportingDayStart,
+} from '../utils/reporting-date.utils';
 
 export interface SubhaSahitDate {
   id: string;
@@ -30,6 +36,24 @@ function toSubhaSahitDate(entity: PrismaSubhaSahitDate): SubhaSahitDate {
 }
 
 export class SubhaSahitService {
+  private toReportingDayDate(dateLike: string | Date): Date {
+    const raw = typeof dateLike === 'string' ? dateLike : dateLike.toISOString();
+    const ymd = raw.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      // Fall back to Date parsing, then normalize to reporting day start
+      return reportingDayStart(getReportingYmd(new Date(raw)));
+    }
+    return reportingDayStart(ymd as ReportingYmd);
+  }
+
+  private toReportingDayEndInclusive(dateLike: string | Date): Date {
+    const raw = typeof dateLike === 'string' ? dateLike : dateLike.toISOString();
+    const ymd = raw.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      return reportingDayEndInclusive(getReportingYmd(new Date(raw)));
+    }
+    return reportingDayEndInclusive(ymd as ReportingYmd);
+  }
 
   async createOccasion(
     name: string,
@@ -59,8 +83,7 @@ export class SubhaSahitService {
       };
     }
 
-    const placeholderDate = new Date('2099-12-31');
-    placeholderDate.setHours(0, 0, 0, 0);
+    const placeholderDate = this.toReportingDayDate('2099-12-31');
 
     const created = await prisma.subhaSahitDate.create({
       data: {
@@ -93,8 +116,7 @@ export class SubhaSahitService {
     const lang = normalizeToDbLanguageCode(language);
     const created: SubhaSahitDate[] = [];
     for (const item of items) {
-      const date = new Date(item.date);
-      date.setHours(0, 0, 0, 0);
+      const date = this.toReportingDayDate(item.date);
 
       // No need to create placeholder - occasions are derived from actual dates
 
@@ -131,8 +153,7 @@ export class SubhaSahitService {
     const skip = (page - 1) * limit;
 
     // Exclude placeholder dates (2099-12-31) used for occasion-only entries
-    const placeholderDate = new Date('2099-12-31');
-    placeholderDate.setHours(0, 0, 0, 0);
+    const placeholderDate = this.toReportingDayDate('2099-12-31');
 
     // Build date filter
     const dateFilter: Prisma.DateTimeFilter<'SubhaSahitDate'> = {
@@ -140,14 +161,10 @@ export class SubhaSahitService {
     };
 
     if (params.dateFrom) {
-      const from = new Date(params.dateFrom);
-      from.setHours(0, 0, 0, 0);
-      dateFilter.gte = from;
+      dateFilter.gte = this.toReportingDayDate(params.dateFrom);
     }
     if (params.dateTo) {
-      const to = new Date(params.dateTo);
-      to.setHours(23, 59, 59, 999);
-      dateFilter.lte = to;
+      dateFilter.lte = this.toReportingDayEndInclusive(params.dateTo);
     }
 
     const where: Prisma.SubhaSahitDateWhereInput = {
@@ -187,23 +204,19 @@ export class SubhaSahitService {
     language?: string;
   }): Promise<SubhaSahitDate[]> {
     // Exclude placeholder dates (2099-12-31) used for occasion-only entries
-    const placeholderDate = new Date('2099-12-31');
-    placeholderDate.setHours(0, 0, 0, 0);
+    const placeholderDate = this.toReportingDayDate('2099-12-31');
 
     // Default to today - only show upcoming dates (not yesterday or earlier)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = reportingDayStart(getReportingYmd(new Date()));
 
     // Build date filter
     const dateFilter: Prisma.DateTimeFilter<'SubhaSahitDate'> = {
       not: placeholderDate,
-      gte: params.dateFrom ? new Date(params.dateFrom) : today,
+      gte: params.dateFrom ? this.toReportingDayDate(params.dateFrom) : today,
     };
 
     if (params.dateTo) {
-      const to = new Date(params.dateTo);
-      to.setHours(23, 59, 59, 999);
-      dateFilter.lte = to;
+      dateFilter.lte = this.toReportingDayEndInclusive(params.dateTo);
     }
 
     const where: Prisma.SubhaSahitDateWhereInput = {
@@ -237,9 +250,7 @@ export class SubhaSahitService {
     const updateData: Prisma.SubhaSahitDateUpdateInput = {};
 
     if (data.date !== undefined) {
-      const date = new Date(data.date);
-      date.setHours(0, 0, 0, 0);
-      updateData.date = date;
+      updateData.date = this.toReportingDayDate(data.date);
     }
     if (data.occasion !== undefined) {
       updateData.occasion = data.occasion;

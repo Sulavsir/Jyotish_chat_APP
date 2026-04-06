@@ -5,32 +5,17 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from './utils';
 import { useNepaliDateApi } from './nepali-date-api-context';
 import { NEPALI_WEEKDAY_LABELS } from './nepali-weekdays';
+import {
+  AD_YEAR_MAX,
+  AD_YEAR_MIN,
+  BS_MONTH_API_PATH,
+  BS_MONTH_NAMES,
+  BS_YEAR_MAX,
+  BS_YEAR_MIN,
+  NEPALI_BY_ENGLISH_DATE_API_PATH,
+} from './constants/nepali-calendar.constants';
 
 type CalendarSystem = 'AD' | 'BS';
-
-const AD_YEAR_MIN = 1944;
-const AD_YEAR_MAX = 2030;
-const BS_YEAR_MIN = 1970;
-const BS_YEAR_MAX = 2090;
-
-/** Fallback path when app does not provide getBsMonth via NepaliDateApiProvider */
-const BS_MONTH_API_PATH = '/api/v1/public/nepali-date/bs-month';
-
-const BS_MONTH_NAMES = [
-  '',
-  'Baisakh',
-  'Jestha',
-  'Ashadh',
-  'Shrawan',
-  'Bhadra',
-  'Ashwin',
-  'Kartik',
-  'Mangsir',
-  'Poush',
-  'Magh',
-  'Falgun',
-  'Chaitra',
-] as const;
 
 export interface BsAdCalendarProps {
   value?: string; // ISO date yyyy-mm-dd (always English date)
@@ -96,7 +81,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
   onSystemChange,
   onDateMetaChange,
 }) => {
-  const { getBsMonth } = useNepaliDateApi();
+  const { getBsMonth, getNepaliByEnglishDate } = useNepaliDateApi();
   const today = new Date();
   const initialDate = value ? new Date(value) : today;
   const validInitial = Number.isNaN(initialDate.getTime()) ? today : initialDate;
@@ -104,14 +89,59 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
   const [system, setSystem] = React.useState<CalendarSystem>(disableBs ? 'AD' : 'BS');
   const [adYear, setAdYear] = React.useState(validInitial.getFullYear());
   const [adMonth, setAdMonth] = React.useState(validInitial.getMonth() + 1);
-  const [bsYear, setBsYear] = React.useState(2080);
-  const [bsMonth, setBsMonth] = React.useState(11);
+  const [bsYear, setBsYear] = React.useState<number | null>(null);
+  const [bsMonth, setBsMonth] = React.useState<number | null>(null);
 
-  const useQueryForBs = Boolean(system === 'BS' && getBsMonth);
+  const parseBsYearMonth = React.useCallback((nepaliDate?: string | null) => {
+    if (!nepaliDate) return null;
+    const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(nepaliDate.trim());
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(mo)) return null;
+    return { year: y, month: mo };
+  }, []);
+
+  // Initialize BS year/month from selected value (or today) so we don't hardcode 2080.
+  React.useEffect(() => {
+    if (disableBs) return;
+
+    const englishDate = (value && value.slice(0, 10)) || new Date().toISOString().slice(0, 10);
+    let cancelled = false;
+
+    const apply = (ym: { year: number; month: number } | null) => {
+      if (!ym || cancelled) return;
+      setBsYear(ym.year);
+      setBsMonth(ym.month);
+    };
+
+    // If app provides a mapping function, prefer it; otherwise fall back to direct fetch.
+    (async () => {
+      try {
+        const mapping = getNepaliByEnglishDate
+          ? await getNepaliByEnglishDate(englishDate)
+          : await fetch(`${NEPALI_BY_ENGLISH_DATE_API_PATH}?date=${encodeURIComponent(englishDate)}`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((raw: any) => raw?.data ?? null);
+
+        const ym = parseBsYearMonth(mapping?.nepaliDate);
+        apply(ym);
+      } catch {
+        // ignore; BS will remain unavailable until user navigates/selects
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [disableBs, value, getNepaliByEnglishDate, parseBsYearMonth]);
+
+  const hasBs = bsYear != null && bsMonth != null;
+  const useQueryForBs = Boolean(system === 'BS' && getBsMonth && hasBs);
 
   const { data: bsMonthData, isLoading: isLoadingBsQuery } = useQuery({
     queryKey: ['nepali-date', 'bs-month', bsYear, bsMonth],
-    queryFn: () => getBsMonth!(bsYear, bsMonth),
+    queryFn: () => getBsMonth!(bsYear!, bsMonth!),
     enabled: useQueryForBs,
     staleTime: 1000 * 60 * 60,
   });
@@ -122,6 +152,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
 
   React.useEffect(() => {
     if (system !== 'BS' || getBsMonth) return;
+    if (!hasBs) return;
     const cacheKey = `${bsYear}-${bsMonth}`;
     const cached = bsCache.current[cacheKey];
     if (cached) {
@@ -140,7 +171,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
       })
       .catch(() => setBsDaysFallback([]))
       .finally(() => setIsLoadingBsFallback(false));
-  }, [system, bsYear, bsMonth, getBsMonth]);
+  }, [system, bsYear, bsMonth, getBsMonth, hasBs]);
 
   const bsDays = useQueryForBs ? (bsMonthData?.days ?? []) : bsDaysFallback;
   const isLoadingBs = useQueryForBs ? isLoadingBsQuery : isLoadingBsFallback;
@@ -196,6 +227,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
   };
 
   const navigateBsMonth = (delta: number) => {
+    if (bsYear == null || bsMonth == null) return;
     let y = bsYear;
     let m = bsMonth + delta;
     if (m > 12) {
@@ -235,7 +267,8 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
     [adYear, adMonth]
   );
 
-  const bsMonthLabel = `${getBsMonthName(bsMonth)} ${bsYear}`;
+  const bsMonthLabel =
+    bsMonth != null && bsYear != null ? `${getBsMonthName(bsMonth)} ${bsYear}` : 'Loading…';
 
   return (
     <div className="w-full text-xs text-slate-900 dark:text-slate-50">
@@ -291,7 +324,7 @@ export const BsAdCalendar: React.FC<BsAdCalendarProps> = ({
           ) : (
             <>
               <select
-                value={bsYear}
+                value={bsYear ?? ''}
                 onChange={(e) => setBsYear(Number(e.target.value))}
                 className="h-7 px-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
                 aria-label="Select year (BS)"

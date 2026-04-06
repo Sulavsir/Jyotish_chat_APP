@@ -37,6 +37,12 @@ import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
 import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
 import type { ListAdminMonitorChatsQuery } from '../validators/adminChat.validators';
 import type { ListAdminPlatformPaymentQuery } from '../validators/adminPlatformPayment.validators';
+import {
+  addReportingDaysYmd,
+  getReportingYmd,
+  reportingDayEndInclusive,
+  reportingDayStart,
+} from '../utils/reporting-date.utils';
 
 /** Rows that should appear in admin astrologer totals (soft-delete + legacy inconsistent rows). */
 const ACTIVE_ASTROLOGER_COUNT_WHERE = {
@@ -272,9 +278,8 @@ export async function createAstrologer(req: AuthRequest, res: Response, next: Ne
     const experience = req.body.experience ? parseInt(req.body.experience, 10) : null;
     const appointmentFee = req.body.appointmentFee ? parseFloat(req.body.appointmentFee) : null;
     const chatMessageFee = req.body.chatMessageFee ? parseFloat(req.body.chatMessageFee) : null;
-    const { parseAstrologerCommissionFieldsFromBody } = await import(
-      '../utils/admin-astrologer-body.util'
-    );
+    const { parseAstrologerCommissionFieldsFromBody } =
+      await import('../utils/admin-astrologer-body.util');
     const commissionFields = parseAstrologerCommissionFieldsFromBody(
       req.body as Record<string, unknown>
     );
@@ -529,9 +534,8 @@ export async function approveRegistration(req: AuthRequest, res: Response, next:
     const { id } = req.params;
     const adminId = req.user!.id;
     const { category, appointmentFee, chatMessageFee, inhouseAstrologer } = req.body;
-    const { parseAstrologerCommissionFieldsFromBody } = await import(
-      '../utils/admin-astrologer-body.util'
-    );
+    const { parseAstrologerCommissionFieldsFromBody } =
+      await import('../utils/admin-astrologer-body.util');
     const commissionFields = parseAstrologerCommissionFieldsFromBody(
       req.body as Record<string, unknown>
     );
@@ -1414,7 +1418,7 @@ export async function reopenChat(req: AuthRequest, res: Response, next: NextFunc
 // ==================== Dashboard ====================
 let lifetimeTotalsCache: { totalEarnings: number; platformTotalLoaded: number } | null = null;
 let lifetimeTotalsCachedAt = 0;
-const LIFETIME_CACHE_TTL_MS = 60_000;
+const LIFETIME_CACHE_TTL_MS = 0;
 
 async function getLifetimeTotals() {
   if (lifetimeTotalsCache && Date.now() - lifetimeTotalsCachedAt < LIFETIME_CACHE_TTL_MS) {
@@ -1441,8 +1445,12 @@ async function getLifetimeTotals() {
  */
 export async function getDashboardStats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const todayYmd = getReportingYmd(now);
+    const todayStart = reportingDayStart(todayYmd);
+    const todayEnd = reportingDayEndInclusive(todayYmd);
+    const platformTodayStart = todayStart;
+    const platformTomorrowStart = reportingDayStart(addReportingDaysYmd(todayYmd, 1));
 
     const [
       lifetimeTotals,
@@ -1460,7 +1468,10 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       prisma.user.count({ where: { role: 'CLIENT' } }),
       prisma.astrologer.count({ where: APPROVED_ASTROLOGER_COUNT_WHERE }),
       prisma.astrologer.count({
-        where: { accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING, ...ACTIVE_ASTROLOGER_COUNT_WHERE },
+        where: {
+          accountStatus: ASTROLOGER_ACCOUNT_STATUS.PENDING,
+          ...ACTIVE_ASTROLOGER_COUNT_WHERE,
+        },
       }),
       prisma.chat.count({ where: { status: 'ACTIVE' } }),
       prisma.astrologer.count({
@@ -1470,18 +1481,20 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
           isOnline: true,
         },
       }),
-      prisma.consultation.count({ where: { createdAt: { gte: today } } }),
-      prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: today } } }),
+      prisma.consultation.count({ where: { createdAt: { gte: todayStart, lte: todayEnd } } }),
+      prisma.user.count({
+        where: { role: 'CLIENT', createdAt: { gte: todayStart, lte: todayEnd } },
+      }),
       // Today's astrologer coin earnings
       (prisma as any).astrologerCoinEarning.aggregate({
         _sum: { astrologerCoinsEarned: true },
-        where: { createdAt: { gte: today } },
+        where: { createdAt: { gte: todayStart, lte: todayEnd } },
       }),
       prisma.coinTransaction.aggregate({
         _sum: { amount: true },
         where: {
           reason: DbCoinTransactionReason.PAYMENT_SUCCESS,
-          createdAt: { gte: today },
+          createdAt: { gte: platformTodayStart, lt: platformTomorrowStart },
         },
       }),
     ]);
@@ -2195,8 +2208,10 @@ export async function resolveComplaint(req: AuthRequest, res: Response, next: Ne
  */
 export async function getSidebarCounts(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const todayYmd = getReportingYmd(now);
+    const todayStart = reportingDayStart(todayYmd);
+    const todayEnd = reportingDayEndInclusive(todayYmd);
 
     const [
       activeChats,
@@ -2214,7 +2229,7 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       prisma.appointment.count({ where: { status: AppointmentStatus.PENDING } }),
       prisma.kundaliMatchRequest.count({ where: { status: KundaliMatchStatus.PENDING } }),
       prisma.user.count(),
-      prisma.user.count({ where: { createdAt: { gte: today } } }),
+      prisma.user.count({ where: { createdAt: { gte: todayStart, lte: todayEnd } } }),
       prisma.astrologer.count({ where: APPROVED_ASTROLOGER_COUNT_WHERE }),
       prisma.astrologer.count({
         where: { accountStatus: 'PENDING', ...ACTIVE_ASTROLOGER_COUNT_WHERE },
