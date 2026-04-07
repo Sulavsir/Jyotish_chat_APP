@@ -161,6 +161,10 @@ export const ADMIN_QUERY_KEYS = {
     BROADCAST_QUESTION_PRICING: () => ['admin', 'website', 'broadcast-question-pricing'] as const,
   },
 
+  BROADCAST_SETTINGS: {
+    DETAIL: () => ['admin', 'broadcast-settings'] as const,
+  },
+
   // Jyotish Bookings
   JYOTISH_BOOKINGS: {
     LIST: (filters?: { type?: string; status?: string }) =>

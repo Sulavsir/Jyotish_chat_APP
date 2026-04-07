@@ -81,6 +81,11 @@ import {
   updateSubhaSahitDateBodySchema,
   createSubhaSahitOccasionBodySchema,
 } from '../validators/subha-sahit.validators';
+import { toggleAstrologerOnlineBodySchema } from '../validators/adminAstrologer.validators';
+import {
+  assignPendingBroadcastBodySchema,
+  updateAdminBroadcastSettingsBodySchema,
+} from '../validators/adminBroadcastSettings.validators';
 
 const router = Router();
 
@@ -160,6 +165,12 @@ router.post(
   '/astrologers/:id/toggle-status',
   auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
   adminController.toggleAstrologerStatus
+);
+router.post(
+  '/astrologers/:id/toggle-online',
+  auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
+  validateBody(toggleAstrologerOnlineBodySchema),
+  asyncHandler(adminController.toggleAstrologerOnlineStatus)
 );
 
 router.post(
@@ -380,6 +391,18 @@ router.put(
   auditLogger(AuditAction.ADMIN_ACTION, 'BroadcastQuestionPricing'),
   validateBody(updateBroadcastQuestionPricingBodySchema),
   asyncHandler(broadcastQuestionPricingController.updatePricing)
+);
+router.get('/broadcast-settings', asyncHandler(adminController.getBroadcastSettings));
+router.put(
+  '/broadcast-settings',
+  validateBody(updateAdminBroadcastSettingsBodySchema),
+  asyncHandler(adminController.updateBroadcastSettings)
+);
+router.post(
+  '/broadcast/pending/:id/assign',
+  validateParams(uuidParamSchema),
+  validateBody(assignPendingBroadcastBodySchema),
+  asyncHandler(adminController.assignPendingBroadcast)
 );
 
 // ==================== Jyotish Bookings (Pandit/Vaastu) ====================

@@ -13,7 +13,6 @@ import {
   PlatformCoinRateType,
 } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
-import { BROADCAST_MESSAGE_EXPIRY_MS, BROADCAST_ACCEPTANCE_LIMITS } from '../constants';
 import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
 import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
@@ -36,6 +35,10 @@ import {
 import { hasUserUsedBroadcast } from './broadcastUsage.service';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 import { randomUUID } from 'node:crypto';
+import {
+  getBroadcastAcceptanceLimitByCategory,
+  getBroadcastExpiryMs,
+} from './broadcastRuntimeSettings.service';
 
 const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
 const pendingBroadcastMessagesCache = new Map<string, { expiresAt: number; messages: unknown[] }>();
@@ -268,7 +271,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
       ? (data.metadata as Record<string, unknown>)
       : {};
 
-  const ttlMs = BROADCAST_MESSAGE_EXPIRY_MS;
+  const ttlMs = await getBroadcastExpiryMs();
   const message = await prisma.broadcastMessage.create({
     data: {
       clientId: data.clientId,
@@ -423,7 +426,7 @@ export async function createMultipleBroadcastMessages(
   const metadataBase =
     hasBirthDetails && Object.keys(birthDetails!).length > 0 ? { birthDetails } : undefined;
 
-  const ttlMs = BROADCAST_MESSAGE_EXPIRY_MS;
+  const ttlMs = await getBroadcastExpiryMs();
   const expiresAt = new Date(Date.now() + ttlMs);
 
   const messages: Awaited<ReturnType<typeof prisma.broadcastMessage.create>>[] = [];
@@ -837,9 +840,7 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
   }
 
   // Check if astrologer has reached their concurrent broadcast acceptance limit
-  const acceptanceLimit =
-    BROADCAST_ACCEPTANCE_LIMITS[astrologer.category as keyof typeof BROADCAST_ACCEPTANCE_LIMITS] ??
-    0;
+  const acceptanceLimit = await getBroadcastAcceptanceLimitByCategory(astrologer.category);
 
   if (acceptanceLimit === 0) {
     throw new AppError(

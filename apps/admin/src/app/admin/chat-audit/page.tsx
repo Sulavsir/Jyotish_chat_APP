@@ -170,7 +170,7 @@ export default function ChatAuditPage() {
         <span
           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(log.status)}`}
         >
-          {formatAction(log.status)}
+          {log.metadata?.assignedByAdmin === true ? 'Admin Assignee' : formatAction(log.status)}
         </span>
       ),
     },

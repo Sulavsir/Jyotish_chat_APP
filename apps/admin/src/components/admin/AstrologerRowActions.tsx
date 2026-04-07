@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, LoadingButton } from '@jyotish/ui';
-import { Pencil, Trash2, Power } from 'lucide-react';
+import { Pencil, Trash2, Power, Wifi } from 'lucide-react';
 import { SimpleTooltip } from '@/components/ui/Tooltip';
 import type { Astrologer } from '@/types';
 
@@ -10,6 +10,8 @@ export interface AstrologerRowActionsProps {
   onEdit: (astrologer: Astrologer) => void;
   onDelete: (astrologer: Astrologer) => void;
   onToggleStatus: (astrologer: Astrologer) => void;
+  onToggleOnline: (astrologer: Astrologer) => void;
+  isToggleOnlinePending?: boolean;
   isDeletePending?: boolean;
 }
 
@@ -24,6 +26,8 @@ export function AstrologerRowActions({
   onEdit,
   onDelete,
   onToggleStatus,
+  onToggleOnline,
+  isToggleOnlinePending = false,
   isDeletePending = false,
 }: AstrologerRowActionsProps) {
   return (
@@ -60,6 +64,19 @@ export function AstrologerRowActions({
         >
           <Power className="w-4 h-4" />
         </Button>
+      </SimpleTooltip>
+      <SimpleTooltip content={astrologer.isOnline ? 'Set Offline' : 'Set Online'}>
+        <span className="inline-flex">
+          <LoadingButton
+            variant="outline"
+            size="icon"
+            onClick={() => onToggleOnline(astrologer)}
+            loading={isToggleOnlinePending}
+            className={buttonClass}
+          >
+            <Wifi className="w-4 h-4" />
+          </LoadingButton>
+        </span>
       </SimpleTooltip>
     </div>
   );

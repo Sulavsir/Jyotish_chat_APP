@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
     PROFILE_PHOTO: (id: string) => `/api/v1/admin/astrologers/${id}/profile-photo`,
     DELETE: (id: string) => `/api/v1/admin/astrologers/${id}`,
     TOGGLE_STATUS: (id: string) => `/api/v1/admin/astrologers/${id}/toggle-status`,
+    TOGGLE_ONLINE: (id: string) => `/api/v1/admin/astrologers/${id}/toggle-online`,
     // Registration Requests
     REGISTRATION_REQUESTS: '/api/v1/admin/astrologers/registration-requests',
     APPROVE_REGISTRATION: (id: string) => `/api/v1/admin/astrologers/${id}/approve-registration`,
@@ -95,6 +96,12 @@ export const API_ENDPOINTS = {
     QUESTIONNAIRES: '/api/v1/admin/questionnaires',
     QUESTIONNAIRE_BY_ID: (id: string) => `/api/v1/admin/questionnaires/${id}`,
     BROADCAST_QUESTION_PRICING: '/api/v1/admin/broadcast-question-pricing',
+  },
+
+  BROADCAST_SETTINGS: {
+    GET: '/api/v1/admin/broadcast-settings',
+    UPDATE: '/api/v1/admin/broadcast-settings',
+    ASSIGN_PENDING: (id: string) => `/api/v1/admin/broadcast/pending/${id}/assign`,
   },
 
   JYOTISH_BOOKINGS: {

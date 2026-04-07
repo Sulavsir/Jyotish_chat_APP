@@ -169,6 +169,19 @@ function attachListenersIfNeeded(socket: Socket) {
     }
   });
 
+  socket.on(
+    WS_EVENTS.ASTROLOGER_ADMIN_STATUS_CHANGED,
+    (payload: { astrologerId: string; isOnline: boolean; message?: string }) => {
+      const user = useAuthStore.getState().user;
+      if (!user || user.role !== 'ASTROLOGER') return;
+      if (user.id !== payload.astrologerId) return;
+      toast.info(
+        payload.message ??
+          `Your status has been changed by Admin. You are ${payload.isOnline ? 'online' : 'offline'}.`
+      );
+    }
+  );
+
   // Astrologer profile updates (name/photo/etc) for real-time UI updates
   socket.on(
     WS_EVENTS.ASTROLOGER_UPDATED,

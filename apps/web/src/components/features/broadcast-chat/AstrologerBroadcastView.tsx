@@ -121,7 +121,14 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
 
         // Navigate to chat immediately
         if (result.chat) {
-          toast.success('Chat opened! Redirecting...', { duration: 1500 });
+          const assignedByAdmin =
+            (result as { assignedByAdmin?: boolean }).assignedByAdmin === true;
+          toast.success(
+            assignedByAdmin
+              ? 'Admin assigned you this broadcast request. Opening chat...'
+              : 'Chat opened! Redirecting...',
+            { duration: 1500 }
+          );
 
           // Navigate to the chat page
           router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(result.chat.id));

@@ -435,6 +435,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       children: [
         { name: 'Chat Monitor', href: ADMIN_ROUTES.CHATS },
         { name: 'Chat Audit', href: ADMIN_ROUTES.CHAT_AUDIT },
+        { name: 'Broadcast Settings', href: ADMIN_ROUTES.BROADCAST_SETTINGS },
         { name: 'Admin Chats', href: ADMIN_ROUTES.ADMIN_CHATS },
       ],
     },

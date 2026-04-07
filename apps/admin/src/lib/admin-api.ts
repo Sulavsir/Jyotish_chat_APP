@@ -318,6 +318,12 @@ export const adminApi = {
       const response = await apiClient.post(API_ENDPOINTS.ASTROLOGERS.TOGGLE_STATUS(id));
       return response;
     },
+    toggleOnline: async (id: string, isOnline: boolean) => {
+      const response = await apiClient.post(API_ENDPOINTS.ASTROLOGERS.TOGGLE_ONLINE(id), {
+        isOnline,
+      });
+      return response;
+    },
 
     getRegistrationRequests: async (params?: {
       page?: number;
@@ -856,6 +862,44 @@ export const adminApi = {
         }>(API_ENDPOINTS.WEBSITE.BROADCAST_QUESTION_PRICING, { tiers });
         return response;
       },
+    },
+  },
+
+  broadcastSettings: {
+    get: async (): Promise<{
+      settings: {
+        expiryMinutes: number;
+        acceptanceLimitOrdinary: number;
+        acceptanceLimitProfessional: number;
+      };
+      pendingBroadcasts: Array<{
+        id: string;
+        content: string;
+        createdAt: string;
+        expiresAt: string;
+        clientId: string;
+        client: { id: string; name: string | null; phone: string | null; email: string | null };
+      }>;
+      onlineAstrologers: Array<{
+        id: string;
+        name: string;
+        category: string;
+        isOnline: boolean;
+      }>;
+    }> => {
+      return apiClient.get(API_ENDPOINTS.BROADCAST_SETTINGS.GET);
+    },
+    update: async (payload: {
+      expiryMinutes: number;
+      acceptanceLimitOrdinary: number;
+      acceptanceLimitProfessional: number;
+    }) => {
+      return apiClient.put(API_ENDPOINTS.BROADCAST_SETTINGS.UPDATE, payload);
+    },
+    assignPending: async (messageId: string, astrologerId: string) => {
+      return apiClient.post(API_ENDPOINTS.BROADCAST_SETTINGS.ASSIGN_PENDING(messageId), {
+        astrologerId,
+      });
     },
   },
 

@@ -246,6 +246,18 @@ export default function AstrologersPage() {
     },
   });
 
+  const toggleOnlineMutation = useMutation({
+    mutationFn: ({ id, isOnline }: { id: string; isOnline: boolean }) =>
+      adminApi.astrologers.toggleOnline(id, isOnline),
+    onSuccess: (_, vars) => {
+      toast.success(`Astrologer is now ${vars.isOnline ? 'online' : 'offline'}`);
+      queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.ASTROLOGERS.ALL });
+    },
+    onError: (err: Error) => {
+      toast.error(err?.message ?? 'Failed to change online status');
+    },
+  });
+
   const verifyEditPasswordMutation = useMutation({
     mutationFn: (password: string) => adminApi.astrologers.verifyEditPassword(password),
     onError: (err: Error) => {
@@ -297,6 +309,13 @@ export default function AstrologersPage() {
         },
       }
     );
+  };
+
+  const handleToggleOnline = (astrologer: Astrologer) => {
+    toggleOnlineMutation.mutate({
+      id: astrologer.id,
+      isOnline: !astrologer.isOnline,
+    });
   };
 
   const COUNTRY_LABELS: Record<string, string> = {
@@ -495,6 +514,10 @@ export default function AstrologersPage() {
           onEdit={setAstrologerToEdit}
           onDelete={setAstrologerToDelete}
           onToggleStatus={openToggleDialog}
+          onToggleOnline={handleToggleOnline}
+          isToggleOnlinePending={
+            toggleOnlineMutation.isPending && toggleOnlineMutation.variables?.id === astrologer.id
+          }
           isDeletePending={deleteMutation.isPending && astrologerToDelete?.id === astrologer.id}
         />
       ),

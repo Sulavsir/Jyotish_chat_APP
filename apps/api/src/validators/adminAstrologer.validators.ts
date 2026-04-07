@@ -65,4 +65,9 @@ export const listAdminAstrologersQuerySchema = queryPaginationSchema.extend({
 
 export type ListAdminAstrologersQuery = z.infer<typeof listAdminAstrologersQuerySchema>;
 
+export const toggleAstrologerOnlineBodySchema = z.object({
+  isOnline: z.boolean(),
+});
+
+export type ToggleAstrologerOnlineBody = z.infer<typeof toggleAstrologerOnlineBodySchema>;
 
