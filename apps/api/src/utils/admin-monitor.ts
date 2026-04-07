@@ -229,6 +229,21 @@ export function notifyBroadcastMessageExpired(messageId: string) {
 }
 
 /**
+ * Notify admins about a cancelled broadcast message
+ */
+export function notifyBroadcastMessageCancelled(messageId: string) {
+  if (!ioInstance) return;
+
+  ioInstance.to('admin').emit('broadcast:update', {
+    id: messageId,
+    status: 'CANCELLED',
+    cancelledAt: new Date(),
+  });
+
+  console.log(`📢 Admin notified: Broadcast message ${messageId} cancelled`);
+}
+
+/**
  * Notify admins about a chat ending (unified for all chat types)
  */
 export function notifyChatEnded(

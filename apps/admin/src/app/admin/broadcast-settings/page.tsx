@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
@@ -9,11 +9,16 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   Input,
   Label,
   LoadingButton,
 } from '@jyotish/ui';
 import { ChatIcon } from '@jyotish/ui';
+import { EyeIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { ADMIN_QUERY_KEYS } from '@/constants/query-keys.constants';
@@ -30,16 +35,22 @@ type FormState = {
 
 type PendingBroadcastRow = {
   id: string;
+  messageId: string;
   content: string;
   createdAt: string;
   expiresAt: string;
   clientId: string;
   client: { id: string; name: string | null; phone: string | null; email: string | null } | null;
+  questionCount: number;
+  questions: string[];
 };
 
 export default function BroadcastSettingsPage() {
   const queryClient = useQueryClient();
   const [assignSelection, setAssignSelection] = useState<Record<string, string>>({});
+  const [viewingQuestions, setViewingQuestions] = useState<PendingBroadcastRow | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasQueuedRefreshRef = useRef(false);
   const { on, off, isConnected } = useAdminSocket();
 
   const { data, isLoading, isFetching } = useQuery({
@@ -95,24 +106,41 @@ export default function BroadcastSettingsPage() {
   });
 
   const onlineAstrologers = data?.onlineAstrologers ?? [];
-  const pendingBroadcasts: PendingBroadcastRow[] = (data?.pendingBroadcasts ?? []) as any;
+  const pendingBroadcasts: PendingBroadcastRow[] = data?.pendingBroadcasts ?? [];
 
   // Real-time: refresh list when new pending broadcasts arrive or get accepted/expired
   useEffect(() => {
     if (!isConnected) return;
 
-    const invalidate = () => {
-      void queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.BROADCAST_SETTINGS.DETAIL(),
-      });
+    const scheduleRefresh = () => {
+      hasQueuedRefreshRef.current = true;
+      if (refreshTimerRef.current) return;
+
+      refreshTimerRef.current = setTimeout(() => {
+        if (!hasQueuedRefreshRef.current) return;
+        hasQueuedRefreshRef.current = false;
+        refreshTimerRef.current = null;
+
+        void queryClient.invalidateQueries({
+          queryKey: ADMIN_QUERY_KEYS.BROADCAST_SETTINGS.DETAIL(),
+        });
+        void queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS() });
+        toast.info('Broadcast queue updated');
+      }, 350);
     };
 
-    on(ADMIN_SOCKET_EVENTS.BROADCAST.NEW, invalidate);
-    on(ADMIN_SOCKET_EVENTS.BROADCAST.UPDATE, invalidate);
+    on(ADMIN_SOCKET_EVENTS.BROADCAST.NEW, scheduleRefresh);
+    on(ADMIN_SOCKET_EVENTS.BROADCAST.UPDATE, scheduleRefresh);
+    on(ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE, scheduleRefresh);
 
     return () => {
-      off(ADMIN_SOCKET_EVENTS.BROADCAST.NEW, invalidate);
-      off(ADMIN_SOCKET_EVENTS.BROADCAST.UPDATE, invalidate);
+      off(ADMIN_SOCKET_EVENTS.BROADCAST.NEW, scheduleRefresh);
+      off(ADMIN_SOCKET_EVENTS.BROADCAST.UPDATE, scheduleRefresh);
+      off(ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE, scheduleRefresh);
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
     };
   }, [isConnected, on, off, queryClient]);
 
@@ -158,10 +186,35 @@ export default function BroadcastSettingsPage() {
     },
     {
       header: 'Questions',
+      accessor: (row) => {
+        const first = row.questions[0] || row.content;
+        const moreCount = Math.max(0, row.questionCount - 1);
+        return (
+          <div className="max-w-[420px] flex items-start gap-2">
+            <div className="min-w-0">
+              <div className="text-sm text-slate-200 truncate">
+                {first}
+                {moreCount > 0 ? ` (...+${moreCount} more)` : ''}
+              </div>
+              <div className="text-xs text-slate-500">{new Date(row.createdAt).toLocaleString()}</div>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewingQuestions(row)}
+              className="h-8 w-8 shrink-0"
+            >
+              <EyeIcon className="w-4 h-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Created',
       accessor: (row) => (
-        <div className="max-w-[420px]">
-          <div className="text-sm text-slate-200 truncate">{row.content}</div>
-          <div className="text-xs text-slate-500">{new Date(row.createdAt).toLocaleString()}</div>
+        <div className="text-xs text-slate-500 whitespace-nowrap">
+          {new Date(row.createdAt).toLocaleString()}
         </div>
       ),
     },
@@ -171,11 +224,11 @@ export default function BroadcastSettingsPage() {
       accessor: (row) => (
         <div className="flex justify-end">
           <LoadingButton
-            loading={assignMutation.isPending && assignMutation.variables?.messageId === row.id}
+            loading={assignMutation.isPending && assignMutation.variables?.messageId === row.messageId}
             disabled={!assignSelection[row.id]}
             onClick={() =>
               assignMutation.mutate({
-                messageId: row.id,
+                messageId: row.messageId,
                 astrologerId: assignSelection[row.id],
               })
             }
@@ -313,6 +366,24 @@ export default function BroadcastSettingsPage() {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={viewingQuestions !== null} onOpenChange={(open) => !open && setViewingQuestions(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Broadcast Questions</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {(viewingQuestions?.questions ?? []).map((q, idx) => (
+              <div
+                key={`${idx}-${q.slice(0, 16)}`}
+                className="rounded-md border border-slate-700 p-3 text-sm text-slate-200"
+              >
+                <span className="text-slate-400 mr-2">Q{idx + 1}.</span>
+                {q}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }

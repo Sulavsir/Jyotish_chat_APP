@@ -13,7 +13,12 @@ import {
   PlatformCoinRateType,
 } from '@prisma/client';
 import { AstrologerCategory } from '@jyotish/shared';
-import { notifyBroadcastMessageSent, notifyBroadcastMessageAccepted } from '../utils';
+import {
+  notifyBroadcastMessageSent,
+  notifyBroadcastMessageAccepted,
+  notifyBroadcastMessageExpired,
+  notifyBroadcastMessageCancelled,
+} from '../utils';
 import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
@@ -520,6 +525,7 @@ export async function expireOldMessages() {
         where: { id: message.id },
         data: { status: BroadcastMessageStatus.EXPIRED },
       });
+      notifyBroadcastMessageExpired(message.id);
 
       // Notify client (refund toast) + astrologers (remove from pending popups / lists)
       try {
@@ -600,6 +606,7 @@ export async function cancelBroadcastMessage(messageId: string, clientId: string
       },
     },
   });
+  notifyBroadcastMessageCancelled(messageId);
 
   await auditService.logAction({
     action: AuditAction.BROADCAST_MESSAGE_CREATE, // Reuse or add BROADCAST_MESSAGE_CANCEL if needed

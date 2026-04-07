@@ -15,13 +15,14 @@ const MAX_ACCEPTANCE_LIMIT = 100;
 export async function getAdminBroadcastSettings() {
   const settings = await getBroadcastRuntimeSettings();
 
-  const [pendingBroadcasts, onlineAstrologers] = await Promise.all([
+  const [pendingMessages, onlineAstrologers] = await Promise.all([
     prisma.broadcastMessage.findMany({
       where: { status: BroadcastMessageStatus.PENDING },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         content: true,
+        metadata: true,
         createdAt: true,
         expiresAt: true,
         clientId: true,
@@ -49,6 +50,54 @@ export async function getAdminBroadcastSettings() {
       },
     }),
   ]);
+
+  type PendingRow = (typeof pendingMessages)[number];
+  type GroupedPending = {
+    id: string;
+    messageId: string;
+    content: string;
+    createdAt: Date;
+    expiresAt: Date;
+    clientId: string;
+    client: PendingRow['client'];
+    questionCount: number;
+    questions: string[];
+  };
+
+  const grouped = new Map<string, GroupedPending>();
+  for (const row of pendingMessages) {
+    const meta =
+      row.metadata && typeof row.metadata === 'object'
+        ? (row.metadata as Record<string, unknown>)
+        : {};
+    const batchId = typeof meta.batchId === 'string' ? meta.batchId : null;
+    const key = batchId ? `batch:${batchId}` : `single:${row.id}`;
+    const current = grouped.get(key);
+
+    if (!current) {
+      grouped.set(key, {
+        id: key,
+        messageId: row.id,
+        content: row.content,
+        createdAt: row.createdAt,
+        expiresAt: row.expiresAt,
+        clientId: row.clientId,
+        client: row.client,
+        questionCount: 1,
+        questions: [row.content],
+      });
+      continue;
+    }
+
+    current.questionCount += 1;
+    current.questions.push(row.content);
+    if (row.createdAt < current.createdAt) current.createdAt = row.createdAt;
+    if (row.expiresAt > current.expiresAt) current.expiresAt = row.expiresAt;
+  }
+
+  const pendingBroadcasts = Array.from(grouped.values()).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 
   return {
     settings,

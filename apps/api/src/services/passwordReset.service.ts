@@ -136,7 +136,9 @@ export async function handleRequestPasswordReset(
   | { method: 'email'; message: string }
   | { method: 'otp'; sessionId: string; expiresIn: number; message: string; otp?: string }
 > {
-  const entity = await findEntityByIdentifier(identifier, actor);
+  const trimmedIdentifier = identifier.trim();
+  const isEmailIdentifier = trimmedIdentifier.includes('@');
+  const entity = await findEntityByIdentifier(trimmedIdentifier, actor);
 
   if (!entity) {
     throw new AppError(
@@ -146,7 +148,15 @@ export async function handleRequestPasswordReset(
     );
   }
 
-  if (entity.email) {
+  if (isEmailIdentifier) {
+    if (!entity.email) {
+      throw new AppError(
+        'No email is configured for this account. Please reset via phone number.',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
     const token = generateResetToken(entity.id, actor);
     const path = RESET_PATH[actor];
     const resetUrl = `${getFrontendOrigin()}${path}?token=${encodeURIComponent(token)}`;

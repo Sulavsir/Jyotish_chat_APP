@@ -874,11 +874,14 @@ export const adminApi = {
       };
       pendingBroadcasts: Array<{
         id: string;
+        messageId: string;
         content: string;
         createdAt: string;
         expiresAt: string;
         clientId: string;
         client: { id: string; name: string | null; phone: string | null; email: string | null };
+        questionCount: number;
+        questions: string[];
       }>;
       onlineAstrologers: Array<{
         id: string;
