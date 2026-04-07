@@ -102,7 +102,9 @@ export default function BroadcastSettingsPage() {
     if (!isConnected) return;
 
     const invalidate = () => {
-      void queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.BROADCAST_SETTINGS.DETAIL() });
+      void queryClient.invalidateQueries({
+        queryKey: ADMIN_QUERY_KEYS.BROADCAST_SETTINGS.DETAIL(),
+      });
     };
 
     on(ADMIN_SOCKET_EVENTS.BROADCAST.NEW, invalidate);
@@ -115,15 +117,6 @@ export default function BroadcastSettingsPage() {
   }, [isConnected, on, off, queryClient]);
 
   const columns: AdminTableColumn<PendingBroadcastRow>[] = [
-    {
-      header: 'Request',
-      accessor: (row) => (
-        <div className="max-w-[420px]">
-          <div className="text-sm text-slate-200 truncate">{row.content}</div>
-          <div className="text-xs text-slate-500">{new Date(row.createdAt).toLocaleString()}</div>
-        </div>
-      ),
-    },
     {
       header: 'Client',
       accessor: (row) => {
@@ -161,6 +154,15 @@ export default function BroadcastSettingsPage() {
             </option>
           ))}
         </select>
+      ),
+    },
+    {
+      header: 'Questions',
+      accessor: (row) => (
+        <div className="max-w-[420px]">
+          <div className="text-sm text-slate-200 truncate">{row.content}</div>
+          <div className="text-xs text-slate-500">{new Date(row.createdAt).toLocaleString()}</div>
+        </div>
       ),
     },
     {
