@@ -10,6 +10,7 @@ import { getAstrologerEarningsQuerySchema } from '../validators/coin.validators'
 import {
   astrologerSelfPatchSchema,
   getDashboardStatsQuerySchema,
+  getOnlineAstrologersQuerySchema,
 } from '../validators/astrologer.validators';
 import {
   createSlotsBulkSchema,
@@ -95,6 +96,11 @@ router.get(
   '/dashboard/stats',
   validateQuery(getDashboardStatsQuerySchema),
   asyncHandler(astrologerController.getDashboardStats)
+);
+router.get(
+  '/dashboard/online-astrologers',
+  validateQuery(getOnlineAstrologersQuerySchema),
+  asyncHandler(astrologerController.getOnlineAstrologers)
 );
 
 router.get(

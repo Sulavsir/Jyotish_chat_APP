@@ -10,6 +10,10 @@ export const getDashboardStatsQuerySchema = z.object({
   language: z.enum(VALID_LANGUAGES).optional(),
 });
 
+export const getOnlineAstrologersQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional().default(12),
+});
+
 /** Self-service profile update (jyotish app); all fields optional. */
 export const astrologerSelfPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),

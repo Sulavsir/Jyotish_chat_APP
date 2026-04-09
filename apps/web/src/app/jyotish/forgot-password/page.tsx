@@ -81,9 +81,11 @@ export default function JyotishForgotPasswordPage() {
         return;
       }
       if (data.method === 'otp' && data.sessionId) {
-        const cleaned = variables.identifier.includes('@')
-          ? variables.identifier.trim()
-          : variables.identifier.replace(/\D/g, '');
+        const cleaned = data.phoneNumber
+          ? data.phoneNumber
+          : variables.identifier.includes('@')
+            ? variables.identifier.trim()
+            : variables.identifier.replace(/\D/g, '').slice(-10);
         setOtpSessionId(data.sessionId);
         setOtpPhoneNumber(cleaned);
         setOtpExpirySeconds(data.expiresIn ?? OTP_EXPIRY_SECONDS);

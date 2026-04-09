@@ -20,6 +20,10 @@ import { isNepaliPhoneNumber } from '../utils/phone.utils';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
 
 export class AstrologerService {
+  private normalizePhoneDigits(value: string): string {
+    return value.replace(/\D/g, '');
+  }
+
   /**
    * Find astrologer by ID (excludes soft-deleted)
    */
@@ -186,8 +190,59 @@ export class AstrologerService {
     if (isEmail) {
       return await this.findByEmail(identifier.trim());
     }
-    const cleaned = identifier.replace(/\D/g, '');
-    return await this.findByPhone(cleaned);
+    const cleaned = this.normalizePhoneDigits(identifier);
+    if (!cleaned) return null;
+    const last10 = cleaned.slice(-10);
+
+    const candidates = await prisma.astrologer.findMany({
+      where: {
+        isDeleted: false,
+        OR: [
+          { phone: cleaned },
+          { phone: last10 },
+          { phone: { contains: cleaned } },
+          { phone: { contains: last10 } },
+        ],
+      },
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        password: true,
+        name: true,
+        profilePhoto: true,
+        bio: true,
+        specialization: true,
+        experience: true,
+        category: true,
+        appointmentFee: true,
+        chatMessageFee: true,
+        rating: true,
+        totalConsultations: true,
+        isActive: true,
+        isOnline: true,
+        isVerified: true,
+        inhouseAstrologer: true,
+        languages: true,
+        gender: true,
+        country: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      take: 20,
+    });
+
+    if (candidates.length === 0) return null;
+
+    const exactCleaned = candidates.find((c) => this.normalizePhoneDigits(c.phone) === cleaned);
+    if (exactCleaned) return exactCleaned;
+
+    const exactLast10 = candidates.find((c) => this.normalizePhoneDigits(c.phone) === last10);
+    if (exactLast10) return exactLast10;
+
+    const suffixMatch = candidates.find((c) => this.normalizePhoneDigits(c.phone).endsWith(last10));
+    return suffixMatch ?? null;
   }
 
   /**

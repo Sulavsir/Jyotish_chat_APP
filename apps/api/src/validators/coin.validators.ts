@@ -145,4 +145,12 @@ export const listAstrologersWithCoinEarningsQuerySchema = z.object({
     .transform((v) => (v ? parseInt(v, 10) : 10))
     .pipe(z.number().int().min(1).max(100)),
   search: z.string().optional(),
+  from: z
+    .string()
+    .optional()
+    .transform((val) => parseEarningsDateQueryParam(val, 'start')),
+  to: z
+    .string()
+    .optional()
+    .transform((val) => parseEarningsDateQueryParam(val, 'end')),
 });

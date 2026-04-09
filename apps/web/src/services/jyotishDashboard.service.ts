@@ -47,6 +47,16 @@ export interface RecentActivity {
   avatar?: string | null;
 }
 
+export interface OnlineAstrologer {
+  id: string;
+  name: string;
+  profilePhoto: string | null;
+  category: string;
+  rating: number;
+  totalConsultations: number;
+  isOnline: boolean;
+}
+
 interface BackendRecentActivityItem {
   id: string;
   type: 'consultation' | 'chat' | 'appointment';
@@ -67,6 +77,10 @@ interface BackendDashboardStats {
   todayTip: { text: string };
 }
 
+interface OnlineAstrologersResponse {
+  onlineAstrologers: OnlineAstrologer[];
+}
+
 function normalizeRecentActivity(items: BackendRecentActivityItem[]): RecentActivity[] {
   return items.map((item) => ({
     ...item,
@@ -85,6 +99,14 @@ class JyotishDashboardService {
       ...response,
       recentActivity: normalizeRecentActivity(response.recentActivity ?? []),
     };
+  }
+
+  async getOnlineAstrologers(limit: number = 12): Promise<OnlineAstrologer[]> {
+    const response = await apiClient.get<OnlineAstrologersResponse>(
+      API_ENDPOINTS.ASTROLOGER.DASHBOARD_ONLINE_ASTROLOGERS,
+      { params: { limit } }
+    );
+    return response.onlineAstrologers ?? [];
   }
 }
 

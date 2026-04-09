@@ -61,7 +61,13 @@ export const ADMIN_QUERY_KEYS = {
   EARNINGS: {
     ALL: ['admin', 'earnings'] as const,
     LIST: () => ['admin', 'earnings', 'list'] as const,
-    ASTROLOGERS_WITH_COINS: (params?: { page?: number; limit?: number; search?: string }) =>
+    ASTROLOGERS_WITH_COINS: (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      from?: string;
+      to?: string;
+    }) =>
       params
         ? (['admin', 'earnings', 'astrologers-with-coins', params] as const)
         : (['admin', 'earnings', 'astrologers-with-coins'] as const),

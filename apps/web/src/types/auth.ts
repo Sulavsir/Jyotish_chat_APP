@@ -122,6 +122,7 @@ export interface ForgotPasswordResponse {
   message: string;
   sessionId?: string;
   expiresIn?: number;
+  phoneNumber?: string;
   otp?: string;
 }
 

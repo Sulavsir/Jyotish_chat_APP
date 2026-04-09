@@ -29,6 +29,10 @@ export interface PasswordResetEntity {
   name: string | null;
 }
 
+function normalizePhoneDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
 const RESET_PATH: Record<PasswordResetActor, string> = {
   [PASSWORD_RESET_ACTOR.USER]: '/auth/reset-password',
   [PASSWORD_RESET_ACTOR.ASTROLOGER]: '/jyotish/forgot-password',
@@ -90,18 +94,29 @@ export async function findEntityIdByPhone(
   phone: string,
   actor: PasswordResetActor
 ): Promise<string | null> {
+  const phoneDigits = normalizePhoneDigits(phone);
+  const last10 = phoneDigits.slice(-10);
+
   if (actor === PASSWORD_RESET_ACTOR.USER) {
     const user = await prisma.user.findFirst({
-      where: { phone, ...ACTIVE_CLIENT_USER_WHERE },
+      where: { phone: last10, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true },
     });
     return user?.id ?? null;
   }
-  const astrologer = await prisma.astrologer.findFirst({
-    where: { phone, isDeleted: false },
-    select: { id: true },
+  const astrologers = await prisma.astrologer.findMany({
+    where: {
+      isDeleted: false,
+      OR: [{ phone: phoneDigits }, { phone: last10 }, { phone: { contains: last10 } }],
+    },
+    select: { id: true, phone: true },
+    take: 20,
   });
-  return astrologer?.id ?? null;
+  const match =
+    astrologers.find((a) => normalizePhoneDigits(a.phone) === phoneDigits) ||
+    astrologers.find((a) => normalizePhoneDigits(a.phone) === last10) ||
+    astrologers.find((a) => normalizePhoneDigits(a.phone).endsWith(last10));
+  return match?.id ?? null;
 }
 
 /**
@@ -134,7 +149,14 @@ export async function handleRequestPasswordReset(
   actor: PasswordResetActor
 ): Promise<
   | { method: 'email'; message: string }
-  | { method: 'otp'; sessionId: string; expiresIn: number; message: string; otp?: string }
+  | {
+      method: 'otp';
+      sessionId: string;
+      expiresIn: number;
+      message: string;
+      phoneNumber: string;
+      otp?: string;
+    }
 > {
   const trimmedIdentifier = identifier.trim();
   const isEmailIdentifier = trimmedIdentifier.includes('@');
@@ -186,12 +208,14 @@ export async function handleRequestPasswordReset(
     }
   }
 
-  const result = await otpService.sendOTP(entity.phone);
+  const targetPhoneDigits = normalizePhoneDigits(entity.phone).slice(-10);
+  const result = await otpService.sendOTP(targetPhoneDigits);
   return {
     method: 'otp',
     sessionId: result.sessionId,
     expiresIn: OTP_CONFIG.OTP_EXPIRY_MINUTES * 60,
     message: 'OTP has been sent to your phone.',
+    phoneNumber: targetPhoneDigits,
     ...(isDevelopment() && result.otp && { otp: result.otp }),
   };
 }

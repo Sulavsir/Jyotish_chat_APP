@@ -228,6 +228,8 @@ export async function listAstrologersWithCoinEarnings(params: {
   page?: number;
   limit?: number;
   search?: string;
+  from?: Date;
+  to?: Date;
 }): Promise<ListAstrologersWithCoinEarningsResult> {
   const page = Math.max(1, params.page ?? 1);
   const limit = Math.min(100, Math.max(1, params.limit ?? 10));
@@ -281,7 +283,17 @@ export async function listAstrologersWithCoinEarnings(params: {
     astrologerIds.length > 0
       ? await prisma.astrologerCoinEarning.groupBy({
           by: ['astrologerId'],
-          where: { astrologerId: { in: astrologerIds } },
+          where: {
+            astrologerId: { in: astrologerIds },
+            ...(params.from || params.to
+              ? {
+                  createdAt: {
+                    ...(params.from ? { gte: params.from } : {}),
+                    ...(params.to ? { lte: params.to } : {}),
+                  },
+                }
+              : {}),
+          },
           _sum: { astrologerCoinsEarned: true },
         })
       : [];

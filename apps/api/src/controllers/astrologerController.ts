@@ -24,7 +24,10 @@ import {
   canAcceptAppointments,
   canAcceptBroadcastMessages,
 } from '@jyotish/shared';
-import { getAstrologerDashboardStats } from '../services/astrologerDashboard.service';
+import {
+  getAstrologerDashboardStats,
+  getOnlineAstrologerPeers,
+} from '../services/astrologerDashboard.service';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { getClientIp } from '../utils/request-utils';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
@@ -467,6 +470,27 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
     const stats = await getAstrologerDashboardStats(astrologerId, language);
 
     return sendSuccess(res, stats);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Get online astrologer peers for astrologer dashboard.
+ * GET /api/v1/astrologer/dashboard/online-astrologers
+ */
+export async function getOnlineAstrologers(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const astrologerId = req.user?.id;
+    if (!astrologerId) {
+      throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    const limitRaw = req.query.limit;
+    const limit = typeof limitRaw === 'number' ? limitRaw : Number(limitRaw ?? 12);
+    const onlineAstrologers = await getOnlineAstrologerPeers(astrologerId, Number.isFinite(limit) ? limit : 12);
+
+    return sendSuccess(res, { onlineAstrologers });
   } catch (error) {
     next(error);
   }

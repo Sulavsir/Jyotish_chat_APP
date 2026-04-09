@@ -5,21 +5,31 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
-import { Search, MoneyIcon, StarIcon } from '@jyotish/ui';
+import { Search, MoneyIcon, StarIcon, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
 import {
   AdminTable,
+  AdminClearFiltersButton,
   AdminListPaginationSection,
   AdminRefreshButton,
   type AdminTableColumn,
 } from '@/components/admin';
-import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
+import {
+  ADMIN_QUERY_KEYS,
+  PAGINATION_DEFAULTS,
+  ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_DATE_FILTER_DEBOUNCE_MS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
+} from '@/constants';
 import type { AstrologerWithCoinEarning } from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 
 export default function EarningsPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 400);
+  const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
+  const [earningRange, setEarningRange] = useState(getAllTimeDateRange);
+  const debouncedFrom = useDebounce(earningRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
+  const debouncedTo = useDebounce(earningRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const {
     pageSize: rowsPerPage,
     setPageSize: setRowsPerPage,
@@ -31,12 +41,16 @@ export default function EarningsPage() {
       page: currentPage,
       limit: debouncedRowsPerPage,
       search: debouncedSearch || undefined,
+      from: debouncedFrom || undefined,
+      to: debouncedTo || undefined,
     }),
     queryFn: () =>
       adminApi.earnings.listAstrologersWithCoins({
         page: currentPage,
         limit: debouncedRowsPerPage,
         search: debouncedSearch || undefined,
+        from: debouncedFrom || undefined,
+        to: debouncedTo || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -49,7 +63,17 @@ export default function EarningsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, debouncedRowsPerPage]);
+  }, [debouncedSearch, debouncedFrom, debouncedTo, debouncedRowsPerPage]);
+
+  const allTime = getAllTimeDateRange();
+  const hasActiveFilters =
+    Boolean(debouncedSearch) || debouncedFrom !== allTime.from || debouncedTo !== allTime.to;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setEarningRange(getAllTimeDateRange());
+    setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+  };
 
   const astrologers = data?.astrologers ?? [];
   const pagination = data?.pagination ?? {
@@ -162,15 +186,32 @@ export default function EarningsPage() {
         </div>
 
         <div className="w-full">
-          <Search
-            placeholder="Search by name, email or phone..."
-            value={searchTerm}
-            onSearch={(value) => {
-              setSearchTerm(value);
-              setCurrentPage(1);
-            }}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="w-full md:max-w-md">
+              <Search
+                placeholder="Search by name, email or phone..."
+                value={searchTerm}
+                onSearch={(value) => {
+                  setSearchTerm(value);
+                  setCurrentPage(PAGINATION_DEFAULTS.PAGE);
+                }}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-full md:w-auto flex items-center justify-end gap-2">
+              <AdminMonthRangeFilter
+                fromValue={earningRange.from}
+                toValue={earningRange.to}
+                onRangeChange={(from, to) => setEarningRange({ from, to })}
+                disabled={isLoading || isFetching}
+              />
+              <AdminClearFiltersButton
+                show={hasActiveFilters}
+                onClear={clearFilters}
+                disabled={isLoading || isFetching}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="cosmic-card rounded-xl overflow-hidden">

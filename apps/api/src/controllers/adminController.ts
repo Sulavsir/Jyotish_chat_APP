@@ -1602,11 +1602,19 @@ export async function listAstrologersWithCoinEarnings(
   next: NextFunction
 ) {
   try {
-    const query = req.query as { page?: number; limit?: number; search?: string };
+    const query = req.query as {
+      page?: number;
+      limit?: number;
+      search?: string;
+      from?: Date;
+      to?: Date;
+    };
     const result = await astrologerEarningsService.listAstrologersWithCoinEarnings({
       page: query.page,
       limit: query.limit,
       search: query.search,
+      from: query.from,
+      to: query.to,
     });
     return sendSuccess(res, result);
   } catch (error) {

@@ -19,6 +19,7 @@ import {
   WelcomeHero,
   DashboardTip,
   DashboardEarningsStatCard,
+  OnlineAstrologersPanel,
 } from '@/components/features/jyotish-dashboard';
 import jyotishDashboardService from '@/services/jyotishDashboard.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
@@ -113,6 +114,9 @@ export default function JyotishDashboardPage() {
 
         {/* Quick Actions */}
         <QuickActions />
+
+        {/* Online astrologers panel */}
+        <OnlineAstrologersPanel />
 
         {/* Two columns: Tip + Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

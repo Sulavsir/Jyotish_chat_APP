@@ -159,6 +159,7 @@ export const API_ENDPOINTS = {
     STATS: '/api/v1/public/astrologers/stats',
     EARNINGS: '/api/v1/astrologer/earnings',
     DASHBOARD_STATS: '/api/v1/astrologer/dashboard/stats',
+    DASHBOARD_ONLINE_ASTROLOGERS: '/api/v1/astrologer/dashboard/online-astrologers',
     SLOTS: '/api/v1/astrologer/slots',
     SLOTS_BULK: '/api/v1/astrologer/slots/bulk',
     SLOT_BY_ID: (id: string) => `/api/v1/astrologer/slots/${id}`,

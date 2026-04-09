@@ -684,6 +684,8 @@ export const adminApi = {
       page?: number;
       limit?: number;
       search?: string;
+      from?: string;
+      to?: string;
     }): Promise<ListAstrologersWithCoinEarningsResponse> => {
       const response = await apiClient.get<ListAstrologersWithCoinEarningsResponse>(
         API_ENDPOINTS.EARNINGS.ASTROLOGERS_WITH_COINS,

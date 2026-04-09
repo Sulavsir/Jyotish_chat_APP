@@ -70,9 +70,11 @@ export default function ForgotPasswordPage() {
       }
 
       if (data.method === 'otp' && data.sessionId) {
-        const cleanedIdentifier = variables.identifier.includes('@')
-          ? variables.identifier.trim()
-          : variables.identifier.replace(/\D/g, '');
+        const cleanedIdentifier = data.phoneNumber
+          ? data.phoneNumber
+          : variables.identifier.includes('@')
+            ? variables.identifier.trim()
+            : variables.identifier.replace(/\D/g, '').slice(-10);
 
         setOtpSessionId(data.sessionId);
         setOtpPhoneNumber(cleanedIdentifier);

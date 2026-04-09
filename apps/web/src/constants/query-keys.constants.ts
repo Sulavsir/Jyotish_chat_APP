@@ -203,6 +203,7 @@ export const QUERY_KEYS = {
   // Jyotish Dashboard
   JYOTISH_DASHBOARD: {
     STATS: ['jyotish-dashboard', 'stats'] as const,
+    ONLINE_ASTROLOGERS: ['jyotish-dashboard', 'online-astrologers'] as const,
     RECENT_ACTIVITY: (limit?: number) =>
       limit
         ? (['jyotish-dashboard', 'recent-activity', limit] as const)

@@ -8,6 +8,7 @@ import { prisma } from '@jyotish/database';
 import { tipService } from './tip.service';
 import type { QuestionnaireLanguage } from '@jyotish/shared';
 import { AppointmentStatus, type AstrologerCoinEarningSource } from '@prisma/client';
+import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
 
 function emptyEarningsBySource(): Record<AstrologerCoinEarningSource, number> {
   return {
@@ -65,6 +66,16 @@ export interface AstrologerDashboardStats {
   monthlyEarnings: MonthlyEarnings;
   recentActivity: RecentActivityItem[];
   todayTip: TodayTip;
+}
+
+export interface OnlineAstrologerPeer {
+  id: string;
+  name: string;
+  profilePhoto: string | null;
+  category: string;
+  rating: number;
+  totalConsultations: number;
+  isOnline: boolean;
 }
 
 const RECENT_ACTIVITY_LIMIT = 3;
@@ -278,4 +289,39 @@ export async function getAstrologerDashboardStats(
     recentActivity,
     todayTip: { text: tipText },
   };
+}
+
+/**
+ * Returns other online astrologers for astrologer dashboard.
+ * Excludes current astrologer to avoid self-listing.
+ */
+export async function getOnlineAstrologerPeers(
+  currentAstrologerId: string,
+  limit: number = 12
+): Promise<OnlineAstrologerPeer[]> {
+  const rows = await prisma.astrologer.findMany({
+    where: {
+      id: { not: currentAstrologerId },
+      isDeleted: false,
+      isActive: true,
+      isOnline: true,
+      accountStatus: ASTROLOGER_ACCOUNT_STATUS.APPROVED,
+    },
+    select: {
+      id: true,
+      name: true,
+      profilePhoto: true,
+      category: true,
+      rating: true,
+      totalConsultations: true,
+      isOnline: true,
+    },
+    orderBy: [{ rating: 'desc' }, { totalConsultations: 'desc' }, { name: 'asc' }],
+    take: limit,
+  });
+
+  return rows.map((row) => ({
+    ...row,
+    rating: row.rating ?? 0,
+  }));
 }
