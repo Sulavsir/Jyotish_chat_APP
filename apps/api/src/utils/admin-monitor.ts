@@ -218,13 +218,22 @@ export function notifyBroadcastMessageAccepted(
  */
 export function notifyBroadcastMessageExpired(messageId: string) {
   if (!ioInstance) return;
-  
+
+  const expiredAt = new Date();
+
   ioInstance.to('admin').emit('broadcast:update', {
     id: messageId,
     status: 'EXPIRED',
-    expiredAt: new Date(),
+    expiredAt,
   });
-  
+
+  // Chat audit list listens on chatAudit:update — without this, Status stays stale until manual refresh
+  ioInstance.to('admin').emit('chatAudit:update', {
+    id: messageId,
+    status: 'EXPIRED',
+    expiredAt: expiredAt.toISOString(),
+  });
+
   console.log(`📢 Admin notified: Broadcast message ${messageId} expired`);
 }
 
@@ -234,13 +243,45 @@ export function notifyBroadcastMessageExpired(messageId: string) {
 export function notifyBroadcastMessageCancelled(messageId: string) {
   if (!ioInstance) return;
 
+  const cancelledAt = new Date();
+
   ioInstance.to('admin').emit('broadcast:update', {
     id: messageId,
     status: 'CANCELLED',
-    cancelledAt: new Date(),
+    cancelledAt,
+  });
+
+  ioInstance.to('admin').emit('chatAudit:update', {
+    id: messageId,
+    status: 'CANCELLED',
+    cancelledAt: cancelledAt.toISOString(),
   });
 
   console.log(`📢 Admin notified: Broadcast message ${messageId} cancelled`);
+}
+
+/**
+ * After batch-expiring instant chat requests — invalidates admin chat audit list (same channel as single-row updates).
+ */
+export function notifyInstantChatRequestsExpiredBatch() {
+  if (!ioInstance) return;
+
+  ioInstance.to('admin').emit('chatAudit:update', {
+    id: '__instant_batch__',
+    status: 'EXPIRED',
+    expiredAt: new Date().toISOString(),
+  });
+}
+
+/** Single instant chat row marked EXPIRED (e.g. accept attempt after window). */
+export function notifyInstantChatRequestExpired(requestId: string) {
+  if (!ioInstance) return;
+
+  ioInstance.to('admin').emit('chatAudit:update', {
+    id: requestId,
+    status: 'EXPIRED',
+    expiredAt: new Date().toISOString(),
+  });
 }
 
 /**

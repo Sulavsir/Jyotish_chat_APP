@@ -188,12 +188,13 @@ export function KundaliMatchStatusFilter({
   );
 }
 
-export type ChatAuditStatusFilterValue = '' | 'PENDING' | 'ACCEPTED' | 'CANCELLED';
+export type ChatAuditStatusFilterValue = '' | 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
 
 export const CHAT_AUDIT_STATUS_OPTIONS: StatusFilterOption<ChatAuditStatusFilterValue>[] = [
   { value: '', label: 'All Status' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'ACCEPTED', label: 'Accepted' },
+  { value: 'EXPIRED', label: 'Expired' },
   { value: 'CANCELLED', label: 'Cancelled' },
 ];
 

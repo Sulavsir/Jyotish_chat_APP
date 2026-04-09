@@ -55,47 +55,66 @@ export function AdminTable<T>({
   itemsPerPage = 10,
   onRowClick,
 }: AdminTableProps<T>) {
-  if (loading) {
-    return <TableSkeleton rows={5} columns={columns.length + (showSerialNumber ? 1 : 0)} />;
-  }
+  const colCount = columns.length + (showSerialNumber ? 1 : 0);
 
-  if (data.length === 0 && emptyState) {
-    return (
-      <EmptyState
-        icon={emptyState.icon}
-        title={emptyState.title}
-        description={emptyState.description}
-        action={emptyState.action}
-      />
-    );
+  if (loading) {
+    return <TableSkeleton rows={5} columns={colCount} />;
   }
 
   const getSerialNumber = (index: number) => {
     return (currentPage - 1) * itemsPerPage + index + 1;
   };
 
+  const tableHeader = (
+    <TableHeader>
+      <TableRow>
+        {showSerialNumber && (
+          <TableHead className="border-r border-slate-700 bg-indigo-900 w-16 shrink-0">S.N.</TableHead>
+        )}
+        {columns.map((column, index) => (
+          <TableHead
+            key={index}
+            className={`border-r border-slate-700 bg-indigo-900 whitespace-nowrap ${column.className || ''} ${
+              index === columns.length - 1 ? 'border-r-0' : ''
+            }`}
+            style={column.width ? { width: column.width } : undefined}
+          >
+            {column.header}
+          </TableHead>
+        ))}
+      </TableRow>
+    </TableHeader>
+  );
+
+  if (data.length === 0 && emptyState) {
+    return (
+      <div className="w-full max-w-full min-w-0">
+        <div className="overflow-x-auto w-full">
+          <Table className="w-max min-w-full">
+            {tableHeader}
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={colCount} className="border-0 p-0 align-top">
+                  <EmptyState
+                    icon={emptyState.icon}
+                    title={emptyState.title}
+                    description={emptyState.description}
+                    action={emptyState.action}
+                  />
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-full min-w-0">
       <div className="overflow-x-auto w-full">
         <Table className="w-max min-w-full">
-          <TableHeader>
-            <TableRow>
-              {showSerialNumber && (
-                <TableHead className="border-r border-slate-700 bg-indigo-900 w-16 shrink-0">S.N.</TableHead>
-              )}
-              {columns.map((column, index) => (
-                <TableHead
-                  key={index}
-                  className={`border-r border-slate-700 bg-indigo-900 whitespace-nowrap ${column.className || ''} ${
-                    index === columns.length - 1 ? 'border-r-0' : ''
-                  }`}
-                  style={column.width ? { width: column.width } : undefined}
-                >
-                  {column.header}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
+          {tableHeader}
           <TableBody>
             {data.map((item, index) => (
               <TableRow

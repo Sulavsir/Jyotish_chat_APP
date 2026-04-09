@@ -245,6 +245,10 @@ export default function ChatAuditPage() {
           <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-400">
             ACTIVE
           </span>
+        ) : log.status === 'EXPIRED' ? (
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-500/20 text-gray-400">
+            EXPIRED
+          </span>
         ) : (
           <span className="text-slate-500 text-sm">-</span>
         ),

@@ -35,6 +35,12 @@ import { getClientIp } from '../utils/request-utils';
 import { getSocketInstance } from '../utils/socket-instance';
 import * as adminPlatformPaymentService from '../services/adminPlatformPayment.service';
 import { utcDayEnd, utcDayStart } from '../utils/date-range.utils';
+import {
+  effectiveBroadcastAuditStatus,
+  effectiveInstantChatAuditStatus,
+  broadcastStatusFilterWhere,
+  instantChatStatusFilterWhere,
+} from '../utils/chat-audit-effective-status';
 import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
 import { NotificationService } from '../services/notification.service';
 import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
@@ -1931,25 +1937,28 @@ export async function getChatAudit(req: AuthRequest, res: Response, next: NextFu
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
 
-    // Build where clauses
-    const broadcastWhere: Record<string, unknown> = {};
-    const instantChatWhere: Record<string, unknown> = {};
+    // Build where clauses (AND of status + search). Status uses wall-clock for PENDING/EXPIRED.
+    const broadcastConditions: Record<string, unknown>[] = [];
+    const instantConditions: Record<string, unknown>[] = [];
 
-    // Status filter
     if (status && status !== 'ALL') {
-      broadcastWhere.status = status;
-      instantChatWhere.status = status;
+      broadcastConditions.push(broadcastStatusFilterWhere(status as string));
+      instantConditions.push(instantChatStatusFilterWhere(status as string));
     }
 
-    // Search filter
     if (search) {
       const searchCondition = [
         { client: { name: { contains: search as string, mode: 'insensitive' } } },
         { client: { phone: { contains: search as string } } },
       ];
-      broadcastWhere.OR = searchCondition;
-      instantChatWhere.OR = searchCondition;
+      broadcastConditions.push({ OR: searchCondition });
+      instantConditions.push({ OR: searchCondition });
     }
+
+    const broadcastWhere: Record<string, unknown> =
+      broadcastConditions.length > 0 ? { AND: broadcastConditions } : {};
+    const instantChatWhere: Record<string, unknown> =
+      instantConditions.length > 0 ? { AND: instantConditions } : {};
 
     // Type filter
     const shouldFetchBroadcast = !type || type === 'BROADCAST_MESSAGE';
@@ -2009,37 +2018,44 @@ export async function getChatAudit(req: AuthRequest, res: Response, next: NextFu
         : [],
     ]);
 
-    // Transform into unified audit format
-    const broadcastAuditLogs = broadcastMessages.map((msg) => ({
-      id: msg.id,
-      type: 'BROADCAST_MESSAGE' as const,
-      action: msg.status,
-      status: msg.status,
-      client: msg.client,
-      astrologer: msg.acceptedAstrologer,
-      content: msg.content,
-      messageType: msg.type,
-      metadata: msg.metadata,
-      createdAt: msg.createdAt,
-      acceptedAt: msg.acceptedAt,
-      chatId: msg.chatId,
-    }));
+    // Transform into unified audit format (effective status when DB not yet swept)
+    const broadcastAuditLogs = broadcastMessages.map((msg) => {
+      const effectiveStatus = effectiveBroadcastAuditStatus(msg.status, msg.expiresAt);
+      return {
+        id: msg.id,
+        type: 'BROADCAST_MESSAGE' as const,
+        action: effectiveStatus,
+        status: effectiveStatus,
+        client: msg.client,
+        astrologer: msg.acceptedAstrologer,
+        content: msg.content,
+        messageType: msg.type,
+        metadata: msg.metadata,
+        createdAt: msg.createdAt,
+        acceptedAt: msg.acceptedAt,
+        chatId: msg.chatId,
+        expiresAt: msg.expiresAt,
+      };
+    });
 
-    const instantChatAuditLogs = instantChatRequests.map((req) => ({
-      id: req.id,
-      type: 'INSTANT_CHAT_REQUEST' as const,
-      action: req.status,
-      status: req.status,
-      client: req.client,
-      astrologer: req.acceptedAstrologer,
-      content: req.message,
-      messageType: 'TEXT' as const,
-      metadata: null,
-      createdAt: req.createdAt,
-      acceptedAt: req.acceptedAt,
-      chatId: req.chatId,
-      expiresAt: req.expiresAt,
-    }));
+    const instantChatAuditLogs = instantChatRequests.map((req) => {
+      const effectiveStatus = effectiveInstantChatAuditStatus(req.status, req.expiresAt);
+      return {
+        id: req.id,
+        type: 'INSTANT_CHAT_REQUEST' as const,
+        action: effectiveStatus,
+        status: effectiveStatus,
+        client: req.client,
+        astrologer: req.acceptedAstrologer,
+        content: req.message,
+        messageType: 'TEXT' as const,
+        metadata: null,
+        createdAt: req.createdAt,
+        acceptedAt: req.acceptedAt,
+        chatId: req.chatId,
+        expiresAt: req.expiresAt,
+      };
+    });
 
     // Merge and sort by creation date
     const allLogs = [...broadcastAuditLogs, ...instantChatAuditLogs].sort(

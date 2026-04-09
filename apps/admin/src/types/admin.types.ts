@@ -293,11 +293,13 @@ export interface ChatAuditNewEvent {
 
 export interface ChatAuditUpdateEvent {
   id: string;
-  status: BroadcastMessageStatus;
+  status: ChatAuditStatus;
   astrologerId?: string;
   astrologer?: AstrologerProfile;
   chatId?: string;
-  acceptedAt: string;
+  acceptedAt?: string;
+  expiredAt?: string;
+  cancelledAt?: string;
 }
 
 export interface ChatAuditChatEndedEvent {

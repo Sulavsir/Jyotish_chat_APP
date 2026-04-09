@@ -11,6 +11,8 @@ import {
   notifyInstantChatRequestCreated,
   notifyInstantChatRequestAccepted,
   notifyInstantChatRequestCancelled,
+  notifyInstantChatRequestsExpiredBatch,
+  notifyInstantChatRequestExpired,
 } from '../utils';
 import { auditService } from './audit.service';
 import { AppError } from '../middleware/error-handler';
@@ -149,11 +151,11 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
   }
 
   if (new Date() > request.expiresAt) {
-    // Mark as expired
     await prisma.instantChatRequest.update({
       where: { id: requestId },
       data: { status: InstantChatRequestStatus.EXPIRED },
     });
+    notifyInstantChatRequestExpired(requestId);
     throw new Error('Request has expired');
   }
 
@@ -378,6 +380,10 @@ export const expireOldRequests = async () => {
       status: InstantChatRequestStatus.EXPIRED,
     },
   });
+
+  if (result.count > 0) {
+    notifyInstantChatRequestsExpiredBatch();
+  }
 
   return result.count;
 };

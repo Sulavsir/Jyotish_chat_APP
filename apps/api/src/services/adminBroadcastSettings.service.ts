@@ -17,7 +17,10 @@ export async function getAdminBroadcastSettings() {
 
   const [pendingMessages, onlineAstrologers] = await Promise.all([
     prisma.broadcastMessage.findMany({
-      where: { status: BroadcastMessageStatus.PENDING },
+      where: {
+        status: BroadcastMessageStatus.PENDING,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

@@ -61,6 +61,7 @@ export const ADMIN_ROUTES = {
   // Balance Settings (set NRs for chat, broadcast, appointment)
   SET_COINS: '/admin/set-balance',
   BROADCAST_SETTINGS: '/admin/broadcast-settings',
+  PENDING_BROADCASTS: '/admin/pending-broadcasts',
 
   // Pricing
   PRICING: '/admin/pricing',
