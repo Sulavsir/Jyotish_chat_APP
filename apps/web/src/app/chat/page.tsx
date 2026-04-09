@@ -30,7 +30,7 @@ import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 import { CoinPurchaseModal } from '@/components/modals';
-import { ERROR_CODES, QUERY_KEYS } from '@/constants';
+import { ERROR_CODES, QUERY_KEYS, ROUTES } from '@/constants';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRole } from '@/types/user.types';
@@ -944,6 +944,16 @@ export default function ChatPage() {
     setActiveChatId(null);
   };
 
+  const handleLeaveChatView = () => {
+    setShowMobileChat(false);
+    setActiveChat(null);
+    setActiveChatId(null);
+    setMessages([]);
+    setIsBroadcastChatActive(false);
+    lastUrlSelectionKeyRef.current = 'none';
+    router.replace(ROUTES.CHAT);
+  };
+
   // Handle chat ended
   const handleChatEnded = async () => {
     // Reload conversations to update status
@@ -1070,6 +1080,7 @@ export default function ChatPage() {
                   onInputFocus={handleInputFocus}
                   onLoadMore={loadMoreMessages}
                   onBack={handleBack}
+                  onLeaveChatView={handleLeaveChatView}
                   onChatEnded={handleChatEnded}
                   isTyping={isOtherUserTyping}
                   isLoading={isLoadingMessages}

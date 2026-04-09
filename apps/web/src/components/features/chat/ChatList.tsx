@@ -103,8 +103,8 @@ export const ChatList: React.FC<ChatListProps> = ({
       <div
         className={
           isJyotish
-            ? 'p-3 border-b border-white/[0.06] space-y-2'
-            : 'p-4 border-b border-white/10 space-y-2'
+            ? 'flex h-[5.75rem] min-h-0 flex-shrink-0 flex-col justify-center space-y-1.5 border-b border-white/[0.06] px-3 py-2'
+            : 'space-y-2 border-b border-white/10 p-4'
         }
       >
         <div className="relative">
@@ -120,7 +120,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             className={
               isJyotish
-                ? 'w-full pl-10 pr-4 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500/40 text-[#fafaf9] placeholder:text-[#78716c] text-sm'
+                ? 'w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-1.5 pl-10 pr-4 text-sm text-[#fafaf9] placeholder:text-[#78716c] focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-amber-500/40'
                 : 'w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder:text-gray-400'
             }
           />

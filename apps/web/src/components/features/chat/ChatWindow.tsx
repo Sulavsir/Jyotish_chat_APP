@@ -18,7 +18,6 @@ import {
 } from '@jyotish/ui';
 import {
   ArrowLeft,
-  MoreVertical,
   PhoneOff,
   MessageCircle,
   MessageSquare,
@@ -27,6 +26,7 @@ import {
   AlertTriangle,
   User,
   History,
+  X,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -43,14 +43,15 @@ import { useSocket } from '@/hooks/useSocket';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useChatBirthDetailsNepaliMap } from '@/hooks/useChatBirthDetailsNepaliMap';
 import complaintService from '@/services/complaint.service';
-import { clientHasChatHistory as clientHasChatHistoryFn } from '@/services/clientChatHistory.service';
 import { ComplaintCategory, COMPLAINT_CATEGORY_LABELS } from '@/types/complaint';
 import { InlineChatRating } from '@/components/features/ratings';
 import { ERROR_CODES, QUERY_KEYS } from '@/constants';
+import { clientHasChatHistory as clientHasChatHistoryFn } from '@/services/clientChatHistory.service';
 import {
   ClientDetailsModal,
   SelectProfileModal,
   ClientChatHistoryModal,
+  ClientChatHistoryPanel,
 } from '@/components/modals';
 import type { ClientProfile } from '@jyotish/shared';
 import {
@@ -66,6 +67,21 @@ interface SystemMessage {
   type: 'SYSTEM';
   isSystemMessage: true;
   createdAt: string;
+}
+
+/** Prefer name, then phone, then email so the header never appears empty when data exists on the participant */
+function getParticipantDisplayName(u: {
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  role?: string;
+}): string {
+  const n = u.name?.trim();
+  if (n) return n;
+  if (u.phone?.trim()) return u.phone.trim();
+  if (u.email?.trim()) return u.email.trim();
+  const isAstro = u.role === UserRole.ASTROLOGER || u.role === 'ASTROLOGER';
+  return isAstro ? 'Astrologer' : 'Client';
 }
 
 interface ChatWindowProps {
@@ -105,6 +121,13 @@ interface ChatWindowProps {
   }) => void | Promise<void>;
   onInsufficientCoinsForBundle?: (requiredNr: number) => void;
   onQuestionBundleProfileIncomplete?: (missingFields: string[]) => void;
+  /** When no chat is selected (empty main area) */
+  noChatEmptyTitle?: string;
+  noChatEmptySubtitle?: string;
+  /** Astrologer: open past-client history in a right sidebar instead of a modal */
+  clientChatHistoryPresentation?: 'modal' | 'sidebar';
+  /** Clear selection and return to empty state (does not end the chat session) */
+  onLeaveChatView?: () => void;
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({
@@ -132,6 +155,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onDirectQuestionBundleSent,
   onInsufficientCoinsForBundle,
   onQuestionBundleProfileIncomplete,
+  noChatEmptyTitle,
+  noChatEmptySubtitle,
+  clientChatHistoryPresentation = 'modal',
+  onLeaveChatView,
 }) => {
   const isJyotish = variant === 'jyotish';
   const emptyStateDark = emptyStateTheme === 'dark';
@@ -154,7 +181,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showSelectProfileModal, setShowSelectProfileModal] = useState(false);
-  const [showClientChatHistoryModal, setShowClientChatHistoryModal] = useState(false);
+  const [showClientChatHistory, setShowClientChatHistory] = useState(false);
   const onlineUsers = useStore((state) => state.onlineUsers);
   const user = useAuthStore((state) => state.user);
   const { socket } = useSocket();
@@ -384,6 +411,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
 
     previousChatId.current = currentChatId;
+    setShowClientChatHistory(false);
   }, [chat?.id]);
 
   // Auto-scroll to bottom when new messages arrive (only if user is at bottom)
@@ -502,6 +530,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   if (!chat) {
     const useDarkEmpty = emptyStateDark || isJyotish;
+    const emptyTitle = noChatEmptyTitle ?? 'Select a conversation';
+    const emptySubtitle =
+      noChatEmptySubtitle ??
+      'Choose a conversation from the list or start a new chat with an astrologer';
     return (
       <div
         className={`flex items-center justify-center h-full ${
@@ -519,12 +551,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 : 'text-xl font-semibold text-white'
             }
           >
-            Select a conversation
+            {emptyTitle}
           </h3>
           <p
-            className={useDarkEmpty ? 'text-sm text-[#78716c] max-w-md' : 'text-gray-400 max-w-md'}
+            className={useDarkEmpty ? 'text-sm text-[#78716c] max-w-md mx-auto' : 'text-gray-400 max-w-md mx-auto'}
           >
-            Choose a conversation from the list or start a new chat with an astrologer
+            {emptySubtitle}
           </p>
         </div>
       </div>
@@ -536,48 +568,64 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     chat.clientParticipant.id === currentUserId
       ? chat.astrologerParticipant
       : chat.clientParticipant;
+  const displayName = getParticipantDisplayName({
+    name: otherUser.name,
+    phone: otherUser.phone,
+    email: 'email' in otherUser ? (otherUser as { email?: string | null }).email : undefined,
+    role: otherUser.role,
+  });
+
   const showClientIconFallback =
-    otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name;
+    otherUser.role === UserRole.CLIENT &&
+    !otherUser.profilePhoto &&
+    !otherUser.name?.trim() &&
+    !otherUser.phone?.trim();
+
+  const showHistorySidebar =
+    user?.role === UserRole.ASTROLOGER &&
+    clientChatHistoryPresentation === 'sidebar' &&
+    showClientChatHistory &&
+    !!chat?.clientParticipant;
 
   return (
-    <div className="flex min-h-0 flex-col h-full bg-white">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white">
-        <div className="flex items-center gap-3">
+    <div className="flex min-h-0 flex-1 h-full flex-col bg-white">
+      <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex h-[5.75rem] min-h-[5.75rem] flex-shrink-0 flex-col gap-2 border-b border-gray-200 bg-white px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-0">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {onBack && (
             <Button
               variant="ghost"
               size="icon"
               onClick={onBack}
-              className="lg:hidden hover:bg-gray-100"
+              className="flex-shrink-0 lg:hidden hover:bg-gray-100"
               aria-label="Back"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
           )}
 
-          <Avatar className="h-10 w-10">
+          <Avatar className="h-10 w-10 flex-shrink-0">
             <AvatarImage
               src={getImageUrl(otherUser.profilePhoto) || undefined}
-              alt={otherUser.name || otherUser.phone || 'User'}
+              alt={displayName}
             />
             <AvatarFallback className="font-bold">
               {showClientIconFallback ? (
                 <User className="h-5 w-5" />
               ) : (
-                (otherUser.name || otherUser.phone || 'U').charAt(0).toUpperCase()
+                displayName.charAt(0).toUpperCase()
               )}
             </AvatarFallback>
           </Avatar>
 
-          <div>
-            <h2 className="font-semibold text-gray-900">
-              {otherUser.name || otherUser.phone || 'Unknown User'}
-            </h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate font-semibold text-gray-900">{displayName}</h2>
             <p className="text-xs text-gray-500">
               {isTyping ? (
                 <span className="text-indigo-600">typing...</span>
               ) : onlineUsers.has(otherUser.id) ? (
-                <span className="text-green-600">● Online</span>
+                <span className="text-green-600">Online</span>
               ) : (
                 <span className="text-gray-400">Offline</span>
               )}
@@ -585,7 +633,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
           {/* Select Profile badge - only for clients: choose whose birth details to share with Jyotish */}
           {user?.role === UserRole.CLIENT && onProfileChange && (
             <Badge
@@ -596,6 +644,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <User className="h-3.5 w-3.5 mr-1.5" />
               Change Profile
             </Badge>
+          )}
+          {user?.role === UserRole.CLIENT && (
+            <Tooltip content="Report this chat">
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-amber-800 transition-colors hover:bg-amber-50 hover:text-amber-900"
+                onClick={() => setShowComplaintForm(true)}
+                aria-label="Report this chat"
+              >
+                <AlertTriangle className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </Tooltip>
           )}
           {user?.role === UserRole.ASTROLOGER && otherUser.role === UserRole.CLIENT && (
             <>
@@ -614,7 +674,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <Badge
                   variant="outline"
                   className="cursor-pointer bg-slate-600 hover:bg-slate-700 text-white border-slate-500 transition-all px-3 py-1.5 font-medium"
-                  onClick={() => setShowClientChatHistoryModal(true)}
+                  onClick={() => setShowClientChatHistory(true)}
                 >
                   <History className="h-3.5 w-3.5 mr-1.5" />
                   Client Chat History
@@ -628,6 +688,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               <Button
                 variant="ghost"
                 size="icon"
+                className="flex-shrink-0"
                 onClick={handleEndChat}
                 disabled={isEndingChat}
                 aria-label="End Chat Session"
@@ -637,9 +698,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             </Tooltip>
           )}
 
-          <Button variant="ghost" size="icon" className="h-9 w-9">
-            <MoreVertical className="h-5 w-5 text-gray-600" />
-          </Button>
+          {onLeaveChatView && (
+            <Tooltip content="Minimize View">
+              <button
+                type="button"
+                className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-black transition-colors hover:bg-gray-100"
+                onClick={() => {
+                  setShowClientChatHistory(false);
+                  onLeaveChatView();
+                }}
+                aria-label="Minimize View"
+              >
+                <X className="h-5 w-5" strokeWidth={2} />
+              </button>
+            </Tooltip>
+          )}
         </div>
       </div>
 
@@ -656,7 +729,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="flex flex-col items-center justify-center h-full space-y-4 p-8 text-gray-400">
             <div className="text-6xl mb-2">👋</div>
             <p className="text-xl font-semibold text-gray-700">
-              Say hello to {otherUser.name || otherUser.phone || 'Unknown User'}!
+              Say hello to {displayName}!
             </p>
             <p className="text-sm text-gray-500 text-center max-w-md">
               Start your conversation by sending a greeting.{' '}
@@ -1005,6 +1078,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           />
         </div>
       )}
+        </div>
+        {showHistorySidebar && chat.clientParticipant && (
+          <div className="flex h-full min-h-0 w-full max-w-[min(100%,420px)] flex-shrink-0 border-l border-gray-200">
+            <ClientChatHistoryPanel
+              isActive={showClientChatHistory}
+              onClose={() => setShowClientChatHistory(false)}
+              clientId={chat.clientParticipant.id}
+              clientName={chat.clientParticipant.name || chat.clientParticipant.phone}
+              layout="sidebar"
+            />
+          </div>
+        )}
+      </div>
 
       {/* End Chat Confirmation Dialog */}
       <ConfirmDialog
@@ -1221,15 +1307,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         />
       )}
 
-      {/* Client Chat History Modal (anonymous aggregated view) */}
-      {user?.role === UserRole.ASTROLOGER && chat?.clientParticipant && (
-        <ClientChatHistoryModal
-          isOpen={showClientChatHistoryModal}
-          onClose={() => setShowClientChatHistoryModal(false)}
-          clientId={chat.clientParticipant.id}
-          clientName={chat.clientParticipant.name || chat.clientParticipant.phone}
-        />
-      )}
+      {/* Client Chat History Modal (when not using sidebar) */}
+      {user?.role === UserRole.ASTROLOGER &&
+        chat?.clientParticipant &&
+        clientChatHistoryPresentation === 'modal' && (
+          <ClientChatHistoryModal
+            isOpen={showClientChatHistory}
+            onClose={() => setShowClientChatHistory(false)}
+            clientId={chat.clientParticipant.id}
+            clientName={chat.clientParticipant.name || chat.clientParticipant.phone}
+          />
+        )}
     </div>
   );
 };

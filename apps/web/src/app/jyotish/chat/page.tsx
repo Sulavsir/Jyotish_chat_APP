@@ -6,7 +6,7 @@
 
 import { JyotishLayout } from '@/components/layouts/JyotishLayout';
 import { useRequireAuth } from '@/hooks';
-import { USER_ROLES, ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
+import { USER_ROLES, ROUTE_BUILDERS, ROUTES, QUERY_KEYS } from '@/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@jyotish/ui';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -18,7 +18,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useStore } from '@/store';
 import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Minimize2, PanelRightOpen } from 'lucide-react';
 import { Chat, Message, FileAttachment } from '@/types/chat';
 
 /** Socket payloads sometimes omit role/birth fields; align with active chat client for instant UI. */
@@ -75,7 +75,7 @@ export default function JyotishChatPage() {
   const initializedRef = useRef(false);
   const currentOtherUserId = useRef<string | null>(null);
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
-
+  const [conversationListCollapsed, setConversationListCollapsed] = useState(false);
   const queryClient = useQueryClient();
   const { sendMessage, sendTypingIndicator, isConnected, socket } = useSocket();
   const chatMessages = useStore((state) => state.messages);
@@ -685,6 +685,14 @@ export default function JyotishChatPage() {
     }
   };
 
+  const handleLeaveChatView = useCallback(() => {
+    setActiveChat(null);
+    setActiveChatId(null);
+    setMessages([]);
+    lastUrlSelectionKeyRef.current = 'none';
+    router.replace(ROUTES.JYOTISH_CHAT);
+  }, [router]);
+
   const handleSelectChat = async (chatId: string, otherUserId: string) => {
     if (!chatId || !otherUserId) {
       console.warn('Missing chatId or otherUserId');
@@ -997,19 +1005,46 @@ export default function JyotishChatPage() {
 
         <Card className="bg-black/30 backdrop-blur-sm border border-white/15 rounded-xl overflow-hidden">
           <div className="flex h-[580px] min-h-0">
-            <div className="w-72 sm:w-80 flex-shrink-0 border-r border-white/10 flex flex-col bg-black/20">
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <ChatList
-                  chats={chats}
-                  activeChat={activeChatId}
-                  currentUserId={user?.id || ''}
-                  onSelectChat={handleSelectChat}
-                  isLoading={isLoadingChats}
-                  variant="jyotish"
-                  showStatusFilter
-                />
+            {!conversationListCollapsed ? (
+              <div className="flex w-72 sm:w-80 flex-shrink-0 flex-col border-r border-white/10 bg-black/20">
+                <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2">
+                  <span className="text-xs font-medium text-white/80">Conversations</span>
+                  <button
+                    type="button"
+                    onClick={() => setConversationListCollapsed(true)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#78716c] transition-colors hover:bg-white/[0.06] hover:text-amber-300"
+                    aria-label="Hide conversation list"
+                    title="Hide list"
+                  >
+                    <Minimize2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <ChatList
+                    chats={chats}
+                    activeChat={activeChatId}
+                    currentUserId={user?.id || ''}
+                    onSelectChat={handleSelectChat}
+                    isLoading={isLoadingChats}
+                    variant="jyotish"
+                    showStatusFilter
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex w-12 flex-shrink-0 flex-col items-center gap-3 border-r border-white/10 bg-black/25 py-3">
+                <button
+                  type="button"
+                  onClick={() => setConversationListCollapsed(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-amber-400/90 transition-colors hover:bg-white/[0.08]"
+                  aria-label="Expand conversation list"
+                  title="Show list"
+                >
+                  <PanelRightOpen className="h-5 w-5" />
+                </button>
+                <MessageSquare className="h-5 w-5 text-amber-500/50" aria-hidden />
+              </div>
+            )}
             <div
               className={`flex min-h-0 min-w-0 flex-1 flex-col ${activeChat ? 'bg-white' : 'bg-transparent'}`}
             >
@@ -1029,6 +1064,10 @@ export default function JyotishChatPage() {
                 isConnected={isConnected}
                 variant="jyotish"
                 emptyStateTheme="dark"
+                noChatEmptyTitle="No conversations opened yet"
+                noChatEmptySubtitle="Select a conversation from the list to open it here"
+                clientChatHistoryPresentation="sidebar"
+                onLeaveChatView={handleLeaveChatView}
                 draftValue={getDraftForChat(activeChatId)}
                 onDraftChange={handleDraftChange}
               />

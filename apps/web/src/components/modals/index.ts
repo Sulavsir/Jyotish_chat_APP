@@ -8,6 +8,7 @@ export * from './BroadcastRemainingPayModal'; // exports both BroadcastRemaining
 export * from './RemoveProfileModal';
 export * from './ClientDetailsModal';
 export * from './ClientChatHistoryModal';
+export * from './ClientChatHistoryPanel';
 export * from './AddFamilyMemberModal';
 export * from './SelectProfileModal';
 export * from './ActiveChatConflictModal';
