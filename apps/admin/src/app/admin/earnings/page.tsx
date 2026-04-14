@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Search, MoneyIcon, StarIcon, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
 import {
@@ -167,7 +166,7 @@ export default function EarningsPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
@@ -246,6 +245,6 @@ export default function EarningsPage() {
           />
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

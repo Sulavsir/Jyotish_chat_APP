@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
   Badge,
@@ -205,7 +204,7 @@ export default function KundaliMatchPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -408,6 +407,6 @@ export default function KundaliMatchPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 }

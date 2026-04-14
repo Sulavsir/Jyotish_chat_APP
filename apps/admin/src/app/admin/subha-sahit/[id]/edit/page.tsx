@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES } from '@/constants';
 import type { SubhaSahitDate } from '@/types';
@@ -81,7 +80,7 @@ export default function EditSubhaSahitDatePage() {
   const isSaving = updateMutation.isPending;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6 w-full max-w-2xl min-w-0">
         <div>
           <button
@@ -201,6 +200,6 @@ export default function EditSubhaSahitDatePage() {
           </form>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

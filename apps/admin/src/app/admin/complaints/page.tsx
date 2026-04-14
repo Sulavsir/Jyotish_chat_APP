@@ -40,7 +40,6 @@ import {
 } from '@/components/admin';
 import { ADMIN_QUERY_KEYS, PAGINATION_DEFAULTS, ADMIN_ROWS_PER_PAGE_OPTIONS } from '@/constants';
 import { toast } from 'sonner';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { useDebouncedPageSize } from '@/hooks';
 import { AlertTriangle, Eye, CheckCircle, X, Clock, MessageSquare, Paperclip } from 'lucide-react';
 
@@ -384,7 +383,7 @@ export default function ComplaintsPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -732,6 +731,6 @@ export default function ComplaintsPage() {
         alt="Complaint attachment"
         onClose={handleCloseImagePreview}
       />
-    </AdminLayout>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { AdminRole, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { seedNepaliDates } from './seed_nepali_from_xlsx';
 import { seedNepalProvincesDistricts } from './seed_nepal_provinces_districts';
@@ -14,6 +14,28 @@ async function main() {
   // Default password for new admins
   const defaultPassword = 'Nepal@123';
   const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+  // Users-only admin (no transactions / financial routes) — runs before other admin upserts
+  const supportEmail = 'admin@jyotish.com';
+  const supportPasswordPlain = 'Admin@12345';
+  const supportHash = await bcrypt.hash(supportPasswordPlain, 10);
+  const supportAdmin = await prisma.admin.upsert({
+    where: { email: supportEmail },
+    update: {
+      password: supportHash,
+      adminRole: AdminRole.USER_SUPPORT,
+      name: 'Admin (Support)',
+      isActive: true,
+    },
+    create: {
+      email: supportEmail,
+      password: supportHash,
+      name: 'Admin (Support)',
+      adminRole: AdminRole.USER_SUPPORT,
+    },
+  });
+  console.log('✅ Support admin (USER_SUPPORT):', supportAdmin.email);
+  console.log('   Login password:', supportPasswordPlain);
 
   const admins = [
     {

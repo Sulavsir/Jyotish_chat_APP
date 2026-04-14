@@ -29,7 +29,7 @@ import {
   CoinTransactionReason as DbCoinTransactionReason,
 } from '@jyotish/database';
 import { KundaliMatchStatus } from '@prisma/client';
-import { NotificationType } from '@jyotish/shared';
+import { AdminRole, NotificationType } from '@jyotish/shared';
 import { setAuthCookies, clearAuthCookies } from '../utils/cookie-utils';
 import { getClientIp } from '../utils/request-utils';
 import { getSocketInstance } from '../utils/socket-instance';
@@ -134,9 +134,28 @@ export async function adminRefreshToken(req: AuthRequest, res: Response, next: N
     // Verify the refresh token using admin service
     const decoded = adminService.verifyRefreshToken(refreshToken);
 
+    const adminRecord = await prisma.admin.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, email: true, isActive: true, adminRole: true },
+    });
+
+    if (!adminRecord || !adminRecord.isActive) {
+      throw new AppError(
+        'Admin account not found or deactivated',
+        HTTP_STATUS.UNAUTHORIZED,
+        ERROR_CODES.UNAUTHORIZED
+      );
+    }
+
+    const adminRole = adminRecord.adminRole as AdminRole;
+
     // Generate new tokens
-    const newAccessToken = adminService.generateAccessToken(decoded.id, decoded.email);
-    const newRefreshToken = adminService.generateRefreshToken(decoded.id, decoded.email);
+    const newAccessToken = adminService.generateAccessToken(adminRecord.id, adminRecord.email, adminRole);
+    const newRefreshToken = adminService.generateRefreshToken(
+      adminRecord.id,
+      adminRecord.email,
+      adminRole
+    );
 
     // Set new httpOnly cookies
     setAuthCookies(res, newAccessToken, newRefreshToken);
@@ -174,6 +193,7 @@ export async function getAdminProfile(req: AuthRequest, res: Response, next: Nex
         id: true,
         email: true,
         name: true,
+        adminRole: true,
         isActive: true,
         createdAt: true,
       },
@@ -1574,6 +1594,18 @@ export async function getDashboardStats(req: AuthRequest, res: Response, next: N
       platformTodayLoaded: platformTodayLoaded._sum.amount || 0,
     };
 
+    if (req.user?.adminRole === AdminRole.USER_SUPPORT) {
+      return sendSuccess(res, {
+        stats: {
+          ...stats,
+          totalEarnings: 0,
+          todayEarnings: 0,
+          platformTotalLoaded: 0,
+          platformTodayLoaded: 0,
+        },
+      });
+    }
+
     return sendSuccess(res, { stats });
   } catch (error) {
     next(error);
@@ -2476,6 +2508,8 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       }),
     ]);
 
+    const isUserSupport = req.user?.adminRole === AdminRole.USER_SUPPORT;
+
     return sendSuccess(res, {
       counts: {
         activeChats,
@@ -2486,7 +2520,7 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
         newUsersToday,
         totalAstrologers,
         pendingAstrologerRegistrations,
-        platformTransactions,
+        platformTransactions: isUserSupport ? 0 : platformTransactions,
       },
     });
   } catch (error) {

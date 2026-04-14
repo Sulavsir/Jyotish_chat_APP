@@ -1,5 +1,5 @@
 import { prisma } from '@jyotish/database';
-import { UserRole } from '@jyotish/shared';
+import { AdminRole, UserRole } from '@jyotish/shared';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { AUTH_CONFIG } from '../constants';
@@ -13,8 +13,9 @@ export class AdminService {
       throw new Error('Email and password are required');
     }
 
-    const admin = await prisma.admin.findUnique({
-      where: { email },
+    const trimmed = email.trim();
+    const admin = await prisma.admin.findFirst({
+      where: { email: { equals: trimmed, mode: 'insensitive' } },
     });
 
     if (!admin) {
@@ -30,15 +31,18 @@ export class AdminService {
       throw new Error('Invalid credentials');
     }
 
+    const adminRole = admin.adminRole as AdminRole;
+
     // Generate admin tokens
-    const accessToken = this.generateAccessToken(admin.id, admin.email);
-    const refreshToken = this.generateRefreshToken(admin.id, admin.email);
+    const accessToken = this.generateAccessToken(admin.id, admin.email, adminRole);
+    const refreshToken = this.generateRefreshToken(admin.id, admin.email, adminRole);
 
     return {
       admin: {
         id: admin.id,
         email: admin.email,
         name: admin.name,
+        adminRole,
       },
       accessToken,
       refreshToken,
@@ -55,6 +59,7 @@ export class AdminService {
         id: true,
         email: true,
         name: true,
+        adminRole: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -98,11 +103,12 @@ export class AdminService {
   /**
    * Generate access token for admin
    */
-  generateAccessToken(adminId: string, email: string): string {
+  generateAccessToken(adminId: string, email: string, adminRole: AdminRole): string {
     const payload = {
       id: adminId,
       email,
       role: UserRole.ADMIN,
+      adminRole,
       type: 'access', // Fixed: lowercase to match auth middleware
     };
 
@@ -115,11 +121,12 @@ export class AdminService {
   /**
    * Generate refresh token for admin
    */
-  generateRefreshToken(adminId: string, email: string): string {
+  generateRefreshToken(adminId: string, email: string, adminRole: AdminRole): string {
     const payload = {
       id: adminId,
       email,
       role: UserRole.ADMIN,
+      adminRole,
       type: 'refresh', // Fixed: lowercase to match auth middleware
     };
 
@@ -140,6 +147,7 @@ export class AdminService {
         id: string;
         email: string;
         role: string;
+        adminRole?: AdminRole;
         type: string;
       };
 
@@ -164,6 +172,7 @@ export class AdminService {
         id: string;
         email: string;
         role: string;
+        adminRole?: AdminRole;
         type: string;
       };
 

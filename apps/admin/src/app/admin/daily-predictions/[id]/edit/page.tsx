@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, TIP_AUDIENCES } from '@/constants';
 import type { AdminDailyTip } from '@/types';
@@ -85,7 +84,7 @@ export default function EditDailyPredictionPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6 w-full max-w-3xl min-w-0">
         <div className="flex items-start gap-3 sm:gap-4">
           <button
@@ -188,6 +187,6 @@ export default function EditDailyPredictionPage() {
           </form>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

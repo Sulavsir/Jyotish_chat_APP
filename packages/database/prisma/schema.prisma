@@ -191,12 +191,18 @@ model Astrologer {
   @@index([accountStatus])
 }
 
+enum AdminRole {
+  FULL
+  USER_SUPPORT
+}
+
 // Admin users for managing the platform
 model Admin {
   id                 String      @id @default(uuid())
   email              String      @unique
   password           String
   name               String
+  adminRole          AdminRole   @default(FULL)
   isActive           Boolean     @default(true)
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt

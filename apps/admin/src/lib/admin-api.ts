@@ -137,11 +137,7 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  admin: {
-    id: string;
-    email: string;
-    name: string;
-  };
+  admin: Admin;
 }
 
 type ListDashboardRotatingCopyResponse = {

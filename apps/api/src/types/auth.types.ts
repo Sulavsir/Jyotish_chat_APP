@@ -4,13 +4,15 @@
 
 import { UserResponse } from './database.types';
 import { TOKEN_TYPES } from '../constants/auth.constants';
-import { UserRole } from '@jyotish/shared';
+import { AdminRole, UserRole } from '@jyotish/shared';
 
 export interface UserPayload {
   id: string;
   phone?: string | null;
   email?: string | null;
   role: UserRole;
+  /** Set for admin JWTs (UserRole.ADMIN). Omitted for client/astrologer tokens. */
+  adminRole?: AdminRole;
   category?: string;
   type?: typeof TOKEN_TYPES.ACCESS | typeof TOKEN_TYPES.REFRESH;
 }

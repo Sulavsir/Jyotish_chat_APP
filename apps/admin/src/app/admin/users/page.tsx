@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { toast } from 'sonner';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, Search, UsersIcon, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
 import { Banknote, Plus } from 'lucide-react';
@@ -27,8 +26,11 @@ import {
 } from '@/constants';
 import type { User } from '@/types';
 import { AddCoinsModal } from '@/components/admin/AddCoinsModal';
+import { useAdminStore } from '@/store/admin-store';
+import { AdminRole } from '@jyotish/shared';
 
 export default function UsersPage() {
+  const canAddBalance = useAdminStore((s) => s.admin?.adminRole !== AdminRole.USER_SUPPORT);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
@@ -132,102 +134,111 @@ export default function UsersPage() {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
 
-  const columns: AdminTableColumn<User>[] = [
-    {
-      header: 'Name',
-      accessor: (user) => <span className="font-medium">{user.name || 'N/A'}</span>,
-    },
-    {
-      header: 'Email',
-      accessor: (user) => user.email || 'N/A',
-    },
-    {
-      header: 'Phone',
-      accessor: (user) => user.phone,
-    },
-    {
-      header: 'Profile',
-      accessor: (user) => (
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-            user.profileCompleted
-              ? 'bg-blue-500/20 text-blue-400'
-              : 'bg-yellow-500/20 text-yellow-400'
-          }`}
-        >
-          {user.profileCompleted ? 'Complete' : 'Incomplete'}
-        </span>
-      ),
-    },
-    {
-      header: 'Status',
-      accessor: (user) => (
-        <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-            user.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-          }`}
-        >
-          {user.isActive ? 'Active' : 'Inactive'}
-        </span>
-      ),
-    },
-    {
-      header: 'Balance (NRs)',
-      accessor: (user) => (
-        <div className="flex items-center gap-2">
-          <Banknote className="h-4 w-4 text-emerald-400" />
-          <span className="text-emerald-400 font-semibold">
-            NRs {Number(user.coins ?? 0).toLocaleString()}
-          </span>
-        </div>
-      ),
-    },
-    {
-      header: 'Total Balance Loaded (NRs)',
-      accessor: (user) => (
-        <div className="flex items-center gap-2">
-          <Banknote className="h-4 w-4 text-blue-400" />
-          <span className="text-blue-400 font-semibold">
-            NRs {Number(user.totalBalanceLoaded ?? 0).toLocaleString()}
-          </span>
-        </div>
-      ),
-    },
-    {
-      header: 'Date Joined',
-      accessor: (user) => (
-        <span className="text-slate-300 text-sm">
-          {user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}
-        </span>
-      ),
-    },
-    {
-      header: 'Actions',
-      accessor: (user) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSelectedUser({ id: user.id, name: user.name || 'User', balance: user.coins });
-              setShowAddCoinsModal(true);
-            }}
-            className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+  const columns: AdminTableColumn<User>[] = useMemo(() => {
+    const base: AdminTableColumn<User>[] = [
+      {
+        header: 'Name',
+        accessor: (user) => <span className="font-medium">{user.name || 'N/A'}</span>,
+      },
+      {
+        header: 'Email',
+        accessor: (user) => user.email || 'N/A',
+      },
+      {
+        header: 'Phone',
+        accessor: (user) => user.phone,
+      },
+      {
+        header: 'Profile',
+        accessor: (user) => (
+          <span
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+              user.profileCompleted
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'bg-yellow-500/20 text-yellow-400'
+            }`}
           >
-            <Plus className="h-3 w-3 mr-1" />
-            Add Balance
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => toggleStatus(user.id)}>
-            Toggle Status
-          </Button>
-        </div>
-      ),
-      className: 'text-center',
-    },
-  ];
+            {user.profileCompleted ? 'Complete' : 'Incomplete'}
+          </span>
+        ),
+      },
+      {
+        header: 'Status',
+        accessor: (user) => (
+          <span
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+              user.isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+            }`}
+          >
+            {user.isActive ? 'Active' : 'Inactive'}
+          </span>
+        ),
+      },
+      {
+        header: 'Balance (NRs)',
+        accessor: (user) => (
+          <div className="flex items-center gap-2">
+            <Banknote className="h-4 w-4 text-emerald-400" />
+            <span className="text-emerald-400 font-semibold">
+              NRs {Number(user.coins ?? 0).toLocaleString()}
+            </span>
+          </div>
+        ),
+      },
+      {
+        header: 'Total Balance Loaded (NRs)',
+        accessor: (user) => (
+          <div className="flex items-center gap-2">
+            <Banknote className="h-4 w-4 text-blue-400" />
+            <span className="text-blue-400 font-semibold">
+              NRs {Number(user.totalBalanceLoaded ?? 0).toLocaleString()}
+            </span>
+          </div>
+        ),
+      },
+    ];
+
+    base.push(
+      {
+        header: 'Date Joined',
+        accessor: (user) => (
+          <span className="text-slate-300 text-sm">
+            {user.createdAt ? new Date(user.createdAt).toLocaleString() : '—'}
+          </span>
+        ),
+      },
+      {
+        header: 'Actions',
+        accessor: (user) => (
+          <div className="flex gap-2">
+            {canAddBalance && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedUser({ id: user.id, name: user.name || 'User', balance: user.coins });
+                  setShowAddCoinsModal(true);
+                }}
+                className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Balance
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => toggleStatus(user.id)}>
+              Toggle Status
+            </Button>
+          </div>
+        ),
+        className: 'text-center',
+      }
+    );
+
+    return base;
+  }, [canAddBalance]);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -355,6 +366,6 @@ export default function UsersPage() {
           currentBalance={selectedUser.balance}
         />
       )}
-    </AdminLayout>
+    </>
   );
 }

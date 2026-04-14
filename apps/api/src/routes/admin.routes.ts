@@ -4,6 +4,7 @@
 
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth';
+import { requireFullAdmin } from '../middleware/adminPermissions.middleware';
 import { auditLogger } from '../middleware/audit-logger';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
@@ -101,6 +102,36 @@ router.use(authorize(UserRole.ADMIN));
 router.post('/auth/logout', adminController.adminLogout);
 router.get('/auth/me', adminController.getAdminProfile);
 
+// ==================== User Management (FULL + USER_SUPPORT) ====================
+router.get(
+  '/users',
+  validateQuery(listAdminUsersQuerySchema),
+  asyncHandler(adminController.listUsers)
+);
+
+router.get('/users/:id', adminController.getUser);
+
+router.post(
+  '/users/:id/toggle-status',
+  auditLogger(AuditAction.USER_UPDATE, 'User'),
+  adminController.toggleUserStatus
+);
+
+router.delete(
+  '/users/:id',
+  auditLogger(AuditAction.USER_DELETE, 'User'),
+  adminController.deleteUser
+);
+
+// ==================== User Management (financial — full admins only) ====================
+router.post(
+  '/users/:id/add-coins',
+  requireFullAdmin,
+  auditLogger(AuditAction.ADMIN_ACTION, 'User'),
+  validateBody(adminAddCoinsSchema),
+  asyncHandler(adminController.addCoinsToUser)
+);
+
 // ==================== Astrologer Management ====================
 router.get(
   '/astrologers',
@@ -179,7 +210,11 @@ router.post(
   adminController.toggleAstrologerVerified
 );
 
-router.get('/astrologers/:id/earnings', adminController.getAstrologerEarnings);
+router.get(
+  '/astrologers/:id/earnings',
+  requireFullAdmin,
+  adminController.getAstrologerEarnings
+);
 
 router.post(
   '/astrologers/:id/approve-registration',
@@ -193,34 +228,6 @@ router.post(
   auditLogger(AuditAction.ASTROLOGER_UPDATE, 'Astrologer'),
   validateBody(rejectAstrologerRegistrationSchema),
   asyncHandler(adminController.rejectRegistration)
-);
-
-// ==================== User Management ====================
-router.get(
-  '/users',
-  validateQuery(listAdminUsersQuerySchema),
-  asyncHandler(adminController.listUsers)
-);
-
-router.get('/users/:id', adminController.getUser);
-
-router.post(
-  '/users/:id/toggle-status',
-  auditLogger(AuditAction.USER_UPDATE, 'User'),
-  adminController.toggleUserStatus
-);
-
-router.post(
-  '/users/:id/add-coins',
-  auditLogger(AuditAction.ADMIN_ACTION, 'User'),
-  validateBody(adminAddCoinsSchema),
-  asyncHandler(adminController.addCoinsToUser)
-);
-
-router.delete(
-  '/users/:id',
-  auditLogger(AuditAction.USER_DELETE, 'User'),
-  adminController.deleteUser
 );
 
 // ==================== Audit Logs ====================
@@ -279,35 +286,40 @@ router.post(
   adminController.cleanupStuckChats
 );
 
-// ==================== Earnings Management ====================
+// ==================== Earnings Management (full admins only) ====================
 router.get(
   '/earnings/astrologers-with-coins',
+  requireFullAdmin,
   validateQuery(listAstrologersWithCoinEarningsQuerySchema),
   asyncHandler(adminController.listAstrologersWithCoinEarnings)
 );
-router.get('/earnings', adminController.listEarnings);
+router.get('/earnings', requireFullAdmin, adminController.listEarnings);
 
 router.post(
   '/earnings/:id/approve',
+  requireFullAdmin,
   auditLogger(AuditAction.ADMIN_ACTION, 'Earnings'),
   adminController.approveEarning
 );
 
 router.post(
   '/earnings/:id/reject',
+  requireFullAdmin,
   auditLogger(AuditAction.ADMIN_ACTION, 'Earnings'),
   adminController.rejectEarning
 );
 
 router.post(
   '/earnings/:id/mark-paid',
+  requireFullAdmin,
   auditLogger(AuditAction.ADMIN_ACTION, 'Earnings'),
   adminController.markEarningPaid
 );
 
-// ==================== Platform Coin Transactions ====================
+// ==================== Platform Coin Transactions (payment history — full admins only) ====================
 router.get(
   '/coin-transactions',
+  requireFullAdmin,
   validateQuery(listAdminPlatformPaymentQuerySchema),
   asyncHandler(adminController.getPlatformTransactions)
 );

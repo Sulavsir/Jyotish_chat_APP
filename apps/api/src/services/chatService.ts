@@ -12,6 +12,7 @@ import {
   CHAT_MESSAGE_MAX_LENGTH_CLIENT,
   CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
   MessageType as SharedMessageType,
+  AstrologerNotificationSoundCue,
 } from '@jyotish/shared';
 import {
   ParticipantType,
@@ -27,6 +28,7 @@ import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import { deductCoinsForChat, isBroadcastPricedSession } from './coin.service';
 import { requiresCoinsForChat } from '../constants/coin.constants';
 import { getSocketInstance } from '../utils/socket-instance';
+import { emitAstrologerNotificationSoundToUser } from '../utils/astrologer-notification-sound';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { notificationService } from './notification.service';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
@@ -1360,6 +1362,17 @@ export async function sendDirectQuestionBundle(
         bundleTotal: count,
       },
     });
+  }
+
+  const io = getSocketInstance();
+  if (io) {
+    emitAstrologerNotificationSoundToUser(
+      io,
+      astrologerId,
+      broadcastSession
+        ? AstrologerNotificationSoundCue.BROADCAST_OR_QUESTIONS
+        : AstrologerNotificationSoundCue.DIRECT_CHAT_OR_KUNDALI_REVIEW
+    );
   }
 
   return {

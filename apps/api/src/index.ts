@@ -196,6 +196,19 @@ if (rateLimitMax > 0) {
 // Serve static files from uploads directory with CORS headers
 app.use('/uploads', cors(), express.static(path.join(__dirname, '../uploads')));
 
+// Jyotish notification rings (Flutter/web can fetch or map cue → bundled asset)
+app.use(
+  '/static/notifications-ring',
+  cors(),
+  express.static(path.join(__dirname, '../Notifications_ring_bell'), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.mpeg') || filePath.endsWith('.mp3')) {
+        res.setHeader('Content-Type', 'audio/mpeg');
+      }
+    },
+  })
+);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Label, Textarea, ArrowLeftIcon, Button, DateInput } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
@@ -106,25 +105,25 @@ export default function EditHoroscopePage() {
 
   if (!id) {
     return (
-      <AdminLayout>
+      <>
         <div className="text-red-400">Invalid horoscope ID</div>
-      </AdminLayout>
+      </>
     );
   }
 
   if (loadingHoroscope && !horoscope) {
     return (
-      <AdminLayout>
+      <>
         <div className="flex items-center justify-center py-20">
           <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   if (!horoscope) {
     return (
-      <AdminLayout>
+      <>
         <div className="space-y-4">
           <p className="text-red-400">Horoscope not found</p>
           <Button
@@ -135,12 +134,12 @@ export default function EditHoroscopePage() {
             Back to list
           </Button>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="w-full max-w-full text-left space-y-5 sm:space-y-6">
         {/* Header - aligned from start */}
         <div className="flex items-start gap-3 sm:gap-4">
@@ -276,6 +275,6 @@ export default function EditHoroscopePage() {
           </div>
         </form>
       </div>
-    </AdminLayout>
+    </>
   );
 }

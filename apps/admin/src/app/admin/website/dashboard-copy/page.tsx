@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
-import AdminLayout from '@/components/layout/AdminLayout';
 import {
   ADMIN_QUERY_KEYS,
   PAGINATION_DEFAULTS,
@@ -204,7 +203,7 @@ export default function DashboardCopyManagementPage() {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
 
         <div className="space-y-1">
@@ -474,6 +473,6 @@ export default function DashboardCopyManagementPage() {
           icon={<Trash2 className="w-6 h-6 text-red-400" />}
         />
       </div>
-    </AdminLayout>
+    </>
   );
 }

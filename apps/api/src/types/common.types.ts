@@ -3,7 +3,7 @@
  */
 
 import { Request } from 'express';
-import type { UserRole } from '@jyotish/shared';
+import type { AdminRole, UserRole } from '@jyotish/shared';
 
 /**
  * Express Request with authenticated user
@@ -14,6 +14,7 @@ export interface AuthRequest extends Request {
     email?: string;
     phone?: string;
     role: UserRole;
+    adminRole?: AdminRole;
   };
 }
 

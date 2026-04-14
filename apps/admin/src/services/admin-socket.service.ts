@@ -1,28 +1,22 @@
 /**
  * Admin Socket Service
- * Handles real-time WebSocket connection for admin panel
+ * Singleton Socket.IO client for the admin panel — survives route changes; use {@link subscribeConnection} for UI.
  */
 
 import { io, Socket } from 'socket.io-client';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 
-// WebSocket URL configuration
-// Production: Use environment variable (points to API server)
-// Development: Use current hostname with port 4000 (supports localhost and network IP)
 const SOCKET_URL =
   process.env.NODE_ENV === 'production'
     ? process.env.NEXT_PUBLIC_WS_URL || 'https://jotishapi.autonomoustechnology.net'
     : typeof window !== 'undefined'
       ? `${window.location.protocol}//${window.location.hostname}:4000`
-      : 'http://localhost:4000'; // SSR fallback
+      : 'http://localhost:4000';
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- socket.io payloads are validated at runtime */
 export interface AdminSocketEvents {
-  // Dashboard events
   [ADMIN_SOCKET_EVENTS.STATS.UPDATE]: (data: any) => void;
-
   [ADMIN_SOCKET_EVENTS.SIDEBAR.INVALIDATE]: () => void;
-
-  // Chat events
   [ADMIN_SOCKET_EVENTS.CHAT.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.UPDATE]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.ENDED]: (data: any) => void;
@@ -33,44 +27,28 @@ export interface AdminSocketEvents {
   }) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.UNBLOCKED]: (data: { chatId: string }) => void;
   [ADMIN_SOCKET_EVENTS.CHAT.REOPENED]: (data: { chatId: string }) => void;
-
-  // User events
   [ADMIN_SOCKET_EVENTS.USER.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.USER.UPDATE]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.USER.STATUS]: (data: {
     userId: string;
     status: 'online' | 'offline';
   }) => void;
-
-  // Astrologer events
   [ADMIN_SOCKET_EVENTS.ASTROLOGER.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.ASTROLOGER.UPDATE]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.ASTROLOGER.STATUS_CHANGED]: (data: {
     astrologerId: string;
     isOnline: boolean;
   }) => void;
-
-  // Earning events
   [ADMIN_SOCKET_EVENTS.EARNING.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.EARNING.UPDATE]: (data: any) => void;
-
-  // Audit log events
   [ADMIN_SOCKET_EVENTS.AUDIT_LOG.NEW]: (data: any) => void;
-
-  // Consultation events
   [ADMIN_SOCKET_EVENTS.CONSULTATION.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CONSULTATION.UPDATE]: (data: any) => void;
-
-  // Chat audit events
   [ADMIN_SOCKET_EVENTS.CHAT_AUDIT.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CHAT_AUDIT.UPDATE]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.CHAT_AUDIT.CHAT_ENDED]: (data: any) => void;
-
-  // Broadcast message events
   [ADMIN_SOCKET_EVENTS.BROADCAST.NEW]: (data: any) => void;
   [ADMIN_SOCKET_EVENTS.BROADCAST.UPDATE]: (data: any) => void;
-
-  // Admin support chat (support widget)
   [ADMIN_SOCKET_EVENTS.ADMIN_CHAT.NEW_MESSAGE]: (data: {
     chatId: string;
     message: unknown;
@@ -88,158 +66,176 @@ export interface AdminSocketEvents {
 
 class AdminSocketService {
   private socket: Socket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
   private isConnecting = false;
-  private eventListeners: Map<string, Set<Function>> = new Map();
+  private connectPromise: Promise<Socket> | null = null;
+  private eventListeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  private connectionSubscribers = new Set<() => void>();
+  private lastError: string | null = null;
 
-  /**
-   * Connect to WebSocket server
-   */
+  subscribeConnection(listener: () => void): () => void {
+    this.connectionSubscribers.add(listener);
+    return () => {
+      this.connectionSubscribers.delete(listener);
+    };
+  }
+
+  private notifyConnection(): void {
+    this.connectionSubscribers.forEach((cb) => {
+      try {
+        cb();
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  getLastError(): string | null {
+    return this.lastError;
+  }
+
   connect(): Promise<Socket> {
-    return new Promise((resolve, reject) => {
-      if (this.socket?.connected) {
-        resolve(this.socket);
-        return;
-      }
+    if (this.socket?.connected) {
+      return Promise.resolve(this.socket);
+    }
 
-      if (this.isConnecting) {
-        // Wait for the current connection attempt to complete
-        const checkConnection = setInterval(() => {
-          if (this.socket?.connected) {
-            clearInterval(checkConnection);
-            resolve(this.socket);
-          } else if (!this.isConnecting) {
-            clearInterval(checkConnection);
-            reject(new Error('Connection failed'));
-          }
-        }, 100);
-        return;
-      }
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
 
+    this.connectPromise = new Promise<Socket>((resolve, reject) => {
       this.isConnecting = true;
+      this.lastError = null;
 
       console.log('📡 Connecting admin socket to:', SOCKET_URL);
 
       this.socket = io(SOCKET_URL, {
-        withCredentials: true, // Important: sends cookies
+        withCredentials: true,
         transports: ['websocket', 'polling'],
         reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectDelay,
-        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 8000,
         timeout: 20000,
       });
 
+      let settled = false;
+
+      const timeoutId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          this.isConnecting = false;
+          this.lastError = 'Admin socket connection timed out';
+          if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+          }
+          this.notifyConnection();
+          reject(new Error(this.lastError));
+        }
+      }, 25000);
+
       this.socket.on('connect', () => {
         console.log('✅ Admin socket connected');
-        this.reconnectAttempts = 0;
+        clearTimeout(timeoutId);
         this.isConnecting = false;
-        resolve(this.socket!);
-      });
+        this.lastError = null;
+        this.notifyConnection();
+        this.reattachEventListeners();
 
-      this.socket.on('connect_error', (error) => {
-        console.error('❌ Admin socket connection error:', error);
-        this.isConnecting = false;
-        this.reconnectAttempts++;
-
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-          reject(new Error('Max reconnection attempts reached'));
+        if (!settled) {
+          settled = true;
+          resolve(this.socket!);
         }
       });
 
-      this.socket.on('disconnect', (reason) => {
+      this.socket.on('disconnect', (reason: string) => {
         console.log('🔌 Admin socket disconnected:', reason);
         this.isConnecting = false;
+        this.notifyConnection();
 
         if (reason === 'io server disconnect') {
-          // Server disconnected, need to reconnect manually
           setTimeout(() => {
-            this.connect();
-          }, this.reconnectDelay);
+            this.socket?.connect();
+          }, 1000);
         }
       });
 
-      this.socket.on('error', (error) => {
-        console.error('❌ Admin socket error:', error);
+      this.socket.on('connect_error', (error: Error) => {
+        console.error('❌ Admin socket connection error:', error);
+        this.isConnecting = false;
+        this.lastError = error.message;
+        this.notifyConnection();
       });
 
-      // Re-attach event listeners after reconnection
-      this.socket.on('connect', () => {
-        this.reattachEventListeners();
+      this.socket.on('error', (error: Error) => {
+        console.error('❌ Admin socket error:', error);
+        this.lastError = error.message;
+        this.notifyConnection();
       });
+    }).finally(() => {
+      this.connectPromise = null;
     });
+
+    return this.connectPromise;
   }
 
-  /**
-   * Disconnect from WebSocket server
-   */
-  disconnect() {
+  disconnect(): void {
     if (this.socket) {
       console.log('🔌 Disconnecting admin socket');
       this.socket.disconnect();
       this.socket = null;
-      this.eventListeners.clear();
     }
+    this.isConnecting = false;
+    this.connectPromise = null;
+    this.eventListeners.clear();
+    this.lastError = null;
+    this.notifyConnection();
   }
 
-  /**
-   * Check if socket is connected
-   */
   isConnected(): boolean {
-    return this.socket?.connected || false;
+    return this.socket?.connected ?? false;
   }
 
-  /**
-   * Subscribe to an event
-   */
-  on<K extends keyof AdminSocketEvents>(event: K, callback: AdminSocketEvents[K]) {
-    if (!this.eventListeners.has(event)) {
-      this.eventListeners.set(event, new Set());
+  on<K extends keyof AdminSocketEvents>(event: K, callback: AdminSocketEvents[K]): void {
+    const key = String(event);
+    if (!this.eventListeners.has(key)) {
+      this.eventListeners.set(key, new Set());
     }
-    this.eventListeners.get(event)!.add(callback);
+    const wrapped = callback as (...args: unknown[]) => void;
+    this.eventListeners.get(key)!.add(wrapped);
 
     if (this.socket) {
-      this.socket.on(event, callback as any);
-      console.log(`📡 [AdminSocket] Attached listener for event: ${event}`);
+      this.socket.on(key, wrapped as never);
+      console.log(`📡 [AdminSocket] Attached listener for event: ${key}`);
     } else {
-      console.log(`⏳ [AdminSocket] Queued listener for event: ${event} (socket not ready)`);
+      console.log(`⏳ [AdminSocket] Queued listener for event: ${key} (socket not ready)`);
     }
   }
 
-  /**
-   * Unsubscribe from an event
-   */
-  off<K extends keyof AdminSocketEvents>(event: K, callback: AdminSocketEvents[K]) {
-    const listeners = this.eventListeners.get(event);
+  off<K extends keyof AdminSocketEvents>(event: K, callback: AdminSocketEvents[K]): void {
+    const key = String(event);
+    const listeners = this.eventListeners.get(key);
+    const wrapped = callback as (...args: unknown[]) => void;
     if (listeners) {
-      listeners.delete(callback);
+      listeners.delete(wrapped);
       if (listeners.size === 0) {
-        this.eventListeners.delete(event);
+        this.eventListeners.delete(key);
       }
     }
-
     if (this.socket) {
-      this.socket.off(event, callback as any);
+      this.socket.off(key, wrapped as never);
     }
   }
 
-  /**
-   * Emit an event
-   */
-  emit(event: string, data?: any) {
+  emit(event: string, data?: unknown): void {
     if (this.socket?.connected) {
-      this.socket.emit(event, data);
+      this.socket.emit(event, data as never);
     } else {
       console.warn('⚠️ Cannot emit event: socket not connected');
     }
   }
 
-  /**
-   * Re-attach all event listeners after reconnection
-   */
-  private reattachEventListeners() {
+  private reattachEventListeners(): void {
     if (!this.socket) {
       console.warn('⚠️ [AdminSocket] Cannot reattach listeners: socket is null');
       return;
@@ -250,23 +246,17 @@ class AdminSocketService {
 
     this.eventListeners.forEach((listeners, event) => {
       listeners.forEach((callback) => {
-        // Prevent duplicate listeners on reconnects
-        this.socket!.off(event, callback as any);
-        this.socket!.on(event, callback as any);
-        console.log(`  ✓ Reattached listener for: ${event}`);
+        this.socket!.off(event, callback as never);
+        this.socket!.on(event, callback as never);
       });
     });
 
     console.log('✅ [AdminSocket] All event listeners re-attached after reconnection');
   }
 
-  /**
-   * Get socket instance (for advanced usage)
-   */
   getSocket(): Socket | null {
     return this.socket;
   }
 }
 
-// Export singleton instance
 export const adminSocketService = new AdminSocketService();

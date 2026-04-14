@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -19,6 +19,8 @@ import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { useBroadcastCancelMutation } from '@/hooks/useBroadcastPending';
 import type { BroadcastMessage } from '@/types';
+import type { BroadcastMessageExpiredPayload } from '@jyotish/shared';
+import { playBroadcastTimerEndSound } from '@/utils/broadcast-timer-sound.utils';
 
 function extractRequiredCoins(errorMessage: string): number {
   const match = errorMessage.match(/Required:\s*(\d+)/i);
@@ -41,6 +43,13 @@ export function BroadcastPendingBridge() {
   const setTimeRemaining = useBroadcastPendingStore((s) => s.setTimeRemaining);
 
   const { handleCancelRequest } = useBroadcastCancelMutation();
+  const timerSoundPlayedForId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingMessage) {
+      timerSoundPlayedForId.current = null;
+    }
+  }, [pendingMessage]);
 
   // Countdown timer
   useEffect(() => {
@@ -53,6 +62,10 @@ export function BroadcastPendingBridge() {
       const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
       setTimeRemaining(remaining);
       if (remaining === 0 && pendingMessage.id !== SENDING_PLACEHOLDER_ID) {
+        if (timerSoundPlayedForId.current !== pendingMessage.id) {
+          timerSoundPlayedForId.current = pendingMessage.id;
+          playBroadcastTimerEndSound();
+        }
         useBroadcastPendingStore.getState().clearPending();
         toast.info('Broadcast expired. No one accepted in time.', {
           description: 'Your coins will be refunded shortly.',
@@ -155,7 +168,11 @@ export function BroadcastPendingBridge() {
       }
     };
 
-    const onExpired = (data: { messageId: string; refundAmount: number }) => {
+    const onExpired = (data: BroadcastMessageExpiredPayload) => {
+      if (data.soundCue === 'timer_end' && timerSoundPlayedForId.current !== data.messageId) {
+        timerSoundPlayedForId.current = data.messageId;
+        playBroadcastTimerEndSound();
+      }
       const current = useBroadcastPendingStore.getState().pendingMessage;
       if (current && current.id !== SENDING_PLACEHOLDER_ID && current.id === data.messageId) {
         useBroadcastPendingStore.getState().clearPending();

@@ -7,7 +7,12 @@ import { Server, Socket } from 'socket.io';
 import * as broadcastMessageService from '../services/broadcastMessage.service';
 import { prisma } from '@jyotish/database';
 import { NotificationService } from '../services/notification.service';
-import { NotificationType, CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
+import {
+  NotificationType,
+  CHAT_MESSAGE_MAX_LENGTH_CLIENT,
+  AstrologerNotificationSoundCue,
+} from '@jyotish/shared';
+import { emitAstrologerNotificationSoundToUser } from '../utils/astrologer-notification-sound';
 
 export function broadcastMessageHandlers(io: Server, socket: Socket) {
   const userId = socket.data.userId;
@@ -81,6 +86,11 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         // Emit to eligible astrologers only
         eligibleAstrologers.forEach((astrologer) => {
           io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
+          emitAstrologerNotificationSoundToUser(
+            io,
+            astrologer.id,
+            AstrologerNotificationSoundCue.BROADCAST_OR_QUESTIONS
+          );
         });
         console.log(
           `📢 Broadcasting new message to eligible astrologers (excluding PREMIUM):`,

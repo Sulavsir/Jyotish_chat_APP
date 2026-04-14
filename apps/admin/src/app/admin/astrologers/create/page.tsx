@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, Input, Textarea, LoadingButton, ProfileImageInput, PhoneInputWithCountry, CountrySelect } from '@jyotish/ui';
 import { PasswordInput } from '@/components/ui/PasswordInput';
@@ -216,7 +215,7 @@ export default function CreateAstrologerPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -703,6 +702,6 @@ export default function CreateAstrologerPage() {
           </form>
         </Form>
       </div>
-    </AdminLayout>
+    </>
   );
 }

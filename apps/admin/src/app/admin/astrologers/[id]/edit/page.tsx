@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, Input, Textarea, LoadingButton } from '@jyotish/ui';
 import {
@@ -339,11 +338,11 @@ export default function EditAstrologerPage() {
 
   if (isLoadingAstrologer || !data) {
     return (
-      <AdminLayout>
+      <>
         <div className="flex items-center justify-center min-h-[400px]">
           <p className="text-slate-400">Loading astrologer...</p>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
@@ -351,7 +350,7 @@ export default function EditAstrologerPage() {
   const displayedProofUrls = serverProofUrls.filter((url) => !proofUrlsToRemove.has(url));
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Button
@@ -835,6 +834,6 @@ export default function EditAstrologerPage() {
           </form>
         </Form>
       </div>
-    </AdminLayout>
+    </>
   );
 }

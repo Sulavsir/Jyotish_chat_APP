@@ -14,7 +14,11 @@ import { getSocketInstance } from '../utils/socket-instance';
 import { prisma } from '@jyotish/database';
 import { AstrologerCategory } from '@prisma/client';
 import { NotificationService } from '../services/notification.service';
-import { NotificationType } from '@jyotish/shared';
+import { AstrologerNotificationSoundCue, NotificationType } from '@jyotish/shared';
+import {
+  emitAstrologerNotificationSoundToAstrologersRoom,
+  emitAstrologerNotificationSoundToUser,
+} from '../utils/astrologer-notification-sound';
 
 type BroadcastMessageControllerError = Error & {
   code?: string;
@@ -50,6 +54,10 @@ export async function createBroadcastMessage(req: AuthRequest, res: Response) {
     if (io) {
       // The socket handler will filter out PREMIUM astrologers
       io.to('astrologers').emit('broadcast:newMessage', message);
+      emitAstrologerNotificationSoundToAstrologersRoom(
+        io,
+        AstrologerNotificationSoundCue.BROADCAST_OR_QUESTIONS
+      );
     }
 
     return sendSuccess(res, message, HTTP_STATUS.CREATED);
@@ -469,6 +477,14 @@ export async function sendQuestions(req: AuthRequest, res: Response) {
         eligibleAstrologers.forEach((astrologer) => {
           io.to(`user:${astrologer.id}`).emit('broadcast:newMessage', message);
         });
+      }
+
+      for (const astrologer of eligibleAstrologers) {
+        emitAstrologerNotificationSoundToUser(
+          io,
+          astrologer.id,
+          AstrologerNotificationSoundCue.BROADCAST_OR_QUESTIONS
+        );
       }
 
       const notificationPromises = eligibleAstrologers.map((astrologer) =>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Search, DocumentIcon } from '@jyotish/ui';
 import {
@@ -270,7 +269,7 @@ export default function AuditLogsPage() {
   const showPagination = !loading && (searchActive ? searchPool.length > 0 : pagination.total > 0);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
@@ -332,6 +331,6 @@ export default function AuditLogsPage() {
           />
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

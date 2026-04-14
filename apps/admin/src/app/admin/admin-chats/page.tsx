@@ -7,7 +7,6 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Search } from '@jyotish/ui';
 import {
@@ -243,7 +242,7 @@ export default function AdminChatsPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -345,6 +344,6 @@ export default function AdminChatsPage() {
 
       {/* Chat Detail Modal */}
       <AdminChatDetailModal chat={selectedChat} isOpen={isModalOpen} onClose={handleCloseModal} />
-    </AdminLayout>
+    </>
   );
 }

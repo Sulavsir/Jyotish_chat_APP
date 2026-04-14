@@ -2,10 +2,14 @@
  * Admin-specific type definitions
  */
 
+import type { AdminRole } from '@jyotish/shared';
+
 export interface Admin {
   id: string;
   email: string;
   name: string;
+  /** Omitted in older persisted sessions — treated as FULL. */
+  adminRole?: AdminRole;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

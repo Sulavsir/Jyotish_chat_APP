@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
   Card,
@@ -116,7 +115,7 @@ export default function SetCoinsPage() {
     );
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">NRs Settings</h2>
@@ -212,6 +211,6 @@ export default function SetCoinsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 }

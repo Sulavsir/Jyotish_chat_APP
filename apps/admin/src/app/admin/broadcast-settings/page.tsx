@@ -13,7 +13,6 @@ import {
   LoadingButton,
 } from '@jyotish/ui';
 import { toast } from 'sonner';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { ADMIN_QUERY_KEYS } from '@/constants/query-keys.constants';
 import { adminApi } from '@/lib/admin-api';
 import { useAdminSocket } from '@/hooks';
@@ -108,7 +107,7 @@ export default function BroadcastSettingsPage() {
   }, [isConnected, on, off, queryClient]);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Broadcast Settings</h1>
@@ -189,6 +188,6 @@ export default function BroadcastSettingsPage() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

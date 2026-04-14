@@ -6,7 +6,6 @@ import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, LoadingButton
 import { ChatIcon } from '@jyotish/ui';
 import { EyeIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { ADMIN_QUERY_KEYS } from '@/constants/query-keys.constants';
 import { adminApi } from '@/lib/admin-api';
 import { useAdminSocket } from '@/hooks';
@@ -241,7 +240,7 @@ export default function PendingBroadcastsPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -297,6 +296,6 @@ export default function PendingBroadcastsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 }

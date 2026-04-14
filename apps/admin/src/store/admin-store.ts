@@ -4,11 +4,13 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { AdminRole } from '@jyotish/shared';
 
 interface Admin {
   id: string;
   email: string;
   name: string;
+  adminRole?: AdminRole;
 }
 
 interface AdminState {

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Label, Textarea, ArrowLeftIcon, Button, DateInput } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
@@ -77,7 +76,7 @@ export default function CreateHoroscopePage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="w-full max-w-full text-left space-y-5 sm:space-y-6">
         <div className="flex items-start gap-3 sm:gap-4">
           <button
@@ -219,6 +218,6 @@ export default function CreateHoroscopePage() {
           </Button>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 }

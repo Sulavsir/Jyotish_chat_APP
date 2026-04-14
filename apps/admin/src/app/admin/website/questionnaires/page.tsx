@@ -4,7 +4,6 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import AdminLayout from '@/components/layout/AdminLayout';
 import {
   ADMIN_QUERY_KEYS,
   PAGINATION_DEFAULTS,
@@ -292,7 +291,7 @@ export default function QuestionnairesManagementPage() {
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
@@ -838,6 +837,6 @@ export default function QuestionnairesManagementPage() {
           icon={<Trash2 className="w-6 h-6 text-red-400" />}
         />
       </div>
-    </AdminLayout>
+    </>
   );
 }

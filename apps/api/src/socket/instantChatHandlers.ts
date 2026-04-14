@@ -10,6 +10,8 @@ import * as instantChatService from '../services/instantChat.service';
 import { notificationService } from '../services/notification.service';
 import { getSocketInstance } from '../utils/socket-instance';
 import { prisma } from '@jyotish/database';
+import { AstrologerNotificationSoundCue } from '@jyotish/shared';
+import { emitAstrologerNotificationSoundToUser } from '../utils/astrologer-notification-sound';
 
 export function setupInstantChatHandlers(io: Server, socket: Socket) {
   const userId = socket.data.user?.id;
@@ -90,6 +92,14 @@ export function setupInstantChatHandlers(io: Server, socket: Socket) {
           } catch (error) {
             console.error(`Failed to create notification for astrologer ${astrologer.id}:`, error);
           }
+        }
+
+        for (const astrologer of eligibleAstrologers) {
+          emitAstrologerNotificationSoundToUser(
+            io,
+            astrologer.id,
+            AstrologerNotificationSoundCue.DIRECT_CHAT_OR_KUNDALI_REVIEW
+          );
         }
       }
 

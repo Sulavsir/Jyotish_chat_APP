@@ -5,12 +5,14 @@
 
 import { Response } from 'express';
 import { AppointmentStatus, BookingType } from '@prisma/client';
-import { UserRole } from '@jyotish/shared';
+import { AstrologerNotificationSoundCue, UserRole } from '@jyotish/shared';
 import * as appointmentService from '../services/appointment.service';
 import * as appointmentQuoteService from '../services/appointmentQuote.service';
 import { AuthRequest } from '../types/common.types';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
+import { getSocketInstance } from '../utils/socket-instance';
+import { emitAstrologerNotificationSoundToUser } from '../utils/astrologer-notification-sound';
 
 /**
  * Create a new appointment.
@@ -76,6 +78,15 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         await coinService.linkAppointmentToCoinEarning(deduction.coinTransactionId, appointment.id);
       }
 
+      const ioSlot = getSocketInstance();
+      if (ioSlot) {
+        emitAstrologerNotificationSoundToUser(
+          ioSlot,
+          astrologerId,
+          AstrologerNotificationSoundCue.DIRECT_CHAT_OR_KUNDALI_REVIEW
+        );
+      }
+
       return res.status(HTTP_STATUS.CREATED).json({
         success: true,
         data: appointment,
@@ -98,6 +109,15 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       amount: astrologer.appointmentFee,
       notes,
     });
+
+    const ioLegacy = getSocketInstance();
+    if (ioLegacy) {
+      emitAstrologerNotificationSoundToUser(
+        ioLegacy,
+        astrologerId,
+        AstrologerNotificationSoundCue.DIRECT_CHAT_OR_KUNDALI_REVIEW
+      );
+    }
 
     return res.status(HTTP_STATUS.CREATED).json({
       success: true,

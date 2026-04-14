@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Input, Label, Textarea, ArrowLeftIcon, Button } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
@@ -80,7 +79,7 @@ export default function CreatePricingPlanPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -272,6 +271,6 @@ export default function CreatePricingPlanPage() {
           </div>
         </form>
       </div>
-    </AdminLayout>
+    </>
   );
 }

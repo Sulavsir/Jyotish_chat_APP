@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AdminLayout from '@/components/layout/AdminLayout';
 import {
   ADMIN_QUERY_KEYS,
   PAGINATION_DEFAULTS,
@@ -282,7 +281,7 @@ export default function KathaVachakBookingsPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
@@ -429,6 +428,6 @@ export default function KathaVachakBookingsPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </AdminLayout>
+    </>
   );
 }

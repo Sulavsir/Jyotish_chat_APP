@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from './error-handler';
-import { UserRole } from '@jyotish/shared';
+import { AdminRole, UserRole } from '@jyotish/shared';
 import { authService } from '../services';
 
 export interface AuthRequest extends Request {
@@ -38,11 +38,19 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     const decoded = authService.verifyAccessToken(token);
 
     // Step 4: Set user claims in request
+    const adminRole =
+      decoded.role === UserRole.ADMIN && decoded.adminRole != null
+        ? decoded.adminRole
+        : decoded.role === UserRole.ADMIN
+          ? AdminRole.FULL
+          : undefined;
+
     req.user = {
       id: decoded.id,
       phone: decoded.phone,
       email: decoded.email,
       role: decoded.role,
+      ...(adminRole !== undefined ? { adminRole } : {}),
     };
 
     next();

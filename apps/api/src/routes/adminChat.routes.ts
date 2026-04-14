@@ -34,7 +34,17 @@ router.get(
   adminChatController.getAllChats
 );
 router.get('/admin/unread-count', authenticate, adminChatController.getUnreadCount);
-router.patch('/admin/:id/status', authenticate, validate(updateAdminChatStatusSchema), adminChatController.updateChatStatus);
-router.patch('/admin/:id/assign', authenticate, validate(assignAdminToChatSchema), adminChatController.assignAdmin);
+router.patch(
+  '/admin/:id/status',
+  authenticate,
+  validate(updateAdminChatStatusSchema),
+  adminChatController.updateChatStatus
+);
+router.patch(
+  '/admin/:id/assign',
+  authenticate,
+  validate(assignAdminToChatSchema),
+  adminChatController.assignAdmin
+);
 
 export default router;

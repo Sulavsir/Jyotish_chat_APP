@@ -6,7 +6,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Input, Label, Textarea, ArrowLeftIcon, Button } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
@@ -104,7 +103,7 @@ export default function EditPricingPlanPage() {
 
   if (isLoading) {
     return (
-      <AdminLayout>
+      <>
         <div className="space-y-6">
           <div className="cosmic-card p-6">
             <div className="animate-pulse space-y-4">
@@ -114,12 +113,12 @@ export default function EditPricingPlanPage() {
             </div>
           </div>
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6 w-full max-w-3xl min-w-0">
         {/* Header */}
         <div className="flex items-start gap-3 sm:gap-4">
@@ -313,6 +312,6 @@ export default function EditPricingPlanPage() {
           </div>
         </form>
       </div>
-    </AdminLayout>
+    </>
   );
 }

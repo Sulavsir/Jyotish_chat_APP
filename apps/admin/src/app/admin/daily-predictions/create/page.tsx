@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, DateInput, Label, Textarea, ArrowLeftIcon } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
@@ -82,7 +81,7 @@ export default function CreateDailyPredictionPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="flex items-start gap-3 sm:gap-4">
           <button
@@ -205,6 +204,6 @@ export default function CreateDailyPredictionPage() {
           </div>
         </form>
       </div>
-    </AdminLayout>
+    </>
   );
 }

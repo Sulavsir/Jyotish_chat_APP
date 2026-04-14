@@ -532,7 +532,11 @@ export async function expireOldMessages() {
         const { getSocketInstance } = require('../utils/socket-instance');
         const io = getSocketInstance();
         if (io) {
-          const payload = { messageId: message.id, refundAmount };
+          const payload = {
+            messageId: message.id,
+            refundAmount,
+            soundCue: 'timer_end' as const,
+          };
           io.to(`user:${message.clientId}`).emit('broadcast:messageExpired', payload);
           io.to('astrologers').emit('broadcast:messageExpired', payload);
         }

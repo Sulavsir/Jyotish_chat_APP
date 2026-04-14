@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, DateInput, Label, Textarea, ArrowLeftIcon, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
@@ -118,7 +117,7 @@ export default function CreateSubhaSahitPage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="w-full max-w-full min-w-0">
         {/* Header */}
         <div className="mb-6 sm:mb-10">
@@ -357,6 +356,6 @@ export default function CreateSubhaSahitPage() {
           </DialogContent>
         </Dialog>
       </div>
-    </AdminLayout>
+    </>
   );
 }

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import {
   Button,
@@ -526,7 +525,7 @@ export default function AstrologersPage() {
   ];
 
   return (
-    <AdminLayout>
+    <>
       <div className="w-full max-w-full min-w-0 space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -855,6 +854,6 @@ export default function AstrologersPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </>
   );
 }

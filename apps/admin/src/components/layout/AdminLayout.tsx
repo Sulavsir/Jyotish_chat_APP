@@ -27,6 +27,7 @@ import { ADMIN_QUERY_KEYS, ADMIN_ROUTES } from '@/constants';
 import { useAdminSocket } from '@/hooks';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
 import { Menu, X } from 'lucide-react';
+import { AdminRole } from '@jyotish/shared';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -369,7 +370,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  const navigation: Array<NavLinkItem | NavGroupItem> = [
+  /** Full admins see Payment History & Earnings; USER_SUPPORT does not. */
+  const canViewPayments = admin?.adminRole !== AdminRole.USER_SUPPORT;
+
+  const hiddenNavHrefsForSupport = new Set<string>([
+    ADMIN_ROUTES.TRANSACTIONS,
+    ADMIN_ROUTES.EARNINGS,
+  ]);
+
+  const fullNavigation: Array<NavLinkItem | NavGroupItem> = [
     {
       kind: 'link',
       name: 'Dashboard',
@@ -633,6 +642,27 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ),
     },
   ];
+
+  const navigation: Array<NavLinkItem | NavGroupItem> = canViewPayments
+    ? fullNavigation
+    : fullNavigation.filter(
+        (item) =>
+          !(item.kind === 'link' && typeof item.href === 'string' && hiddenNavHrefsForSupport.has(item.href))
+      );
+
+  useEffect(() => {
+    if (!isAuthenticated || !admin || canViewPayments || !pathname) {
+      return;
+    }
+    const blocked =
+      pathname === ADMIN_ROUTES.TRANSACTIONS ||
+      pathname.startsWith(`${ADMIN_ROUTES.TRANSACTIONS}/`) ||
+      pathname === ADMIN_ROUTES.EARNINGS ||
+      pathname.startsWith(`${ADMIN_ROUTES.EARNINGS}/`);
+    if (blocked) {
+      router.replace(ADMIN_ROUTES.DASHBOARD);
+    }
+  }, [isAuthenticated, admin, canViewPayments, pathname, router]);
 
   if (!isAuthenticated || isValidatingSession) {
     return (

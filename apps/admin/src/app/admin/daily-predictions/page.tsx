@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import AdminLayout from '@/components/layout/AdminLayout';
 import { adminApi } from '@/lib/admin-api';
 import { Button, DateInput, Label } from '@jyotish/ui';
 import {
@@ -153,7 +152,7 @@ export default function DailyPredictionsPage() {
   const hasFilters = Boolean(languageFilter || audienceFilter || dateFrom || dateTo);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -303,6 +302,6 @@ export default function DailyPredictionsPage() {
         isLoading={deleteMutation.isPending}
         icon={<Trash2 className="w-6 h-6 text-red-400" />}
       />
-    </AdminLayout>
+    </>
   );
 }

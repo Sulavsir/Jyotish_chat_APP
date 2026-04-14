@@ -57,6 +57,12 @@ export enum UserRole {
   ADMIN = 'ADMIN',
 }
 
+export { AdminRole } from './admin-role.types';
+export type {
+  BroadcastMessageExpiredSoundCue,
+  BroadcastMessageExpiredPayload,
+} from './broadcast-socket.types';
+
 export type AstrologersType = {
   id: string;
   name: string;
@@ -342,3 +348,8 @@ export interface ApiResponse<T = any> {
 }
 
 export type { AppVersionApiResponse } from './maintenance.types';
+export {
+  AstrologerNotificationSoundCue,
+  ASTROLOGER_NOTIFICATION_SOUND_FILES,
+  type AstrologerNotificationSoundPayload,
+} from './astrologer-notification-sound.types';
