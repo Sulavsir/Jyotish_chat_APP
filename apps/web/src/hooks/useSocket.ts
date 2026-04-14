@@ -16,6 +16,11 @@ import { useAuthStore } from '@/store/auth-store';
 import { WS_BASE_URL, WS_EVENTS, QUERY_KEYS } from '@/constants';
 import type { Notification } from '@/types';
 import { toast } from 'sonner';
+import {
+  handleAstrologerNotificationSound,
+  isAstrologerNotificationSoundPayload,
+  primeAstrologerNotificationAudio,
+} from '@/utils/astrologer-work-alerts';
 import type { AstrologerListResponse } from '@/types/astrologer';
 import type { ChatableUser } from '@/services/user.service';
 import type { PublicAstrologerProfile } from '@/types/astrologer';
@@ -246,14 +251,31 @@ function attachListenersIfNeeded(socket: Socket) {
     const { addNotification } = getStoreActions();
     addNotification(notification);
   });
+
+  socket.on('astrologer:notificationSound', (payload: unknown) => {
+    const user = useAuthStore.getState().user;
+    if (user?.role !== 'ASTROLOGER') return;
+    if (!isAstrologerNotificationSoundPayload(payload)) {
+      console.warn('[Jyotish] Ignoring invalid astrologer:notificationSound payload');
+      return;
+    }
+    handleAstrologerNotificationSound(payload);
+  });
 }
 
 export function useSocket() {
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const userRole = useAuthStore((state) => state.user?.role);
 
   const [isConnected, setIsConnected] = useState(sharedIsConnected);
   const [, setSocketReady] = useState(0);
+
+  useEffect(() => {
+    if (userRole === 'ASTROLOGER') {
+      primeAstrologerNotificationAudio();
+    }
+  }, [userRole]);
 
   useEffect(() => {
     sharedQueryClient = queryClient;
