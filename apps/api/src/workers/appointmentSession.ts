@@ -1,14 +1,19 @@
 /**
- * Appointment Session Worker
- * - At session start: find CONFIRMED appointments in their 30-min window, getOrCreateChatForAppointment,
- *   create "Session started" notifications (with chatId) for client and astrologer.
- * - At session end: end chats linked to appointments whose window has passed; send system message.
- * - 1 hour before: send SMTP reminder email to client and astrologer (Book Appointment & Full Kundali Review).
+ * Appointment Session Worker (Full Kundali Review)
+ * - ~1h before: reminder emails (when address exists) + in-app notifications (client + Jyotish).
+ * - At session start: open chat, "consultation is ready" notifications + socket for live UI, Jyotish ring.
+ * - After window: end linked chats.
  */
 
 import { Job } from 'bullmq';
 import { prisma } from '@jyotish/database';
-import { NotificationType } from '@jyotish/shared';
+import {
+  AstrologerNotificationSoundCue,
+  KUNDALI_APPOINTMENT_GROUP_KEY,
+  KUNDALI_APPOINTMENT_NOTIFICATION_EVENT,
+  NotificationType,
+  TIME,
+} from '@jyotish/shared';
 import {
   AppointmentStatus,
   BookingType,
@@ -17,24 +22,37 @@ import {
   ParticipantType,
 } from '@prisma/client';
 import { getOrCreateChatForAppointment } from '../services/chatService';
-import { NotificationService } from '../services/notification.service';
 import { emailService } from '../services/email.service';
-
-const notificationService = new NotificationService();
+import {
+  createAndEmitUserNotification,
+  createSessionReadyNotifications,
+} from '../services/appointmentSessionNotification.service';
+import { emitAstrologerNotificationSoundToUser } from '../utils/astrologer-notification-sound';
+import { getSocketInstance } from '../utils/socket-instance';
 
 const BOOKING_TYPE_LABELS = {
   [BookingType.KUNDALI_REVIEW]: 'Appointment for Full Kundali Review',
 } as Record<BookingType, string>;
 
+/** Only scan recent CONFIRMED appointments to keep the job cheap. */
+const ACTIVE_SESSION_LOOKBACK_MS = 6 * TIME.ONE_HOUR;
+
 export async function appointmentSessionProcessor(job: Job) {
   const now = new Date();
   const nowMs = now.getTime();
+  const recentLowerBound = new Date(nowMs - ACTIVE_SESSION_LOOKBACK_MS);
 
-  // ---- Session start: appointments where scheduledAt <= now < scheduledAt + duration ----
+  await processSessionStarts(now, nowMs, recentLowerBound);
+  await processOneHourReminders(nowMs);
+  await processSessionEnds(nowMs);
+}
+
+async function processSessionStarts(now: Date, nowMs: number, recentLowerBound: Date) {
   const inWindowAppointments = await prisma.appointment.findMany({
     where: {
       status: AppointmentStatus.CONFIRMED,
-      scheduledAt: { lte: now },
+      bookingType: BookingType.KUNDALI_REVIEW,
+      scheduledAt: { lte: now, gte: recentLowerBound },
     },
     select: {
       id: true,
@@ -47,6 +65,13 @@ export async function appointmentSessionProcessor(job: Job) {
     },
   });
 
+  let io: ReturnType<typeof getSocketInstance> | null = null;
+  try {
+    io = getSocketInstance();
+  } catch {
+    io = null;
+  }
+
   for (const apt of inWindowAppointments) {
     const startMs = new Date(apt.scheduledAt).getTime();
     const endMs = startMs + apt.duration * 60 * 1000;
@@ -55,44 +80,45 @@ export async function appointmentSessionProcessor(job: Job) {
     const chat = await getOrCreateChatForAppointment(apt.id);
     if (!chat) continue;
 
-    const groupKey = `session_started_${apt.id}`;
-    const existingClient = await prisma.notification.findFirst({
-      where: { userId: apt.clientId, groupKey, createdAt: { gte: new Date(nowMs - 35 * 60 * 1000) } },
+    const groupKey = KUNDALI_APPOINTMENT_GROUP_KEY.SESSION_READY(apt.id);
+
+    const alreadyOpened = await prisma.notification.findFirst({
+      where: { userId: apt.clientId, groupKey },
     });
-    const existingAstrologer = await prisma.notification.findFirst({
-      where: { astrologerId: apt.astrologerId, groupKey, createdAt: { gte: new Date(nowMs - 35 * 60 * 1000) } },
+    if (alreadyOpened) continue;
+
+    const clientName = apt.client.name || 'Client';
+    const astrologerName = apt.astrologer.name || 'Jyotish';
+
+    await createSessionReadyNotifications({
+      clientId: apt.clientId,
+      astrologerId: apt.astrologerId,
+      clientName,
+      astrologerName,
+      appointmentId: apt.id,
+      chatId: chat.id,
+      groupKey,
     });
 
-    if (!existingClient) {
-      await notificationService.createNotification({
-        userId: apt.clientId,
-        title: 'Session started',
-        message: `Your session with ${apt.astrologer.name} has started. Open chat to connect.`,
-        type: NotificationType.SYSTEM,
-        groupKey,
-        metadata: { chatId: chat.id, appointmentId: apt.id, event: 'SESSION_STARTED' },
-      });
-    }
-    if (!existingAstrologer) {
-      await notificationService.createNotification({
-        astrologerId: apt.astrologerId,
-        title: 'Session started',
-        message: `Your session with ${apt.client.name} has started. Open chat to connect.`,
-        type: NotificationType.SYSTEM,
-        groupKey,
-        metadata: { chatId: chat.id, appointmentId: apt.id, event: 'SESSION_STARTED' },
-      });
+    if (io) {
+      emitAstrologerNotificationSoundToUser(
+        io,
+        apt.astrologerId,
+        AstrologerNotificationSoundCue.DIRECT_CHAT_OR_KUNDALI_REVIEW
+      );
     }
   }
+}
 
-  // 1 hour before: send reminder email to client and astrologer 
-  const windowStart = new Date(nowMs + 55 * 60 * 1000);
-  const windowEnd = new Date(nowMs + 65 * 60 * 1000);
+async function processOneHourReminders(nowMs: number) {
+  const windowStart = new Date(nowMs + TIME.ONE_HOUR - 5 * TIME.ONE_MINUTE);
+  const windowEnd = new Date(nowMs + TIME.ONE_HOUR + 5 * TIME.ONE_MINUTE);
+
   const reminderAppointments = await prisma.appointment.findMany({
     where: {
       status: AppointmentStatus.CONFIRMED,
-      scheduledAt: { gte: windowStart, lte: windowEnd },
       bookingType: BookingType.KUNDALI_REVIEW,
+      scheduledAt: { gte: windowStart, lte: windowEnd },
     },
     select: {
       id: true,
@@ -107,11 +133,12 @@ export async function appointmentSessionProcessor(job: Job) {
   });
 
   for (const apt of reminderAppointments) {
-    const groupKey = `appointment_reminder_1h_${apt.id}`;
-    const existingReminder = await prisma.notification.findFirst({
-      where: { groupKey, createdAt: { gte: new Date(nowMs - 2 * 60 * 60 * 1000) } },
+    const clientGroupKey = KUNDALI_APPOINTMENT_GROUP_KEY.REMINDER_1H_CLIENT(apt.id);
+
+    const alreadySent = await prisma.notification.findFirst({
+      where: { userId: apt.clientId, groupKey: clientGroupKey },
     });
-    if (existingReminder) continue;
+    if (alreadySent) continue;
 
     const typeLabel = BOOKING_TYPE_LABELS[apt.bookingType];
     const clientName = apt.client.name || 'Client';
@@ -142,20 +169,38 @@ export async function appointmentSessionProcessor(job: Job) {
           }
         );
       }
-      await notificationService.createNotification({
+
+      const reminderMeta = {
+        appointmentId: apt.id,
+        astrologerId: apt.astrologerId,
+        scheduledAt: apt.scheduledAt.toISOString(),
+        event: KUNDALI_APPOINTMENT_NOTIFICATION_EVENT.REMINDER_1H,
+      };
+
+      await createAndEmitUserNotification({
         userId: apt.clientId,
-        title: 'Appointment reminder sent',
-        message: `Reminder email sent for ${typeLabel} in 1 hour.`,
-        type: NotificationType.SYSTEM,
-        groupKey,
-        metadata: { appointmentId: apt.id, event: 'APPOINTMENT_REMINDER_1H' },
+        title: 'Consultation in 1 hour',
+        message: `Your ${typeLabel} with ${apt.astrologer.name ?? 'your Jyotish'} starts at ${scheduledAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
+        type: NotificationType.CONSULTATION_REMINDER,
+        groupKey: clientGroupKey,
+        metadata: reminderMeta,
+      });
+
+      await createAndEmitUserNotification({
+        astrologerId: apt.astrologerId,
+        title: 'Consultation in 1 hour',
+        message: `Your ${typeLabel} with ${clientName} starts at ${scheduledAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
+        type: NotificationType.CONSULTATION_REMINDER,
+        groupKey: KUNDALI_APPOINTMENT_GROUP_KEY.REMINDER_1H_JYOTISH(apt.id),
+        metadata: reminderMeta,
       });
     } catch (err) {
-      console.error(`❌ Failed to send appointment reminder email for ${apt.id}:`, err);
+      console.error(`❌ Failed Kundali reminder flow for appointment ${apt.id}:`, err);
     }
   }
+}
 
-  // ---- Session end: chats with appointmentId where appointment window has ended ----
+async function processSessionEnds(nowMs: number) {
   const endedAppointmentChats = await prisma.chat.findMany({
     where: {
       appointmentId: { not: null },

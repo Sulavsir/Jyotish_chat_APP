@@ -16,6 +16,8 @@ export interface KundaliMatchRequest {
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  /** Stable question IDs from premium consultation catalogue. */
+  selectedConsultationQuestionIds: string[];
   status: KundaliMatchStatus;
   adminReviewMessage: string | null;
   coinsDeducted: number;
@@ -42,6 +44,13 @@ export interface CreateKundaliMatchRequestBody {
   girlPlaceOfBirthDistrictId: string | null;
   girlPlaceOfBirthLocation: string | null;
   girlPlaceOfBirth: string | null;
+  consultationQuestionIds: string[];
+}
+
+/** Public catalogue (same payload as GET /api/v1/public/kundali-match/premium-consultation-questions). */
+export interface KundaliMatchPremiumConsultationCatalogue {
+  titleNe: string;
+  questions: { id: string; textNe: string }[];
 }
 
 export interface ListMyKundaliMatchResponse {
@@ -60,6 +69,12 @@ export interface CreateKundaliMatchResponse {
 }
 
 export const kundaliMatchService = {
+  async getPremiumConsultationCatalogue(): Promise<KundaliMatchPremiumConsultationCatalogue> {
+    return apiClient.get<KundaliMatchPremiumConsultationCatalogue>(
+      API_ENDPOINTS.PUBLIC.KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS
+    );
+  },
+
   async create(body: CreateKundaliMatchRequestBody): Promise<CreateKundaliMatchResponse> {
     return apiClient.post<CreateKundaliMatchResponse>(
       API_ENDPOINTS.KUNDALI_MATCH.CREATE,

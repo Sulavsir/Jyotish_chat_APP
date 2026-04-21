@@ -13,6 +13,7 @@ export interface KundaliMatchRequest {
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  selectedConsultationQuestionIds: string[];
   status: KundaliMatchStatus;
   adminReviewMessage: string | null;
   coinsDeducted: number;

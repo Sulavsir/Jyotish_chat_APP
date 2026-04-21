@@ -212,7 +212,10 @@ export function PlaceOfBirthInput({
             <Input
               id="place-of-birth-location"
               value={placeOfBirthLocation ?? ''}
-              onChange={(e) => setValue('placeOfBirthLocation', e.target.value.trim() || null)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setValue('placeOfBirthLocation', raw === '' ? null : raw);
+              }}
               placeholder="Ward, tole, or area"
               className={inputClassName}
               disabled={disabled}
@@ -232,7 +235,10 @@ export function PlaceOfBirthInput({
           <Input
             id="place-of-birth-outside"
             value={placeOfBirth ?? ''}
-            onChange={(e) => setValue('placeOfBirth', e.target.value.trim() || null)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setValue('placeOfBirth', raw === '' ? null : raw);
+            }}
             placeholder="City or country"
             className={inputClassName}
             disabled={disabled}

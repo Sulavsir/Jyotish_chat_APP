@@ -11,6 +11,7 @@ import kundaliMatchService, {
   type KundaliMatchRequest,
   type KundaliMatchStatus,
 } from '@/services/kundaliMatch.service';
+import { KundaliMatchSelectedTopicsSummary } from '@/components/features/kundali-match/KundaliMatchSelectedTopicsSummary';
 import {
   Badge,
   Button,
@@ -443,6 +444,9 @@ export default function MyBookingsPage() {
                           <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[140px]">
                             Girl (DOB, TOB, POB)
                           </TableHead>
+                          <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[100px]">
+                            Topics
+                          </TableHead>
                           <TableHead className="text-slate-200 border-r border-slate-700/60">
                             Amount
                           </TableHead>
@@ -492,6 +496,11 @@ export default function MyBookingsPage() {
                                   {r.girlPlaceOfBirth}
                                 </div>
                               </div>
+                            </TableCell>
+                            <TableCell className="border-r border-slate-700/40 align-top">
+                              <KundaliMatchSelectedTopicsSummary
+                                selectedIds={r.selectedConsultationQuestionIds ?? []}
+                              />
                             </TableCell>
                             <TableCell className="whitespace-nowrap border-r border-slate-700/40">
                               <span className="inline-flex items-center gap-1 text-amber-400">

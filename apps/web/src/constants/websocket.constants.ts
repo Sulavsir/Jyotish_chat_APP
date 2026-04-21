@@ -2,6 +2,8 @@
  * WebSocket Constants
  */
 
+import { KUNDALI_APPOINTMENT_SOCKET_EVENT } from '@jyotish/shared';
+
 export const WS_EVENTS = {
   // Outgoing
   CHAT_SEND: 'chat:send',
@@ -19,5 +21,6 @@ export const WS_EVENTS = {
   ASTROLOGER_ADMIN_STATUS_CHANGED: 'astrologer:admin_status_changed',
   ASTROLOGER_UPDATED: 'astrologer:updated',
   CONSULTATION_UPDATE: 'consultation:update',
+  APPOINTMENT_SESSION_READY: KUNDALI_APPOINTMENT_SOCKET_EVENT.SESSION_READY,
 } as const;
 

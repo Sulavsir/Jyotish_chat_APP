@@ -12,6 +12,7 @@ import * as dashboardRotatingCopyController from '../controllers/dashboardRotati
 import * as questionnaireController from '../controllers/questionnaireController';
 import * as nepaliDateController from '../controllers/nepali-date.controller';
 import * as locationController from '../controllers/location.controller';
+import * as kundaliMatchController from '../controllers/kundaliMatch.controller';
 import {
   getNepaliDateQuerySchema,
   getEnglishDateQuerySchema,
@@ -69,6 +70,12 @@ router.get('/location/provinces', asyncHandler(locationController.listProvinces)
 router.get(
   '/location/provinces/:provinceId/districts',
   asyncHandler(locationController.listDistrictsByProvince)
+);
+
+// Premium Kundali Match — consultation question catalogue (stable IDs + Nepali copy)
+router.get(
+  '/kundali-match/premium-consultation-questions',
+  asyncHandler(kundaliMatchController.listPublicPremiumConsultationQuestions)
 );
 
 export default router;

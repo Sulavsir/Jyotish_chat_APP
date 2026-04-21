@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { queryPaginationSchema } from './query.validators';
 import { KundaliMatchStatus } from '@prisma/client';
+import { kundaliMatchPremiumConsultationQuestionIdsSchema } from '@jyotish/shared';
 
 const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD');
 const timeOfBirthSchema = z
@@ -40,6 +41,7 @@ export const createKundaliMatchRequestSchema = z
     girlPlaceOfBirthDistrictId: z.preprocess((v) => (v === '' ? null : v), uuidOptional),
     girlPlaceOfBirthLocation: z.preprocess((v) => (v === '' ? null : v), locationString),
     girlPlaceOfBirth: z.string().max(500).optional().nullable(),
+    consultationQuestionIds: kundaliMatchPremiumConsultationQuestionIdsSchema,
   })
   .superRefine((data, ctx) => {
     if (data.boyPlaceOfBirthType === 'NEPAL') {

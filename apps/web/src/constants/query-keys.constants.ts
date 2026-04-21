@@ -46,6 +46,7 @@ export const QUERY_KEYS = {
     ALL: ['kundali-match'] as const,
     MY_LIST: (filters: { page: number; limit: number; status?: string }) =>
       ['kundali-match', 'my', filters] as const,
+    PREMIUM_CONSULTATION_QUESTIONS: ['kundali-match', 'premium-consultation-questions'] as const,
   },
 
   // Appointments

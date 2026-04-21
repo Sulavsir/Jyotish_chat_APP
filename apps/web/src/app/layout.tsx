@@ -17,6 +17,14 @@ const AdminChatWidget = dynamic(
   { ssr: false }
 );
 
+const AppointmentSessionReadyBridge = dynamic(
+  () =>
+    import('@/components/appointments/AppointmentSessionReadyBridge').then((m) => ({
+      default: m.AppointmentSessionReadyBridge,
+    })),
+  { ssr: false }
+);
+
 const inter = Inter({ subsets: ['latin'] });
 
 // Define metadataBase as a constant to ensure it's always available
@@ -109,6 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Suspense fallback={null}>
                   <PaymentRedirectHandler />
                 </Suspense>
+                <AppointmentSessionReadyBridge />
                 {children}
               <AdminChatWidget />
               <Toaster position="top-right" richColors />

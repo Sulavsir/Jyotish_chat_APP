@@ -17,6 +17,7 @@ export interface CreateKundaliMatchInput {
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  selectedConsultationQuestionIds: string[];
 }
 
 export interface KundaliMatchRequestRow {
@@ -28,6 +29,7 @@ export interface KundaliMatchRequestRow {
   girlDateOfBirth: Date;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  selectedConsultationQuestionIds: string[];
   status: KundaliMatchStatus;
   adminReviewMessage: string | null;
   coinsDeducted: number;
@@ -58,6 +60,7 @@ export async function createRequest(input: CreateKundaliMatchInput): Promise<Kun
       girlDateOfBirth: parseDateOnly(input.girlDateOfBirth),
       girlTimeOfBirth: input.girlTimeOfBirth,
       girlPlaceOfBirth: input.girlPlaceOfBirth,
+      selectedConsultationQuestionIds: input.selectedConsultationQuestionIds,
       status: KundaliMatchStatus.PENDING,
       coinsDeducted: coinCost,
       coinTransactionId,

@@ -38,6 +38,8 @@ export const API_ENDPOINTS = {
     LOCATION_PROVINCES: '/api/v1/public/location/provinces',
     LOCATION_DISTRICTS: (provinceId: string) =>
       `/api/v1/public/location/provinces/${provinceId}/districts`,
+    KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS:
+      '/api/v1/public/kundali-match/premium-consultation-questions',
   },
   JYOTISH_BOOKINGS: {
     CREATE: '/api/v1/jyotish-bookings',

@@ -28,6 +28,7 @@ import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
 import { toast } from 'sonner';
 import { Banknote, User, Eye } from 'lucide-react';
 import { useDebouncedPageSize } from '@/hooks';
+import { KundaliMatchPremiumTopicsBlock } from '@/components/kundali-match/KundaliMatchPremiumTopicsBlock';
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -136,6 +137,20 @@ export default function KundaliMatchPage() {
           <div className="truncate max-w-[120px]" title={r.girlPlaceOfBirth}>
             {r.girlPlaceOfBirth}
           </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Topics',
+      accessor: (r) => (
+        <div className="max-w-[140px]">
+          {r.selectedConsultationQuestionIds?.length ? (
+            <span className="text-xs text-slate-300">
+              {r.selectedConsultationQuestionIds.length} selected
+            </span>
+          ) : (
+            <span className="text-xs text-slate-500">—</span>
+          )}
         </div>
       ),
     },
@@ -278,7 +293,7 @@ export default function KundaliMatchPage() {
 
       {/* View detail modal */}
       <Dialog open={!!viewModalRequest} onOpenChange={(open) => !open && setViewModalRequest(null)}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white w-[calc(100vw-2rem)] max-w-lg max-h-[90vh] overflow-y-auto sm:w-full">
+        <DialogContent className="bg-slate-900 border-slate-700 text-white w-[calc(100vw-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto sm:w-full">
           <DialogHeader>
             <DialogTitle>Kundali Match Request</DialogTitle>
           </DialogHeader>
@@ -293,6 +308,12 @@ export default function KundaliMatchPage() {
                     <p className="text-slate-400">{viewModalRequest.user?.phone}</p>
                   </div>
                 </div>
+              </div>
+              <div className="rounded-lg bg-slate-800/40 border border-slate-700 p-3 space-y-2">
+                <p className="text-slate-400 font-medium text-sm">Consultation topics requested</p>
+                <KundaliMatchPremiumTopicsBlock
+                  selectedIds={viewModalRequest.selectedConsultationQuestionIds ?? []}
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -377,6 +398,14 @@ export default function KundaliMatchPage() {
           <p className="text-sm text-slate-400 shrink-0">
             Write the kundali match report (text only). The user will see this in My Bookings.
           </p>
+          {reviewModalRequest && (
+            <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3 shrink-0 max-h-[40vh] overflow-y-auto">
+              <p className="text-slate-400 font-medium text-sm mb-2">Topics to address</p>
+              <KundaliMatchPremiumTopicsBlock
+                selectedIds={reviewModalRequest.selectedConsultationQuestionIds ?? []}
+              />
+            </div>
+          )}
           <div className="space-y-2 min-h-0 flex flex-col flex-1">
             <Label className="text-slate-300 shrink-0">Review message (min 10 characters)</Label>
             <Textarea

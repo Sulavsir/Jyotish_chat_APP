@@ -348,6 +348,7 @@ export interface ApiResponse<T = any> {
 }
 
 export type { AppVersionApiResponse } from './maintenance.types';
+export type { AppointmentSessionReadyPayload } from './kundali-appointment.types';
 export {
   AstrologerNotificationSoundCue,
   ASTROLOGER_NOTIFICATION_SOUND_FILES,

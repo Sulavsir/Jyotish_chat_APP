@@ -864,6 +864,8 @@ model KundaliMatchRequest {
   girlDateOfBirth     DateTime
   girlTimeOfBirth     String
   girlPlaceOfBirth    String
+  /// Premium consultation topics selected by the client (stable IDs from shared catalogue).
+  selectedConsultationQuestionIds String[] @default([])
   status              KundaliMatchStatus   @default(PENDING)
   adminReviewMessage  String?              // Long text reply from admin
   coinsDeducted       Int

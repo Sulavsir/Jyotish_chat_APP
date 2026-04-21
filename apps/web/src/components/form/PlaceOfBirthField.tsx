@@ -193,7 +193,10 @@ export function PlaceOfBirthField({
             <Label className={labelClassName}>Location (e.g. ward, area)</Label>
             <Input
               value={v.placeOfBirthLocation ?? ''}
-              onChange={(e) => update({ placeOfBirthLocation: e.target.value.trim() || null })}
+              onChange={(e) => {
+                const raw = e.target.value;
+                update({ placeOfBirthLocation: raw === '' ? null : raw });
+              }}
               placeholder="Ward, tole, or area"
               className={inputClassName}
               disabled={disabled}
@@ -207,7 +210,10 @@ export function PlaceOfBirthField({
           <Label className={labelClassName}>Place (city / country)</Label>
           <Input
             value={v.placeOfBirth ?? ''}
-            onChange={(e) => update({ placeOfBirth: e.target.value.trim() || null })}
+            onChange={(e) => {
+              const raw = e.target.value;
+              update({ placeOfBirth: raw === '' ? null : raw });
+            }}
             placeholder="City or country"
             className={inputClassName}
             disabled={disabled}

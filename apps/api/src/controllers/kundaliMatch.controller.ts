@@ -4,12 +4,16 @@
  * Place of birth: structured (province, district, place for Nepal; single string for outside).
  */
 
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { prisma } from '@jyotish/database';
 import { AuthRequest } from '../types';
 import { sendSuccess } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import * as kundaliMatchService from '../services/kundaliMatch.service';
+import {
+  KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS,
+  KUNDALI_MATCH_PREMIUM_CONSULTATION_TITLE_NE,
+} from '@jyotish/shared';
 
 type ValidatedBody = {
   boyDateOfBirth: string;
@@ -26,6 +30,7 @@ type ValidatedBody = {
   girlPlaceOfBirthDistrictId: string | null;
   girlPlaceOfBirthLocation: string | null;
   girlPlaceOfBirth: string | null;
+  consultationQuestionIds: string[];
 };
 
 async function buildPlaceOfBirthString(
@@ -49,6 +54,25 @@ async function buildPlaceOfBirthString(
     (location && location.trim()) ?? '',
   ].filter(Boolean);
   return parts.join(', ');
+}
+
+/**
+ * Public: premium kundali matching consultation question catalogue (Nepali copy + stable IDs).
+ * GET /api/v1/public/kundali-match/premium-consultation-questions
+ */
+export async function listPublicPremiumConsultationQuestions(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    sendSuccess(res, {
+      titleNe: KUNDALI_MATCH_PREMIUM_CONSULTATION_TITLE_NE,
+      questions: KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS,
+    });
+  } catch (e) {
+    next(e);
+  }
 }
 
 /**
@@ -86,6 +110,7 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
       girlDateOfBirth: body.girlDateOfBirth,
       girlTimeOfBirth: body.girlTimeOfBirth,
       girlPlaceOfBirth,
+      selectedConsultationQuestionIds: body.consultationQuestionIds,
     });
     return sendSuccess(
       res,

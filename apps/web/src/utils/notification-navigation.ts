@@ -3,6 +3,9 @@
  * Keep in sync with NotificationBell routing behavior.
  */
 
+import { KUNDALI_APPOINTMENT_NOTIFICATION_EVENT } from '@jyotish/shared';
+import { ROUTES } from '@/constants/route.constants';
+
 export interface NotificationNavInput {
   type: string;
   metadata?: Record<string, unknown> | null;
@@ -40,11 +43,28 @@ export function getNotificationDestination(input: NotificationNavInput): string 
     return `${prefix}/chat`;
   }
 
-  if (type === 'SYSTEM' && m.event === 'SESSION_STARTED' && chatId) {
+  if (
+    type === 'SYSTEM' &&
+    chatId &&
+    (m.event === 'SESSION_STARTED' ||
+      m.event === KUNDALI_APPOINTMENT_NOTIFICATION_EVENT.SESSION_READY)
+  ) {
     return `${prefix}/chat?chatId=${encodeURIComponent(chatId)}`;
   }
 
-  if (type === 'CONSULTATION_BOOKED' || type === 'CONSULTATION_REMINDER') {
+  if (type === 'CONSULTATION_REMINDER') {
+    const appointmentId = m.appointmentId;
+    if (typeof appointmentId === 'string' && appointmentId) {
+      const appointmentsPath = isAstrologer ? ROUTES.JYOTISH_APPOINTMENTS : ROUTES.APPOINTMENTS;
+      return `${appointmentsPath}?highlight=${encodeURIComponent(appointmentId)}`;
+    }
+    const cid = m.consultationId;
+    return typeof cid === 'string' && cid
+      ? `${prefix}/consultations/${encodeURIComponent(cid)}`
+      : `${prefix}/consultations`;
+  }
+
+  if (type === 'CONSULTATION_BOOKED') {
     const cid = m.consultationId;
     return typeof cid === 'string' && cid
       ? `${prefix}/consultations/${encodeURIComponent(cid)}`
