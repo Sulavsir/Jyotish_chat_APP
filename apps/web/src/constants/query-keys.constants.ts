@@ -38,14 +38,21 @@ export const QUERY_KEYS = {
       search?: string;
       type?: string;
       status?: string;
+      dateFrom?: string;
+      dateTo?: string;
     }) => ['jyotish-bookings', 'my', filters] as const,
   },
 
   // Kundali Match
   KUNDALI_MATCH: {
     ALL: ['kundali-match'] as const,
-    MY_LIST: (filters: { page: number; limit: number; status?: string }) =>
-      ['kundali-match', 'my', filters] as const,
+    MY_LIST: (filters: {
+      page: number;
+      limit: number;
+      status?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    }) => ['kundali-match', 'my', filters] as const,
     PREMIUM_CONSULTATION_QUESTIONS: ['kundali-match', 'premium-consultation-questions'] as const,
   },
 
@@ -62,6 +69,8 @@ export const QUERY_KEYS = {
       search?: string;
       status?: string;
       statuses?: string;
+      dateFrom?: string;
+      dateTo?: string;
     }) => ['appointments', 'my', filters] as const,
     DETAIL: (id: string) => ['appointments', 'detail', id] as const,
     AVAILABILITY: (astrologerId: string, date: string) =>

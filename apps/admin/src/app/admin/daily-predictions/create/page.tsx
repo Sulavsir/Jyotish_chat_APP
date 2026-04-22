@@ -41,7 +41,7 @@ export default function CreateDailyPredictionPage() {
     mutationFn: (payload: { tips: CreateTipRequest[] }) => adminApi.tips.create(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.TIPS.ALL });
-      toast.success(`${variables.tips.length} prediction(s) created`);
+      toast.success(`${variables.tips.length} predictions created`);
       router.push(ADMIN_ROUTES.DAILY_PREDICTIONS);
     },
     onError: (e: Error) => {
@@ -58,9 +58,7 @@ export default function CreateDailyPredictionPage() {
   }, []);
 
   const updateRow = useCallback((id: string, updates: Partial<TipRow>) => {
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
-    );
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...updates } : r)));
   }, []);
 
   const validRows = rows.filter((r) => r.date && r.text.trim().length >= 5);
@@ -95,17 +93,15 @@ export default function CreateDailyPredictionPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold cosmic-text">Add Daily Predictions</h1>
             <p className="text-sm sm:text-base text-slate-400 mt-1">
-              Add one or more predictions for different dates. Fill in each row and save all at once.
+              Add one or more predictions for different dates. Fill in each row and save all at
+              once.
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSaveAll} className="space-y-6 w-full">
           {rows.map((row, index) => (
-            <div
-              key={row.id}
-              className="cosmic-card p-4 sm:p-6 space-y-4 relative"
-            >
+            <div key={row.id} className="cosmic-card p-4 sm:p-6 space-y-4 relative">
               <div className="mb-2 flex min-h-[2.25rem] items-center justify-between gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-500/40 bg-purple-500/20">
                   <span className="text-xs font-semibold text-purple-300">{index + 1}</span>
@@ -123,7 +119,9 @@ export default function CreateDailyPredictionPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-slate-200">Date <span className="text-red-400">*</span></Label>
+                  <Label className="text-slate-200">
+                    Date <span className="text-red-400">*</span>
+                  </Label>
                   <DateInput
                     min={new Date().toISOString().slice(0, 10)}
                     value={row.date}
@@ -136,11 +134,15 @@ export default function CreateDailyPredictionPage() {
                   <Label className="text-slate-200">Language</Label>
                   <select
                     value={row.language}
-                    onChange={(e) => updateRow(row.id, { language: e.target.value as QuestionnaireLanguage })}
+                    onChange={(e) =>
+                      updateRow(row.id, { language: e.target.value as QuestionnaireLanguage })
+                    }
                     className={selectClassName}
                   >
                     {QUESTIONNAIRE_LANGUAGES.map((lang) => (
-                      <option key={lang} value={lang}>{lang}</option>
+                      <option key={lang} value={lang}>
+                        {lang}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -152,13 +154,17 @@ export default function CreateDailyPredictionPage() {
                     className={selectClassName}
                   >
                     {TIP_AUDIENCES.map((aud) => (
-                      <option key={aud} value={aud}>{aud}</option>
+                      <option key={aud} value={aud}>
+                        {aud}
+                      </option>
                     ))}
                   </select>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-200">Prediction text <span className="text-red-400">*</span></Label>
+                <Label className="text-slate-200">
+                  Prediction text <span className="text-red-400">*</span>
+                </Label>
                 <Textarea
                   value={row.text}
                   onChange={(e) => updateRow(row.id, { text: e.target.value })}

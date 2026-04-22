@@ -3,7 +3,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { nepaliDateService } from '@/services/nepali-date.service';
-import { toDateKey, formatEnglishDateShort, formatNepaliDateCompact } from '@/utils/date-format.utils';
+import {
+  toDateKey,
+  formatEnglishDateShort,
+  formatNepaliDateCompact,
+} from '@/utils/date-format.utils';
 import type { NepaliDateMapping } from '@/services/nepali-date.service';
 
 export interface BirthDetailsNepaliDateResult {
@@ -46,7 +50,7 @@ export function useBirthDetailsNepaliDate(
     queryKey: ['nepali-date', 'convert', dateKey ?? ''] as const,
     queryFn: () => nepaliDateService.convertBulk(dateKey ? [dateKey] : []),
     enabled: !!dateKey && !skipNepaliApi,
-    staleTime: 1000 * 60 * 60, // 1 hour - date mappings are static
+    staleTime: 1000 * 60 * 60,
   });
 
   return useMemo((): BirthDetailsNepaliDateResult => {
@@ -63,7 +67,8 @@ export function useBirthDetailsNepaliDate(
       };
     }
 
-    const mapping: NepaliDateMapping | undefined = dateKey && map?.[dateKey] ? map[dateKey] : undefined;
+    const mapping: NepaliDateMapping | undefined =
+      dateKey && map?.[dateKey] ? map[dateKey] : undefined;
     const nepaliDisplay = mapping ? formatNepaliDateCompact(mapping, true) : null; // include weekday
 
     return {

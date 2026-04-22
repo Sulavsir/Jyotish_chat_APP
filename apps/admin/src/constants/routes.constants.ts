@@ -78,7 +78,8 @@ export const ADMIN_ROUTES = {
   DAILY_PREDICTIONS_CREATE: '/admin/daily-predictions/create',
   DAILY_PREDICTIONS_EDIT: (id: string) => `/admin/daily-predictions/${id}/edit`,
 
-  // Subha Sahit (Auspicious Dates)
+  // Book Pujari Ji — occasion catalog (names, puja items, estimated time)
+  OCCASIONS: '/admin/occasions',
   SUBHA_SAHIT: '/admin/subha-sahit',
   SUBHA_SAHIT_CREATE: '/admin/subha-sahit/create',
   SUBHA_SAHIT_EDIT: (id: string) => `/admin/subha-sahit/${id}/edit`,

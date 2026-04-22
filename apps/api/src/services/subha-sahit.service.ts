@@ -2,8 +2,20 @@
  * Subha Sahit Service - Auspicious dates for Pandit Ji bookings
  */
 
-import { prisma, SubhaSahitDate as PrismaSubhaSahitDate, Prisma } from '@jyotish/database';
-import { normalizeToDbLanguageCode, type DbLanguageCode } from '@jyotish/shared';
+import {
+  prisma,
+  SubhaSahitDate as PrismaSubhaSahitDate,
+  Prisma,
+  type SubhaSahitLanguage,
+} from '@jyotish/database';
+import {
+  normalizeToDbLanguageCode,
+  type DbLanguageCode,
+  type SubhaSahitApiLanguage,
+  type SubhaSahitOccasionListItem,
+} from '@jyotish/shared';
+import { AppError } from '../middleware/error-handler';
+import { ERROR_CODES, HTTP_STATUS } from '../constants/http.constants';
 import {
   type ReportingYmd,
   getReportingYmd,
@@ -35,6 +47,12 @@ function toSubhaSahitDate(entity: PrismaSubhaSahitDate): SubhaSahitDate {
   };
 }
 
+function subhaSahitDbLangToApi(lang: SubhaSahitLanguage): SubhaSahitApiLanguage {
+  if (lang === 'NE') return 'ne';
+  if (lang === 'HI') return 'hi';
+  return 'en';
+}
+
 export class SubhaSahitService {
   private toReportingDayDate(dateLike: string | Date): Date {
     const raw = typeof dateLike === 'string' ? dateLike : dateLike.toISOString();
@@ -57,10 +75,22 @@ export class SubhaSahitService {
 
   async createOccasion(
     name: string,
-    language?: string
+    language?: string,
+    meta?: { pujaItems?: string | null; estimatedTime?: string | null }
   ): Promise<{ id: string; name: string; isActive: boolean; language: DbLanguageCode }> {
     const trimmed = name.trim();
     const lang = normalizeToDbLanguageCode(language);
+
+    const applyMetaIfProvided = async (occasionName: string) => {
+      if (!meta) return;
+      const hasPuja = meta.pujaItems != null && String(meta.pujaItems).trim() !== '';
+      const hasTime = meta.estimatedTime != null && String(meta.estimatedTime).trim() !== '';
+      if (!hasPuja && !hasTime) return;
+      await this.upsertOccasionMeta(lang, occasionName, {
+        pujaItems: hasPuja ? String(meta.pujaItems).trim() : null,
+        estimatedTime: hasTime ? String(meta.estimatedTime).trim() : null,
+      });
+    };
 
     // Try to find an existing occasion case-insensitively
     const existing = await prisma.subhaSahitDate.findFirst({
@@ -75,6 +105,7 @@ export class SubhaSahitService {
     });
 
     if (existing) {
+      await applyMetaIfProvided(existing.occasion);
       return {
         id: existing.id,
         name: existing.occasion,
@@ -94,12 +125,69 @@ export class SubhaSahitService {
       },
     });
 
+    await applyMetaIfProvided(created.occasion);
+
     return {
       id: created.id,
       name: created.occasion,
       isActive: created.isActive,
       language: created.language as DbLanguageCode,
     };
+  }
+
+  /**
+   * Admin: create or update puja item list and estimated time for an occasion (by language + name).
+   */
+  async upsertOccasionMeta(
+    language: string,
+    occasion: string,
+    data: { pujaItems?: string | null; estimatedTime?: string | null }
+  ): Promise<void> {
+    const lang = normalizeToDbLanguageCode(language);
+    const occ = occasion.trim();
+    if (!occ) {
+      throw new Error('Occasion is required');
+    }
+
+    const pujaItems =
+      data.pujaItems === undefined
+        ? undefined
+        : data.pujaItems === null || data.pujaItems.trim() === ''
+          ? null
+          : data.pujaItems.trim();
+    const estimatedTime =
+      data.estimatedTime === undefined
+        ? undefined
+        : data.estimatedTime === null || data.estimatedTime.trim() === ''
+          ? null
+          : data.estimatedTime.trim();
+
+    const row = await prisma.subhaSahitOccasionMeta.findFirst({
+      where: {
+        language: lang,
+        occasion: { equals: occ, mode: 'insensitive' },
+      },
+    });
+
+    if (row) {
+      await prisma.subhaSahitOccasionMeta.update({
+        where: { id: row.id },
+        data: {
+          ...(pujaItems !== undefined ? { pujaItems } : {}),
+          ...(estimatedTime !== undefined ? { estimatedTime } : {}),
+        },
+      });
+      return;
+    }
+
+    await prisma.subhaSahitOccasionMeta.create({
+      data: {
+        language: lang,
+        occasion: occ,
+        pujaItems: pujaItems ?? null,
+        estimatedTime: estimatedTime ?? null,
+      },
+    });
   }
 
   /**
@@ -293,10 +381,9 @@ export class SubhaSahitService {
   }
 
   /**
-   * Get all unique occasions (for filtering)
-   * Returns distinct occasions from all SubhaSahitDate entries (including occasion-only placeholders)
+   * Distinct occasion names (any language unless filtered). For booking validation and legacy flows.
    */
-  async getOccasions(language?: string): Promise<string[]> {
+  async getDistinctOccasionNames(language?: string): Promise<string[]> {
     const where: Prisma.SubhaSahitDateWhereInput = {
       isActive: true,
       ...(language && { language: normalizeToDbLanguageCode(language) }),
@@ -309,6 +396,95 @@ export class SubhaSahitService {
       orderBy: { occasion: 'asc' },
     });
     return rows.map((r) => r.occasion);
+  }
+
+  /**
+   * Occasions with optional per-occasion metadata (puja items, estimated time).
+   * With `language`, omits `language` on each item (client). Without, includes `language` (admin).
+   */
+  async listOccasionsWithMeta(language?: string): Promise<SubhaSahitOccasionListItem[]> {
+    const whereDate: Prisma.SubhaSahitDateWhereInput = {
+      isActive: true,
+      ...(language && { language: normalizeToDbLanguageCode(language) }),
+    };
+
+    const pairs = await prisma.subhaSahitDate.findMany({
+      where: whereDate,
+      select: { language: true, occasion: true },
+      distinct: ['language', 'occasion'],
+      orderBy: [{ language: 'asc' }, { occasion: 'asc' }],
+    });
+
+    if (pairs.length === 0) return [];
+
+    const metas = await prisma.subhaSahitOccasionMeta.findMany({
+      where: {
+        OR: pairs.map((p) => ({ language: p.language, occasion: p.occasion })),
+      },
+    });
+    const metaByKey = new Map(
+      metas.map((m) => [`${m.language}\0${m.occasion.toLowerCase()}`, m] as const)
+    );
+
+    return pairs.map((p) => {
+      const m =
+        metaByKey.get(`${p.language}\0${p.occasion.toLowerCase()}`) ??
+        metas.find(
+          (x) =>
+            x.language === p.language && x.occasion.toLowerCase() === p.occasion.toLowerCase()
+        );
+      return {
+        occasion: p.occasion,
+        ...(!language ? { language: subhaSahitDbLangToApi(p.language) } : {}),
+        pujaItems: m?.pujaItems ?? null,
+        estimatedTime: m?.estimatedTime ?? null,
+      };
+    });
+  }
+
+  /**
+   * Admin: delete an occasion for a language (placeholder SubhaSahitDate rows + SubhaSahitOccasionMeta).
+   * Refuses if any non-placeholder Subha Sahit dates use this occasion.
+   */
+  async deleteOccasion(language: string, occasion: string): Promise<void> {
+    const lang = normalizeToDbLanguageCode(language);
+    const occ = occasion.trim();
+    if (!occ) {
+      throw new AppError('Occasion is required', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    const placeholderDate = this.toReportingDayDate('2099-12-31');
+
+    const realDatesCount = await prisma.subhaSahitDate.count({
+      where: {
+        language: lang,
+        occasion: { equals: occ, mode: 'insensitive' },
+        date: { not: placeholderDate },
+      },
+    });
+
+    if (realDatesCount > 0) {
+      throw new AppError(
+        'This occasion has Subha Sahit dates. Remove or change those dates first.',
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODES.SUBHA_SAHIT_OCCASION_HAS_DATES
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.subhaSahitDate.deleteMany({
+        where: {
+          language: lang,
+          occasion: { equals: occ, mode: 'insensitive' },
+        },
+      }),
+      prisma.subhaSahitOccasionMeta.deleteMany({
+        where: {
+          language: lang,
+          occasion: { equals: occ, mode: 'insensitive' },
+        },
+      }),
+    ]);
   }
 }
 

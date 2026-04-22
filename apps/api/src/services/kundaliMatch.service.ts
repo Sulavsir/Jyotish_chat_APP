@@ -3,22 +3,51 @@
  * User submits boy/girl birth details; admin sends text review. Coins deducted on request.
  */
 
-import { prisma } from '@jyotish/database';
+import { prisma, Prisma } from '@jyotish/database';
 import { KundaliMatchStatus } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import * as coinService from './coin.service';
+import {
+  reportingDayEndInclusive,
+  reportingDayStart,
+  type ReportingYmd,
+} from '../utils/reporting-date.utils';
 
 export interface CreateKundaliMatchInput {
   userId: string;
   boyDateOfBirth: string;
   boyTimeOfBirth: string;
   boyPlaceOfBirth: string;
+  boyPlaceOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+  boyPlaceOfBirthPradeshId?: string | null;
+  boyPlaceOfBirthDistrictId?: string | null;
+  boyPlaceOfBirthLocation?: string | null;
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  girlPlaceOfBirthType?: 'NEPAL' | 'OUTSIDE_NEPAL' | null;
+  girlPlaceOfBirthPradeshId?: string | null;
+  girlPlaceOfBirthDistrictId?: string | null;
+  girlPlaceOfBirthLocation?: string | null;
   selectedConsultationQuestionIds: string[];
 }
+
+const geoSelect = { id: true, nameEn: true } as const;
+
+/** Geography only — client list (no admin/user joins). */
+const kundaliMatchClientListInclude = {
+  boyPlaceOfBirthPradesh: { select: geoSelect },
+  boyPlaceOfBirthDistrict: { select: geoSelect },
+  girlPlaceOfBirthPradesh: { select: geoSelect },
+  girlPlaceOfBirthDistrict: { select: geoSelect },
+} satisfies Prisma.KundaliMatchRequestInclude;
+
+const kundaliMatchAdminInclude = {
+  user: { select: { id: true, name: true, phone: true, email: true } },
+  reviewedByAdmin: { select: { id: true, name: true } },
+  ...kundaliMatchClientListInclude,
+} satisfies Prisma.KundaliMatchRequestInclude;
 
 export interface KundaliMatchRequestRow {
   id: string;
@@ -26,9 +55,17 @@ export interface KundaliMatchRequestRow {
   boyDateOfBirth: Date;
   boyTimeOfBirth: string;
   boyPlaceOfBirth: string;
+  boyPlaceOfBirthType: string | null;
+  boyPlaceOfBirthPradeshId: string | null;
+  boyPlaceOfBirthDistrictId: string | null;
+  boyPlaceOfBirthLocation: string | null;
   girlDateOfBirth: Date;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  girlPlaceOfBirthType: string | null;
+  girlPlaceOfBirthPradeshId: string | null;
+  girlPlaceOfBirthDistrictId: string | null;
+  girlPlaceOfBirthLocation: string | null;
   selectedConsultationQuestionIds: string[];
   status: KundaliMatchStatus;
   adminReviewMessage: string | null;
@@ -40,6 +77,10 @@ export interface KundaliMatchRequestRow {
   updatedAt: Date;
   user?: Pick<import('../types/common.types').UserSummary, 'id' | 'name' | 'phone' | 'email'>;
   reviewedByAdmin?: { id: string; name: string } | null;
+  boyPlaceOfBirthPradesh?: { id: string; nameEn: string } | null;
+  boyPlaceOfBirthDistrict?: { id: string; nameEn: string } | null;
+  girlPlaceOfBirthPradesh?: { id: string; nameEn: string } | null;
+  girlPlaceOfBirthDistrict?: { id: string; nameEn: string } | null;
 }
 
 function parseDateOnly(dateStr: string): Date {
@@ -57,9 +98,17 @@ export async function createRequest(input: CreateKundaliMatchInput): Promise<Kun
       boyDateOfBirth: parseDateOnly(input.boyDateOfBirth),
       boyTimeOfBirth: input.boyTimeOfBirth,
       boyPlaceOfBirth: input.boyPlaceOfBirth,
+      boyPlaceOfBirthType: input.boyPlaceOfBirthType ?? null,
+      boyPlaceOfBirthPradeshId: input.boyPlaceOfBirthPradeshId ?? null,
+      boyPlaceOfBirthDistrictId: input.boyPlaceOfBirthDistrictId ?? null,
+      boyPlaceOfBirthLocation: input.boyPlaceOfBirthLocation ?? null,
       girlDateOfBirth: parseDateOnly(input.girlDateOfBirth),
       girlTimeOfBirth: input.girlTimeOfBirth,
       girlPlaceOfBirth: input.girlPlaceOfBirth,
+      girlPlaceOfBirthType: input.girlPlaceOfBirthType ?? null,
+      girlPlaceOfBirthPradeshId: input.girlPlaceOfBirthPradeshId ?? null,
+      girlPlaceOfBirthDistrictId: input.girlPlaceOfBirthDistrictId ?? null,
+      girlPlaceOfBirthLocation: input.girlPlaceOfBirthLocation ?? null,
       selectedConsultationQuestionIds: input.selectedConsultationQuestionIds,
       status: KundaliMatchStatus.PENDING,
       coinsDeducted: coinCost,
@@ -73,11 +122,22 @@ export async function createRequest(input: CreateKundaliMatchInput): Promise<Kun
 
 export async function listMine(
   userId: string,
-  options: { page: number; limit: number; status?: KundaliMatchStatus }
+  options: {
+    page: number;
+    limit: number;
+    status?: KundaliMatchStatus;
+    dateFrom?: string;
+    dateTo?: string;
+  }
 ) {
-  const { page, limit, status } = options;
+  const { page, limit, status, dateFrom, dateTo } = options;
   const skip = (page - 1) * limit;
-  const where = { userId, ...(status ? { status } : {}) };
+  const createdFilter = kundaliCreatedAtRange(dateFrom, dateTo);
+  const where: Prisma.KundaliMatchRequestWhereInput = {
+    userId,
+    ...(status ? { status } : {}),
+    ...(createdFilter ? { createdAt: createdFilter } : {}),
+  };
 
   const [requests, total] = await Promise.all([
     prisma.kundaliMatchRequest.findMany({
@@ -85,6 +145,7 @@ export async function listMine(
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
+      include: kundaliMatchClientListInclude,
     }),
     prisma.kundaliMatchRequest.count({ where }),
   ]);
@@ -103,22 +164,39 @@ export async function listMine(
 export async function getById(id: string): Promise<KundaliMatchRequestRow | null> {
   const request = await prisma.kundaliMatchRequest.findUnique({
     where: { id },
-    include: {
-      user: { select: { id: true, name: true, phone: true, email: true } },
-      reviewedByAdmin: { select: { id: true, name: true } },
-    },
+    include: kundaliMatchAdminInclude,
   });
   return request as KundaliMatchRequestRow | null;
+}
+
+/** Inclusive `createdAt` range: YYYY-MM-DD interpreted as calendar days in Asia/Kathmandu (same as admin month filter intent). */
+function kundaliCreatedAtRange(dateFrom?: string, dateTo?: string): Prisma.DateTimeFilter | undefined {
+  if (!dateFrom && !dateTo) return undefined;
+  const ymdOk = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const f: Prisma.DateTimeFilter = {};
+  if (dateFrom && ymdOk(dateFrom)) {
+    f.gte = reportingDayStart(dateFrom as ReportingYmd);
+  }
+  if (dateTo && ymdOk(dateTo)) {
+    f.lte = reportingDayEndInclusive(dateTo as ReportingYmd);
+  }
+  return f;
 }
 
 export async function listAdmin(options: {
   page: number;
   limit: number;
   status?: KundaliMatchStatus;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
-  const { page, limit, status } = options;
+  const { page, limit, status, dateFrom, dateTo } = options;
   const skip = (page - 1) * limit;
-  const where = status ? { status } : {};
+  const createdFilter = kundaliCreatedAtRange(dateFrom, dateTo);
+  const where: Prisma.KundaliMatchRequestWhereInput = {
+    ...(status ? { status } : {}),
+    ...(createdFilter ? { createdAt: createdFilter } : {}),
+  };
 
   const [requests, total] = await Promise.all([
     prisma.kundaliMatchRequest.findMany({
@@ -126,10 +204,7 @@ export async function listAdmin(options: {
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
-      include: {
-        user: { select: { id: true, name: true, phone: true, email: true } },
-        reviewedByAdmin: { select: { id: true, name: true } },
-      },
+      include: kundaliMatchAdminInclude,
     }),
     prisma.kundaliMatchRequest.count({ where }),
   ]);
@@ -172,10 +247,7 @@ export async function submitReview(
       reviewedAt: new Date(),
       reviewedByAdminId: adminId,
     },
-    include: {
-      user: { select: { id: true, name: true, phone: true, email: true } },
-      reviewedByAdmin: { select: { id: true, name: true } },
-    },
+    include: kundaliMatchAdminInclude,
   });
   const { AdminStatsEmitter } = require('../utils/admin-stats-emitter');
   AdminStatsEmitter.emitSidebarInvalidate();

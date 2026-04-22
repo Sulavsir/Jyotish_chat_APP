@@ -37,12 +37,12 @@ export const jyotishBookingService = {
 
     if (input.type === JyotishBookingType.PANDIT) {
       // Validate category is either a standard PANDIT category or a valid occasion
-      const occasions = await subhaSahitService.getOccasions();
+      const occasions = await subhaSahitService.getDistinctOccasionNames();
       const validCategories = [...occasions];
 
       if (!validCategories.includes(input.category)) {
         throw new AppError(
-          'Invalid category for Pandit Ji booking. Please select a valid occasion or category.',
+          'Invalid category for Pujari Ji booking. Please select a valid occasion or category.',
           HTTP_STATUS.BAD_REQUEST,
           ERROR_CODES.VALIDATION_ERROR
         );
@@ -64,7 +64,7 @@ export const jyotishBookingService = {
 
       if (!isSubhaSahit) {
         throw new AppError(
-          `Pandit Ji bookings can only be made on Subha Sahit (auspicious) dates for "${input.category}". Please select a date from the available dates for this occasion.`,
+          `Pujari Ji bookings can only be made on Subha Sahit (auspicious) dates for "${input.category}". Please select a date from the available dates for this occasion.`,
           HTTP_STATUS.BAD_REQUEST,
           ERROR_CODES.VALIDATION_ERROR
         );
@@ -91,7 +91,7 @@ export const jyotishBookingService = {
 
       if (existingBooking) {
         throw new AppError(
-          `You already have a Pandit Ji booking for ${bookingDateStr}. You cannot book multiple times for the same date.`,
+          `You already have a Pujari Ji booking for ${bookingDateStr}. You cannot book multiple times for the same date.`,
           HTTP_STATUS.BAD_REQUEST,
           ERROR_CODES.VALIDATION_ERROR
         );
@@ -119,14 +119,25 @@ export const jyotishBookingService = {
     search?: string;
     type?: JyotishBookingType;
     status?: JyotishBookingStatus;
+    dateFrom?: string;
+    dateTo?: string;
   }) {
     const skip = (input.page - 1) * input.limit;
     const q = input.search?.trim();
+
+    const createdAt =
+      input.dateFrom || input.dateTo
+        ? {
+            ...(input.dateFrom ? { gte: new Date(`${input.dateFrom}T00:00:00.000Z`) } : {}),
+            ...(input.dateTo ? { lte: new Date(`${input.dateTo}T23:59:59.999Z`) } : {}),
+          }
+        : undefined;
 
     const where = {
       clientId: input.clientId,
       type: input.type,
       status: input.status,
+      ...(createdAt ? { createdAt } : {}),
       ...(q
         ? {
             OR: [

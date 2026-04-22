@@ -199,6 +199,9 @@ export const listAppointments = async (input: {
   search?: string;
   status?: AppointmentStatus;
   statuses?: AppointmentStatus[];
+  /** Filter by scheduled appointment day (UTC day bounds, same as admin date filters). */
+  dateFrom?: string;
+  dateTo?: string;
 }): Promise<{
   appointments: AppointmentWithRelations[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
@@ -212,9 +215,18 @@ export const listAppointments = async (input: {
   const statusFilter =
     input.statuses?.length ? { status: { in: input.statuses } } : input.status ? { status: input.status } : {};
 
+  const scheduledAt =
+    input.dateFrom || input.dateTo
+      ? {
+          ...(input.dateFrom ? { gte: new Date(`${input.dateFrom}T00:00:00.000Z`) } : {}),
+          ...(input.dateTo ? { lte: new Date(`${input.dateTo}T23:59:59.999Z`) } : {}),
+        }
+      : undefined;
+
   const where: Prisma.AppointmentWhereInput = {
     ...baseWhere,
     ...statusFilter,
+    ...(scheduledAt ? { scheduledAt } : {}),
     ...(q
       ? {
           OR: [

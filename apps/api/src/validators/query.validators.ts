@@ -18,6 +18,12 @@ export const queryPaginationSchema = z.object({
     .transform((val) => (val ? parseInt(val) : 20)),
 });
 
+/** Optional `YYYY-MM-DD` query param (invalid or empty → undefined). */
+export const optionalYmdQuery = z
+  .string()
+  .optional()
+  .transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined));
+
 /**
  * UUID param validator
  */

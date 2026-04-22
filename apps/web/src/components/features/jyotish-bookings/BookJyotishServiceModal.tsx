@@ -79,25 +79,32 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
   const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
   const apiLanguage = toApiLanguageCode(questionnaireLanguage);
 
-  // Subha Sahit occasions (for Pandit Ji categories) - filtered by language
+  // Subha Sahit occasions (Book Pujari Ji) — filtered by language
   const { data: subhaOccasionsResp } = useQuery({
     queryKey: QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(apiLanguage),
     queryFn: () => subhaSahitService.getOccasions(apiLanguage),
     enabled: type === JyotishBookingType.PANDIT,
   });
 
-  const panditOccasions = useMemo(
+  const panditOccasionDetails = useMemo(
     () => subhaOccasionsResp?.occasions ?? [],
     [subhaOccasionsResp?.occasions]
   );
 
+  const selectedPujariOccasion = useMemo(
+    () => panditOccasionDetails.find((o) => o.occasion === category),
+    [panditOccasionDetails, category]
+  );
+
   const categories = useMemo(() => {
     if (type === JyotishBookingType.PANDIT) {
-      return panditOccasions.length ? panditOccasions : PANDIT_BOOKING_CATEGORIES;
+      return panditOccasionDetails.length
+        ? panditOccasionDetails.map((o) => o.occasion)
+        : [...PANDIT_BOOKING_CATEGORIES];
     }
     if (type === JyotishBookingType.VAASTU) return [...VAASTU_BOOKING_CATEGORIES];
     return [...KATHA_VACHAK_BOOKING_CATEGORIES];
-  }, [type, panditOccasions]);
+  }, [type, panditOccasionDetails]);
 
   const { data: astrologersResp, isLoading: isAstrologersLoading } = useQuery({
     queryKey: QUERY_KEYS.ASTROLOGERS.LIST({
@@ -289,7 +296,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                   {title}
                   <Badge className="bg-white/10 text-slate-200 border border-white/10">
                     {type === JyotishBookingType.PANDIT
-                      ? 'Pandit Ji'
+                      ? 'Pujari Ji'
                       : type === JyotishBookingType.VAASTU
                         ? 'Vaastu Shastri'
                         : 'Katha Vachak'}
@@ -400,6 +407,42 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                   )}
                 </div>
               </div>
+
+              {needsSubhaSahit &&
+              category &&
+              selectedPujariOccasion &&
+              (selectedPujariOccasion.pujaItems || selectedPujariOccasion.estimatedTime) ? (
+                <div className="rounded-xl border border-purple-500/25 bg-slate-950/40 p-4 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-300/90">
+                    About this occasion
+                  </p>
+                  {selectedPujariOccasion.estimatedTime ? (
+                    <p className="text-sm text-slate-200">
+                      <span className="text-slate-400">Estimated time: </span>
+                      {selectedPujariOccasion.estimatedTime}
+                    </p>
+                  ) : null}
+                  {selectedPujariOccasion.pujaItems ? (
+                    <div>
+                      <p className="text-xs text-slate-400 mb-2">Puja items (arrange as needed)</p>
+                      <ul className="flex flex-wrap gap-2">
+                        {selectedPujariOccasion.pujaItems
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                          .map((item, idx) => (
+                            <li
+                              key={`${item}-${idx}`}
+                              className="inline-flex items-center rounded-full border border-purple-500/35 bg-purple-500/10 px-3 py-1 text-xs text-purple-100"
+                            >
+                              {item}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
           {needsAstrologerSelection ? (
             <div className="space-y-4">

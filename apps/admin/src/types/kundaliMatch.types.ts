@@ -4,15 +4,32 @@
 
 export type KundaliMatchStatus = 'PENDING' | 'REVIEWED';
 
+export interface KundaliMatchGeographyRef {
+  id: string;
+  nameEn: string;
+}
+
 export interface KundaliMatchRequest {
   id: string;
   userId: string;
   boyDateOfBirth: string;
   boyTimeOfBirth: string;
   boyPlaceOfBirth: string;
+  boyPlaceOfBirthType?: string | null;
+  boyPlaceOfBirthPradeshId?: string | null;
+  boyPlaceOfBirthDistrictId?: string | null;
+  boyPlaceOfBirthLocation?: string | null;
+  boyPlaceOfBirthPradesh?: KundaliMatchGeographyRef | null;
+  boyPlaceOfBirthDistrict?: KundaliMatchGeographyRef | null;
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  girlPlaceOfBirthType?: string | null;
+  girlPlaceOfBirthPradeshId?: string | null;
+  girlPlaceOfBirthDistrictId?: string | null;
+  girlPlaceOfBirthLocation?: string | null;
+  girlPlaceOfBirthPradesh?: KundaliMatchGeographyRef | null;
+  girlPlaceOfBirthDistrict?: KundaliMatchGeographyRef | null;
   selectedConsultationQuestionIds: string[];
   status: KundaliMatchStatus;
   adminReviewMessage: string | null;

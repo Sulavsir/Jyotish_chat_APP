@@ -4,7 +4,7 @@
 
 import { z } from 'zod';
 import { AppointmentStatus } from '@prisma/client';
-import { queryPaginationSchema } from './query.validators';
+import { optionalYmdQuery, queryPaginationSchema } from './query.validators';
 
 const bookingTypeEnum = z.enum(['KUNDALI_REVIEW']);
 
@@ -87,4 +87,6 @@ export const listMyAppointmentsQuerySchema = queryPaginationSchema.extend({
     .optional()
     .transform((s) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean) : undefined))
     .pipe(z.array(z.nativeEnum(AppointmentStatus)).optional()),
+  dateFrom: optionalYmdQuery,
+  dateTo: optionalYmdQuery,
 });

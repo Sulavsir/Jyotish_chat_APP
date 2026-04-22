@@ -81,6 +81,9 @@ import {
   listSubhaSahitDatesQuerySchema,
   updateSubhaSahitDateBodySchema,
   createSubhaSahitOccasionBodySchema,
+  updateSubhaSahitOccasionMetaBodySchema,
+  getSubhaSahitOccasionsQuerySchema,
+  deleteSubhaSahitOccasionBodySchema,
 } from '../validators/subha-sahit.validators';
 import { toggleAstrologerOnlineBodySchema } from '../validators/adminAstrologer.validators';
 import {
@@ -564,6 +567,11 @@ router.get(
   asyncHandler(subhaSahitController.listDates)
 );
 router.get(
+  '/subha-sahit/occasions',
+  validateQuery(getSubhaSahitOccasionsQuerySchema),
+  asyncHandler(subhaSahitController.getOccasions)
+);
+router.get(
   '/subha-sahit/:id',
   validateParams(uuidParamSchema),
   asyncHandler(subhaSahitController.getDate)
@@ -572,6 +580,16 @@ router.post(
   '/subha-sahit/occasions',
   validateBody(createSubhaSahitOccasionBodySchema),
   asyncHandler(subhaSahitController.createOccasion)
+);
+router.put(
+  '/subha-sahit/occasion-meta',
+  validateBody(updateSubhaSahitOccasionMetaBodySchema),
+  asyncHandler(subhaSahitController.updateOccasionMeta)
+);
+router.delete(
+  '/subha-sahit/occasions',
+  validateBody(deleteSubhaSahitOccasionBodySchema),
+  asyncHandler(subhaSahitController.deleteOccasion)
 );
 router.post(
   '/subha-sahit',

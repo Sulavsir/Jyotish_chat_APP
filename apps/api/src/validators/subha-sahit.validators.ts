@@ -95,4 +95,23 @@ export const getAvailableDatesQuerySchema = z.object({
 export const createSubhaSahitOccasionBodySchema = z.object({
   name: z.string().min(1, 'Occasion name is required').max(100, 'Occasion name is too long'),
   language: z.enum(['en', 'ne', 'hi']).optional(),
+  /** Comma-separated list (e.g. thal, batuka, vada) */
+  pujaItems: z.string().max(2000).optional().nullable(),
+  estimatedTime: z.string().max(200).optional().nullable(),
+});
+
+export const getSubhaSahitOccasionsQuerySchema = z.object({
+  language: z.enum(['en', 'ne', 'hi']).optional(),
+});
+
+export const deleteSubhaSahitOccasionBodySchema = z.object({
+  language: z.enum(['en', 'ne', 'hi']),
+  occasion: z.string().min(1, 'Occasion is required').max(100, 'Occasion is too long'),
+});
+
+export const updateSubhaSahitOccasionMetaBodySchema = z.object({
+  language: z.enum(['en', 'ne', 'hi']),
+  occasion: z.string().min(1, 'Occasion is required').max(100, 'Occasion is too long'),
+  pujaItems: z.string().max(2000).optional().nullable(),
+  estimatedTime: z.string().max(200).optional().nullable(),
 });

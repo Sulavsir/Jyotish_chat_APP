@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { QUERY_KEYS } from '@/constants';
@@ -42,8 +42,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  AdminMonthRangeFilter,
+  getAllTimeDateRange,
 } from '@jyotish/ui';
-import { AstrologerCategory, JyotishBookingStatus, JyotishBookingType } from '@jyotish/shared';
+import {
+  AstrologerCategory,
+  formatGregorianDateEnShort,
+  formatTimeStringAmPm,
+  JyotishBookingStatus,
+  JyotishBookingType,
+} from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
 import { Banknote, Eye } from 'lucide-react';
 
@@ -117,6 +125,8 @@ function appointmentStatusBadge(status: AppointmentStatus) {
   );
 }
 
+const LIST_DATE_DEBOUNCE_MS = 400;
+
 export default function MyBookingsPage() {
   const [section, setSection] = useState<Section>('BOOKINGS');
   const [search, setSearch] = useState('');
@@ -126,6 +136,30 @@ export default function MyBookingsPage() {
   const [viewReviewText, setViewReviewText] = useState<string | null>(null);
   const limit = 10;
 
+  const [listDateRange, setListDateRange] = useState(getAllTimeDateRange);
+  const [debouncedListDateRange, setDebouncedListDateRange] = useState(getAllTimeDateRange);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setDebouncedListDateRange(listDateRange);
+    }, LIST_DATE_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [listDateRange.from, listDateRange.to]);
+
+  const listDateApiParams = useMemo(() => {
+    const from = debouncedListDateRange.from.trim();
+    const to = debouncedListDateRange.to.trim();
+    return {
+      ...(from ? { dateFrom: from } : {}),
+      ...(to ? { dateTo: to } : {}),
+    };
+  }, [debouncedListDateRange.from, debouncedListDateRange.to]);
+
+  const allTimeDateRange = useMemo(() => getAllTimeDateRange(), []);
+  const hasListDateFilter =
+    debouncedListDateRange.from !== allTimeDateRange.from ||
+    debouncedListDateRange.to !== allTimeDateRange.to;
+
   const params = useMemo(
     () => ({
       page,
@@ -133,8 +167,9 @@ export default function MyBookingsPage() {
       search: search.trim() ? search.trim() : undefined,
       type: type === 'ALL' ? undefined : type,
       status: status === 'ALL' ? undefined : status,
+      ...listDateApiParams,
     }),
-    [page, search, status, type]
+    [page, search, status, type, listDateApiParams]
   );
 
   const { data, isLoading } = useQuery({
@@ -169,8 +204,9 @@ export default function MyBookingsPage() {
       limit: apptLimit,
       search: apptSearch.trim() ? apptSearch.trim() : undefined,
       status: apptStatus === 'ALL' ? undefined : apptStatus,
+      ...listDateApiParams,
     }),
-    [apptPage, apptSearch, apptStatus]
+    [apptPage, apptSearch, apptStatus, listDateApiParams]
   );
 
   const { data: apptData, isLoading: isApptLoading } = useQuery({
@@ -179,6 +215,8 @@ export default function MyBookingsPage() {
       limit: apptParams.limit,
       search: apptParams.search,
       status: apptParams.status,
+      dateFrom: apptParams.dateFrom,
+      dateTo: apptParams.dateTo,
     }),
     queryFn: () => appointmentService.listMine(apptParams),
     placeholderData: (prev) => prev,
@@ -207,9 +245,16 @@ export default function MyBookingsPage() {
   const [kmPage, setKmPage] = useState(1);
   const kmLimit = 10;
   const kmParams = useMemo(
-    () => ({ page: kmPage, limit: kmLimit }),
-    [kmPage]
+    () => ({ page: kmPage, limit: kmLimit, ...listDateApiParams }),
+    [kmPage, listDateApiParams]
   );
+
+  useEffect(() => {
+    setPage(1);
+    setApptPage(1);
+    setKmPage(1);
+  }, [debouncedListDateRange.from, debouncedListDateRange.to]);
+
   const { data: kmData, isLoading: isKmLoading } = useQuery({
     queryKey: QUERY_KEYS.KUNDALI_MATCH.MY_LIST(kmParams),
     queryFn: () => kundaliMatchService.listMine(kmParams),
@@ -252,41 +297,68 @@ export default function MyBookingsPage() {
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant={section === 'BOOKINGS' ? 'default' : 'outline'}
-            className={
-              section === 'BOOKINGS'
-                ? 'bg-purple-600 hover:bg-purple-700'
-                : 'border-white/20 text-white hover:bg-white/10'
-            }
-            onClick={() => setSection('BOOKINGS')}
-          >
-            Bookings
-          </Button>
-          <Button
-            variant={section === 'APPOINTMENTS' ? 'default' : 'outline'}
-            className={
-              section === 'APPOINTMENTS'
-                ? 'bg-purple-600 hover:bg-purple-700'
-                : 'border-white/20 text-white hover:bg-white/10'
-            }
-            onClick={() => setSection('APPOINTMENTS')}
-          >
-            Appointments
-          </Button>
-          <Button
-            variant={section === 'KUNDALI_MATCH' ? 'default' : 'outline'}
-            className={
-              section === 'KUNDALI_MATCH'
-                ? 'bg-purple-600 hover:bg-purple-700'
-                : 'border-white/20 text-white hover:bg-white/10'
-            }
-            onClick={() => setSection('KUNDALI_MATCH')}
-          >
-            Kundali Match
-          </Button>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+            <Button
+              variant={section === 'BOOKINGS' ? 'default' : 'outline'}
+              className={
+                section === 'BOOKINGS'
+                  ? 'bg-purple-600 hover:bg-purple-700'
+                  : 'border-white/20 text-white hover:bg-white/10'
+              }
+              onClick={() => setSection('BOOKINGS')}
+            >
+              Bookings
+            </Button>
+            <Button
+              variant={section === 'APPOINTMENTS' ? 'default' : 'outline'}
+              className={
+                section === 'APPOINTMENTS'
+                  ? 'bg-purple-600 hover:bg-purple-700'
+                  : 'border-white/20 text-white hover:bg-white/10'
+              }
+              onClick={() => setSection('APPOINTMENTS')}
+            >
+              Appointments
+            </Button>
+            <Button
+              variant={section === 'KUNDALI_MATCH' ? 'default' : 'outline'}
+              className={
+                section === 'KUNDALI_MATCH'
+                  ? 'bg-purple-600 hover:bg-purple-700'
+                  : 'border-white/20 text-white hover:bg-white/10'
+              }
+              onClick={() => setSection('KUNDALI_MATCH')}
+            >
+              Kundali Match
+            </Button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:max-w-md lg:min-w-[280px] items-stretch sm:items-end">
+            <div className="flex-1 min-w-0">
+              <AdminMonthRangeFilter
+                fromValue={listDateRange.from}
+                toValue={listDateRange.to}
+                onRangeChange={(from, to) => setListDateRange({ from, to })}
+                showInlineFilterPrefix={false}
+                className="w-full min-w-0"
+              />
+            </div>
+            {hasListDateFilter ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 border-white/20 text-slate-200 hover:bg-white/10"
+                onClick={() => setListDateRange(getAllTimeDateRange())}
+              >
+                Clear dates
+              </Button>
+            ) : null}
+          </div>
         </div>
+        <p className="text-xs text-slate-500">
+          Date filter: Bookings &amp; Kundali Match use submission date; Appointments use scheduled
+          date (same range control for all).
+        </p>
 
         {section === 'BOOKINGS' ? (
           <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -421,9 +493,15 @@ export default function MyBookingsPage() {
               ) : kundaliMatchRequests.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-5xl mb-4">🔮</div>
-                  <p className="text-gray-300 mb-2">No kundali match requests yet</p>
+                  <p className="text-gray-300 mb-2">
+                    {hasListDateFilter
+                      ? 'No kundali match requests in this date range'
+                      : 'No kundali match requests yet'}
+                  </p>
                   <p className="text-sm text-gray-500">
-                    Submit a request from the dashboard Services section (Kundali Match).
+                    {hasListDateFilter
+                      ? 'Try clearing or widening the date filter above.'
+                      : 'Submit a request from the dashboard Services section (Kundali Match).'}
                   </p>
                 </div>
               ) : (
@@ -474,11 +552,15 @@ export default function MyBookingsPage() {
                             <TableCell className="border-r border-slate-700/40 text-sm text-slate-200">
                               <div className="min-w-0">
                                 <div>
-                                  {typeof r.boyDateOfBirth === 'string'
-                                    ? r.boyDateOfBirth.slice(0, 10)
-                                    : new Date(r.boyDateOfBirth).toISOString().slice(0, 10)}
+                                  {formatGregorianDateEnShort(
+                                    typeof r.boyDateOfBirth === 'string'
+                                      ? r.boyDateOfBirth
+                                      : new Date(r.boyDateOfBirth).toISOString()
+                                  )}
                                 </div>
-                                <div className="text-xs text-slate-400">{r.boyTimeOfBirth}</div>
+                                <div className="text-xs text-slate-400">
+                                  {formatTimeStringAmPm(r.boyTimeOfBirth)}
+                                </div>
                                 <div className="text-xs truncate" title={r.boyPlaceOfBirth}>
                                   {r.boyPlaceOfBirth}
                                 </div>
@@ -487,11 +569,15 @@ export default function MyBookingsPage() {
                             <TableCell className="border-r border-slate-700/40 text-sm text-slate-200">
                               <div className="min-w-0">
                                 <div>
-                                  {typeof r.girlDateOfBirth === 'string'
-                                    ? r.girlDateOfBirth.slice(0, 10)
-                                    : new Date(r.girlDateOfBirth).toISOString().slice(0, 10)}
+                                  {formatGregorianDateEnShort(
+                                    typeof r.girlDateOfBirth === 'string'
+                                      ? r.girlDateOfBirth
+                                      : new Date(r.girlDateOfBirth).toISOString()
+                                  )}
                                 </div>
-                                <div className="text-xs text-slate-400">{r.girlTimeOfBirth}</div>
+                                <div className="text-xs text-slate-400">
+                                  {formatTimeStringAmPm(r.girlTimeOfBirth)}
+                                </div>
                                 <div className="text-xs truncate" title={r.girlPlaceOfBirth}>
                                   {r.girlPlaceOfBirth}
                                 </div>
@@ -590,9 +676,13 @@ export default function MyBookingsPage() {
               ) : bookings.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="text-5xl mb-4">📄</div>
-                  <p className="text-gray-300 mb-2">No bookings found</p>
+                  <p className="text-gray-300 mb-2">
+                    {hasListDateFilter ? 'No bookings in this date range' : 'No bookings found'}
+                  </p>
                   <p className="text-sm text-gray-500">
-                    Create a booking from your dashboard services section.
+                    {hasListDateFilter
+                      ? 'Try clearing or widening the date filter above.'
+                      : 'Create a booking from your dashboard services section.'}
                   </p>
                 </div>
               ) : (
@@ -753,9 +843,15 @@ export default function MyBookingsPage() {
             ) : appointments.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-5xl mb-4">📄</div>
-                <p className="text-gray-300 mb-2">No appointments found</p>
+                <p className="text-gray-300 mb-2">
+                  {hasListDateFilter
+                    ? 'No appointments in this date range'
+                    : 'No appointments found'}
+                </p>
                 <p className="text-sm text-gray-500">
-                  Book an appointment from an astrologer profile.
+                  {hasListDateFilter
+                    ? 'Try clearing or widening the date filter above.'
+                    : 'Book an appointment from an astrologer profile.'}
                 </p>
               </div>
             ) : (

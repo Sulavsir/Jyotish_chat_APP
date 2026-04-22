@@ -49,7 +49,7 @@ export function SubhaSahitSection() {
     queryFn: () => subhaSahitService.getOccasions(apiLanguage),
   });
 
-  const occasions = occasionsData?.occasions ?? [];
+  const occasionRows = occasionsData?.occasions ?? [];
 
   const { data, isLoading } = useQuery({
     queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({
@@ -132,7 +132,7 @@ export function SubhaSahitSection() {
               </select>
             </div>
 
-            {occasions.length > 0 && (
+            {occasionRows.length > 0 && (
               <div className="flex-1 rounded-2xl border border-purple-500/30 bg-slate-950/70 p-3 shadow-[0_0_40px_rgba(129,140,248,0.25)] backdrop-blur">
                 <Label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300">
                   Filter by Occasion
@@ -143,9 +143,9 @@ export function SubhaSahitSection() {
                   className="w-full bg-slate-900/70 border border-purple-500/40 rounded-md px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none [color-scheme:dark]"
                 >
                   <option value="">All occasions</option>
-                  {occasions.map((occ) => (
-                    <option key={occ} value={occ}>
-                      {occ}
+                  {occasionRows.map((row) => (
+                    <option key={row.occasion} value={row.occasion}>
+                      {row.occasion}
                     </option>
                   ))}
                 </select>
@@ -203,7 +203,7 @@ export function SubhaSahitSection() {
           )}
 
           <p className="mt-4 text-[11px] text-slate-500">
-            Booking Pandit Ji through Jyotish is only possible on these Subha Sahit dates, ensuring
+            Booking Pujari Ji through Jyotish is only possible on these Subha Sahit dates, ensuring
             your rituals are performed at the most auspicious times.
           </p>
         </div>

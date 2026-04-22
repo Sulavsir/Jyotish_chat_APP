@@ -145,10 +145,8 @@ export const ADMIN_QUERY_KEYS = {
       params
         ? (['admin', 'subha-sahit', 'list', params] as const)
         : (['admin', 'subha-sahit', 'list'] as const),
-    OCCASIONS: (language?: string) =>
-      language
-        ? (['admin', 'subha-sahit', 'occasions', language] as const)
-        : (['admin', 'subha-sahit', 'occasions'] as const),
+    OCCASIONS: (params?: { language?: string }) =>
+      ['admin', 'subha-sahit', 'occasions', params?.language ?? ''] as const,
     DETAIL: (id: string) => ['admin', 'subha-sahit', 'detail', id] as const,
   },
 

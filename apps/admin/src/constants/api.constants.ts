@@ -7,6 +7,11 @@ export const API_BASE_URL =
 
 export const API_VERSION_PATH = '/api/version';
 
+/** Public API paths (unauthenticated) used by the admin app where needed (e.g. BS date convert). */
+export const PUBLIC_API_ENDPOINTS = {
+  NEPALI_DATE_CONVERT: '/api/v1/public/nepali-date/convert',
+} as const;
+
 export const API_ENDPOINTS = {
   ADMIN: {
     // Auth
@@ -165,8 +170,10 @@ export const API_ENDPOINTS = {
     GET: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
     UPDATE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
     DELETE: (id: string) => `/api/v1/admin/subha-sahit/${id}`,
-    OCCASIONS: '/api/v1/subha-sahit/occasions',
+    /** Admin-authenticated list (same payload as public GET /subha-sahit/occasions) */
+    OCCASIONS: '/api/v1/admin/subha-sahit/occasions',
     CREATE_OCCASION: '/api/v1/admin/subha-sahit/occasions',
+    UPDATE_OCCASION_META: '/api/v1/admin/subha-sahit/occasion-meta',
   },
 
   ADMIN_CHAT: {

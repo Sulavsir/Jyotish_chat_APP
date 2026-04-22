@@ -43,13 +43,23 @@ export const jyotishBookingService = {
     return data.booking;
   },
 
-  async listMine(params: { page: number; limit: number; search?: string; type?: string; status?: string }): Promise<ListMyJyotishBookingsResponse> {
+  async listMine(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    type?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<ListMyJyotishBookingsResponse> {
     const queryParams = new URLSearchParams();
     queryParams.append('page', String(params.page));
     queryParams.append('limit', String(params.limit));
     if (params.search) queryParams.append('search', params.search);
     if (params.type) queryParams.append('type', params.type);
     if (params.status) queryParams.append('status', params.status);
+    if (params.dateFrom?.trim()) queryParams.append('dateFrom', params.dateFrom.trim());
+    if (params.dateTo?.trim()) queryParams.append('dateTo', params.dateTo.trim());
     const url = `${API_ENDPOINTS.JYOTISH_BOOKINGS.MY}?${queryParams.toString()}`;
     return await apiClient.get<ListMyJyotishBookingsResponse>(url);
   },

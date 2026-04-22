@@ -383,7 +383,7 @@ export default function DashboardPage() {
       },
       {
         title: 'Jyotish Bookings',
-        description: 'Pandit, Vaastu & Katha requests',
+        description: 'Pujari Ji, Vaastu & Katha requests',
         icon: <DocumentIcon className="w-6 h-6 text-fuchsia-300" />,
         route: ADMIN_ROUTES.JYOTISH_BOOKINGS,
       },

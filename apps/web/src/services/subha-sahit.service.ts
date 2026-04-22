@@ -1,7 +1,8 @@
 /**
- * Subha Sahit Service - Auspicious dates for Pandit Ji bookings
+ * Subha Sahit Service — auspicious dates for Book Pujari Ji
  */
 
+import type { SubhaSahitOccasionListItem } from '@jyotish/shared';
 import { apiClient } from '@/lib/api-client';
 import { API_ENDPOINTS } from '@/constants';
 
@@ -27,7 +28,7 @@ export interface AvailableDatesResponse {
 }
 
 export interface OccasionsResponse {
-  occasions: string[];
+  occasions: SubhaSahitOccasionListItem[];
 }
 
 export const subhaSahitService = {
@@ -41,7 +42,7 @@ export const subhaSahitService = {
   },
 
   /**
-   * Get all unique occasions
+   * Occasions for the given app language, with optional puja items and estimated time
    */
   async getOccasions(language?: 'en' | 'ne' | 'hi'): Promise<OccasionsResponse> {
     return apiClient.get<OccasionsResponse>(API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS, {

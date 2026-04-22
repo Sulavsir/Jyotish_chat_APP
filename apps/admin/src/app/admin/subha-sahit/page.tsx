@@ -1,46 +1,40 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
-import {
-  Button,
-  DateInput,
-  Label,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Input,
-} from '@jyotish/ui';
+import { Button, Label, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
 import {
   ADMIN_QUERY_KEYS,
   ADMIN_ROUTES,
   PAGINATION_DEFAULTS,
   ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_DATE_FILTER_DEBOUNCE_MS,
 } from '@/constants';
 import type { ListSubhaSahitDatesParams, SubhaSahitDate } from '@/types';
 import {
   AdminTable,
   AdminListPaginationSection,
   AdminRefreshButton,
+  AdminClearFiltersButton,
   type AdminTableColumn,
 } from '@/components/admin';
 import { ConfirmDialog } from '@/components/ui';
 import { toast } from 'sonner';
-import { Plus, Trash2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Pencil, BookOpen } from 'lucide-react';
 import { formatAdminDate } from '@/utils/helpers';
-import { useDebouncedPageSize } from '@/hooks';
+import { useDebouncedPageSize, useDebounce } from '@/hooks';
 
 export default function SubhaSahitPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const [occasionFilter, setOccasionFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateRange, setDateRange] = useState(getAllTimeDateRange);
+  const debouncedDateFrom = useDebounce(dateRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
+  const debouncedDateTo = useDebounce(dateRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const [page, setPage] = useState(1);
   const {
     pageSize: rowsPerPage,
@@ -48,9 +42,6 @@ export default function SubhaSahitPage() {
     debouncedPageSize: debouncedRowsPerPage,
   } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [language, setLanguage] = useState<'en' | 'ne' | 'hi' | ''>('');
-  const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
-  const [newOccasion, setNewOccasion] = useState('');
-  const [occasionLanguage, setOccasionLanguage] = useState<'en' | 'ne' | 'hi'>('en');
   const [dateToDelete, setDateToDelete] = useState<SubhaSahitDate | null>(null);
 
   const { data: occasionsData } = useQuery({
@@ -58,18 +49,18 @@ export default function SubhaSahitPage() {
     queryFn: () => adminApi.subhaSahit.getOccasions(),
   });
 
-  const occasions = occasionsData?.occasions ?? [];
+  const occasionList = occasionsData?.occasions ?? [];
 
   const listParams: ListSubhaSahitDatesParams = useMemo(
     () => ({
       ...(occasionFilter && { occasion: occasionFilter }),
-      ...(dateFrom && { dateFrom }),
-      ...(dateTo && { dateTo }),
+      ...(debouncedDateFrom && { dateFrom: debouncedDateFrom }),
+      ...(debouncedDateTo && { dateTo: debouncedDateTo }),
       ...(language && { language }),
       page,
       limit: debouncedRowsPerPage,
     }),
-    [occasionFilter, dateFrom, dateTo, language, page, debouncedRowsPerPage]
+    [occasionFilter, debouncedDateFrom, debouncedDateTo, language, page, debouncedRowsPerPage]
   );
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -88,6 +79,21 @@ export default function SubhaSahitPage() {
   useEffect(() => {
     setPage(PAGINATION_DEFAULTS.PAGE);
   }, [debouncedRowsPerPage]);
+
+  useEffect(() => {
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  }, [debouncedDateFrom, debouncedDateTo, occasionFilter, language]);
+
+  const hasListFilters = Boolean(
+    occasionFilter || language || dateRange.from || dateRange.to
+  );
+
+  const clearListFilters = useCallback(() => {
+    setOccasionFilter('');
+    setLanguage('');
+    setDateRange(getAllTimeDateRange());
+    setPage(PAGINATION_DEFAULTS.PAGE);
+  }, []);
 
   const handlePageSizeChange = (size: number) => {
     if (size === rowsPerPage) return;
@@ -173,21 +179,6 @@ export default function SubhaSahitPage() {
     },
   ];
 
-  const handleAddOccasion = async () => {
-    const trimmed = newOccasion.trim();
-    if (!trimmed) return;
-    try {
-      await adminApi.subhaSahit.createOccasion(trimmed, occasionLanguage);
-      await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS() });
-      toast.success('Occasion added');
-      setIsOccasionModalOpen(false);
-      setNewOccasion('');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to add occasion';
-      toast.error(message);
-    }
-  };
-
   return (
     <>
       <div className="space-y-5 sm:space-y-6">
@@ -197,110 +188,121 @@ export default function SubhaSahitPage() {
               Subha Sahit
             </h1>
             <div className="flex shrink-0 flex-row flex-wrap items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                asChild
+                size="sm"
+                className="hidden shrink-0 border-purple-500/40 text-purple-300 hover:bg-purple-500/10 sm:inline-flex"
+              >
+                <Link href={ADMIN_ROUTES.OCCASIONS}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Occasions
+                </Link>
+              </Button>
               <AdminRefreshButton
                 onClick={() => refetch()}
                 loading={isFetching}
                 className="shrink-0"
               />
               <Button
-                variant="outline"
-                onClick={() => setIsOccasionModalOpen(true)}
-                size="sm"
-                className="hidden shrink-0 border-purple-500/40 text-purple-300 hover:bg-purple-500/10 sm:inline-flex"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Occasion
-              </Button>
-              <Button
                 onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
                 className="hidden shrink-0 bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:inline-flex"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Dates
+                Add dates
               </Button>
             </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
-            Manage auspicious dates for Pandit Ji bookings
+            Auspicious dates for Book Pujari Ji. Manage occasion names and puja details on{' '}
+            <Link
+              href={ADMIN_ROUTES.OCCASIONS}
+              className="text-purple-300 hover:text-purple-200 underline-offset-2 hover:underline"
+            >
+              Occasions
+            </Link>
+            .
           </p>
           <div className="flex flex-col gap-2 sm:hidden">
             <Button
               variant="outline"
-              onClick={() => setIsOccasionModalOpen(true)}
-              size="sm"
+              asChild
               className="w-full border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Occasion
+              <Link href={ADMIN_ROUTES.OCCASIONS}>
+                <BookOpen className="w-4 h-4 mr-2" />
+                Occasions
+              </Link>
             </Button>
             <Button
               onClick={() => router.push(ADMIN_ROUTES.SUBHA_SAHIT_CREATE)}
               className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Dates
+              Add dates
             </Button>
           </div>
         </div>
 
-        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-slate-200">Filter by Occasion</Label>
-            <select
-              value={occasionFilter}
-              onChange={(e) => {
-                setOccasionFilter(e.target.value);
-                setPage(1);
-              }}
-              className="mt-1.5 h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
-            >
-              <option value="">All occasions</option>
-              {occasions.map((occ) => (
-                <option key={occ} value={occ}>
-                  {occ}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-slate-200">Date From</Label>
-            <DateInput
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setPage(1);
-              }}
-              className="bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
-              nepaliDate
+        <div className="cosmic-card p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:flex-nowrap lg:items-end lg:gap-4">
+            <div className="min-w-0 flex-1 basis-0 space-y-2">
+              <Label className="text-white font-medium text-sm block">Filter by Occasion</Label>
+              <select
+                value={occasionFilter}
+                onChange={(e) => {
+                  setOccasionFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+              >
+                <option value="">All occasions</option>
+                {occasionList.map((row) => (
+                  <option
+                    key={`${row.language ?? 'x'}-${row.occasion}`}
+                    value={row.occasion}
+                  >
+                    {row.language ? `${row.occasion} (${row.language})` : row.occasion}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0 flex-1 basis-0 space-y-2">
+              <Label className="text-white font-medium text-sm block">Language</Label>
+              <select
+                value={language}
+                onChange={(e) => {
+                  setLanguage(e.target.value as 'en' | 'ne' | 'hi' | '');
+                  setPage(1);
+                }}
+                className="h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+              >
+                <option value="">All languages</option>
+                <option value="en">English</option>
+                <option value="ne">नेपाली (Nepali)</option>
+                <option value="hi">हिन्दी (Hindi)</option>
+              </select>
+            </div>
+            <div className="min-w-0 flex-1 basis-0 space-y-2">
+              <Label className="text-white font-medium text-sm block">Date</Label>
+              <AdminMonthRangeFilter
+                fromValue={dateRange.from}
+                toValue={dateRange.to}
+                onRangeChange={(from, to) => {
+                  setDateRange({ from, to });
+                  setPage(PAGINATION_DEFAULTS.PAGE);
+                }}
+                disabled={isLoading || isFetching}
+                showInlineFilterPrefix={false}
+                className="w-full min-w-0"
+              />
+            </div>
+            <AdminClearFiltersButton
+              show={hasListFilters}
+              onClear={clearListFilters}
+              disabled={isLoading || isFetching}
+              className="w-full shrink-0 self-end lg:w-auto"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-slate-200">Date To</Label>
-            <DateInput
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setPage(1);
-              }}
-              className="bg-slate-900/50 border-purple-500/30 text-white [color-scheme:dark]"
-              nepaliDate
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-slate-200">Language</Label>
-            <select
-              value={language}
-              onChange={(e) => {
-                setLanguage(e.target.value as 'en' | 'ne' | 'hi' | '');
-                setPage(1);
-              }}
-              className="mt-1.5 h-11 w-full rounded-md border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
-            >
-              <option value="">All languages</option>
-              <option value="en">English</option>
-              <option value="ne">नेपाली (Nepali)</option>
-              <option value="hi">हिन्दी (Hindi)</option>
-            </select>
           </div>
         </div>
 
@@ -328,13 +330,13 @@ export default function SubhaSahitPage() {
                 </svg>
               ),
               title:
-                occasionFilter || dateFrom || dateTo
+                occasionFilter || debouncedDateFrom || debouncedDateTo || language
                   ? 'No Subha Sahit dates found'
                   : 'No Subha Sahit dates',
               description:
-                occasionFilter || dateFrom || dateTo
+                occasionFilter || debouncedDateFrom || debouncedDateTo || language
                   ? 'Try adjusting your filters'
-                  : 'Add auspicious dates for Pandit Ji bookings.',
+                  : 'Add auspicious dates for Book Pujari Ji.',
             }}
           />
         </div>
@@ -355,60 +357,6 @@ export default function SubhaSahitPage() {
           />
         )}
       </div>
-
-      <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
-        <DialogContent className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-purple-600/40 text-white w-[92vw] max-w-md max-h-[90dvh] overflow-y-auto shadow-2xl shadow-purple-900/40 p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-purple-100">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-600/30 border border-purple-500/60">
-                <Plus className="h-4 w-4" />
-              </span>
-              Add new occasion
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-3">
-            <Label className="text-slate-200 text-sm">Occasion name</Label>
-            <Input
-              value={newOccasion}
-              onChange={(e) => setNewOccasion(e.target.value)}
-              placeholder="e.g. Satyanarayan Puja"
-              className="bg-slate-900/70 border-purple-600/50 focus:border-purple-400 text-white placeholder-slate-500"
-            />
-            <div className="flex items-center justify-between gap-3">
-              <Label className="text-slate-200 text-xs">Language</Label>
-              <select
-                value={occasionLanguage}
-                onChange={(e) => setOccasionLanguage(e.target.value as 'en' | 'ne' | 'hi')}
-                className="mt-1 h-9 rounded-md border border-purple-500/40 bg-slate-900/60 px-2 py-1 text-xs text-white focus:border-purple-400 focus:outline-none"
-              >
-                <option value="en">English</option>
-                <option value="ne">नेपाली (Nepali)</option>
-                <option value="hi">हिन्दी (Hindi)</option>
-              </select>
-            </div>
-            <p className="text-xs text-slate-400">
-              This occasion will appear in all Subha Sahit dropdowns and filters, and can be used
-              while creating dates and booking Pandit Ji.
-            </p>
-          </div>
-          <DialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setIsOccasionModalOpen(false)}
-              className="border-slate-700 w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddOccasion}
-              disabled={!newOccasion.trim()}
-              className="w-full sm:w-auto"
-            >
-              Add Occasion
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         isOpen={dateToDelete !== null}

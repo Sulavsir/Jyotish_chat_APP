@@ -14,6 +14,11 @@ export {
 } from './language.utils';
 
 export {
+  formatNepaliBsDateLine,
+  type NepaliDateMappingInput,
+} from './nepal-bs-date-display.utils';
+
+export {
   mergeMessageBirthDetails,
   formatBirthDetailsSingleLine,
   groupMessagesBySenderAndSameSecond,
@@ -74,6 +79,63 @@ export function formatDate(date: Date): string {
  */
 export function formatTime(date: Date): string {
   return date.toTimeString().split(' ')[0].slice(0, 5);
+}
+
+/**
+ * Display a stored clock time (typically API / forms use 24-hour `HH:mm`) as 12-hour with AM/PM,
+ * e.g. `16:15` → `4:15 PM`. Strings that already include AM/PM are returned trimmed. Unparseable
+ * values are returned unchanged (trimmed).
+ */
+export function formatTimeStringAmPm(timeStr: string | null | undefined): string {
+  if (timeStr == null || typeof timeStr !== 'string') return '';
+
+  const trimmed = timeStr.trim();
+  if (!trimmed) return '';
+
+  if (/\b(am|pm)\b/i.test(trimmed)) return trimmed;
+
+  const m = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!m) return trimmed;
+
+  const hour = Number.parseInt(m[1], 10);
+  const minute = Number.parseInt(m[2], 10);
+
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return trimmed;
+  }
+
+  const isPm = hour >= 12;
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  const minPadded = minute.toString().padStart(2, '0');
+  const period = isPm ? 'PM' : 'AM';
+
+  return `${hour12}:${minPadded} ${period}`;
+}
+
+/**
+ * Format a Gregorian date (YYYY-MM-DD or ISO datetime) for English UI, e.g. Apr 14, 1999.
+ * Parses YYYY-MM-DD in local calendar components so the day does not shift by timezone.
+ */
+export function formatGregorianDateEnShort(isoOrYmd: string | null | undefined): string {
+  if (isoOrYmd == null || typeof isoOrYmd !== 'string') return '';
+
+  const trimmed = isoOrYmd.trim();
+  if (!trimmed) return '';
+
+  const head = trimmed.includes('T') ? trimmed.slice(0, 10) : trimmed.slice(0, 10);
+  const ymd = head.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymd) {
+    const y = Number(ymd[1]);
+    const mo = Number(ymd[2]);
+    const day = Number(ymd[3]);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(day)) return trimmed;
+    const d = new Date(y, mo - 1, day);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const d = new Date(trimmed);
+  if (Number.isNaN(d.getTime())) return trimmed;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 /**

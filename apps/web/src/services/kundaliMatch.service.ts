@@ -7,15 +7,32 @@ import { API_ENDPOINTS } from '@/constants';
 
 export type KundaliMatchStatus = 'PENDING' | 'REVIEWED';
 
+export interface KundaliMatchGeographyRef {
+  id: string;
+  nameEn: string;
+}
+
 export interface KundaliMatchRequest {
   id: string;
   userId: string;
   boyDateOfBirth: string;
   boyTimeOfBirth: string;
   boyPlaceOfBirth: string;
+  boyPlaceOfBirthType?: string | null;
+  boyPlaceOfBirthPradeshId?: string | null;
+  boyPlaceOfBirthDistrictId?: string | null;
+  boyPlaceOfBirthLocation?: string | null;
+  boyPlaceOfBirthPradesh?: KundaliMatchGeographyRef | null;
+  boyPlaceOfBirthDistrict?: KundaliMatchGeographyRef | null;
   girlDateOfBirth: string;
   girlTimeOfBirth: string;
   girlPlaceOfBirth: string;
+  girlPlaceOfBirthType?: string | null;
+  girlPlaceOfBirthPradeshId?: string | null;
+  girlPlaceOfBirthDistrictId?: string | null;
+  girlPlaceOfBirthLocation?: string | null;
+  girlPlaceOfBirthPradesh?: KundaliMatchGeographyRef | null;
+  girlPlaceOfBirthDistrict?: KundaliMatchGeographyRef | null;
   /** Stable question IDs from premium consultation catalogue. */
   selectedConsultationQuestionIds: string[];
   status: KundaliMatchStatus;
@@ -86,11 +103,15 @@ export const kundaliMatchService = {
     page: number;
     limit: number;
     status?: KundaliMatchStatus;
+    dateFrom?: string;
+    dateTo?: string;
   }): Promise<ListMyKundaliMatchResponse> {
     const query = new URLSearchParams();
     query.set('page', String(params.page));
     query.set('limit', String(params.limit));
     if (params.status) query.set('status', params.status);
+    if (params.dateFrom?.trim()) query.set('dateFrom', params.dateFrom.trim());
+    if (params.dateTo?.trim()) query.set('dateTo', params.dateTo.trim());
     return apiClient.get<ListMyKundaliMatchResponse>(
       `${API_ENDPOINTS.KUNDALI_MATCH.MY}?${query.toString()}`
     );

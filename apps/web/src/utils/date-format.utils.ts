@@ -3,6 +3,7 @@
  */
 
 import type { NepaliDateMapping } from '@/services/nepali-date.service';
+import { formatTimeStringAmPm } from '@jyotish/shared';
 import { NEPALI_WEEKDAY_LABELS } from '@jyotish/ui';
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -136,25 +137,10 @@ export function formatNepaliDateDisplay(mapping: NepaliDateMapping): string {
 }
 
 /**
- * Format 24-hour time with AM/PM
+ * Format 24-hour time with AM/PM (delegates to shared helper).
  */
 export function formatTimeAmPm(timeStr: string): string {
-  if (!timeStr || typeof timeStr !== 'string') return '';
-
-  const trimmed = timeStr.trim();
-  const parts = trimmed.split(':');
-  const hour = parts[0] ? Number.parseInt(parts[0], 10) : NaN;
-  const min = parts[1] ? Number.parseInt(parts[1], 10) : 0;
-
-  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return trimmed;
-
-  const isPm = hour >= 12;
-  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  const period = isPm ? 'PM' : 'AM';
-  const minPadded = Number.isFinite(min) ? min.toString().padStart(2, '0') : '00';
-  const hourPadded = hour12.toString().padStart(2, '0');
-
-  return `${hourPadded}:${minPadded} ${period}`;
+  return formatTimeStringAmPm(timeStr);
 }
 
 /**

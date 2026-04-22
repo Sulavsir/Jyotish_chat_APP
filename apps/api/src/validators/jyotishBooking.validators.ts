@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/database';
-import { queryPaginationSchema } from './query.validators';
+import { optionalYmdQuery, queryPaginationSchema } from './query.validators';
 
 export const listMyJyotishBookingsQuerySchema = queryPaginationSchema.extend({
   search: z.string().trim().min(1).optional(),
@@ -26,6 +26,8 @@ export const listMyJyotishBookingsQuerySchema = queryPaginationSchema.extend({
         ? (val as JyotishBookingStatus)
         : undefined;
     }),
+  dateFrom: optionalYmdQuery,
+  dateTo: optionalYmdQuery,
 });
 
 export const listAdminJyotishBookingsQuerySchema = queryPaginationSchema.extend({

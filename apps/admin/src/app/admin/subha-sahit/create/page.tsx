@@ -37,10 +37,12 @@ export default function CreateSubhaSahitPage() {
   const [language, setLanguage] = useState<'en' | 'ne' | 'hi'>('en');
   const [isOccasionModalOpen, setIsOccasionModalOpen] = useState(false);
   const [newOccasion, setNewOccasion] = useState('');
+  const [newPujaItems, setNewPujaItems] = useState('');
+  const [newEstimatedTime, setNewEstimatedTime] = useState('');
 
   const { data: occasionsData } = useQuery({
-    queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS(language),
-    queryFn: () => adminApi.subhaSahit.getOccasions(language),
+    queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS({ language }),
+    queryFn: () => adminApi.subhaSahit.getOccasions({ language }),
   });
 
   const occasions = occasionsData?.occasions ?? [];
@@ -99,10 +101,17 @@ export default function CreateSubhaSahitPage() {
     const trimmed = newOccasion.trim();
     if (!trimmed) return;
     try {
-      await adminApi.subhaSahit.createOccasion(trimmed, language);
+      await adminApi.subhaSahit.createOccasion({
+        name: trimmed,
+        language,
+        pujaItems: newPujaItems.trim() || null,
+        estimatedTime: newEstimatedTime.trim() || null,
+      });
       await queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.OCCASIONS() });
       toast.success('Occasion added');
       setNewOccasion('');
+      setNewPujaItems('');
+      setNewEstimatedTime('');
       setIsOccasionModalOpen(false);
       // Pre-fill first empty row with this occasion
       setRows((prev) =>
@@ -230,9 +239,9 @@ export default function CreateSubhaSahitPage() {
                           className="w-full mt-1.5 h-11 rounded-lg border-2 border-purple-500/30 bg-slate-900/50 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
                         >
                           <option value="">Select occasion...</option>
-                          {occasions.map((occ) => (
-                            <option key={occ} value={occ}>
-                              {occ}
+                          {occasions.map((row) => (
+                            <option key={row.occasion} value={row.occasion}>
+                              {row.occasion}
                             </option>
                           ))}
                         </select>
@@ -330,6 +339,30 @@ export default function CreateSubhaSahitPage() {
                   value={newOccasion}
                   onChange={(e) => setNewOccasion(e.target.value)}
                   placeholder="e.g. शुभ विवाह मुहूर्त"
+                  className="bg-slate-900 border-purple-500/40 text-white placeholder-slate-500"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-puja-items" className="text-slate-200 text-sm">
+                  Puja items <span className="text-slate-500 font-normal">(optional, comma-separated)</span>
+                </Label>
+                <Input
+                  id="new-puja-items"
+                  value={newPujaItems}
+                  onChange={(e) => setNewPujaItems(e.target.value)}
+                  placeholder="e.g. thal, batuka, vada"
+                  className="bg-slate-900 border-purple-500/40 text-white placeholder-slate-500"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="new-estimated-time" className="text-slate-200 text-sm">
+                  Estimated time <span className="text-slate-500 font-normal">(optional)</span>
+                </Label>
+                <Input
+                  id="new-estimated-time"
+                  value={newEstimatedTime}
+                  onChange={(e) => setNewEstimatedTime(e.target.value)}
+                  placeholder="e.g. 2 hours"
                   className="bg-slate-900 border-purple-500/40 text-white placeholder-slate-500"
                 />
               </div>

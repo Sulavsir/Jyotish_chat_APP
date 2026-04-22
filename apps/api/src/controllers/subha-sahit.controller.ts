@@ -29,12 +29,12 @@ export const getAvailableDates = async (req: Request, res: Response, next: NextF
 };
 
 /**
- * Public: Get all unique occasions
- * GET /api/v1/subha-sahit/occasions
+ * Occasions for Subha Sahit (puja items & estimated time for Book Pujari Ji)
+ * Public: GET /api/v1/subha-sahit/occasions · Admin: GET /api/v1/admin/subha-sahit/occasions
  */
 export const getOccasions = async (req: Request, res: Response, next: NextFunction) => {
   const { language } = req.query as { language?: string };
-  const occasions = await subhaSahitService.getOccasions(language);
+  const occasions = await subhaSahitService.listOccasionsWithMeta(language);
   return sendSuccess(res, { occasions });
 };
 
@@ -43,9 +43,39 @@ export const getOccasions = async (req: Request, res: Response, next: NextFuncti
  * POST /api/v1/admin/subha-sahit/occasions
  */
 export const createOccasion = async (req: Request, res: Response, next: NextFunction) => {
-  const { name, language } = req.body as { name: string; language?: string };
-  const occasion = await subhaSahitService.createOccasion(name, language);
+  const { name, language, pujaItems, estimatedTime } = req.body as {
+    name: string;
+    language?: string;
+    pujaItems?: string | null;
+    estimatedTime?: string | null;
+  };
+  const occasion = await subhaSahitService.createOccasion(name, language, { pujaItems, estimatedTime });
   return sendSuccess(res, { occasion });
+};
+
+/**
+ * Admin: Set or update puja items and estimated time for an occasion
+ * PUT /api/v1/admin/subha-sahit/occasion-meta
+ */
+export const updateOccasionMeta = async (req: Request, res: Response, next: NextFunction) => {
+  const { language, occasion, pujaItems, estimatedTime } = req.body as {
+    language: string;
+    occasion: string;
+    pujaItems?: string | null;
+    estimatedTime?: string | null;
+  };
+  await subhaSahitService.upsertOccasionMeta(language, occasion, { pujaItems, estimatedTime });
+  return sendSuccess(res, { message: 'Occasion details updated' });
+};
+
+/**
+ * Admin: delete occasion (placeholder rows + meta). 409 if real Subha Sahit dates reference it.
+ * DELETE /api/v1/admin/subha-sahit/occasions
+ */
+export const deleteOccasion = async (req: Request, res: Response, next: NextFunction) => {
+  const { language, occasion } = req.body as { language: string; occasion: string };
+  await subhaSahitService.deleteOccasion(language, occasion);
+  return sendSuccess(res, { message: 'Occasion removed' });
 };
 
 /**

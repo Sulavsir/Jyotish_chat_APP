@@ -282,7 +282,7 @@ export default function PanditBookingsPage() {
             </div>
           </div>
           <p className="text-sm sm:text-base text-slate-400">
-            Approve or reject Pandit Ji booking requests
+            Approve or reject Pujari Ji booking requests
           </p>
         </div>
 
@@ -329,8 +329,8 @@ export default function PanditBookingsPage() {
                 </svg>
               ),
               title: debouncedSearch
-                ? 'No Pandit Ji booking requests found'
-                : 'No Pandit Ji booking requests',
+                ? 'No Pujari Ji booking requests found'
+                : 'No Pujari Ji booking requests',
               description: debouncedSearch
                 ? 'Try adjusting your search terms'
                 : 'Requests submitted by clients will appear here.',

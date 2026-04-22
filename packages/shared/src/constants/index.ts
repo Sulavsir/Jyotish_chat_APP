@@ -168,3 +168,4 @@ export * from './maintenance.constants';
 export * from './auth-oauth.constants';
 export * from './kundali-appointment.constants';
 export * from './kundali-match-premium-questions.constants';
+export * from './nepal-geography-devanagari';

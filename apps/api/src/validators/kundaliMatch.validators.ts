@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { queryPaginationSchema } from './query.validators';
+import { optionalYmdQuery, queryPaginationSchema } from './query.validators';
 import { KundaliMatchStatus } from '@prisma/client';
 import { kundaliMatchPremiumConsultationQuestionIdsSchema } from '@jyotish/shared';
 
@@ -76,6 +76,8 @@ export const listMyKundaliMatchQuerySchema = queryPaginationSchema.extend({
         ? (val as KundaliMatchStatus)
         : undefined
     ),
+  dateFrom: optionalYmdQuery,
+  dateTo: optionalYmdQuery,
 });
 
 export const listAdminKundaliMatchQuerySchema = queryPaginationSchema.extend({
@@ -87,4 +89,6 @@ export const listAdminKundaliMatchQuerySchema = queryPaginationSchema.extend({
         ? (val as KundaliMatchStatus)
         : undefined
     ),
+  dateFrom: optionalYmdQuery,
+  dateTo: optionalYmdQuery,
 });

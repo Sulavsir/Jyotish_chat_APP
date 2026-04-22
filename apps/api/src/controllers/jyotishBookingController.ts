@@ -60,12 +60,14 @@ export async function listMine(req: AuthRequest, res: Response, next: NextFuncti
       throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    const { page, limit, search, type, status } = req.query as unknown as {
+    const { page, limit, search, type, status, dateFrom, dateTo } = req.query as unknown as {
       page: number;
       limit: number;
       search?: string;
       type?: JyotishBookingType;
       status?: JyotishBookingStatus;
+      dateFrom?: string;
+      dateTo?: string;
     };
 
     const result = await jyotishBookingService.listForClient({
@@ -75,6 +77,8 @@ export async function listMine(req: AuthRequest, res: Response, next: NextFuncti
       search,
       type,
       status,
+      dateFrom,
+      dateTo,
     });
     return sendSuccess(res, result);
   } catch (error) {

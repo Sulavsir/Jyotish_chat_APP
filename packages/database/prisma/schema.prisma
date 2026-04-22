@@ -91,6 +91,10 @@ model NepalGeography {
   usersAsDistrict    User[]          @relation("UserPlaceOfBirthDistrict")
   profilesAsPradesh  ClientProfile[] @relation("ClientProfilePlaceOfBirthPradesh")
   profilesAsDistrict ClientProfile[] @relation("ClientProfilePlaceOfBirthDistrict")
+  kundaliMatchBoyPradesh   KundaliMatchRequest[] @relation("KundaliMatchBoyPradesh")
+  kundaliMatchBoyDistrict  KundaliMatchRequest[] @relation("KundaliMatchBoyDistrict")
+  kundaliMatchGirlPradesh  KundaliMatchRequest[] @relation("KundaliMatchGirlPradesh")
+  kundaliMatchGirlDistrict KundaliMatchRequest[] @relation("KundaliMatchGirlDistrict")
 
   @@unique([nameEn, parentId])
   @@index([type])
@@ -655,6 +659,19 @@ model SubhaSahitDate {
   @@index([date, occasion, language, isActive])
 }
 
+model SubhaSahitOccasionMeta {
+  id            String             @id @default(uuid())
+  language      SubhaSahitLanguage
+  occasion      String
+  pujaItems     String?
+  estimatedTime String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([language, occasion])
+  @@index([language])
+}
+
 // English ↔ Nepali date mapping (Bikram Sambat); no reference_id, id is auto-generated
 model NepaliDate {
   id           Int      @id @default(autoincrement())
@@ -861,9 +878,18 @@ model KundaliMatchRequest {
   boyDateOfBirth       DateTime
   boyTimeOfBirth      String
   boyPlaceOfBirth     String
+  /// Structured Nepal birth place (null for legacy rows or outside Nepal).
+  boyPlaceOfBirthType         String?
+  boyPlaceOfBirthPradeshId   String?
+  boyPlaceOfBirthDistrictId  String?
+  boyPlaceOfBirthLocation    String?
   girlDateOfBirth     DateTime
   girlTimeOfBirth     String
   girlPlaceOfBirth    String
+  girlPlaceOfBirthType         String?
+  girlPlaceOfBirthPradeshId   String?
+  girlPlaceOfBirthDistrictId  String?
+  girlPlaceOfBirthLocation    String?
   /// Premium consultation topics selected by the client (stable IDs from shared catalogue).
   selectedConsultationQuestionIds String[] @default([])
   status              KundaliMatchStatus   @default(PENDING)
@@ -877,6 +903,10 @@ model KundaliMatchRequest {
 
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviewedByAdmin     Admin?               @relation("KundaliMatchReviewedBy", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  boyPlaceOfBirthPradesh   NepalGeography? @relation("KundaliMatchBoyPradesh", fields: [boyPlaceOfBirthPradeshId], references: [id], onDelete: SetNull)
+  boyPlaceOfBirthDistrict  NepalGeography? @relation("KundaliMatchBoyDistrict", fields: [boyPlaceOfBirthDistrictId], references: [id], onDelete: SetNull)
+  girlPlaceOfBirthPradesh  NepalGeography? @relation("KundaliMatchGirlPradesh", fields: [girlPlaceOfBirthPradeshId], references: [id], onDelete: SetNull)
+  girlPlaceOfBirthDistrict NepalGeography? @relation("KundaliMatchGirlDistrict", fields: [girlPlaceOfBirthDistrictId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])

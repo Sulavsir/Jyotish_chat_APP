@@ -107,9 +107,17 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
       boyDateOfBirth: body.boyDateOfBirth,
       boyTimeOfBirth: body.boyTimeOfBirth,
       boyPlaceOfBirth,
+      boyPlaceOfBirthType: body.boyPlaceOfBirthType ?? null,
+      boyPlaceOfBirthPradeshId: body.boyPlaceOfBirthPradeshId ?? null,
+      boyPlaceOfBirthDistrictId: body.boyPlaceOfBirthDistrictId ?? null,
+      boyPlaceOfBirthLocation: body.boyPlaceOfBirthLocation ?? null,
       girlDateOfBirth: body.girlDateOfBirth,
       girlTimeOfBirth: body.girlTimeOfBirth,
       girlPlaceOfBirth,
+      girlPlaceOfBirthType: body.girlPlaceOfBirthType ?? null,
+      girlPlaceOfBirthPradeshId: body.girlPlaceOfBirthPradeshId ?? null,
+      girlPlaceOfBirthDistrictId: body.girlPlaceOfBirthDistrictId ?? null,
+      girlPlaceOfBirthLocation: body.girlPlaceOfBirthLocation ?? null,
       selectedConsultationQuestionIds: body.consultationQuestionIds,
     });
     return sendSuccess(
@@ -135,13 +143,21 @@ export async function listMine(req: AuthRequest, res: Response, next: NextFuncti
     if (!userId) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ success: false, message: 'Unauthorized' });
     }
-    const query = req.query as { page?: number; limit?: number; status?: string };
+    const query = req.query as unknown as {
+      page: number;
+      limit: number;
+      status?: 'PENDING' | 'REVIEWED';
+      dateFrom?: string;
+      dateTo?: string;
+    };
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 10));
     const result = await kundaliMatchService.listMine(userId, {
       page,
       limit,
-      status: query.status as 'PENDING' | 'REVIEWED' | undefined,
+      status: query.status,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
     });
     return sendSuccess(res, result);
   } catch (e) {
@@ -155,13 +171,21 @@ export async function listMine(req: AuthRequest, res: Response, next: NextFuncti
  */
 export async function listAdmin(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const query = req.query as { page?: number; limit?: number; status?: string };
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const query = req.query as unknown as {
+      page: number;
+      limit: number;
+      status?: 'PENDING' | 'REVIEWED';
+      dateFrom?: string;
+      dateTo?: string;
+    };
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 10));
     const result = await kundaliMatchService.listAdmin({
       page,
       limit,
-      status: query.status as 'PENDING' | 'REVIEWED' | undefined,
+      status: query.status,
+      dateFrom: query.dateFrom,
+      dateTo: query.dateTo,
     });
     return sendSuccess(res, result);
   } catch (e) {

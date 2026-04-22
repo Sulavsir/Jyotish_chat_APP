@@ -47,7 +47,10 @@ router.use(authenticate);
  *       400:
  *         description: Invalid input
  */
-router.post('/', asyncHandler(consultationRequestController.createRequest.bind(consultationRequestController)));
+router.post(
+  '/',
+  asyncHandler(consultationRequestController.createRequest.bind(consultationRequestController))
+);
 
 /**
  * @swagger
@@ -61,7 +64,10 @@ router.post('/', asyncHandler(consultationRequestController.createRequest.bind(c
  *       200:
  *         description: List of pending consultation requests
  */
-router.get('/pending', asyncHandler(consultationRequestController.getPendingRequests.bind(consultationRequestController)));
+router.get(
+  '/pending',
+  asyncHandler(consultationRequestController.getPendingRequests.bind(consultationRequestController))
+);
 
 /**
  * @swagger
@@ -75,7 +81,10 @@ router.get('/pending', asyncHandler(consultationRequestController.getPendingRequ
  *       200:
  *         description: List of client's consultation requests
  */
-router.get('/my-requests', asyncHandler(consultationRequestController.getMyRequests.bind(consultationRequestController)));
+router.get(
+  '/my-requests',
+  asyncHandler(consultationRequestController.getMyRequests.bind(consultationRequestController))
+);
 
 /**
  * @swagger
@@ -89,7 +98,12 @@ router.get('/my-requests', asyncHandler(consultationRequestController.getMyReque
  *       200:
  *         description: Returns whether astrologer has active consultation
  */
-router.get('/check-active', asyncHandler(consultationRequestController.checkActiveConsultation.bind(consultationRequestController)));
+router.get(
+  '/check-active',
+  asyncHandler(
+    consultationRequestController.checkActiveConsultation.bind(consultationRequestController)
+  )
+);
 
 /**
  * @swagger
@@ -103,7 +117,10 @@ router.get('/check-active', asyncHandler(consultationRequestController.checkActi
  *       200:
  *         description: Consultation request statistics
  */
-router.get('/statistics', asyncHandler(consultationRequestController.getStatistics.bind(consultationRequestController)));
+router.get(
+  '/statistics',
+  asyncHandler(consultationRequestController.getStatistics.bind(consultationRequestController))
+);
 
 /**
  * @swagger
@@ -125,7 +142,10 @@ router.get('/statistics', asyncHandler(consultationRequestController.getStatisti
  *       404:
  *         description: Consultation request not found
  */
-router.get('/:id', asyncHandler(consultationRequestController.getRequestById.bind(consultationRequestController)));
+router.get(
+  '/:id',
+  asyncHandler(consultationRequestController.getRequestById.bind(consultationRequestController))
+);
 
 /**
  * @swagger
@@ -151,7 +171,10 @@ router.get('/:id', asyncHandler(consultationRequestController.getRequestById.bin
  *       410:
  *         description: Request has expired
  */
-router.post('/:id/accept', asyncHandler(consultationRequestController.acceptRequest.bind(consultationRequestController)));
+router.post(
+  '/:id/accept',
+  asyncHandler(consultationRequestController.acceptRequest.bind(consultationRequestController))
+);
 
 /**
  * @swagger
@@ -175,7 +198,9 @@ router.post('/:id/accept', asyncHandler(consultationRequestController.acceptRequ
  *       400:
  *         description: Can only cancel pending requests
  */
-router.post('/:id/cancel', asyncHandler(consultationRequestController.cancelRequest.bind(consultationRequestController)));
+router.post(
+  '/:id/cancel',
+  asyncHandler(consultationRequestController.cancelRequest.bind(consultationRequestController))
+);
 
 export default router;
-

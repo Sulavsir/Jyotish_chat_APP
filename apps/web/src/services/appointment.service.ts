@@ -86,6 +86,8 @@ export const listMine = async (params: {
   search?: string;
   status?: AppointmentStatus | string;
   statuses?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }): Promise<ListMyAppointmentsResponse> => {
   return apiClient.get<ListMyAppointmentsResponse>(API_ENDPOINTS.APPOINTMENTS.MY, { params });
 };

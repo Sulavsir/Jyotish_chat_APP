@@ -16,8 +16,12 @@ import {
   AstrologerCategory,
   JyotishBookingStatus,
   JyotishBookingType,
+  type CreateSubhaSahitOccasionRequest,
+  type DeleteSubhaSahitOccasionRequest,
   type JyotishBookingRequest,
+  type ListSubhaSahitOccasionsResponse,
   type QuestionnaireCategory,
+  type UpdateSubhaSahitOccasionMetaRequest,
 } from '@jyotish/shared';
 import type {
   Admin,
@@ -475,23 +479,38 @@ export const adminApi = {
       return response;
     },
 
-    getOccasions: async (language?: 'en' | 'ne' | 'hi'): Promise<{ occasions: string[] }> => {
-      const response = await apiClient.get<{ occasions: string[] }>(
+    getOccasions: async (params?: { language?: 'en' | 'ne' | 'hi' }) => {
+      const response = await apiClient.get<ListSubhaSahitOccasionsResponse>(
         API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS,
         {
-          params: language ? { language } : undefined,
+          params: params?.language ? { language: params.language } : undefined,
         }
       );
       return response;
     },
 
-    createOccasion: async (
-      name: string,
-      language?: 'en' | 'ne' | 'hi'
-    ): Promise<{ occasion: { id: string; name: string; isActive: boolean; language: string } }> => {
+    deleteOccasion: async (
+      payload: DeleteSubhaSahitOccasionRequest
+    ): Promise<{ message: string }> => {
+      const response = await apiClient.delete<{ message: string }>(
+        API_ENDPOINTS.SUBHA_SAHIT.OCCASIONS,
+        { data: payload }
+      );
+      return response;
+    },
+
+    createOccasion: async (payload: CreateSubhaSahitOccasionRequest) => {
       const response = await apiClient.post<{
         occasion: { id: string; name: string; isActive: boolean; language: string };
-      }>(API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION, language ? { name, language } : { name });
+      }>(API_ENDPOINTS.SUBHA_SAHIT.CREATE_OCCASION, payload);
+      return response;
+    },
+
+    updateOccasionMeta: async (payload: UpdateSubhaSahitOccasionMetaRequest) => {
+      const response = await apiClient.put<{ message: string }>(
+        API_ENDPOINTS.SUBHA_SAHIT.UPDATE_OCCASION_META,
+        payload
+      );
       return response;
     },
   },
@@ -960,6 +979,8 @@ export const adminApi = {
       page?: number;
       limit?: number;
       status?: string;
+      dateFrom?: string;
+      dateTo?: string;
     }): Promise<{
       requests: import('@/types/kundaliMatch.types').KundaliMatchRequest[];
       pagination: { page: number; limit: number; total: number; totalPages: number };
