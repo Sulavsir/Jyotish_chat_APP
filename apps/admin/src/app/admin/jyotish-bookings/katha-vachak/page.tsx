@@ -32,6 +32,9 @@ import {
   AdminTable,
   AdminListPaginationSection,
   AdminRefreshButton,
+  JyotishBookingVenueCell,
+  JyotishBookingDetailDialog,
+  type JyotishBookingAdminRow,
   type AdminTableColumn,
   BookingStatusFilter,
   type BookingStatusFilterValue,
@@ -39,24 +42,7 @@ import {
 import { formatAdminDate, getImageUrl } from '@/utils/helpers';
 
 interface JyotishBookingsResponse {
-  bookings: Array<
-    import('@jyotish/shared').JyotishBookingRequest & {
-      client: {
-        id: string;
-        phone: string;
-        name: string | null;
-        email: string | null;
-        profilePhoto: string | null;
-      };
-      preferredAstrologer?: {
-        id: string;
-        name: string;
-        category: import('@jyotish/shared').AstrologerCategory;
-        specialization: string[];
-        profilePhoto: string | null;
-      } | null;
-    }
-  >;
+  bookings: JyotishBookingAdminRow[];
   pagination: {
     page: number;
     limit: number;
@@ -100,6 +86,7 @@ export default function KathaVachakBookingsPage() {
   const [statusFilter, setStatusFilter] = useState<BookingStatusFilterValue>('ALL');
   const [action, setAction] = useState<ActionState>({ open: false });
   const [adminNotes, setAdminNotes] = useState('');
+  const [detailBooking, setDetailBooking] = useState<JyotishBookingAdminRow | null>(null);
 
   const {
     data: bookingsResponse,
@@ -168,8 +155,9 @@ export default function KathaVachakBookingsPage() {
     {
       header: 'Booking Date',
       accessor: (b) => <span className="text-slate-200">{formatAdminDate(b.bookingDate)}</span>,
-      width: '140px',
+      width: '132px',
     },
+
     {
       header: 'Client',
       accessor: (b) => (
@@ -210,25 +198,58 @@ export default function KathaVachakBookingsPage() {
       width: '200px',
     },
     {
-      header: 'Booking reason',
+      header: 'Katha category',
       accessor: (b) => (
-        <span className="text-white truncate block max-w-[260px]" title={b.category}>
+        <span className="text-white truncate block max-w-[200px]" title={b.category}>
           {b.category}
         </span>
       ),
-      width: '160px',
+      width: '180px',
     },
     {
-      header: 'Location',
+      header: 'Venue',
+      accessor: (b) => <JyotishBookingVenueCell booking={b} />,
+      width: '220px',
+    },
+    {
+      header: 'Nearest landmark',
       accessor: (b) =>
-        b.location ? (
-          <span className="text-slate-200 truncate block max-w-[200px]" title={b.location}>
-            {b.location}
+        b.nearestLandmark?.trim() ? (
+          <span className="text-slate-200 truncate block max-w-[160px]" title={b.nearestLandmark}>
+            {b.nearestLandmark}
           </span>
         ) : (
           <span className="text-slate-500">—</span>
         ),
-      width: '200px',
+      width: '160px',
+    },
+    {
+      header: 'No. of pujari',
+      accessor: (b) => (
+        <span className="text-slate-200 tabular-nums">
+          {b.pujariCount != null ? b.pujariCount : '—'}
+        </span>
+      ),
+      width: '100px',
+    },
+    {
+      header: 'Contact',
+      accessor: (b) =>
+        b.contactPhone?.trim() ? (
+          <span className="text-slate-200 truncate block max-w-[120px]" title={b.contactPhone}>
+            {b.contactPhone}
+          </span>
+        ) : (
+          <span className="text-slate-500">—</span>
+        ),
+      width: '120px',
+    },
+    {
+      header: 'Date of issue',
+      accessor: (b) => (
+        <span className="text-slate-200 whitespace-nowrap">{formatAdminDate(b.createdAt)}</span>
+      ),
+      width: '132px',
     },
     {
       header: 'Remarks (Optional)',
@@ -250,7 +271,14 @@ export default function KathaVachakBookingsPage() {
     {
       header: 'Actions',
       accessor: (b) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            variant="outline"
+            className="border-slate-600"
+            onClick={() => setDetailBooking(b)}
+          >
+            View
+          </Button>
           <Button
             variant="outline"
             className="border-slate-700"
@@ -276,12 +304,21 @@ export default function KathaVachakBookingsPage() {
         </div>
       ),
       className: 'text-right',
-      width: '260px',
+      width: '300px',
     },
   ];
 
   return (
     <>
+      <JyotishBookingDetailDialog
+        booking={detailBooking}
+        open={!!detailBooking}
+        onOpenChange={(open) => {
+          if (!open) setDetailBooking(null);
+        }}
+        serviceLabel="Katha Vachak"
+        categoryLabel="Katha category"
+      />
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">

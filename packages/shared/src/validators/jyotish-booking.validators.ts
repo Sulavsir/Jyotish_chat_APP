@@ -13,6 +13,35 @@ const isValidISODate = (value: string) => {
   return !Number.isNaN(d.getTime());
 };
 
+const bookingContactPhoneSchema = z
+  .string()
+  .min(1, 'Contact number is required')
+  .max(22)
+  .transform((s) => s.trim().replace(/\s+/g, ''))
+  .refine((s) => {
+    const digits = s.startsWith('+') ? s.slice(1) : s;
+    return /^[0-9]{9,15}$/.test(digits);
+  }, 'Enter a valid phone number');
+
+const bookingContactPhoneAltSchema = z.preprocess(
+  (v) => {
+    if (v == null || v === '') return undefined;
+    if (typeof v !== 'string') return undefined;
+    return v.trim() === '' ? undefined : v;
+  },
+  bookingContactPhoneSchema.optional()
+);
+
+const optionalGoogleMapLinkSchema = z.preprocess(
+  (v) => {
+    if (v == null || v === '') return undefined;
+    if (typeof v !== 'string') return undefined;
+    const t = v.trim();
+    return t === '' ? undefined : t;
+  },
+  z.string().url('Invalid Google Maps link').max(2048).optional()
+);
+
 export const createJyotishBookingRequestSchema = z
   .object({
     type: z.nativeEnum(JyotishBookingType),
@@ -23,7 +52,16 @@ export const createJyotishBookingRequestSchema = z
       .refine(isValidISODate, 'Booking date must be a valid date (YYYY-MM-DD)'),
     category: z.string().min(1, 'Category is required'),
     details: z.string().max(2000, 'Details is too long').optional(),
-    location: z.string().min(1, 'Location is required').max(500, 'Location is too long'),
+    province: z.string().min(1, 'Province is required').max(120, 'Province is too long'),
+    district: z.string().min(1, 'District is required').max(120, 'District is too long'),
+    wardNo: z.string().min(1, 'Ward number is required').max(30, 'Ward number is too long'),
+    place: z.string().min(1, 'Place is required').max(200, 'Place is too long'),
+    tole: z.string().max(200, 'Tole is too long').optional(),
+    nearestLandmark: z.string().max(300, 'Nearest landmark is too long').optional(),
+    googleMapLink: optionalGoogleMapLinkSchema,
+    pujariCount: z.coerce.number().int().min(1, 'At least one Pujari is required').max(50),
+    contactPhone: bookingContactPhoneSchema,
+    contactPhoneAlt: bookingContactPhoneAltSchema,
   })
   .superRefine((data, ctx) => {
     // Only Katha Vachak bookings can/should select a specific astrologer.
@@ -70,9 +108,20 @@ export const createJyotishBookingRequestSchema = z
         }
       }
     }
+
+    const alt = data.contactPhoneAlt;
+    if (alt && alt === data.contactPhone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Alternative number must differ from the primary contact number',
+        path: ['contactPhoneAlt'],
+      });
+    }
   });
 
 export const adminUpdateJyotishBookingStatusSchema = z.object({
   status: z.nativeEnum(JyotishBookingStatus),
   adminNotes: z.string().max(1000, 'Admin notes is too long').optional(),
 });
+
+export type CreateJyotishBookingRequestInput = z.infer<typeof createJyotishBookingRequestSchema>;

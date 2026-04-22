@@ -143,6 +143,16 @@ export interface JyotishBookingRequest {
   bookingDate: Date;
   details?: string | null;
   location: string;
+  province?: string | null;
+  district?: string | null;
+  wardNo?: string | null;
+  place?: string | null;
+  tole?: string | null;
+  nearestLandmark?: string | null;
+  googleMapLink?: string | null;
+  pujariCount?: number | null;
+  contactPhone?: string | null;
+  contactPhoneAlt?: string | null;
   status: JyotishBookingStatus;
   adminNotes?: string | null;
   decidedAt?: Date | null;

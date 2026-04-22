@@ -49,6 +49,8 @@ import {
   AstrologerCategory,
   formatGregorianDateEnShort,
   formatTimeStringAmPm,
+  jyotishBookingVenuePrimaryLine,
+  jyotishBookingVenueTitle,
   JyotishBookingStatus,
   JyotishBookingType,
 } from '@jyotish/shared';
@@ -708,6 +710,9 @@ export default function MyBookingsPage() {
                               <TableHead className="text-slate-200 border-r border-slate-700/60">
                                 Reason
                               </TableHead>
+                              <TableHead className="text-slate-200 border-r border-slate-700/60 min-w-[200px]">
+                                Venue
+                              </TableHead>
                               <TableHead className="text-slate-200 border-r border-slate-700/60">
                                 Remarks
                               </TableHead>
@@ -765,6 +770,12 @@ export default function MyBookingsPage() {
                                   title={b.category}
                                 >
                                   {b.category}
+                                </TableCell>
+                                <TableCell
+                                  className="max-w-[240px] truncate border-r border-slate-700/40 text-slate-200"
+                                  title={jyotishBookingVenueTitle(b)}
+                                >
+                                  {jyotishBookingVenuePrimaryLine(b)}
                                 </TableCell>
                                 <TableCell
                                   className="max-w-[320px] truncate border-r border-slate-700/40"

@@ -847,7 +847,18 @@ model JyotishBookingRequest {
   category   String
   bookingDate DateTime
   details    String?
+  /// Denormalized single-line summary for search / legacy display; structured fields hold the source of truth for new rows.
   location   String
+  province          String?
+  district          String?
+  wardNo            String?
+  place             String?
+  tole              String?
+  nearestLandmark   String?
+  googleMapLink     String?
+  pujariCount       Int      @default(1)
+  contactPhone      String?
+  contactPhoneAlt   String?
   status     JyotishBookingStatus @default(PENDING)
   adminNotes String?
   decidedAt  DateTime?

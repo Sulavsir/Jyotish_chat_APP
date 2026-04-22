@@ -3,6 +3,7 @@
  */
 
 import { prisma, JyotishBookingStatus, JyotishBookingType } from '@jyotish/database';
+import { buildJyotishBookingLocationSummary } from '@jyotish/shared';
 import { AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
 import { subhaSahitService } from './subha-sahit.service';
 
@@ -14,7 +15,16 @@ export const jyotishBookingService = {
     category: string;
     bookingDate: Date;
     details?: string;
-    location: string;
+    province: string;
+    district: string;
+    wardNo: string;
+    place: string;
+    tole?: string;
+    nearestLandmark?: string;
+    googleMapLink?: string;
+    pujariCount: number;
+    contactPhone: string;
+    contactPhoneAlt?: string;
   }) {
     // Normalize dates to UTC for consistent comparison
     // Extract date string from the input date (which is already UTC from controller)
@@ -98,6 +108,20 @@ export const jyotishBookingService = {
       }
     }
 
+    const tole = input.tole?.trim() || null;
+    const nearestLandmark = input.nearestLandmark?.trim() || null;
+    const googleMapLink = input.googleMapLink?.trim() || null;
+    const contactPhoneAlt = input.contactPhoneAlt?.trim() || null;
+
+    const locationSummary = buildJyotishBookingLocationSummary({
+      province: input.province,
+      district: input.district,
+      wardNo: input.wardNo,
+      place: input.place,
+      tole,
+      nearestLandmark,
+    });
+
     return prisma.jyotishBookingRequest.create({
       data: {
         clientId: input.clientId,
@@ -106,7 +130,17 @@ export const jyotishBookingService = {
         category: input.category,
         bookingDate: bookingDateUTC, // Use normalized UTC date
         details: input.details,
-        location: input.location,
+        location: locationSummary,
+        province: input.province.trim(),
+        district: input.district.trim(),
+        wardNo: input.wardNo.trim(),
+        place: input.place.trim(),
+        tole,
+        nearestLandmark,
+        googleMapLink,
+        pujariCount: input.pujariCount,
+        contactPhone: input.contactPhone,
+        contactPhoneAlt,
         status: JyotishBookingStatus.PENDING,
       },
     });
@@ -144,6 +178,14 @@ export const jyotishBookingService = {
               { category: { contains: q, mode: 'insensitive' as const } },
               { details: { contains: q, mode: 'insensitive' as const } },
               { location: { contains: q, mode: 'insensitive' as const } },
+              { province: { contains: q, mode: 'insensitive' as const } },
+              { district: { contains: q, mode: 'insensitive' as const } },
+              { wardNo: { contains: q, mode: 'insensitive' as const } },
+              { place: { contains: q, mode: 'insensitive' as const } },
+              { tole: { contains: q, mode: 'insensitive' as const } },
+              { nearestLandmark: { contains: q, mode: 'insensitive' as const } },
+              { contactPhone: { contains: q, mode: 'insensitive' as const } },
+              { contactPhoneAlt: { contains: q, mode: 'insensitive' as const } },
               { adminNotes: { contains: q, mode: 'insensitive' as const } },
               { preferredAstrologer: { name: { contains: q, mode: 'insensitive' as const } } },
             ],
@@ -202,6 +244,14 @@ export const jyotishBookingService = {
         category?: { contains: string; mode: 'insensitive' };
         details?: { contains: string; mode: 'insensitive' };
         location?: { contains: string; mode: 'insensitive' };
+        province?: { contains: string; mode: 'insensitive' };
+        district?: { contains: string; mode: 'insensitive' };
+        wardNo?: { contains: string; mode: 'insensitive' };
+        place?: { contains: string; mode: 'insensitive' };
+        tole?: { contains: string; mode: 'insensitive' };
+        nearestLandmark?: { contains: string; mode: 'insensitive' };
+        contactPhone?: { contains: string; mode: 'insensitive' };
+        contactPhoneAlt?: { contains: string; mode: 'insensitive' };
         adminNotes?: { contains: string; mode: 'insensitive' };
         client?: {
           OR: Array<{
@@ -222,6 +272,14 @@ export const jyotishBookingService = {
         { category: { contains: q, mode: 'insensitive' } },
         { details: { contains: q, mode: 'insensitive' } },
         { location: { contains: q, mode: 'insensitive' } },
+        { province: { contains: q, mode: 'insensitive' } },
+        { district: { contains: q, mode: 'insensitive' } },
+        { wardNo: { contains: q, mode: 'insensitive' } },
+        { place: { contains: q, mode: 'insensitive' } },
+        { tole: { contains: q, mode: 'insensitive' } },
+        { nearestLandmark: { contains: q, mode: 'insensitive' } },
+        { contactPhone: { contains: q, mode: 'insensitive' } },
+        { contactPhoneAlt: { contains: q, mode: 'insensitive' } },
         { adminNotes: { contains: q, mode: 'insensitive' } },
         {
           client: {

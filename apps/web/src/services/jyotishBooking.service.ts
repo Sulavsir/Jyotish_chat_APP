@@ -4,11 +4,11 @@
 
 import { apiClient } from '@/lib/api-client';
 import { API_ENDPOINTS } from '@/constants';
-import type { AstrologerCategory, JyotishBookingRequest } from '@jyotish/shared';
-import type { z } from 'zod';
-import { createJyotishBookingRequestSchema } from '@jyotish/shared';
-
-type CreateJyotishBookingRequestInput = z.infer<typeof createJyotishBookingRequestSchema>;
+import type {
+  AstrologerCategory,
+  CreateJyotishBookingRequestInput,
+  JyotishBookingRequest,
+} from '@jyotish/shared';
 
 type CreateJyotishBookingResponse = {
   booking: JyotishBookingRequest;

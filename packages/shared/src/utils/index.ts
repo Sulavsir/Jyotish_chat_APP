@@ -13,10 +13,7 @@ export {
   type DbLanguageCode,
 } from './language.utils';
 
-export {
-  formatNepaliBsDateLine,
-  type NepaliDateMappingInput,
-} from './nepal-bs-date-display.utils';
+export { formatNepaliBsDateLine, type NepaliDateMappingInput } from './nepal-bs-date-display.utils';
 
 export {
   mergeMessageBirthDetails,
@@ -32,6 +29,14 @@ export {
   buildMaintenanceApiErrorBody,
   type MaintenanceApiErrorBody,
 } from './maintenance';
+
+export {
+  buildJyotishBookingLocationSummary,
+  hasStructuredJyotishVenue,
+  jyotishBookingVenueTitle,
+  jyotishBookingVenuePrimaryLine,
+  jyotishBookingVenueSecondaryLine,
+} from './jyotish-booking.utils';
 
 /**
  * Get zodiac sign from date of birth
@@ -100,7 +105,14 @@ export function formatTimeStringAmPm(timeStr: string | null | undefined): string
   const hour = Number.parseInt(m[1], 10);
   const minute = Number.parseInt(m[2], 10);
 
-  if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+  if (
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
     return trimmed;
   }
 

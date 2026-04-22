@@ -7,6 +7,7 @@ import { sendSuccess, AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
 import type { AuthRequest } from '../middleware/auth';
 import { jyotishBookingService } from '../services/jyotishBooking.service';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/database';
+import type { CreateJyotishBookingRequestInput } from '@jyotish/shared';
 
 /**
  * Client: create booking request
@@ -19,18 +20,8 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
       throw new AppError('Unauthorized', HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
     }
 
-    const { type, preferredAstrologerId, bookingDate, category, details, location } = req.body as {
-      type: JyotishBookingType;
-      preferredAstrologerId?: string;
-      bookingDate: string;
-      category: string;
-      details?: string;
-      location: string;
-    };
-
-    if (!location || !location.trim()) {
-      throw new AppError('Location is required', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
-    }
+    const body = req.body as CreateJyotishBookingRequestInput;
+    const { type, preferredAstrologerId, bookingDate, category, details } = body;
 
     const created = await jyotishBookingService.createForClient({
       clientId,
@@ -40,7 +31,16 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
       category,
       bookingDate: new Date(`${bookingDate}T00:00:00.000Z`),
       details,
-      location,
+      province: body.province,
+      district: body.district,
+      wardNo: body.wardNo,
+      place: body.place,
+      tole: body.tole,
+      nearestLandmark: body.nearestLandmark,
+      googleMapLink: body.googleMapLink,
+      pujariCount: body.pujariCount,
+      contactPhone: body.contactPhone,
+      contactPhoneAlt: body.contactPhoneAlt,
     });
 
     return sendSuccess(res, { booking: created });
