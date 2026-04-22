@@ -16,4 +16,3 @@ CREATE UNIQUE INDEX "SubhaSahitOccasionMeta_language_occasion_key" ON "SubhaSahi
 
 -- CreateIndex
 CREATE INDEX "SubhaSahitOccasionMeta_language_idx" ON "SubhaSahitOccasionMeta"("language");
-224
