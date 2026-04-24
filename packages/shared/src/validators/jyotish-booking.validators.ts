@@ -54,7 +54,16 @@ export const createJyotishBookingRequestSchema = z
     details: z.string().max(2000, 'Details is too long').optional(),
     province: z.string().min(1, 'Province is required').max(120, 'Province is too long'),
     district: z.string().min(1, 'District is required').max(120, 'District is too long'),
-    wardNo: z.string().min(1, 'Ward number is required').max(30, 'Ward number is too long'),
+    wardNo: z
+      .string()
+      .max(30, 'Ward number is too long')
+      .transform((s) => s.trim())
+      .refine((s) => s.length > 0, 'Ward number is required')
+      .refine((s) => /^\d+$/.test(s), 'Ward number must be a whole number')
+      .refine((s) => {
+        const n = parseInt(s, 10);
+        return Number.isFinite(n) && n >= 1;
+      }, 'Ward number must be at least 1'),
     place: z.string().min(1, 'Place is required').max(200, 'Place is too long'),
     tole: z.string().max(200, 'Tole is too long').optional(),
     nearestLandmark: z.string().max(300, 'Nearest landmark is too long').optional(),

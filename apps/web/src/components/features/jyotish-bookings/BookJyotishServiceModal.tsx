@@ -83,6 +83,9 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
   const [preferredAstrologerId, setPreferredAstrologerId] = useState<string | undefined>(undefined);
   const [dateError, setDateError] = useState<string>('');
 
+  const wardNoIsValidNumber =
+    wardNo.trim().length > 0 && /^\d+$/.test(wardNo.trim()) && parseInt(wardNo.trim(), 10) >= 1;
+
   const needsAstrologerSelection = type === JyotishBookingType.KATHA_VACHAK;
   const needsSubhaSahit = type === JyotishBookingType.PANDIT;
 
@@ -650,12 +653,19 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                       Ward no. <span className="text-red-400">*</span>
                     </Label>
                     <Input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
                       value={wardNo}
-                      onChange={(e) => setWardNo(e.target.value.slice(0, 30))}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 30);
+                        setWardNo(digits);
+                      }}
                       placeholder="e.g. 5"
                       maxLength={30}
                       required
                     />
+                    <p className="text-xs text-slate-400">Whole number only (e.g. 1, 2, 12).</p>
                   </div>
                   <div className="flex flex-col gap-2">
                     <Label className="text-white">
@@ -753,27 +763,27 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                     Number of Pujari required <span className="text-red-400">*</span>
                   </Label>
                   <Input
-                    type="number"
+                    type="text"
                     inputMode="numeric"
-                    min={1}
-                    max={50}
-                    step={1}
-                    value={pujariCount}
+                    autoComplete="off"
+                    value={pujariCount < 1 ? '' : String(pujariCount)}
                     onChange={(e) => {
-                      const raw = e.target.value;
+                      const raw = e.target.value.replace(/\D/g, '');
                       if (raw === '') {
-                        setPujariCount(1);
+                        setPujariCount(0);
                         return;
                       }
                       const n = parseInt(raw, 10);
                       if (!Number.isFinite(n)) return;
-                      if (n < 1) setPujariCount(1);
+                      if (n < 1) setPujariCount(0);
                       else if (n > 50) setPujariCount(50);
                       else setPujariCount(n);
                     }}
                     required
                   />
-                  <p className="text-xs text-slate-400">Required for every booking type.</p>
+                  <p className="text-xs text-slate-400">
+                    Whole number from 1 to 50. Required for every booking type.
+                  </p>
                 </div>
               </div>
 
@@ -810,7 +820,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                     !category ||
                     !provinceId ||
                     !districtId ||
-                    !wardNo.trim() ||
+                    !wardNoIsValidNumber ||
                     !place.trim() ||
                     !contactPhone.trim() ||
                     pujariCount < 1 ||
