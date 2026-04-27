@@ -61,6 +61,7 @@ export { AdminRole } from './admin-role.types';
 export type {
   BroadcastMessageExpiredSoundCue,
   BroadcastMessageExpiredPayload,
+  BroadcastYourMessageAcceptedPayload,
 } from './broadcast-socket.types';
 
 export type AstrologersType = {

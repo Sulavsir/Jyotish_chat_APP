@@ -19,12 +19,59 @@ import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { useBroadcastCancelMutation } from '@/hooks/useBroadcastPending';
 import type { BroadcastMessage } from '@/types';
-import type { BroadcastMessageExpiredPayload } from '@jyotish/shared';
+import { BroadcastMessageStatus } from '@/types/broadcast';
+import type { BroadcastMessageExpiredPayload, BroadcastYourMessageAcceptedPayload } from '@jyotish/shared';
 import { playBroadcastTimerEndSound } from '@/utils/broadcast-timer-sound.utils';
+import { BROADCAST_POST_EXPIRY_GRACE_MS } from '@/constants/broadcastMessage.constants';
 
 function extractRequiredCoins(errorMessage: string): number {
   const match = errorMessage.match(/Required:\s*(\d+)/i);
   return match ? parseInt(match[1], 10) : 1;
+}
+
+function findAcceptedChatForPending(
+  messages: BroadcastMessage[],
+  pending: BroadcastMessage
+): { chatId: string; astrologerName?: string } | null {
+  const meta = (pending.metadata ?? {}) as { batchId?: string };
+  const batchId = typeof meta.batchId === 'string' ? meta.batchId : null;
+  const acceptedRows = messages.filter(
+    (m) => m.status === BroadcastMessageStatus.ACCEPTED && m.chatId
+  );
+  if (batchId) {
+    const row = acceptedRows.find(
+      (m) => ((m.metadata ?? {}) as { batchId?: string }).batchId === batchId
+    );
+    if (row?.chatId) {
+      return { chatId: row.chatId, astrologerName: row.acceptedAstrologer?.name };
+    }
+  }
+  const row = acceptedRows.find((m) => m.id === pending.id);
+  if (row?.chatId) {
+    return { chatId: row.chatId, astrologerName: row.acceptedAstrologer?.name };
+  }
+  return null;
+}
+
+function clientAcceptanceToastCopy(
+  name: string,
+  payload: Pick<BroadcastYourMessageAcceptedPayload, 'autoAssignedFromTimer' | 'assignedByAdmin'>
+): { title: string; description?: string } {
+  if (payload.autoAssignedFromTimer) {
+    return {
+      title: `We've connected you with ${name} for your convenience.`,
+      description: 'Opening your chat now...',
+    };
+  }
+  if (payload.assignedByAdmin) {
+    return {
+      title: `${name} is ready to help you - opening chat...`,
+      description: 'An advisor was matched to your request.',
+    };
+  }
+  return {
+    title: `${name} accepted your request! Opening chat...`,
+  };
 }
 
 export function BroadcastPendingBridge() {
@@ -44,6 +91,18 @@ export function BroadcastPendingBridge() {
 
   const { handleCancelRequest } = useBroadcastCancelMutation();
   const timerSoundPlayedForId = useRef<string | null>(null);
+  const pollGeneration = useRef(0);
+  const recentClientAcceptanceRef = useRef<{ at: number; chatId: string } | null>(null);
+
+  const shouldSkipDuplicateClientAcceptance = (chatId: string): boolean => {
+    const now = Date.now();
+    const r = recentClientAcceptanceRef.current;
+    if (r && r.chatId === chatId && now - r.at < 4000) {
+      return true;
+    }
+    recentClientAcceptanceRef.current = { at: now, chatId };
+    return false;
+  };
 
   useEffect(() => {
     if (!pendingMessage) {
@@ -51,7 +110,7 @@ export function BroadcastPendingBridge() {
     }
   }, [pendingMessage]);
 
-  // Countdown timer
+  // Countdown timer (do not clear pending at zero — server may still auto-assign)
   useEffect(() => {
     if (!pendingMessage) {
       setTimeRemaining(0);
@@ -66,17 +125,84 @@ export function BroadcastPendingBridge() {
           timerSoundPlayedForId.current = pendingMessage.id;
           playBroadcastTimerEndSound();
         }
-        useBroadcastPendingStore.getState().clearPending();
-        toast.info('Broadcast expired. No one accepted in time.', {
-          description: 'Your coins will be refunded shortly.',
-          duration: 4000,
-        });
       }
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [pendingMessage, setTimeRemaining]);
+
+  // After countdown hits zero, poll REST briefly so UI updates even if the socket event is delayed
+  useEffect(() => {
+    if (role !== 'CLIENT' || !isConnected) return;
+    if (!pendingMessage || pendingMessage.id === SENDING_PLACEHOLDER_ID) return;
+    if (getBroadcastExpiresAtMs(pendingMessage) > Date.now()) return;
+
+    const myGen = ++pollGeneration.current;
+    const pendingId = pendingMessage.id;
+    const maxAttempts = Math.ceil(BROADCAST_POST_EXPIRY_GRACE_MS / 2000);
+    let attempts = 0;
+
+    const run = async () => {
+      if (pollGeneration.current !== myGen) return;
+      try {
+        const messages = await broadcastMessageService.getMyMessages();
+        if (pollGeneration.current !== myGen) return;
+        const state = useBroadcastPendingStore.getState();
+        if (state.pendingMessage?.id === SENDING_PLACEHOLDER_ID) return;
+        if (state.pendingMessage?.id !== pendingId) return;
+
+        const pm = state.pendingMessage as BroadcastMessage;
+        const accepted = findAcceptedChatForPending(messages, pm);
+        if (accepted) {
+          useBroadcastPendingStore.getState().clearPending();
+          if (shouldSkipDuplicateClientAcceptance(accepted.chatId)) {
+            return;
+          }
+          void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+          void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
+          void refetchClientBalanceAndStats(queryClient);
+          void useAuthStore.getState().refreshUser();
+          const name = accepted.astrologerName || 'a Jyotish';
+          const { title, description } = clientAcceptanceToastCopy(name, {
+            autoAssignedFromTimer: true,
+          });
+          toast.success(title, { duration: 4000, ...(description ? { description } : {}) });
+          router.push(ROUTE_BUILDERS.CHAT_WITH_ID(accepted.chatId));
+          return;
+        }
+
+        state.hydrateFromMessages(messages);
+      } catch {
+        // non-fatal
+      }
+    };
+
+    void run();
+    const interval = setInterval(() => {
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        return;
+      }
+      void run();
+    }, 2000);
+
+    return () => {
+      if (pollGeneration.current === myGen) {
+        pollGeneration.current++;
+      }
+      clearInterval(interval);
+    };
+  }, [
+    role,
+    isConnected,
+    pendingMessage?.id,
+    pendingMessage?.expiresAt,
+    pendingMessage?.createdAt,
+    queryClient,
+    router,
+  ]);
 
   // Hydrate pending broadcast from API (refresh / navigation / dashboard)
   useEffect(() => {
@@ -126,18 +252,20 @@ export function BroadcastPendingBridge() {
       void useAuthStore.getState().refreshUser();
     };
 
-    const onAccepted = (data: {
-      message: BroadcastMessage;
-      chat: { id: string };
-      astrologer?: { name?: string };
-    }) => {
+    const onAccepted = (data: BroadcastYourMessageAcceptedPayload) => {
       useBroadcastPendingStore.getState().clearPending();
+      const chatId = data.chat?.id;
+      if (chatId && shouldSkipDuplicateClientAcceptance(chatId)) {
+        return;
+      }
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       void refetchClientBalanceAndStats(queryClient);
-      const name = data.astrologer?.name || 'An astrologer';
-      toast.success(`${name} accepted your request! Opening chat…`, { duration: 3500 });
-      if (data.chat?.id) {
-        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(data.chat.id));
+      const name = data.astrologer?.name || 'a Jyotish';
+      const { title, description } = clientAcceptanceToastCopy(name, data);
+      toast.success(title, { duration: 4000, ...(description ? { description } : {}) });
+      if (chatId) {
+        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chatId));
       }
     };
 
@@ -210,6 +338,9 @@ export function BroadcastPendingBridge() {
     return null;
   }
 
+  const showConnectingCopy =
+    timeRemaining === 0 && pendingMessage.id !== SENDING_PLACEHOLDER_ID;
+
   return (
     <JyotishMatchingModal
       isOpen
@@ -217,9 +348,11 @@ export function BroadcastPendingBridge() {
       timeRemaining={timeRemaining}
       title="Searching for Available Jyotish"
       subtitle={
-        isBatchBroadcast
-          ? 'Your questions have been published to all Jyotish. Waiting for one to accept...'
-          : 'Your message has been broadcast. Waiting for an astrologer to accept...'
+        showConnectingCopy
+          ? "Hang tight - we're connecting you with a Jyotish now."
+          : isBatchBroadcast
+            ? 'Your questions have been published to all Jyotish. Waiting for one to accept...'
+            : 'Your message has been broadcast. Waiting for an astrologer to accept...'
       }
       minimized={isMinimized}
       onMinimizeChange={setMinimized}

@@ -17,6 +17,7 @@ import { ADMIN_QUERY_KEYS } from '@/constants/query-keys.constants';
 import { adminApi } from '@/lib/admin-api';
 import { useAdminSocket } from '@/hooks';
 import { ADMIN_SOCKET_EVENTS } from '@/constants/socket-events.constants';
+import { BroadcastAssigneePriorityPanel } from '@/components/broadcast/BroadcastAssigneePriorityPanel';
 
 type FormState = {
   expiryMinutes: string;
@@ -109,21 +110,22 @@ export default function BroadcastSettingsPage() {
   return (
     <>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Broadcast Settings</h1>
-          <p className="text-sm text-slate-400">
-            Control broadcast timer and acceptance limits for ordinary and professional jyotish.
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-white leading-snug">Broadcast Settings</h1>
+          <p className="text-sm text-slate-400 leading-snug">
+            Control broadcast timer, acceptance limits, and timer-based auto-assign priority for
+            in-house jyotish.
           </p>
         </div>
 
         <Card className="cosmic-card rounded-xl border border-slate-700 overflow-hidden">
-          <CardHeader className="border-b border-slate-800">
+          <CardHeader className="border-b border-slate-800 space-y-1 px-4 py-3 sm:px-5 sm:py-3">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <CardTitle className="text-lg font-semibold text-white">
+              <div className="space-y-1">
+                <CardTitle className="text-lg font-semibold text-white leading-snug">
                   Runtime Configuration
                 </CardTitle>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-slate-400 leading-snug">
                   Admin-controlled broadcast expiry and acceptance limits.
                 </p>
               </div>
@@ -134,8 +136,8 @@ export default function BroadcastSettingsPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6 space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
+          <CardContent className="px-4 py-3 sm:px-5 sm:py-4 space-y-3">
+            <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="expiryMinutes">Broadcast Expiry (minutes)</Label>
                 <Input
@@ -187,6 +189,11 @@ export default function BroadcastSettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <BroadcastAssigneePriorityPanel
+          assigneePriorities={data?.assigneePriorities ?? []}
+          eligibleAstrologers={data?.eligiblePriorityAstrologers ?? []}
+        />
       </div>
     </>
   );

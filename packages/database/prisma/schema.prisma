@@ -184,6 +184,7 @@ model Astrologer {
   ratingsReceived              Rating[]                     @relation("AstrologerRatings")
   adminChatsAsAstrologer       AdminChat[]                  @relation("AstrologerAdminChats")
   preferredJyotishBookingRequests JyotishBookingRequest[]   @relation("PreferredAstrologerBookings")
+  broadcastAssigneePriority      BroadcastAssigneePriority?
 
   @@index([phone])
   @@index([email])
@@ -489,6 +490,18 @@ model BroadcastMessageDismissal {
   @@index([broadcastMessageId])
   @@index([astrologerId])
   @@index([dismissedAt])
+}
+
+// Admin-ordered fallback when a broadcast timer elapses: try acceptance in priority order (lower = first).
+model BroadcastAssigneePriority {
+  id           String     @id @default(uuid())
+  astrologerId String     @unique
+  priority     Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  astrologer   Astrologer @relation(fields: [astrologerId], references: [id], onDelete: Cascade)
+
+  @@index([priority])
 }
 
 // User complaints about astrologers

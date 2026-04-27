@@ -44,6 +44,8 @@ import {
   getBroadcastAcceptanceLimitByCategory,
   getBroadcastExpiryMs,
 } from './broadcastRuntimeSettings.service';
+import { getAutoAssignCandidateAstrologerIdsOrdered } from './broadcastAssigneePriority.service';
+import { emitPostBroadcastAssignment } from '../utils/broadcast-assignment-side-effects';
 
 const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
 const pendingBroadcastMessagesCache = new Map<string, { expiresAt: number; messages: unknown[] }>();
@@ -65,6 +67,40 @@ function invalidatePendingBroadcastCache() {
 
 function getPendingCacheKey(astrologerId?: string) {
   return astrologerId ? `pending:${astrologerId}` : 'pending:all';
+}
+
+type PendingBroadcastExpiryRow = {
+  id: string;
+  clientId: string;
+  metadata: Prisma.JsonValue | null;
+  status: BroadcastMessageStatus;
+  expiresAt: Date;
+};
+
+function broadcastExpiryGroupKey(row: PendingBroadcastExpiryRow): string {
+  const meta = (row.metadata as Record<string, unknown> | null) || {};
+  const batchId = typeof meta.batchId === 'string' ? meta.batchId : null;
+  if (batchId) return `batch:${batchId}:${row.clientId}`;
+  return `single:${row.id}`;
+}
+
+function groupPendingExpiredBroadcastRows(
+  rows: PendingBroadcastExpiryRow[]
+): PendingBroadcastExpiryRow[][] {
+  const map = new Map<string, PendingBroadcastExpiryRow[]>();
+  for (const row of rows) {
+    const k = broadcastExpiryGroupKey(row);
+    const list = map.get(k) ?? [];
+    list.push(row);
+    map.set(k, list);
+  }
+  return Array.from(map.values()).map((list) =>
+    [...list].sort((a, b) => {
+      const ai = ((a.metadata as Record<string, unknown>)?.batchIndex as number) ?? 0;
+      const bi = ((b.metadata as Record<string, unknown>)?.batchIndex as number) ?? 0;
+      return ai - bi;
+    })
+  );
 }
 
 export interface CreateBroadcastMessageData {
@@ -482,77 +518,6 @@ export async function createMultipleBroadcastMessages(
   }
 
   return { messages };
-}
-
-/**
- * Expire old broadcast messages and refund the client for each (no one accepted).
- * Automatically expires pending messages past their stored `expiresAt` and refunds
- * using amountRefundNr (batch) or BROADCAST_SEND rate (single).
- */
-export async function expireOldMessages() {
-  if (!('broadcastMessage' in prisma)) {
-    return { count: 0 };
-  }
-
-  try {
-    const now = new Date();
-
-    const toExpire = await prisma.broadcastMessage.findMany({
-      where: {
-        status: BroadcastMessageStatus.PENDING,
-        expiresAt: { lt: now },
-      },
-    });
-
-    for (const message of toExpire) {
-      const meta = (message.metadata as Record<string, unknown> | null) || {};
-      const refundAmount =
-        typeof meta.amountRefundNr === 'number' && meta.amountRefundNr >= 0
-          ? meta.amountRefundNr
-          : await getRate('BROADCAST_SEND');
-
-      try {
-        await refundCoins(message.clientId, refundAmount);
-      } catch (refundErr) {
-        console.error(
-          `[expireOldMessages] Refund failed for message ${message.id}, client ${message.clientId}:`,
-          refundErr
-        );
-        // Still expire the message so it does not stay pending
-      }
-
-      await prisma.broadcastMessage.update({
-        where: { id: message.id },
-        data: { status: BroadcastMessageStatus.EXPIRED },
-      });
-      notifyBroadcastMessageExpired(message.id);
-
-      // Notify client (refund toast) + astrologers (remove from pending popups / lists)
-      try {
-        const { getSocketInstance } = require('../utils/socket-instance');
-        const io = getSocketInstance();
-        if (io) {
-          const payload = {
-            messageId: message.id,
-            refundAmount,
-            soundCue: 'timer_end' as const,
-          };
-          io.to(`user:${message.clientId}`).emit('broadcast:messageExpired', payload);
-          io.to('astrologers').emit('broadcast:messageExpired', payload);
-        }
-      } catch {
-        // Socket notification is best-effort; do not break expiry logic
-      }
-    }
-
-    return { count: toExpire.length };
-  } catch (error: unknown) {
-    const err = error as { code?: string; message?: string };
-    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
-      return { count: 0 };
-    }
-    throw error;
-  }
 }
 
 /**
@@ -1310,6 +1275,154 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
     initialMessages: [originalMessage, ...siblingMessages, welcomeMessage],
     allAcceptedMessageIds,
   };
+}
+
+async function refundSingleExpiredBroadcast(row: PendingBroadcastExpiryRow) {
+  const meta = (row.metadata as Record<string, unknown> | null) || {};
+  const refundAmount =
+    typeof meta.amountRefundNr === 'number' && meta.amountRefundNr >= 0
+      ? meta.amountRefundNr
+      : await getRate('BROADCAST_SEND');
+
+  try {
+    await refundCoins(row.clientId, refundAmount);
+  } catch (refundErr) {
+    console.error(
+      `[expireOldMessages] Refund failed for message ${row.id}, client ${row.clientId}:`,
+      refundErr
+    );
+  }
+
+  await prisma.broadcastMessage.update({
+    where: { id: row.id },
+    data: { status: BroadcastMessageStatus.EXPIRED },
+  });
+  notifyBroadcastMessageExpired(row.id);
+
+  try {
+    const { getSocketInstance } = require('../utils/socket-instance');
+    const io = getSocketInstance();
+    if (io) {
+      const payload = {
+        messageId: row.id,
+        refundAmount,
+        soundCue: 'timer_end' as const,
+      };
+      io.to(`user:${row.clientId}`).emit('broadcast:messageExpired', payload);
+      io.to('astrologers').emit('broadcast:messageExpired', payload);
+    }
+  } catch {
+    // Socket notification is best-effort; do not break expiry logic
+  }
+}
+
+async function mergeTimerAutoAssignMetadata(messageId: string) {
+  const row = await prisma.broadcastMessage.findUnique({
+    where: { id: messageId },
+    select: { metadata: true },
+  });
+  if (!row) return;
+  const prev =
+    row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : {};
+  const meta = { ...prev, autoAssignedFromTimer: true, autoAssignedAt: new Date().toISOString() };
+  await prisma.broadcastMessage.update({
+    where: { id: messageId },
+    data: { metadata: meta as Prisma.InputJsonValue },
+  });
+}
+
+async function tryTimerAutoAssignBroadcast(messageId: string) {
+  const candidates = await getAutoAssignCandidateAstrologerIdsOrdered();
+  for (const astrologerId of candidates) {
+    try {
+      return await acceptBroadcastMessage({ messageId, astrologerId });
+    } catch (err) {
+      const e = err as Error;
+      console.warn(
+        `[expireOldMessages] Auto-assign skipped astrologer ${astrologerId} for message ${messageId}: ${e.message}`
+      );
+    }
+  }
+  return null;
+}
+
+/**
+ * When the broadcast timer elapses, try to assign using the admin priority list (then any eligible
+ * in-house jyotish) with the same acceptance and earnings logic as a manual accept. Refund + EXPIRED
+ * only if no jyotish can take the request.
+ */
+export async function expireOldMessages() {
+  if (!('broadcastMessage' in prisma)) {
+    return { count: 0 };
+  }
+
+  try {
+    const now = new Date();
+
+    const toExpire = await prisma.broadcastMessage.findMany({
+      where: {
+        status: BroadcastMessageStatus.PENDING,
+        expiresAt: { lt: now },
+      },
+    });
+
+    const groups = groupPendingExpiredBroadcastRows(toExpire);
+    let refundCount = 0;
+
+    for (const group of groups) {
+      const representative = group[0];
+      if (!representative) continue;
+
+      const fresh = await prisma.broadcastMessage.findUnique({
+        where: { id: representative.id },
+      });
+      if (!fresh || fresh.status !== BroadcastMessageStatus.PENDING) {
+        continue;
+      }
+
+      const assigned = await tryTimerAutoAssignBroadcast(representative.id);
+      if (assigned) {
+        const assigneeId = assigned.message.acceptedAstrologer?.id;
+        if (assigneeId) {
+          await mergeTimerAutoAssignMetadata(representative.id);
+          try {
+            await emitPostBroadcastAssignment({
+              accepted: assigned,
+              assignedAstrologerId: assigneeId,
+              messageId: representative.id,
+              autoAssignedFromTimer: true,
+            });
+          } catch (emitErr) {
+            console.error('[expireOldMessages] emitPostBroadcastAssignment failed:', emitErr);
+          }
+        }
+        invalidatePendingBroadcastCache();
+        continue;
+      }
+
+      for (const row of group) {
+        const cur = await prisma.broadcastMessage.findUnique({
+          where: { id: row.id },
+        });
+        if (!cur || cur.status !== BroadcastMessageStatus.PENDING) {
+          continue;
+        }
+        await refundSingleExpiredBroadcast(row);
+        refundCount += 1;
+      }
+    }
+
+    invalidatePendingBroadcastCache();
+    return { count: refundCount };
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err?.code === 'P2021' || err?.message?.includes('does not exist')) {
+      return { count: 0 };
+    }
+    throw error;
+  }
 }
 
 /**

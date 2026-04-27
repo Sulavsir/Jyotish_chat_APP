@@ -4,6 +4,34 @@
 
 import { apiClient } from './api-client';
 import { API_ENDPOINTS } from '@/constants/api.constants';
+
+/** Timer auto-assign priority row (admin broadcast settings). */
+export type AdminBroadcastAssigneePriority = {
+  id: string;
+  astrologerId: string;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+  astrologer: {
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    category: string;
+    inhouseAstrologer: boolean;
+    isActive: boolean;
+    isDeleted: boolean;
+    isOnline: boolean;
+  };
+};
+
+export type AdminEligibleBroadcastPriorityAstrologer = {
+  id: string;
+  name: string;
+  category: string;
+  isOnline: boolean;
+  inhouseAstrologer: boolean;
+};
 import type { Complaint, ComplaintStats } from '@/types';
 import type {
   Appointment,
@@ -906,6 +934,8 @@ export const adminApi = {
         category: string;
         isOnline: boolean;
       }>;
+      assigneePriorities: AdminBroadcastAssigneePriority[];
+      eligiblePriorityAstrologers: AdminEligibleBroadcastPriorityAstrologer[];
     }> => {
       return apiClient.get(API_ENDPOINTS.BROADCAST_SETTINGS.GET);
     },
@@ -920,6 +950,26 @@ export const adminApi = {
       return apiClient.post(API_ENDPOINTS.BROADCAST_SETTINGS.ASSIGN_PENDING(messageId), {
         astrologerId,
       });
+    },
+    createAssigneePriority: async (payload: { astrologerId: string; priority: number }) => {
+      return apiClient.post<{ assigneePriority: AdminBroadcastAssigneePriority }>(
+        API_ENDPOINTS.BROADCAST_SETTINGS.ASSIGNEE_PRIORITIES,
+        payload
+      );
+    },
+    updateAssigneePriority: async (
+      id: string,
+      payload: { astrologerId?: string; priority?: number }
+    ) => {
+      return apiClient.patch<{ assigneePriority: AdminBroadcastAssigneePriority }>(
+        API_ENDPOINTS.BROADCAST_SETTINGS.ASSIGNEE_PRIORITY_BY_ID(id),
+        payload
+      );
+    },
+    deleteAssigneePriority: async (id: string) => {
+      return apiClient.delete<{ success: boolean }>(
+        API_ENDPOINTS.BROADCAST_SETTINGS.ASSIGNEE_PRIORITY_BY_ID(id)
+      );
     },
   },
 

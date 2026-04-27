@@ -107,6 +107,9 @@ export const API_ENDPOINTS = {
     GET: '/api/v1/admin/broadcast-settings',
     UPDATE: '/api/v1/admin/broadcast-settings',
     ASSIGN_PENDING: (id: string) => `/api/v1/admin/broadcast/pending/${id}/assign`,
+    ASSIGNEE_PRIORITIES: '/api/v1/admin/broadcast-settings/assignee-priorities',
+    ASSIGNEE_PRIORITY_BY_ID: (id: string) =>
+      `/api/v1/admin/broadcast-settings/assignee-priorities/${id}`,
   },
 
   JYOTISH_BOOKINGS: {

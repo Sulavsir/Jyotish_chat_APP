@@ -42,7 +42,6 @@ import {
   instantChatStatusFilterWhere,
 } from '../utils/chat-audit-effective-status';
 import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
-import { NotificationService } from '../services/notification.service';
 import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
 import type { ListAdminMonitorChatsQuery } from '../validators/adminChat.validators';
 import type { ListAdminPlatformPaymentQuery } from '../validators/adminPlatformPayment.validators';
@@ -51,6 +50,7 @@ import type {
   UpdateAdminBroadcastSettingsBody,
 } from '../validators/adminBroadcastSettings.validators';
 import * as adminBroadcastSettingsService from '../services/adminBroadcastSettings.service';
+import { emitPostBroadcastAssignment } from '../utils/broadcast-assignment-side-effects';
 import {
   addReportingDaysYmd,
   getReportingYmd,
@@ -1721,118 +1721,12 @@ export async function assignPendingBroadcast(req: AuthRequest, res: Response, ne
       );
     }
 
-    const io = getSocketInstance();
-    const notificationService = new NotificationService();
-
-    // 1) Assigned astrologer: open chat immediately + update broadcast badges
-    try {
-      io.to(`user:${assignedAstrologerId}`).emit('broadcast:messageAccepted', {
-        ...accepted,
-        assignedByAdmin,
-      });
-    } catch {
-      // Non-fatal: assignment still succeeded in DB
-    }
-
-    // 2) Client: open chat immediately (same socket event as normal acceptance)
-    try {
-      io.to(`user:${clientId}`).emit('broadcast:yourMessageAccepted', {
-        message: accepted.message,
-        chat: accepted.chat,
-        astrologer: accepted.message?.acceptedAstrologer,
-        initialMessages: accepted.initialMessages,
-      });
-    } catch {
-      // Non-fatal
-    }
-
-    // 3) Notifications (notifications bell bar)
-    const astrologerName = accepted.message?.acceptedAstrologer?.name || 'An astrologer';
-    const clientAcceptedMsg = `Your request has been accepted by ${astrologerName}. Starting your chat now.`;
-
-    try {
-      const clientNotification = await notificationService.createNotification({
-        userId: clientId,
-        type: NotificationType.BROADCAST_ACCEPTED,
-        title: 'Chat Request Accepted',
-        message: clientAcceptedMsg,
-        metadata: { broadcastMessageId: messageId, chatId },
-      });
-
-      io.to(`user:${clientId}`).emit('notification:new', clientNotification);
-    } catch {
-      // Non-fatal
-    }
-
-    const adminAssignedMsg = 'Admin assigned you this broadcast request. Opening chat…';
-    try {
-      const astrologerNotification = await notificationService.createNotification({
-        astrologerId: assignedAstrologerId,
-        type: NotificationType.BROADCAST_ACCEPTED,
-        title: 'Broadcast Assigned by Admin',
-        message: adminAssignedMsg,
-        metadata: { broadcastMessageId: messageId, chatId },
-      });
-
-      io.to(`user:${assignedAstrologerId}`).emit('notification:new', astrologerNotification);
-    } catch {
-      // Non-fatal
-    }
-
-    // 4) Other in-house astrologers: update broadcast badge/status immediately
-    try {
-      const clientName = accepted.message?.client?.name || accepted.message?.client?.phone || 'Client';
-
-      const otherEligibleAstrologers = await prisma.astrologer.findMany({
-        where: {
-          id: { not: assignedAstrologerId },
-          inhouseAstrologer: true,
-          isActive: true,
-          isDeleted: false,
-        },
-        select: { id: true, name: true, inhouseAstrologer: true },
-      });
-
-      const allAcceptedMessageIds = accepted.allAcceptedMessageIds ?? [messageId];
-      const acceptedAt = accepted.message?.acceptedAt;
-
-      const acceptedByPayload = {
-        messageId,
-        allAcceptedMessageIds,
-        acceptedBy: { id: assignedAstrologerId, name: astrologerName },
-        acceptedAt,
-        clientName,
-      };
-
-      const requestAcceptedPayload = {
-        messageId,
-        allAcceptedMessageIds,
-        message: `${clientName}'s request is no longer active. It has already been accepted.`,
-        acceptedBy: { id: assignedAstrologerId, name: astrologerName },
-      };
-
-      await Promise.all(
-        otherEligibleAstrologers.map(async (a) => {
-          // Persist a notification (similar to normal acceptance flow)
-          try {
-            await notificationService.createNotification({
-              astrologerId: a.id,
-              type: NotificationType.BROADCAST_ACCEPTED,
-              title: 'Request No Longer Available',
-              message: `${clientName}'s request is no longer active. It has already been accepted by another astrologer for counselling.`,
-              metadata: { broadcastMessageId: messageId, acceptedBy: assignedAstrologerId },
-            });
-          } catch {
-            // Non-fatal
-          }
-
-          io.to(`user:${a.id}`).emit('notification:requestAccepted', requestAcceptedPayload);
-          io.to(`user:${a.id}`).emit('broadcast:messageAcceptedByAstrologer', acceptedByPayload);
-        })
-      );
-    } catch {
-      // Non-fatal
-    }
+    await emitPostBroadcastAssignment({
+      accepted,
+      assignedAstrologerId,
+      messageId,
+      assignedByAdmin,
+    });
 
     return sendSuccess(res, result);
   } catch (error) {

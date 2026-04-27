@@ -6,6 +6,7 @@ import { acceptBroadcastMessage } from './broadcastMessage.service';
 import { AppError } from '../middleware/error-handler';
 import { ERROR_CODES, HTTP_STATUS } from '../constants';
 import { getBroadcastRuntimeSettings } from './broadcastRuntimeSettings.service';
+import { listBroadcastAssigneePrioritiesForAdmin } from './broadcastAssigneePriority.service';
 
 const MIN_EXPIRY_MINUTES = 1;
 const MAX_EXPIRY_MINUTES = 120;
@@ -15,7 +16,8 @@ const MAX_ACCEPTANCE_LIMIT = 100;
 export async function getAdminBroadcastSettings() {
   const settings = await getBroadcastRuntimeSettings();
 
-  const [pendingMessages, onlineAstrologers] = await Promise.all([
+  const [pendingMessages, onlineAstrologers, assigneePriorities, eligiblePriorityAstrologers] =
+    await Promise.all([
     prisma.broadcastMessage.findMany({
       where: {
         status: BroadcastMessageStatus.PENDING,
@@ -44,6 +46,23 @@ export async function getAdminBroadcastSettings() {
         category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] },
       },
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        isOnline: true,
+        inhouseAstrologer: true,
+      },
+    }),
+    listBroadcastAssigneePrioritiesForAdmin(),
+    prisma.astrologer.findMany({
+      where: {
+        isDeleted: false,
+        isActive: true,
+        inhouseAstrologer: true,
+        category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] },
+      },
+      orderBy: { name: 'asc' },
       select: {
         id: true,
         name: true,
@@ -106,6 +125,8 @@ export async function getAdminBroadcastSettings() {
     settings,
     pendingBroadcasts,
     onlineAstrologers,
+    assigneePriorities,
+    eligiblePriorityAstrologers,
   };
 }
 

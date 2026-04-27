@@ -90,6 +90,11 @@ import {
   assignPendingBroadcastBodySchema,
   updateAdminBroadcastSettingsBodySchema,
 } from '../validators/adminBroadcastSettings.validators';
+import {
+  createBroadcastAssigneePriorityBodySchema,
+  updateBroadcastAssigneePriorityBodySchema,
+} from '@jyotish/shared';
+import * as broadcastAssigneePriorityController from '../controllers/broadcastAssigneePriority.controller';
 
 const router = Router();
 
@@ -418,6 +423,25 @@ router.post(
   validateParams(uuidParamSchema),
   validateBody(assignPendingBroadcastBodySchema),
   asyncHandler(adminController.assignPendingBroadcast)
+);
+router.post(
+  '/broadcast-settings/assignee-priorities',
+  auditLogger(AuditAction.ADMIN_ACTION, 'BroadcastAssigneePriority'),
+  validateBody(createBroadcastAssigneePriorityBodySchema),
+  asyncHandler(broadcastAssigneePriorityController.createBroadcastAssigneePriority)
+);
+router.patch(
+  '/broadcast-settings/assignee-priorities/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'BroadcastAssigneePriority'),
+  validateParams(uuidParamSchema),
+  validateBody(updateBroadcastAssigneePriorityBodySchema),
+  asyncHandler(broadcastAssigneePriorityController.updateBroadcastAssigneePriority)
+);
+router.delete(
+  '/broadcast-settings/assignee-priorities/:id',
+  auditLogger(AuditAction.ADMIN_ACTION, 'BroadcastAssigneePriority'),
+  validateParams(uuidParamSchema),
+  asyncHandler(broadcastAssigneePriorityController.deleteBroadcastAssigneePriority)
 );
 
 // ==================== Jyotish Bookings (Pandit/Vaastu) ====================

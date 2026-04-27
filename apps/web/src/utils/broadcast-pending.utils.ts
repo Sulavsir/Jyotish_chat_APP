@@ -1,5 +1,5 @@
 import type { BroadcastMessage } from '@/types';
-import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
+import { isBroadcastPendingInPostTimerGrace } from '@/utils/broadcastMessage.utils';
 
 export function isMultiQuestionBatch(message: BroadcastMessage): boolean {
   const metadata = (message.metadata ?? {}) as {
@@ -16,9 +16,7 @@ export function isMultiQuestionBatch(message: BroadcastMessage): boolean {
  * Pick one representative pending message for UI (single broadcast or first item in a batch).
  */
 export function pickPendingBroadcastMessage(messages: BroadcastMessage[]): BroadcastMessage | null {
-  const active = messages.filter(
-    (m) => m.status === 'PENDING' && isBroadcastPendingStillActive(m)
-  );
+  const active = messages.filter((m) => isBroadcastPendingInPostTimerGrace(m));
   if (active.length === 0) return null;
 
   const multi = active.filter(isMultiQuestionBatch);

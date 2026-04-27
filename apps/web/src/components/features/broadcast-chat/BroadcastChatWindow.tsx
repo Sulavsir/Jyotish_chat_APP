@@ -19,7 +19,6 @@ import { toast } from 'sonner';
 import { getImageUrl } from '@/utils/image.utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@jyotish/ui';
 import { formatDistanceToNow } from 'date-fns';
-import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { LoadingButton } from '@/components/ui';
@@ -27,7 +26,7 @@ import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
 import { getBroadcastExpiresAtMs } from '@/utils/broadcastMessage.utils';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
-import { ROUTE_BUILDERS, QUERY_KEYS } from '@/constants';
+import { QUERY_KEYS } from '@/constants';
 import { useCoinRates } from '@/hooks/useCoinRates';
 import { ProfileIncompleteDialog } from '@/components/ui/ProfileIncompleteDialog';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
@@ -43,7 +42,6 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
   const { socket, isConnected } = useSocket();
   const { rates } = useCoinRates(!!user);
   const broadcastSendCoins = rates?.BROADCAST_SEND;
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<BroadcastMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -163,21 +161,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
           )
         );
 
-        toast.success(
-          `${astrologer?.name || 'An astrologer'} accepted your request! Opening chat...`,
-          {
-            description: 'You can now start chatting with your astrologer',
-            duration: 3000,
-          }
-        );
-
-        // Navigate to the chat immediately
-        // The chat will already have the initial messages (user's broadcast + astrologer's welcome)
-        router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chat.id));
-
-        // Notify parent callback
+        // Toast + navigation: `BroadcastPendingBridge` (dashboard layout) handles app-wide.
         if (onChatCreated && chat.id) {
-          onChatCreated(chat.id);
+          void onChatCreated(chat.id);
         }
       }
     );
@@ -231,7 +217,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       socket.off('broadcast:messageCancelled');
       socket.off('broadcast:error');
     };
-  }, [socket, isConnected, onChatCreated, router, queryClient, extractRequiredCoins]);
+  }, [socket, isConnected, onChatCreated, queryClient, extractRequiredCoins]);
 
   async function loadMessages() {
     try {

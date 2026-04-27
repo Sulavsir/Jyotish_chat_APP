@@ -415,3 +415,4 @@ export type DeleteMyAccountBody = z.infer<typeof deleteMyAccountBodySchema>;
 export * from './jyotish-booking.validators';
 export * from './astrologer-commission.validators';
 export * from './kundali-match-premium.validators';
+export * from './broadcast-assignee-priority.validators';

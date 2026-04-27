@@ -32,7 +32,7 @@ import {
   splitBroadcastMessagesByPayment,
   isFirstBroadcastDiscountQuestion,
 } from './broadcast-request.utils';
-import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
+import { isBroadcastPendingInPostTimerGrace } from '@/utils/broadcastMessage.utils';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { cn } from '@/lib/utils';
 
@@ -217,6 +217,8 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
         message?: { id: string };
         allAcceptedMessageIds?: string[];
         chat?: { id: string };
+        autoAssignedFromTimer?: boolean;
+        assignedByAdmin?: boolean;
       }) => {
         if (data.message?.id) {
           setPendingMessages((prev) => {
@@ -238,7 +240,12 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
         }
         setAccepting(null);
         if (data.chat) {
-          toast.success('Chat started successfully!');
+          const toastMsg = data.autoAssignedFromTimer
+            ? "We've connected this chat for you - opening now..."
+            : data.assignedByAdmin
+              ? 'Admin assigned you this request - opening chat...'
+              : 'Chat started successfully!';
+          toast.success(toastMsg);
           router.push(ROUTE_BUILDERS.JYOTISH_CHAT_WITH_ID(data.chat.id));
         }
       }
@@ -275,11 +282,11 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
     };
   }, [socket, isConnected, user, router]);
 
-  // Drop from bar when local clock passes expiresAt (no socket yet / missed event)
+  // Drop from bar when PENDING is past grace (no socket yet / missed event)
   useEffect(() => {
     if (user?.role !== 'ASTROLOGER') return;
     const t = setInterval(() => {
-      setPendingMessages((prev) => prev.filter((m) => isBroadcastPendingStillActive(m)));
+      setPendingMessages((prev) => prev.filter((m) => isBroadcastPendingInPostTimerGrace(m)));
     }, 2000);
     return () => clearInterval(t);
   }, [user?.role]);
@@ -354,7 +361,7 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
   }
 
   const visiblePendingMessages = useMemo(
-    () => pendingMessages.filter((m) => isBroadcastPendingStillActive(m)),
+    () => pendingMessages.filter((m) => isBroadcastPendingInPostTimerGrace(m)),
     [pendingMessages]
   );
 
