@@ -58,6 +58,8 @@ const chatInclude = {
   },
 } as const;
 
+type ChatWithParticipants = Prisma.ChatGetPayload<{ include: typeof chatInclude }>;
+
 /**
  * Resolve client and astrologer IDs from request params (participant1Id, participant2Id, currentUserRole).
  * participant1 is ALWAYS client, participant2 is ALWAYS astrologer.
@@ -82,15 +84,21 @@ async function resolveClientAndAstrologerIds(
     if (otherAsAstrologer) {
       astrologerId = participant2Id;
     } else if (otherAsUser) {
-      throw new Error('Cannot chat with another client. Please select an astrologer.');
+      throw new AppError(
+        'Cannot chat with another client. Please select an astrologer.',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
     } else {
-      throw new Error('User not found');
+      throw new AppError('User not found', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }
     const client = await prisma.user.findFirst({
       where: { id: clientId, ...ACTIVE_CLIENT_USER_WHERE },
       select: { id: true },
     });
-    if (!client) throw new Error('Client user not found');
+    if (!client) {
+      throw new AppError('Client user not found', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
   } else if (currentUserRole === UserRole.ASTROLOGER) {
     astrologerId = participant1Id;
     const otherAsUser = await prisma.user.findFirst({
@@ -100,15 +108,21 @@ async function resolveClientAndAstrologerIds(
     if (otherAsUser && otherAsUser.role === UserRole.CLIENT) {
       clientId = participant2Id;
     } else if (otherAsUser) {
-      throw new Error('Cannot chat with another astrologer. Please select a client.');
+      throw new AppError(
+        'Cannot chat with another astrologer. Please select a client.',
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODES.VALIDATION_ERROR
+      );
     } else {
-      throw new Error('Client not found');
+      throw new AppError('Client not found', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }
     const astrologer = await prisma.astrologer.findUnique({
       where: { id: astrologerId },
       select: { id: true },
     });
-    if (!astrologer) throw new Error('Astrologer not found');
+    if (!astrologer) {
+      throw new AppError('Astrologer not found', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
+    }
   } else {
     throw new AppError(
       `Invalid user role for chat. Only CLIENT and ASTROLOGER can chat. Current role: ${currentUserRole}`,
@@ -147,7 +161,11 @@ export const findChatOnly = async (
 
   if (chat.isLocked) {
     if (currentUserRole === UserRole.ASTROLOGER) {
-      throw new Error('This chat is locked. Only the client can reopen the conversation.');
+      throw new AppError(
+        'This chat is locked. Only the client can reopen the conversation.',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
     }
     chat = await prisma.chat.update({
       where: { id: chat.id },
@@ -179,12 +197,15 @@ export const findChatOnly = async (
 };
 
 /**
- * Find or create a chat between client and astrologer.
- * @deprecated Prefer findChatOnly + creating chat on first message (socket). Chats should only be created when actual text is sent.
+ * Find or create a direct chat between client and astrologer (participant1 = client, participant2 = astrologer).
+ * Used by POST /chat/chats and internal flows that need a persisted chat row before the first message.
  */
 export const findOrCreateChat = async (
   params: CreateChatParams & { currentUserRole: UserRole }
-) => {
+): Promise<{
+  chat: ChatWithParticipants;
+  created: boolean;
+}> => {
   const { participant1Id, participant2Id, currentUserRole } = params;
   let { consultationId } = params;
 
@@ -205,10 +226,16 @@ export const findOrCreateChat = async (
     include: chatInclude,
   });
 
+  let created = false;
+
   // If chat exists and is locked or ended, reactivate and reset turn-based state
   if (chat && chat.isLocked) {
     if (currentUserRole === UserRole.ASTROLOGER) {
-      throw new Error('This chat is locked. Only the client can reopen the conversation.');
+      throw new AppError(
+        'This chat is locked. Only the client can reopen the conversation.',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
+      );
     }
     chat = await prisma.chat.update({
       where: { id: chat.id },
@@ -236,12 +263,14 @@ export const findOrCreateChat = async (
     });
   }
 
-  // Create if doesn't exist - only when explicitly using findOrCreateChat (e.g. internal flows)
+  // Create if doesn't exist
   if (!chat) {
     // Only CLIENTS can create new chats
     if (currentUserRole === UserRole.ASTROLOGER) {
-      throw new Error(
-        'Astrologers cannot initiate chats. Please wait for the client to message you.'
+      throw new AppError(
+        'Astrologers cannot initiate a new chat. Ask the client to start the conversation, or open an existing thread.',
+        HTTP_STATUS.FORBIDDEN,
+        ERROR_CODES.FORBIDDEN
       );
     }
 
@@ -364,9 +393,18 @@ export const findOrCreateChat = async (
       },
       include: chatInclude,
     });
+    created = true;
   }
 
-  return chat;
+  if (!chat) {
+    throw new AppError(
+      'Could not open or create chat',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      ERROR_CODES.SERVER_ERROR
+    );
+  }
+
+  return { chat, created };
 };
 
 /**
@@ -1155,29 +1193,12 @@ export interface SendDirectQuestionBundleParams {
 }
 
 /**
- * True when this client–astrologer chat exists and was opened from an accepted broadcast (same rule as deductCoinsForMessage).
- */
-async function isBroadcastOriginatedChatSession(
-  clientId: string,
-  astrologerId: string
-): Promise<boolean> {
-  const chat = await prisma.chat.findUnique({
-    where: {
-      participant1Id_participant2Id: {
-        participant1Id: clientId,
-        participant2Id: astrologerId,
-      },
-    },
-    select: { id: true, reopenedAfterEnded: true },
-  });
-  if (!chat) return false;
-  return await isBroadcastPricedSession(chat.id, chat.reopenedAfterEnded);
-}
-
-/**
  * Multi-question bundle:
  * - **Direct / instant chat**: total = count × jyotish `chatMessageFee` (or `CHAT_PER_MESSAGE`).
  * - **Broadcast-originated chat** (accepted broadcast linked to this chat): total = count × platform `BROADCAST_PER_MESSAGE` (matches per-message sends in that session).
+ *
+ * Pricing is evaluated **after** {@link findOrCreateChat} so an ENDED thread reopened for a new
+ * direct bundle has `reopenedAfterEnded: true` and uses direct rates (not stale broadcast linkage).
  */
 export async function sendDirectQuestionBundle(
   params: SendDirectQuestionBundleParams
@@ -1210,32 +1231,6 @@ export async function sendDirectQuestionBundle(
   if (!requiresCoinsForChat(astrologer.category)) {
     throw new AppError(
       'Multi-question bundle pricing is only available for Ordinary or Professional Jyotish. Send a single message for this astrologer.',
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODES.VALIDATION_ERROR
-    );
-  }
-
-  const broadcastSession = await isBroadcastOriginatedChatSession(clientId, astrologerId);
-
-  let perMessageFee = 0;
-  if (broadcastSession) {
-    perMessageFee = await getRate('BROADCAST_PER_MESSAGE' as PlatformCoinRateType);
-  } else {
-    if (astrologer.chatMessageFee && astrologer.chatMessageFee > 0) {
-      perMessageFee = astrologer.chatMessageFee;
-    }
-    if (perMessageFee <= 0) {
-      perMessageFee = await getRate('CHAT_PER_MESSAGE' as PlatformCoinRateType);
-    }
-  }
-
-  const expectedTotal = count * perMessageFee;
-  if (totalNr !== expectedTotal) {
-    const rateHint = broadcastSession
-      ? `${count} × ${perMessageFee} NRs (broadcast chat rate BROADCAST_PER_MESSAGE)`
-      : `${count} × ${perMessageFee} NRs per message for this Jyotish`;
-    throw new AppError(
-      `Pricing mismatch. Expected ${expectedTotal} NRs (${rateHint}).`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );
@@ -1298,15 +1293,33 @@ export async function sendDirectQuestionBundle(
     }
   }
 
-  const chat = await findOrCreateChat({
+  const { chat } = await findOrCreateChat({
     participant1Id: clientId,
     participant2Id: astrologerId,
     currentUserRole: UserRole.CLIENT,
   });
 
-  if (!chat) {
+  const broadcastSession = await isBroadcastPricedSession(chat.id, chat.reopenedAfterEnded);
+
+  let perMessageFee = 0;
+  if (broadcastSession) {
+    perMessageFee = await getRate('BROADCAST_PER_MESSAGE' as PlatformCoinRateType);
+  } else {
+    if (astrologer.chatMessageFee && astrologer.chatMessageFee > 0) {
+      perMessageFee = astrologer.chatMessageFee;
+    }
+    if (perMessageFee <= 0) {
+      perMessageFee = await getRate('CHAT_PER_MESSAGE' as PlatformCoinRateType);
+    }
+  }
+
+  const expectedTotal = count * perMessageFee;
+  if (totalNr !== expectedTotal) {
+    const rateHint = broadcastSession
+      ? `${count} × ${perMessageFee} NRs (broadcast chat rate BROADCAST_PER_MESSAGE)`
+      : `${count} × ${perMessageFee} NRs per message for this Jyotish`;
     throw new AppError(
-      'Could not open chat',
+      `Pricing mismatch. Expected ${expectedTotal} NRs (${rateHint}).`,
       HTTP_STATUS.BAD_REQUEST,
       ERROR_CODES.VALIDATION_ERROR
     );

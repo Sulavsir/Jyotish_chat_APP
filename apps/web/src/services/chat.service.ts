@@ -25,11 +25,15 @@ export const getConversations = async (): Promise<Chat[]> => {
 };
 
 /**
- * Get chat with another user (or null if no chat yet).
- * Chat is only created when the client sends the first message (via socket).
+ * Open or create a direct chat. On success the API always returns a `chat` with `id` (201 if newly created).
  */
-export const getOrCreateChat = async (params: CreateChatParams): Promise<{ chat: Chat | null }> => {
-  const response = await apiClient.post<{ chat: Chat | null }>(API_ENDPOINTS.CHAT.CHATS, params);
+export const getOrCreateChat = async (
+  params: CreateChatParams
+): Promise<{ chat: Chat; created?: boolean }> => {
+  const response = await apiClient.post<{ chat: Chat; created?: boolean }>(
+    API_ENDPOINTS.CHAT.CHATS,
+    params
+  );
   return response;
 };
 

@@ -10,6 +10,7 @@ import { chatUploadSingle } from '../middleware/chatUpload';
 import { chatIdParamSchema } from '../validators/query.validators';
 import * as chatController from '../controllers/chatController';
 import { sendDirectQuestionBundleBodySchema } from '../validators/broadcastQuestion.validators';
+import { postChatChatsBodySchema } from '../validators/chat.validators';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.use(authenticate);
 router.get('/conversations', chatController.getConversations);
 
 // Get or create a chat with another user
-router.post('/chats', chatController.getOrCreateChat);
+router.post('/chats', validateBody(postChatChatsBodySchema), chatController.getOrCreateChat);
 
 // Get chat by ID
 router.get('/chats/:chatId', validateParams(chatIdParamSchema), chatController.getChatById);

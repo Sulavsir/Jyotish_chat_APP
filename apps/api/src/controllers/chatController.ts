@@ -10,6 +10,10 @@ import { AuthRequest } from '@/types/common.types';
 import { sendSuccess, sendError } from '../utils';
 import * as chatService from '../services/chatService';
 import { getSocketInstance } from '../utils/socket-instance';
+import type { PostChatChatsBody } from '../validators/chat.validators';
+import { resolvedOtherUserIdFromPostChatBody } from '../validators/chat.validators';
+
+const POST_CHAT_CHATS_LOG = '[POST /chat/chats]';
 
 /**
  * Get all conversations/chats for the authenticated user
@@ -27,29 +31,53 @@ export const getConversations = async (req: AuthRequest, res: Response, next: Ne
 };
 
 /**
- * Chat is only created when the client sends the first message (via socket), so no chat row exists until then.
+ * Open or create a direct chat (client ↔ astrologer). Returns a non-null `chat` when successful.
+ * Body is validated by route: `otherUserId` / `participantId` / `astrologerId` (same UUID); optional `consultationId`.
  */
 export const getOrCreateChat = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const userId = req.user!.id;
+  const userRole = req.user!.role;
+  const validated = req.body as PostChatChatsBody;
+
   try {
-    const userId = req.user!.id;
-    const userRole = req.user!.role;
-    const { otherUserId, consultationId } = req.body;
+    const otherUserId = resolvedOtherUserIdFromPostChatBody(validated);
+    const consultationId = validated.consultationId;
 
-    if (!otherUserId) {
-      return sendError(res, 'Other user ID is required', 400);
-    }
+    console.info(POST_CHAT_CHATS_LOG, 'request', {
+      userId,
+      role: userRole,
+      otherUserId,
+      consultationId: consultationId ?? null,
+      bodyKeys: Object.keys((req.body as object) ?? {}),
+    });
 
-    const chat = await chatService.findChatOnly({
+    const { chat, created } = await chatService.findOrCreateChat({
       participant1Id: userId,
       participant2Id: otherUserId,
       consultationId,
       currentUserRole: userRole,
     });
 
-    if (chat) {
+    if (!chat?.id) {
+      console.error(POST_CHAT_CHATS_LOG, 'BUG: missing chat id after findOrCreateChat', {
+        userId,
+        otherUserId,
+        created,
+      });
+      return sendError(res, 'Could not open or create chat', 500, 'SERVER_ERROR');
+    }
+
+    console.info(POST_CHAT_CHATS_LOG, 'result', {
+      chatId: chat.id,
+      created,
+      status: chat.status,
+      isLocked: chat.isLocked,
+    });
+
+    if (!created && chat.status === 'ACTIVE' && !chat.isLocked) {
       try {
         const io = getSocketInstance();
-        if (io && chat.status === 'ACTIVE' && !chat.isLocked) {
+        if (io) {
           const payload = {
             chatId: chat.id,
             status: chat.status,
@@ -65,8 +93,13 @@ export const getOrCreateChat = async (req: AuthRequest, res: Response, next: Nex
       }
     }
 
-    return sendSuccess(res, { chat });
+    return sendSuccess(res, { chat, created }, created ? 201 : 200);
   } catch (error) {
+    console.error(POST_CHAT_CHATS_LOG, 'error', {
+      userId,
+      role: userRole,
+      message: (error as Error).message,
+    });
     next(error);
   }
 };

@@ -49,16 +49,36 @@ import { emitPostBroadcastAssignment } from '../utils/broadcast-assignment-side-
 
 const PENDING_BROADCAST_CACHE_TTL_MS = 2500;
 const pendingBroadcastMessagesCache = new Map<string, { expiresAt: number; messages: unknown[] }>();
-let lastPendingExpiryRunAt = 0;
 
-function scheduleBroadcastExpirySweep() {
-  const now = Date.now();
-  if (now - lastPendingExpiryRunAt > 30_000) {
-    lastPendingExpiryRunAt = now;
-    expireOldMessages().catch((err) =>
-      console.error('[broadcastMessage] Background expiry/refund failed:', err)
-    );
+/** Minimum gap between full expiry+auto-assign sweeps (wall-clock PENDING with expiresAt < now). */
+const BROADCAST_EXPIRE_SWEEP_MIN_MS = 1_500;
+let lastBroadcastExpireSweepAt = 0;
+let expireSweepInFlight: Promise<void> | null = null;
+
+/**
+ * Runs {@link expireOldMessages} (auto-assign then refund) soon after timer end.
+ * Throttled + deduped in-flight so pending fetches don't stampede the DB, but never delayed by 30s.
+ */
+export async function runBroadcastExpirySweepThrottled(): Promise<void> {
+  if (!('broadcastMessage' in prisma)) {
+    return;
   }
+  if (expireSweepInFlight) {
+    await expireSweepInFlight;
+    return;
+  }
+  const now = Date.now();
+  if (now - lastBroadcastExpireSweepAt < BROADCAST_EXPIRE_SWEEP_MIN_MS) {
+    return;
+  }
+  lastBroadcastExpireSweepAt = now;
+  expireSweepInFlight = expireOldMessages()
+    .catch((err) => console.error('[broadcastMessage] Expiry/auto-assign sweep failed:', err))
+    .then(() => undefined)
+    .finally(() => {
+      expireSweepInFlight = null;
+    });
+  await expireSweepInFlight;
 }
 
 function invalidatePendingBroadcastCache() {
@@ -605,12 +625,6 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     return [];
   }
 
-  const cacheKey = getPendingCacheKey(astrologerId);
-  const cached = pendingBroadcastMessagesCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.messages as any;
-  }
-
   // If astrologer ID is provided, check if they are in-house and eligible
   if (astrologerId) {
     const astrologer = await prisma.astrologer.findUnique({
@@ -624,8 +638,14 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
     }
   }
 
-  // Refund clients + EXPIRED when overdue (also triggered from client list — see scheduleBroadcastExpirySweep)
-  scheduleBroadcastExpirySweep();
+  // Run before cache so timer-ended rows auto-assign / expire before we return a stale pending list
+  await runBroadcastExpirySweepThrottled();
+
+  const cacheKey = getPendingCacheKey(astrologerId);
+  const cached = pendingBroadcastMessagesCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.messages as any;
+  }
 
   // If astrologer ID is provided, get their dismissed message IDs
   let dismissedMessageIds: string[] = [];
@@ -737,7 +757,7 @@ export async function getClientBroadcastMessages(clientId: string) {
     return [];
   }
 
-  scheduleBroadcastExpirySweep();
+  await runBroadcastExpirySweepThrottled();
 
   const messages = await prisma.broadcastMessage.findMany({
     where: {

@@ -19,7 +19,10 @@ import { MessageSquare, Clock, CheckCircle2, Send, Lock, User } from 'lucide-rea
 import { formatDistanceToNow } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import {
+  BROADCAST_MESSAGE_EXPIRY_MS,
+  BROADCAST_POST_EXPIRY_GRACE_MS,
+} from '@/constants/broadcastMessage.constants';
 import { isBroadcastPendingStillActive } from '@/utils/broadcastMessage.utils';
 import { ROUTE_BUILDERS } from '@/constants';
 import { useRouter } from 'next/navigation';
@@ -337,9 +340,12 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                       createdAt={message.createdAt}
                       expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
                       expiresAt={message.expiresAt}
+                      postExpiryGraceMs={BROADCAST_POST_EXPIRY_GRACE_MS}
                       showIcon={true}
+                      onTimerZero={() => {
+                        socket?.emit('broadcast:getPendingMessages');
+                      }}
                       onExpire={() => {
-                        // Remove expired message immediately from list
                         setMessages((prev) => prev.filter((m) => m.id !== message.id));
                         toast.info('This request has expired');
                       }}

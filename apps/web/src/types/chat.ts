@@ -85,8 +85,11 @@ export interface GetChatHistoryParams {
   offset?: number;
 }
 
+/** POST /chat/chats — send at least one of the id fields (same UUID if multiple). */
 export interface CreateChatParams {
-  otherUserId: string;
+  otherUserId?: string;
+  participantId?: string;
+  astrologerId?: string;
   consultationId?: string;
 }
 

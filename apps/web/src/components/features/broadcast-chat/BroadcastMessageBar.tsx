@@ -21,7 +21,10 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { getImageUrl } from '@/utils/image.utils';
 import { useRouter } from 'next/navigation';
 import { ROUTE_BUILDERS } from '@/constants';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import {
+  BROADCAST_MESSAGE_EXPIRY_MS,
+  BROADCAST_POST_EXPIRY_GRACE_MS,
+} from '@/constants/broadcastMessage.constants';
 import { SidebarRequestList } from './SidebarRequestList';
 import { ProgressBar } from './ProgressBar';
 import {
@@ -544,6 +547,8 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
               createdAt={currentMessage.createdAt}
               expiresAt={currentMessage.expiresAt}
               expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+              postExpiryGraceMs={BROADCAST_POST_EXPIRY_GRACE_MS}
+              onTimerZero={() => socket?.emit('broadcast:getPendingMessages')}
               showIcon
               className="text-base font-bold tabular-nums"
             />
@@ -590,7 +595,9 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
           createdAt={currentMessage.createdAt}
           expiresAt={currentMessage.expiresAt}
           expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+          postExpiryGraceMs={BROADCAST_POST_EXPIRY_GRACE_MS}
           variant="prominent"
+          onTimerZero={() => socket?.emit('broadcast:getPendingMessages')}
           onExpire={() => {
             setDetailExpired(true);
             socket?.emit('broadcast:getPendingMessages');

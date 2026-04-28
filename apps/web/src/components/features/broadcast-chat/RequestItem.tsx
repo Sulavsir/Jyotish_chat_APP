@@ -5,7 +5,10 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { LoadingButton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { ProgressBar } from './ProgressBar';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import {
+  BROADCAST_MESSAGE_EXPIRY_MS,
+  BROADCAST_POST_EXPIRY_GRACE_MS,
+} from '@/constants/broadcastMessage.constants';
 export interface RequestItemProps {
   clientLabel: string;
   clientIdShort: string;
@@ -127,6 +130,7 @@ export function RequestItem({
             createdAt={createdAt}
             expiresAt={expiresAt}
             expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
+            postExpiryGraceMs={BROADCAST_POST_EXPIRY_GRACE_MS}
             variant="compact"
           />
         </div>

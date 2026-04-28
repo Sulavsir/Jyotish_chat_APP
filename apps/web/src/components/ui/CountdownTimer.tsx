@@ -14,6 +14,13 @@ interface CountdownTimerProps {
   expiryMs: number;
   /** When set (e.g. from API), drives remaining time instead of createdAt + expiryMs. */
   expiresAt?: Date | string;
+  /**
+   * After wall-clock expiry, show neutral copy for this many ms (server auto-assign).
+   * 0 = show "Expired" immediately when time hits zero.
+   */
+  postExpiryGraceMs?: number;
+  /** Fired once when wall-clock expiry is reached (start of grace if grace > 0). */
+  onTimerZero?: () => void;
   onExpire?: () => void;
   className?: string;
   showIcon?: boolean;
@@ -23,56 +30,78 @@ export function CountdownTimer({
   createdAt,
   expiryMs,
   expiresAt: expiresAtProp,
+  postExpiryGraceMs = 0,
+  onTimerZero,
   onExpire,
   className = '',
   showIcon = true,
 }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
-  const [isExpired, setIsExpired] = useState(false);
+  const [phase, setPhase] = useState<'active' | 'grace' | 'expired'>('active');
   const onExpireRef = React.useRef(onExpire);
+  const onTimerZeroRef = React.useRef(onTimerZero);
 
-  // Update ref when onExpire changes
   useEffect(() => {
     onExpireRef.current = onExpire;
   }, [onExpire]);
+  useEffect(() => {
+    onTimerZeroRef.current = onTimerZero;
+  }, [onTimerZero]);
 
   useEffect(() => {
-    const calculateTimeLeft = () => {
+    let firedTimerZero = false;
+    let firedExpire = false;
+
+    const calculate = () => {
       const created = new Date(createdAt).getTime();
       const now = Date.now();
       const end =
         expiresAtProp != null && expiresAtProp !== ''
           ? new Date(expiresAtProp).getTime()
           : created + expiryMs;
+      const graceEnd = postExpiryGraceMs > 0 ? end + postExpiryGraceMs : end;
       const remaining = end - now;
 
-      if (remaining <= 0) {
-        setIsExpired(true);
-        setTimeLeft(0);
-        // Use ref to avoid infinite loop
-        if (onExpireRef.current) {
-          onExpireRef.current();
-        }
-        return 0;
+      if (remaining > 0) {
+        setPhase('active');
+        setTimeLeft(remaining);
+        return remaining;
       }
 
-      setTimeLeft(remaining);
-      return remaining;
+      if (postExpiryGraceMs > 0 && now < graceEnd) {
+        setPhase('grace');
+        setTimeLeft(0);
+        if (!firedTimerZero) {
+          firedTimerZero = true;
+          onTimerZeroRef.current?.();
+        }
+        return 1;
+      }
+
+      setPhase('expired');
+      setTimeLeft(0);
+      if (!firedTimerZero) {
+        firedTimerZero = true;
+        onTimerZeroRef.current?.();
+      }
+      if (!firedExpire) {
+        firedExpire = true;
+        onExpireRef.current?.();
+      }
+      return 0;
     };
 
-    // Initial calculation
-    calculateTimeLeft();
+    calculate();
 
-    // Update every second
     const interval = setInterval(() => {
-      const remaining = calculateTimeLeft();
-      if (remaining <= 0) {
+      const r = calculate();
+      if (r <= 0) {
         clearInterval(interval);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [createdAt, expiryMs, expiresAtProp]); // ✅ Removed onExpire from dependencies
+  }, [createdAt, expiryMs, expiresAtProp, postExpiryGraceMs]);
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -93,7 +122,18 @@ export function CountdownTimer({
     return 'text-red-600';
   };
 
-  if (isExpired) {
+  if (phase === 'grace') {
+    return (
+      <div
+        className={cn('flex items-center gap-1.5 text-amber-600 text-xs font-medium', className)}
+      >
+        {showIcon && <Clock className="h-3.5 w-3.5" />}
+        <span>Finalizing…</span>
+      </div>
+    );
+  }
+
+  if (phase === 'expired') {
     return (
       <div className={cn('flex items-center gap-1.5 text-red-600 text-xs font-medium', className)}>
         {showIcon && <Clock className="h-3.5 w-3.5" />}
@@ -109,4 +149,3 @@ export function CountdownTimer({
     </div>
   );
 }
-

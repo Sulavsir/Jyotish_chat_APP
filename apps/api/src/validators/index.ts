@@ -59,3 +59,4 @@ export * from './tip.validators';
 export * from './astrologer.validators';
 export * from './adminPlatformPayment.validators';
 export * from './adminUsersList.validators';
+export * from './chat.validators';

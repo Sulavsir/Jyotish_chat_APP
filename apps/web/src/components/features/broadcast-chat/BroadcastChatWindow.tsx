@@ -23,7 +23,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { LoadingButton } from '@/components/ui';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
-import { BROADCAST_MESSAGE_EXPIRY_MS } from '@/constants/broadcastMessage.constants';
+import {
+  BROADCAST_MESSAGE_EXPIRY_MS,
+  BROADCAST_POST_EXPIRY_GRACE_MS,
+} from '@/constants/broadcastMessage.constants';
 import { getBroadcastExpiresAtMs } from '@/utils/broadcastMessage.utils';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { QUERY_KEYS } from '@/constants';
@@ -262,7 +265,11 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
 
   // Memoize the onExpire callback to prevent unnecessary re-creations
   const handleMessageExpire = React.useCallback(() => {
-    loadMessages();
+    void loadMessages();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onBroadcastTimerZero = React.useCallback(() => {
+    void loadMessages();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate time remaining for pending message
@@ -277,21 +284,22 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     ? messages.find((msg) => msg.status === BroadcastMessageStatus.PENDING)
     : null;
 
-  // Also close modal if message expires
+  // Close the in-window waiting UI only after server grace (auto-assign / refund window)
   useEffect(() => {
     if (pendingMessage) {
-      const expiresAt = getBroadcastExpiresAtMs(pendingMessage);
+      const expiresAtMs = getBroadcastExpiresAtMs(pendingMessage);
+      const graceEnd = expiresAtMs + BROADCAST_POST_EXPIRY_GRACE_MS;
       const now = Date.now();
-      const timeUntilExpiry = expiresAt - now;
+      const msUntilClose = graceEnd - now;
 
-      if (timeUntilExpiry <= 0) {
+      if (msUntilClose <= 0) {
         setIsWaitingForAcceptance(false);
         return;
       }
 
       const timeout = setTimeout(() => {
         setIsWaitingForAcceptance(false);
-      }, timeUntilExpiry);
+      }, msUntilClose);
 
       return () => clearTimeout(timeout);
     } else {
@@ -381,8 +389,10 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
                   createdAt={message.createdAt}
                   expiryMs={BROADCAST_MESSAGE_EXPIRY_MS}
                   expiresAt={message.expiresAt}
+                  postExpiryGraceMs={BROADCAST_POST_EXPIRY_GRACE_MS}
                   className="text-white"
                   showIcon={true}
+                  onTimerZero={onBroadcastTimerZero}
                   onExpire={handleMessageExpire}
                 />
               )}
