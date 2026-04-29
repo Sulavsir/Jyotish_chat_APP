@@ -27,7 +27,10 @@ import {
   BROADCAST_MESSAGE_EXPIRY_MS,
   BROADCAST_POST_EXPIRY_GRACE_MS,
 } from '@/constants/broadcastMessage.constants';
-import { getBroadcastExpiresAtMs } from '@/utils/broadcastMessage.utils';
+import {
+  getBroadcastExpiresAtMs,
+  isBroadcastPendingInPostTimerGrace,
+} from '@/utils/broadcastMessage.utils';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
 import { QUERY_KEYS } from '@/constants';
 import { useCoinRates } from '@/hooks/useCoinRates';
@@ -151,17 +154,23 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         setIsWaitingForAcceptance(false);
 
         const acceptedAstrologer = astrologer ?? undefined;
+        const batchId = (message.metadata as Record<string, unknown> | undefined)?.batchId as
+          | string
+          | undefined;
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === message.id
-              ? ({
-                  ...msg,
-                  status: BroadcastMessageStatus.ACCEPTED,
-                  acceptedAstrologer: acceptedAstrologer ?? msg.acceptedAstrologer,
-                  chatId: chat.id,
-                } as BroadcastMessage)
-              : msg
-          )
+          prev.map((msg) => {
+            const msgBatch =
+              (msg.metadata as Record<string, unknown> | undefined)?.batchId as string | undefined;
+            const inBatch =
+              batchId && msgBatch === batchId && msg.status === BroadcastMessageStatus.PENDING;
+            if (msg.id !== message.id && !inBatch) return msg;
+            return {
+              ...msg,
+              status: BroadcastMessageStatus.ACCEPTED,
+              acceptedAstrologer: acceptedAstrologer ?? msg.acceptedAstrologer,
+              chatId: chat.id,
+            } as BroadcastMessage;
+          })
         );
 
         // Toast + navigation: `BroadcastPendingBridge` (dashboard layout) handles app-wide.
@@ -178,6 +187,11 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
         )
       );
       setIsWaitingForAcceptance(false);
+    });
+
+    socket.on('broadcast:messageExpired', () => {
+      setIsWaitingForAcceptance(false);
+      void loadMessages();
     });
 
     socket.on('broadcast:error', (error: { message?: string; code?: string }) => {
@@ -218,6 +232,7 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
       socket.off('broadcast:messageSent');
       socket.off('broadcast:yourMessageAccepted');
       socket.off('broadcast:messageCancelled');
+      socket.off('broadcast:messageExpired');
       socket.off('broadcast:error');
     };
   }, [socket, isConnected, onChatCreated, queryClient, extractRequiredCoins]);
@@ -279,9 +294,9 @@ export function BroadcastChatWindow({ onChatCreated }: BroadcastChatWindowProps)
     return Math.max(0, Math.floor((expiresAt - now) / 1000));
   };
 
-  // Find the most recent pending message for modal (only show while waiting for acceptance)
+  // Only treat PENDING rows still in the post-timer grace window (matches global pending store)
   const pendingMessage = isWaitingForAcceptance
-    ? messages.find((msg) => msg.status === BroadcastMessageStatus.PENDING)
+    ? messages.find((msg) => isBroadcastPendingInPostTimerGrace(msg))
     : null;
 
   // Close the in-window waiting UI only after server grace (auto-assign / refund window)

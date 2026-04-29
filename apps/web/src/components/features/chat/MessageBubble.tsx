@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { UserRole } from '@/types/user.types';
 import { QUESTION_CATEGORIES } from '@/constants/questionCategories.constants';
 import { ProfileBirthDetails } from './ProfileBirthDetails';
+import { extractBareChatImageUrl } from '@jyotish/shared';
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -56,11 +57,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // Check if message has file attachment
   const metadata = message.metadata as Record<string, unknown> | undefined;
-  const hasFile = !!metadata?.fileUrl;
+  const hasFileMeta = !!metadata?.fileUrl;
+  const bareImageFromContent = extractBareChatImageUrl(message.content);
+  const hasFile = hasFileMeta || !!bareImageFromContent;
   const mimeType = typeof metadata?.mimeType === 'string' ? metadata.mimeType : '';
-  const isImage = message.type === 'IMAGE' || mimeType.startsWith('image/');
-  const fileUrl =
-    hasFile && typeof metadata?.fileUrl === 'string' ? `${API_BASE_URL}${metadata.fileUrl}` : null;
+  const isImage =
+    message.type === 'IMAGE' ||
+    mimeType.startsWith('image/') ||
+    !!bareImageFromContent;
+  const fileUrl = (() => {
+    if (typeof metadata?.fileUrl === 'string') {
+      return `${API_BASE_URL}${metadata.fileUrl}`;
+    }
+    if (bareImageFromContent) {
+      return getImageUrl(bareImageFromContent);
+    }
+    return null;
+  })();
 
   // Extract file metadata with proper type checking
   const fileName = typeof metadata?.fileName === 'string' ? metadata.fileName : 'File';
@@ -191,10 +204,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           )}
 
-          {/* Message Text */}
-          {message.content && message.content.trim() && (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-          )}
+          {/* Message Text (omit when body is only a pasted image URL from mobile) */}
+          {message.content &&
+            message.content.trim() &&
+            !bareImageFromContent && (
+              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+            )}
         </div>
 
         {/* Birth Details - only for astrologers viewing client messages (English + Nepali DOB) */}

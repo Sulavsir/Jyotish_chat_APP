@@ -18,8 +18,10 @@ import {
   formatBirthDetailsSingleLine,
   groupMessagesBySenderAndSameSecond,
   mergeMessageBirthDetails,
+  extractBareChatImageUrl,
   type FallbackClientBirth,
 } from '@jyotish/shared';
+import { getImageUrl } from '@/utils/image.utils';
 
 export const CLIENT_CHAT_HISTORY_MESSAGE_LIMIT = 12;
 
@@ -70,11 +72,21 @@ function MessageBubbleOnly({
   accountBirthFallback: FallbackClientBirth | null;
 }) {
   const metadata = message.metadata as Record<string, unknown> | undefined;
-  const hasFile = !!metadata?.fileUrl;
+  const bareImageFromContent = extractBareChatImageUrl(message.content);
+  const hasFileMeta = !!metadata?.fileUrl;
+  const hasFile = hasFileMeta || !!bareImageFromContent;
   const mimeType = typeof metadata?.mimeType === 'string' ? metadata.mimeType : '';
-  const isImage = message.type === 'IMAGE' || mimeType.startsWith('image/');
-  const fileUrl =
-    hasFile && typeof metadata?.fileUrl === 'string' ? `${API_BASE_URL}${metadata.fileUrl}` : null;
+  const isImage =
+    message.type === 'IMAGE' || mimeType.startsWith('image/') || !!bareImageFromContent;
+  const fileUrl = (() => {
+    if (typeof metadata?.fileUrl === 'string') {
+      return `${API_BASE_URL}${metadata.fileUrl}`;
+    }
+    if (bareImageFromContent) {
+      return getImageUrl(bareImageFromContent);
+    }
+    return null;
+  })();
 
   return (
     <div className={`flex ${isFromClient ? 'justify-end' : 'justify-start'} items-end gap-2`}>
@@ -116,27 +128,25 @@ function MessageBubbleOnly({
               : 'bg-slate-700/90 text-slate-100 rounded-bl-md'
           }`}
         >
-          {message.content ? (
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          {hasFile && fileUrl && isImage ? (
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={fileUrl}
+                alt="Attachment"
+                className="max-w-full max-h-48 rounded-lg object-contain"
+              />
+            </a>
           ) : hasFile && fileUrl ? (
-            isImage ? (
-              <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block">
-                <img
-                  src={fileUrl}
-                  alt="Attachment"
-                  className="max-w-full max-h-48 rounded-lg object-contain"
-                />
-              </a>
-            ) : (
-              <a
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-purple-300 hover:underline"
-              >
-                📎 Open file
-              </a>
-            )
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-purple-300 hover:underline"
+            >
+              📎 Open file
+            </a>
+          ) : message.content && !bareImageFromContent ? (
+            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
           ) : (
             <p className="text-sm text-slate-400 italic">Attachment</p>
           )}

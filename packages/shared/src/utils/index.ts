@@ -25,6 +25,11 @@ export {
 } from './chat-birth-metadata';
 
 export {
+  extractBareChatImageUrl,
+  isBareChatImageMessageContent,
+} from './chat-plain-image-url.utils';
+
+export {
   isMaintenanceModeEnabled,
   buildMaintenanceApiErrorBody,
   type MaintenanceApiErrorBody,

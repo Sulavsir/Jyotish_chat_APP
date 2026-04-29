@@ -27,7 +27,10 @@ import {
 } from '../validators/broadcastQuestion.validators';
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
-import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
+import {
+  coerceBareImageUrlMessageForStorage,
+  hasChatFileMetadata,
+} from '../utils/chat-attachment.utils';
 import { isAstrologerAutoWelcomeMetadata } from '../utils/chat-turn.utils';
 
 export function chatHandlers(io: Server, socket: Socket) {
@@ -38,7 +41,15 @@ export function chatHandlers(io: Server, socket: Socket) {
     'chat:send',
     async (data: { receiverId: string; content: string; type?: MessageType; metadata?: any }) => {
       try {
-        const { receiverId, content, type, metadata } = data;
+        let { receiverId, content, type, metadata } = data;
+        const coerced = coerceBareImageUrlMessageForStorage({
+          content: typeof content === 'string' ? content : '',
+          type: type as PrismaMessageType | undefined,
+          metadata,
+        });
+        content = coerced.content;
+        type = coerced.type as unknown as MessageType;
+        metadata = coerced.metadata;
         let coinsDeductedForSender: number | undefined;
 
         if (!content?.trim()) {
@@ -52,15 +63,18 @@ export function chatHandlers(io: Server, socket: Socket) {
           socket.emit('chat:error', { message: 'Message cannot be empty' });
           return;
         }
-        const maxChatLen =
-          user.role === UserRole.ASTROLOGER
-            ? CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER
-            : CHAT_MESSAGE_MAX_LENGTH_CLIENT;
-        if (content.trim().length > maxChatLen) {
-          socket.emit('chat:error', {
-            message: `Message cannot exceed ${maxChatLen} characters`,
-          });
-          return;
+        const msgTypeForLimit = type ?? MessageType.TEXT;
+        if (msgTypeForLimit === MessageType.TEXT) {
+          const maxChatLen =
+            user.role === UserRole.ASTROLOGER
+              ? CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER
+              : CHAT_MESSAGE_MAX_LENGTH_CLIENT;
+          if (content.trim().length > maxChatLen) {
+            socket.emit('chat:error', {
+              message: `Message cannot exceed ${maxChatLen} characters`,
+            });
+            return;
+          }
         }
 
         // Determine client and astrologer IDs

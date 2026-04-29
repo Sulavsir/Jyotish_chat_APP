@@ -69,6 +69,9 @@ const app = express();
 app.set('trust proxy', 1);
 const httpServer = createServer(app);
 
+/** Background tick: broadcast timer expiry + auto-assign (see runBroadcastExpirySweepThrottled). */
+let broadcastExpireSweepInterval: ReturnType<typeof setInterval> | null = null;
+
 // Initialize Socket.io with network access
 const normalizeOrigin = (raw: string): string => raw.trim().replace(/\/+$/, '');
 
@@ -250,11 +253,24 @@ async function start() {
   const PORT = Number(process.env.PORT) || 4000;
   const HOST = '0.0.0.0';
 
-  httpServer.listen(PORT, HOST, () => {
+  httpServer.listen(PORT, HOST, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📚 Local: http://localhost:${PORT}/api-docs`);
     console.log(`🌐 Network: http://192.168.0.206:${PORT}/api-docs`);
     console.log(`🔌 WebSocket server ready on all interfaces`);
+
+    const { runBroadcastExpirySweepThrottled } = await import('./services/broadcastMessage.service');
+    const tickMs = Math.max(
+      5000,
+      parseInt(process.env.BROADCAST_EXPIRE_SWEEP_TICK_MS ?? '10000', 10)
+    );
+    void runBroadcastExpirySweepThrottled();
+    broadcastExpireSweepInterval = setInterval(() => {
+      void runBroadcastExpirySweepThrottled();
+    }, tickMs);
+    console.log(
+      `⏱️ Broadcast expiry / auto-assign tick every ${tickMs}ms (work is throttled; override with BROADCAST_EXPIRE_SWEEP_TICK_MS)`
+    );
   });
 }
 
@@ -263,13 +279,23 @@ start().catch((err) => {
   process.exit(1);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM signal received: closing HTTP server');
+async function gracefulShutdown(signal: string) {
+  console.log(`${signal} received: closing HTTP server`);
+  if (broadcastExpireSweepInterval) {
+    clearInterval(broadcastExpireSweepInterval);
+    broadcastExpireSweepInterval = null;
+  }
   await closeSocketRedisClients();
   httpServer.close(() => {
     console.log('HTTP server closed');
   });
+}
+
+process.on('SIGTERM', () => {
+  void gracefulShutdown('SIGTERM');
+});
+process.on('SIGINT', () => {
+  void gracefulShutdown('SIGINT');
 });
 
 export { io };

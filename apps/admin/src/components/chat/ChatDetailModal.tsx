@@ -22,6 +22,8 @@ import {
   formatBirthDetailsSingleLine,
   groupMessagesBySenderAndSameSecond,
   mergeMessageBirthDetails,
+  extractBareChatImageUrl,
+  isBareChatImageMessageContent,
   type FallbackClientBirth,
 } from '@jyotish/shared';
 
@@ -177,20 +179,16 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
     return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${url}`;
   };
 
-  const isImageUrl = (url: string) => {
-    if (!url) return false;
-    const imageExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i;
-    return imageExtensions.test(url) || url.includes('/uploads/chat/images/');
-  };
-
   const renderMessageContent = (message: Message) => {
     const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+    const bareUrlInContent = extractBareChatImageUrl(message.content);
     const fileUrl =
-      (typeof metadata.fileUrl === 'string' ? metadata.fileUrl : null) || message.content;
+      (typeof metadata.fileUrl === 'string' ? metadata.fileUrl : null) ||
+      bareUrlInContent ||
+      message.content;
     const captionText = message.content?.trim() ?? '';
-    /** True when `content` holds a bare file path/URL (legacy), not a user-written caption */
-    const contentLooksLikeFileOnly =
-      !!message.content && isImageUrl(message.content) && !metadata.fileUrl;
+    /** True when `content` holds a bare file path/URL (legacy / mobile), not a user-written caption */
+    const contentLooksLikeFileOnly = !!bareUrlInContent && !metadata.fileUrl;
 
     const captionBlock =
       captionText && !contentLooksLikeFileOnly ? (
@@ -198,14 +196,14 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
       ) : null;
 
     // Legacy: content itself is an image URL (no metadata.fileUrl)
-    if (contentLooksLikeFileOnly) {
+    if (contentLooksLikeFileOnly && bareUrlInContent) {
       return (
         <div className="mt-2 space-y-2">
           <img
-            src={getImageUrl(message.content) || ''}
+            src={getImageUrl(bareUrlInContent) || ''}
             alt="Image"
             className="max-w-sm rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-            onClick={() => window.open(getImageUrl(message.content) || '', '_blank')}
+            onClick={() => window.open(getImageUrl(bareUrlInContent) || '', '_blank')}
           />
         </div>
       );
@@ -552,9 +550,11 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
                                 </Badge>
                               )}
 
-                              {(m.type !== 'TEXT' || isImageUrl(m.content || '')) && (
+                              {(m.type !== 'TEXT' ||
+                                isBareChatImageMessageContent(m.content || '')) && (
                                 <div className="flex items-center gap-1 mt-1">
-                                  {(m.type === 'IMAGE' || isImageUrl(m.content || '')) && (
+                                  {(m.type === 'IMAGE' ||
+                                    isBareChatImageMessageContent(m.content || '')) && (
                                     <ImageIcon className="w-3 h-3 text-slate-500" />
                                   )}
                                   {m.type === 'FILE' && (
@@ -562,7 +562,9 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
                                   )}
                                   {m.type === 'AUDIO' && <Mic className="w-3 h-3 text-slate-500" />}
                                   <span className="text-xs text-slate-500 capitalize">
-                                    {isImageUrl(m.content || '') ? 'IMAGE' : m.type}
+                                    {isBareChatImageMessageContent(m.content || '')
+                                      ? 'IMAGE'
+                                      : m.type}
                                   </span>
                                 </div>
                               )}

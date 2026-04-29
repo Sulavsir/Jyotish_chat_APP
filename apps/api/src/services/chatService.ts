@@ -32,7 +32,10 @@ import { emitAstrologerNotificationSoundToUser } from '../utils/astrologer-notif
 import { buildDmChatNotificationCopy } from '../utils/dm-notification-copy';
 import { notificationService } from './notification.service';
 import { ACTIVE_CLIENT_USER_WHERE } from '../constants/user.constants';
-import { hasChatFileMetadata } from '../utils/chat-attachment.utils';
+import {
+  coerceBareImageUrlMessageForStorage,
+  hasChatFileMetadata,
+} from '../utils/chat-attachment.utils';
 import { isAstrologerAutoWelcomeMetadata } from '../utils/chat-turn.utils';
 import { getRate } from './platformCoinRate.service';
 import type { PlatformCoinRateType } from '@prisma/client';
@@ -817,12 +820,21 @@ export const sendMessage = async (
     chatId,
     senderId,
     receiverId,
-    content,
-    type = 'TEXT',
-    metadata,
+    content: rawContent,
+    type: rawType = 'TEXT',
+    metadata: rawMetadata,
     senderRole,
     _internal,
   } = params;
+
+  const coerced = coerceBareImageUrlMessageForStorage({
+    content: rawContent,
+    type: rawType as MessageType,
+    metadata: rawMetadata,
+  });
+  const content = coerced.content;
+  const type = coerced.type;
+  const metadata = coerced.metadata;
 
   if (!content?.trim()) {
     if (hasChatFileMetadata(metadata)) {

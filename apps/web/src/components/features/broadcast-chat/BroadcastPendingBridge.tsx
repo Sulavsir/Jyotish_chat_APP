@@ -20,7 +20,10 @@ import { JyotishMatchingModal } from '@/components/ui/JyotishMatchingModal';
 import { useBroadcastCancelMutation } from '@/hooks/useBroadcastPending';
 import type { BroadcastMessage } from '@/types';
 import { BroadcastMessageStatus } from '@/types/broadcast';
-import type { BroadcastMessageExpiredPayload, BroadcastYourMessageAcceptedPayload } from '@jyotish/shared';
+import type {
+  BroadcastMessageExpiredPayload,
+  BroadcastYourMessageAcceptedPayload,
+} from '@jyotish/shared';
 import { playBroadcastTimerEndSound } from '@/utils/broadcast-timer-sound.utils';
 import { BROADCAST_POST_EXPIRY_GRACE_MS } from '@/constants/broadcastMessage.constants';
 
@@ -94,7 +97,8 @@ export function BroadcastPendingBridge() {
   const pollGeneration = useRef(0);
   const recentClientAcceptanceRef = useRef<{ at: number; chatId: string } | null>(null);
 
-  const shouldSkipDuplicateClientAcceptance = (chatId: string): boolean => {
+  /** Suppress duplicate success toasts when socket + REST poll both fire; still navigate below. */
+  const shouldSuppressDuplicateAcceptanceToast = (chatId: string): boolean => {
     const now = Date.now();
     const r = recentClientAcceptanceRef.current;
     if (r && r.chatId === chatId && now - r.at < 4000) {
@@ -132,9 +136,10 @@ export function BroadcastPendingBridge() {
     return () => clearInterval(id);
   }, [pendingMessage, setTimeRemaining]);
 
-  // After countdown hits zero, poll REST briefly so UI updates even if the socket event is delayed
+  // After countdown hits zero, poll REST briefly so UI updates even if the socket event is delayed.
+  // Do not require socket `isConnected` — assignment + expiry are persisted server-side.
   useEffect(() => {
-    if (role !== 'CLIENT' || !isConnected) return;
+    if (role !== 'CLIENT') return;
     if (!pendingMessage || pendingMessage.id === SENDING_PLACEHOLDER_ID) return;
     if (getBroadcastExpiresAtMs(pendingMessage) > Date.now()) return;
 
@@ -156,18 +161,17 @@ export function BroadcastPendingBridge() {
         const accepted = findAcceptedChatForPending(messages, pm);
         if (accepted) {
           useBroadcastPendingStore.getState().clearPending();
-          if (shouldSkipDuplicateClientAcceptance(accepted.chatId)) {
-            return;
-          }
           void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
           void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
           void refetchClientBalanceAndStats(queryClient);
           void useAuthStore.getState().refreshUser();
           const name = accepted.astrologerName || 'a Jyotish';
-          const { title, description } = clientAcceptanceToastCopy(name, {
-            autoAssignedFromTimer: true,
-          });
-          toast.success(title, { duration: 4000, ...(description ? { description } : {}) });
+          if (!shouldSuppressDuplicateAcceptanceToast(accepted.chatId)) {
+            const { title, description } = clientAcceptanceToastCopy(name, {
+              autoAssignedFromTimer: true,
+            });
+            toast.success(title, { duration: 4000, ...(description ? { description } : {}) });
+          }
           router.push(ROUTE_BUILDERS.CHAT_WITH_ID(accepted.chatId));
           return;
         }
@@ -196,7 +200,6 @@ export function BroadcastPendingBridge() {
     };
   }, [
     role,
-    isConnected,
     pendingMessage?.id,
     pendingMessage?.expiresAt,
     pendingMessage?.createdAt,
@@ -206,7 +209,7 @@ export function BroadcastPendingBridge() {
 
   // Hydrate pending broadcast from API (refresh / navigation / dashboard)
   useEffect(() => {
-    if (role !== 'CLIENT' || !isConnected) return;
+    if (role !== 'CLIENT') return;
     let cancelled = false;
     broadcastMessageService
       .getMyMessages()
@@ -221,7 +224,7 @@ export function BroadcastPendingBridge() {
     return () => {
       cancelled = true;
     };
-  }, [role, isConnected]);
+  }, [role]);
 
   // Socket: single source of truth for broadcast events (client)
   useEffect(() => {
@@ -255,15 +258,14 @@ export function BroadcastPendingBridge() {
     const onAccepted = (data: BroadcastYourMessageAcceptedPayload) => {
       useBroadcastPendingStore.getState().clearPending();
       const chatId = data.chat?.id;
-      if (chatId && shouldSkipDuplicateClientAcceptance(chatId)) {
-        return;
-      }
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COINS.BALANCE });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BROADCAST.MY_MESSAGES });
       void refetchClientBalanceAndStats(queryClient);
       const name = data.astrologer?.name || 'a Jyotish';
-      const { title, description } = clientAcceptanceToastCopy(name, data);
-      toast.success(title, { duration: 4000, ...(description ? { description } : {}) });
+      if (!(chatId && shouldSuppressDuplicateAcceptanceToast(chatId))) {
+        const { title, description } = clientAcceptanceToastCopy(name, data);
+        toast.success(title, { duration: 4000, ...(description ? { description } : {}) });
+      }
       if (chatId) {
         router.push(ROUTE_BUILDERS.CHAT_WITH_ID(chatId));
       }
@@ -317,6 +319,11 @@ export function BroadcastPendingBridge() {
           }
         );
       }
+      // Multi-question batches emit one expiry per row; re-hydrate so the modal clears for any sibling id.
+      void broadcastMessageService
+        .getMyMessages()
+        .then((messages) => useBroadcastPendingStore.getState().hydrateFromMessages(messages))
+        .catch(() => {});
     };
 
     socket.on('broadcast:messageSent', onMessageSent);
@@ -338,8 +345,7 @@ export function BroadcastPendingBridge() {
     return null;
   }
 
-  const showConnectingCopy =
-    timeRemaining === 0 && pendingMessage.id !== SENDING_PLACEHOLDER_ID;
+  const showConnectingCopy = timeRemaining === 0 && pendingMessage.id !== SENDING_PLACEHOLDER_ID;
 
   return (
     <JyotishMatchingModal
@@ -352,7 +358,7 @@ export function BroadcastPendingBridge() {
           ? "Hang tight - we're connecting you with a Jyotish now."
           : isBatchBroadcast
             ? 'Your questions have been published to all Jyotish. Waiting for one to accept...'
-            : 'Your message has been broadcast. Waiting for an astrologer to accept...'
+            : 'Your message has been broadcasted. Waiting for an astrologer to accept...'
       }
       minimized={isMinimized}
       onMinimizeChange={setMinimized}

@@ -63,6 +63,11 @@ function isAssignableBroadcastAstrologer(a: {
 /**
  * Ordered astrologer IDs for timer-based auto-assignment: admin priority rows first (by `priority` asc),
  * then remaining eligible in-house ordinary/professional jyotish (name asc).
+ *
+ * **Offline jyotish are included on purpose** so when the broadcast timer ends, the server can still
+ * assign to the priority list (or fallback list) even if no one is currently `isOnline`. Manual accept
+ * from the live pending bar still typically requires the astrologer to be using the app; this list is
+ * only for `acceptBroadcastMessage` during `expireOldMessages` / auto-assign.
  */
 export async function getAutoAssignCandidateAstrologerIdsOrdered(): Promise<string[]> {
   const priorityRows = await prisma.broadcastAssigneePriority.findMany({
