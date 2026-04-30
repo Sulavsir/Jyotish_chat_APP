@@ -44,6 +44,8 @@ export interface AstrologerListParams extends Record<string, unknown> {
 
 export interface AstrologerListResponse {
   astrologers: PublicAstrologerProfile[];
+  /** Count of active, non-deleted astrologers currently marked online (same basis as `/public/astrologers/stats` `online`). */
+  onlineAstrologersCount: number;
   pagination: {
     page: number;
     limit: number;

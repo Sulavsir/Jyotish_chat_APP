@@ -30,7 +30,8 @@ import { useAdminStore } from '@/store/admin-store';
 import { AdminRole } from '@jyotish/shared';
 
 export default function UsersPage() {
-  const canAddBalance = useAdminStore((s) => s.admin?.adminRole !== AdminRole.USER_SUPPORT);
+  const isUserSupport = useAdminStore((s) => s.admin?.adminRole === AdminRole.USER_SUPPORT);
+  const canAddBalance = !isUserSupport;
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
@@ -185,7 +186,10 @@ export default function UsersPage() {
           </div>
         ),
       },
-      {
+    ];
+
+    if (!isUserSupport) {
+      base.push({
         header: 'Total Balance Loaded (NRs)',
         accessor: (user) => (
           <div className="flex items-center gap-2">
@@ -195,8 +199,8 @@ export default function UsersPage() {
             </span>
           </div>
         ),
-      },
-    ];
+      });
+    }
 
     base.push(
       {
@@ -235,7 +239,7 @@ export default function UsersPage() {
     );
 
     return base;
-  }, [canAddBalance]);
+  }, [canAddBalance, isUserSupport]);
 
   return (
     <>

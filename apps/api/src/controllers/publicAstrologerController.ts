@@ -140,7 +140,13 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const [astrologers, total] = await Promise.all([
+    const onlineCountWhere = {
+      isActive: true,
+      isDeleted: false,
+      isOnline: true,
+    };
+
+    const [astrologers, total, onlineAstrologersCount] = await Promise.all([
       prisma.astrologer.findMany({
         where,
         select: {
@@ -166,6 +172,7 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
         take: limitNum,
       }),
       prisma.astrologer.count({ where }),
+      prisma.astrologer.count({ where: onlineCountWhere }),
     ]);
 
     const astrologersForClients = astrologers.map((a) => ({
@@ -175,6 +182,7 @@ export async function listPublicAstrologers(req: Request, res: Response, next: N
 
     return sendSuccess(res, {
       astrologers: astrologersForClients,
+      onlineAstrologersCount,
       pagination: {
         page: pageNum,
         limit: limitNum,

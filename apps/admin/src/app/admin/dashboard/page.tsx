@@ -29,8 +29,11 @@ const PAYMENT_RELATED_STAT_TITLES = new Set([
   "Today's Loaded (Platform)",
 ]);
 
+const USER_SUPPORT_HIDDEN_STAT_TITLES = new Set(['Total Users', 'New Users Today']);
+
 export default function DashboardPage() {
-  const canViewPaymentStats = useAdminStore((s) => s.admin?.adminRole !== AdminRole.USER_SUPPORT);
+  const isUserSupport = useAdminStore((s) => s.admin?.adminRole === AdminRole.USER_SUPPORT);
+  const canViewPaymentStats = !isUserSupport;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { on, off, isConnected } = useAdminSocket();
@@ -326,11 +329,15 @@ export default function DashboardPage() {
         route: ADMIN_ROUTES.APPOINTMENTS,
       },
     ];
-    if (canViewPaymentStats) {
-      return all;
+    let visible = all;
+    if (!canViewPaymentStats) {
+      visible = visible.filter((card) => !PAYMENT_RELATED_STAT_TITLES.has(card.title));
     }
-    return all.filter((card) => !PAYMENT_RELATED_STAT_TITLES.has(card.title));
-  }, [stats, canViewPaymentStats]);
+    if (isUserSupport) {
+      visible = visible.filter((card) => !USER_SUPPORT_HIDDEN_STAT_TITLES.has(card.title));
+    }
+    return visible;
+  }, [stats, canViewPaymentStats, isUserSupport]);
 
   const quickActions = useMemo(() => {
     const all: {

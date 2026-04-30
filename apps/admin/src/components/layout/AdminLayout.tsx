@@ -376,6 +376,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const hiddenNavHrefsForSupport = new Set<string>([
     ADMIN_ROUTES.TRANSACTIONS,
     ADMIN_ROUTES.EARNINGS,
+    ADMIN_ROUTES.SET_COINS,
+    ADMIN_ROUTES.PRICING,
   ]);
 
   const fullNavigation: Array<NavLinkItem | NavGroupItem> = [
@@ -663,12 +665,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
-  const navigation: Array<NavLinkItem | NavGroupItem> = canViewPayments
+  let navigation: Array<NavLinkItem | NavGroupItem> = canViewPayments
     ? fullNavigation
     : fullNavigation.filter(
         (item) =>
           !(item.kind === 'link' && typeof item.href === 'string' && hiddenNavHrefsForSupport.has(item.href))
       );
+
+  if (!canViewPayments) {
+    navigation = navigation.map((item) => {
+      if (item.kind === 'group' && item.key === 'chat-management') {
+        return {
+          ...item,
+          children: item.children.filter((c) => c.href !== ADMIN_ROUTES.BROADCAST_SETTINGS),
+        };
+      }
+      return item;
+    });
+  }
 
   useEffect(() => {
     if (!isAuthenticated || !admin || canViewPayments || !pathname) {
@@ -678,7 +692,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       pathname === ADMIN_ROUTES.TRANSACTIONS ||
       pathname.startsWith(`${ADMIN_ROUTES.TRANSACTIONS}/`) ||
       pathname === ADMIN_ROUTES.EARNINGS ||
-      pathname.startsWith(`${ADMIN_ROUTES.EARNINGS}/`);
+      pathname.startsWith(`${ADMIN_ROUTES.EARNINGS}/`) ||
+      pathname === ADMIN_ROUTES.SET_COINS ||
+      pathname.startsWith(`${ADMIN_ROUTES.SET_COINS}/`) ||
+      pathname === ADMIN_ROUTES.PRICING ||
+      pathname.startsWith(`${ADMIN_ROUTES.PRICING}/`) ||
+      pathname === ADMIN_ROUTES.BROADCAST_SETTINGS ||
+      pathname.startsWith(`${ADMIN_ROUTES.BROADCAST_SETTINGS}/`);
     if (blocked) {
       router.replace(ADMIN_ROUTES.DASHBOARD);
     }
