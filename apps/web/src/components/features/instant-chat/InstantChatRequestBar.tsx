@@ -250,13 +250,13 @@ const InstantChatRequestCard: React.FC<InstantChatRequestCardProps> = ({
               {!request.client.profilePhoto && !request.client.name ? (
                 <User className="h-6 w-6 text-white" />
               ) : (
-                (request.client.name || request.client.phone || 'C').charAt(0).toUpperCase()
+                (request.client.name?.trim() || 'C').charAt(0).toUpperCase()
               )}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="font-bold text-base leading-tight truncate">
-              {request.client.name || request.client.phone || 'Client'}
+              {request.client.name?.trim() || 'Client'}
             </p>
             <p className="text-[11px] text-white/50 font-mono truncate mt-0.5">
               {request.clientId.length > 12

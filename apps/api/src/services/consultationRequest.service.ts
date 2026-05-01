@@ -51,9 +51,7 @@ class ConsultationRequestService {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
-            email: true,
           },
         },
       },
@@ -101,9 +99,7 @@ class ConsultationRequestService {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
-            email: true,
           },
         },
       },
@@ -128,7 +124,6 @@ class ConsultationRequestService {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
           },
         },
@@ -136,7 +131,6 @@ class ConsultationRequestService {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
           },
         },
@@ -161,16 +155,13 @@ class ConsultationRequestService {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
-            email: true,
           },
         },
         acceptedAstrologer: {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
           },
         },
@@ -259,16 +250,13 @@ class ConsultationRequestService {
             select: {
               id: true,
               name: true,
-              phone: true,
               profilePhoto: true,
-              email: true,
             },
           },
           acceptedAstrologer: {
             select: {
               id: true,
               name: true,
-              phone: true,
               profilePhoto: true,
             },
           },
@@ -293,7 +281,6 @@ class ConsultationRequestService {
             select: {
               id: true,
               name: true,
-              phone: true,
               profilePhoto: true,
             },
           },
@@ -301,7 +288,6 @@ class ConsultationRequestService {
             select: {
               id: true,
               name: true,
-              phone: true,
               profilePhoto: true,
             },
           },
@@ -375,7 +361,6 @@ class ConsultationRequestService {
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
           },
         },

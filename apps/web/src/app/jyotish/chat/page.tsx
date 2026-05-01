@@ -20,6 +20,11 @@ import chatService from '@/services/chat.service';
 import { toast } from 'sonner';
 import { MessageSquare, Minimize2, PanelRightOpen } from 'lucide-react';
 import { Chat, Message, FileAttachment } from '@/types/chat';
+import { UserRole } from '@/types/user.types';
+import {
+  redactPeerContactFieldsForChatViewer,
+  redactPeerContactFieldsForChats,
+} from '@/utils/chat-privacy.utils';
 
 /** Socket payloads sometimes omit role/birth fields; align with active chat client for instant UI. */
 function mergeJyotishIncomingSender(
@@ -159,7 +164,7 @@ export default function JyotishChatPage() {
         if (ac?.id === cid && (ac.isLocked || ac.status === 'ENDED')) {
           void chatService.getChatById(cid).then((updated) => {
             if (activeChatIdRef.current === updated.id) {
-              setActiveChat(updated);
+              setActiveChat(redactPeerContactFieldsForChatViewer(updated, UserRole.ASTROLOGER));
             }
           });
         }
@@ -383,10 +388,11 @@ export default function JyotishChatPage() {
       );
 
       const sorted = sortChatsByRecentActivity(uniqueConversations);
-      setChats(sorted);
-      setTotalChats(sorted.length);
-      console.log('📋 Final conversations:', sorted.length);
-      return sorted;
+      const redacted = redactPeerContactFieldsForChats(sorted, UserRole.ASTROLOGER);
+      setChats(redacted);
+      setTotalChats(redacted.length);
+      console.log('📋 Final conversations:', redacted.length);
+      return redacted;
     } catch (error) {
       console.error('Error loading conversations:', error);
       toast.error('Failed to load conversations');
@@ -431,8 +437,10 @@ export default function JyotishChatPage() {
         return;
       }
 
+      const chatForUi = redactPeerContactFieldsForChatViewer(chat, UserRole.ASTROLOGER);
+
       // Get the other user (for astrologers, the other user is the client)
-      const otherUser = chat.clientParticipant;
+      const otherUser = chatForUi.clientParticipant;
 
       if (!otherUser || !otherUser.id) {
         console.warn('❌ Other user not found');
@@ -445,7 +453,7 @@ export default function JyotishChatPage() {
       setMessages([]);
 
       // Set the active chat FIRST (this triggers ChatWindow to prepare for new chat)
-      setActiveChat(chat);
+      setActiveChat(chatForUi);
       setActiveChatId(chat.id);
 
       // Small delay to ensure state updates propagate
@@ -820,7 +828,7 @@ export default function JyotishChatPage() {
     const timeoutId = setTimeout(async () => {
       const fresh = await loadConversations();
       const u = fresh.find((c) => c.id === activeChatId);
-      if (u) setActiveChat(u);
+      if (u) setActiveChat(redactPeerContactFieldsForChatViewer(u, UserRole.ASTROLOGER));
     }, 400);
 
     return () => clearTimeout(timeoutId);

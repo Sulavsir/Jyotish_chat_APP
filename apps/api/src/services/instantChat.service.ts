@@ -76,7 +76,6 @@ export const createInstantChatRequest = async (clientId: string, message?: strin
           id: true,
           name: true,
           profilePhoto: true,
-          phone: true,
         },
       },
     },
@@ -115,7 +114,6 @@ export const getPendingInstantChatRequests = async () => {
           id: true,
           name: true,
           profilePhoto: true,
-          phone: true,
         },
       },
     },
@@ -289,7 +287,6 @@ export const acceptInstantChatRequest = async (requestId: string, astrologerId: 
           id: true,
           name: true,
           profilePhoto: true,
-          phone: true,
         },
       },
       acceptedAstrologer: {

@@ -7,9 +7,12 @@ export const API_BASE_URL =
 
 export const API_VERSION_PATH = '/api/version';
 
-/** Public API paths (unauthenticated) used by the admin app where needed (e.g. BS date convert). */
+/** Public API paths (unauthenticated) used by the admin app where needed (BS calendar, convert). */
 export const PUBLIC_API_ENDPOINTS = {
+  NEPALI_DATE: '/api/v1/public/nepali-date',
   NEPALI_DATE_CONVERT: '/api/v1/public/nepali-date/convert',
+  NEPALI_DATE_AD_MONTH: '/api/v1/public/nepali-date/ad-month',
+  NEPALI_DATE_BS_MONTH: '/api/v1/public/nepali-date/bs-month',
 } as const;
 
 export const API_ENDPOINTS = {
@@ -59,6 +62,10 @@ export const API_ENDPOINTS = {
     // Chat Audit
     LIST: '/api/v1/admin/chat-audit',
     STATS: '/api/v1/admin/chat-audit/stats',
+  },
+
+  REPORTS: {
+    BROADCAST_ACCEPTANCES: '/api/v1/admin/reports/broadcast-acceptances',
   },
 
   CHATS: {

@@ -67,15 +67,9 @@ export const ChatList: React.FC<ChatListProps> = ({
           : chat.clientParticipant;
 
       const name = otherUser?.name || '';
-      const email = otherUser?.email || '';
-      const phone = otherUser?.phone || '';
       const searchLower = searchTerm.toLowerCase();
 
-      return (
-        name.toLowerCase().includes(searchLower) ||
-        email.toLowerCase().includes(searchLower) ||
-        phone.includes(searchTerm)
-      );
+      return name.toLowerCase().includes(searchLower);
     });
     return sortChatsByRecentActivity(filtered);
   }, [chatList, currentUserId, searchTerm, statusFilter]);
@@ -232,8 +226,11 @@ export const ChatList: React.FC<ChatListProps> = ({
             const otherUser = viewerIsClient ? chat.astrologerParticipant : chat.clientParticipant;
             const isOtherPartyJyotish = viewerIsClient;
             const isActive = activeChat === chat.id;
+            const trimmedPeerName = otherUser.name?.trim() ?? '';
+            const peerLabel =
+              trimmedPeerName || (isOtherPartyJyotish ? 'Astrologer' : 'Client');
             const showClientIconFallback =
-              !isOtherPartyJyotish && !otherUser.profilePhoto && !otherUser.name;
+              !isOtherPartyJyotish && !otherUser.profilePhoto && !trimmedPeerName;
 
             return (
               <button
@@ -249,7 +246,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                   <Avatar className="h-12 w-12">
                     <AvatarImage
                       src={getImageUrl(otherUser.profilePhoto) || undefined}
-                      alt={otherUser.name || otherUser.phone || 'User'}
+                      alt={peerLabel}
                     />
                     <AvatarFallback
                       className={
@@ -261,7 +258,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       {showClientIconFallback ? (
                         <User className="h-5 w-5" />
                       ) : (
-                        (otherUser.name || otherUser.phone || 'U').charAt(0).toUpperCase()
+                        peerLabel.charAt(0).toUpperCase()
                       )}
                     </AvatarFallback>
                   </Avatar>
@@ -283,7 +280,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                           : 'font-medium text-white truncate'
                       }
                     >
-                      {otherUser.name || otherUser.phone || 'Unknown User'}
+                      {peerLabel}
                     </h3>
                     {chat.lastMessageAt && (
                       <span

@@ -118,10 +118,10 @@ export async function createComplaint(req: AuthRequest, res: Response, next: Nex
       },
       include: {
         client: {
-          select: { id: true, name: true, phone: true, email: true },
+          select: { id: true, name: true, profilePhoto: true },
         },
         astrologer: {
-          select: { id: true, name: true, phone: true, email: true },
+          select: { id: true, name: true, profilePhoto: true },
         },
         chat: {
           select: { id: true, createdAt: true, lastMessageAt: true },
@@ -153,7 +153,7 @@ export async function createComplaint(req: AuthRequest, res: Response, next: Nex
     try {
       const io = req.app.get('io');
       if (io) {
-        io.emit('complaint:new', {
+        io.to('admin').emit('complaint:new', {
           complaint,
           timestamp: new Date(),
         });
@@ -191,7 +191,7 @@ export async function getUserComplaints(req: AuthRequest, res: Response, next: N
         where,
         include: {
           astrologer: {
-            select: { id: true, name: true, phone: true, profilePhoto: true },
+            select: { id: true, name: true, profilePhoto: true },
           },
           chat: {
             select: { id: true, status: true },
@@ -231,10 +231,10 @@ export async function getComplaintById(req: AuthRequest, res: Response, next: Ne
       where: { id },
       include: {
         client: {
-          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+          select: { id: true, name: true, profilePhoto: true },
         },
         astrologer: {
-          select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+          select: { id: true, name: true, profilePhoto: true },
         },
         chat: {
           select: { id: true, status: true, createdAt: true, lastMessageAt: true },

@@ -114,7 +114,7 @@ export interface AdminMonthRangeFilterProps {
 
 /**
  * Filter: **DateInput**-style trigger + popover (presets + custom range).
- * Pair with {@link getAllTimeDateRange} for default **All time** in admin list pages, or {@link getTodayDateRange} for **Today** when needed.
+ * Pair with {@link getTodayDateRange} for default **Today** on admin list pages, or {@link getAllTimeDateRange} when a page should start unbounded (**All time**).
  */
 export function AdminMonthRangeFilter({
   fromValue,

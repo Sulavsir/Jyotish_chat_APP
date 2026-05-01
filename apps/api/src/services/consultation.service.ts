@@ -33,8 +33,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -42,8 +40,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -75,8 +71,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -84,8 +78,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -146,8 +138,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -155,8 +145,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -194,8 +182,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -203,8 +189,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -248,8 +232,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -257,8 +239,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -289,8 +269,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -298,8 +276,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -351,8 +327,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -360,8 +334,6 @@ export class ConsultationService {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },

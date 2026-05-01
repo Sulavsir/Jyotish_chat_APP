@@ -19,6 +19,7 @@ const adminListPaginationSchema = z.object({
 export const listAdminMonitorChatsQuerySchema = adminListPaginationSchema.extend({
   status: z.enum(['ACTIVE', 'ENDED']).optional(),
   search: z.string().optional(),
+  astrologerId: z.string().uuid().optional(),
 });
 export type ListAdminMonitorChatsQuery = z.infer<typeof listAdminMonitorChatsQuerySchema>;
 

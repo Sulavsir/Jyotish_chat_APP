@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { adminApi } from '@/lib/admin-api';
-import { Search, MoneyIcon, StarIcon, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
+import { Search, MoneyIcon, StarIcon, AdminMonthRangeFilter, getTodayDateRange } from '@jyotish/ui';
 import {
   AdminTable,
   AdminClearFiltersButton,
@@ -26,7 +26,7 @@ export default function EarningsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
-  const [earningRange, setEarningRange] = useState(getAllTimeDateRange);
+  const [earningRange, setEarningRange] = useState(getTodayDateRange);
   const debouncedFrom = useDebounce(earningRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedTo = useDebounce(earningRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const {
@@ -64,13 +64,13 @@ export default function EarningsPage() {
     setCurrentPage(1);
   }, [debouncedSearch, debouncedFrom, debouncedTo, debouncedRowsPerPage]);
 
-  const allTime = getAllTimeDateRange();
+  const defaultRange = getTodayDateRange();
   const hasActiveFilters =
-    Boolean(debouncedSearch) || debouncedFrom !== allTime.from || debouncedTo !== allTime.to;
+    Boolean(debouncedSearch) || debouncedFrom !== defaultRange.from || debouncedTo !== defaultRange.to;
 
   const clearFilters = () => {
     setSearchTerm('');
-    setEarningRange(getAllTimeDateRange());
+    setEarningRange(getTodayDateRange());
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
 

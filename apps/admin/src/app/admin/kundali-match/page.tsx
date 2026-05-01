@@ -15,7 +15,7 @@ import {
   Textarea,
   LoadingButton,
   AdminMonthRangeFilter,
-  getAllTimeDateRange,
+  getTodayDateRange,
 } from '@jyotish/ui';
 import { nepaliDateService } from '@/services/nepali-date.service';
 import { KundaliMatchPlaceBlock } from '@/components/kundali-match/kundali-match-place-block';
@@ -52,7 +52,7 @@ export default function KundaliMatchPage() {
     debouncedPageSize: debouncedRowsPerPage,
   } = useDebouncedPageSize(PAGINATION_DEFAULTS.LIMIT);
   const [statusFilter, setStatusFilter] = useState<KundaliMatchFilterValue>('ALL');
-  const [requestDateRange, setRequestDateRange] = useState(getAllTimeDateRange);
+  const [requestDateRange, setRequestDateRange] = useState(getTodayDateRange);
   const debouncedRequestFrom = useDebounce(requestDateRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedRequestTo = useDebounce(requestDateRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const [displayLocale, setDisplayLocale] = useState<KundaliAdminDisplayLocale>('en');
@@ -81,15 +81,15 @@ export default function KundaliMatchPage() {
 
   const useDevanagari = displayLocale === 'ne' || displayLocale === 'hi';
 
-  const allTimeRange = getAllTimeDateRange();
+  const defaultRequestRange = getTodayDateRange();
   const hasKundaliListFilters =
     statusFilter !== 'ALL' ||
-    debouncedRequestFrom !== allTimeRange.from ||
-    debouncedRequestTo !== allTimeRange.to;
+    debouncedRequestFrom !== defaultRequestRange.from ||
+    debouncedRequestTo !== defaultRequestRange.to;
 
   const clearKundaliListFilters = () => {
     setStatusFilter('ALL');
-    setRequestDateRange(getAllTimeDateRange());
+    setRequestDateRange(getTodayDateRange());
     setCurrentPage(1);
   };
 

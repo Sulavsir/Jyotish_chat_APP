@@ -61,7 +61,7 @@ export function SidebarRequestList({
           const isFirstBroadcastOfferBatch = batchHasFirstBroadcastOffer(group.messages);
           const preview = getBatchPreviewText(group.messages);
           const client = first.client;
-          const name = client?.name || client?.phone || 'Client';
+          const name = client?.name?.trim() || 'Client';
           const cid = client?.id ?? '';
           const idShort =
             cid.length > 10 ? `${cid.slice(0, 6)}…${cid.slice(-4)}` : cid || '—';

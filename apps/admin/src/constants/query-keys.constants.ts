@@ -48,7 +48,33 @@ export const ADMIN_QUERY_KEYS = {
   // Chat Audit
   CHAT_AUDIT: {
     ALL: ['admin', 'chat-audit'] as const,
-    LIST: () => ['admin', 'chat-audit', 'list'] as const,
+    LIST: (params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      status?: string;
+      type?: string;
+      astrologerId?: string;
+    }) =>
+      params
+        ? (['admin', 'chat-audit', 'list', params] as const)
+        : (['admin', 'chat-audit', 'list'] as const),
+  },
+
+  /** Astrologer reports (broadcast acceptances, etc.) */
+  ASTROLOGER_REPORTS: {
+    BROADCAST_ACCEPTANCES: (params?: {
+      page?: number;
+      limit?: number;
+      from?: string;
+      to?: string;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: string;
+    }) =>
+      params
+        ? (['admin', 'astrologer-reports', 'broadcast-acceptances', params] as const)
+        : (['admin', 'astrologer-reports', 'broadcast-acceptances'] as const),
   },
 
   // Audit Logs

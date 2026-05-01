@@ -52,6 +52,8 @@ import {
 import {
   listAdminPlatformPaymentQuerySchema,
   listAdminUsersQuerySchema,
+  listAdminBroadcastAcceptanceReportQuerySchema,
+  listChatAuditQuerySchema,
 } from '../validators';
 import {
   createQuestionCategorySchema,
@@ -95,6 +97,7 @@ import {
   updateBroadcastAssigneePriorityBodySchema,
 } from '@jyotish/shared';
 import * as broadcastAssigneePriorityController from '../controllers/broadcastAssigneePriority.controller';
+import { adminBroadcastAcceptanceReportController } from '../controllers';
 
 const router = Router();
 
@@ -459,9 +462,20 @@ router.patch(
 );
 
 // ==================== Chat Audit ====================
-router.get('/chat-audit', adminController.getChatAudit);
+router.get(
+  '/chat-audit',
+  validateQuery(listChatAuditQuerySchema),
+  asyncHandler(adminController.getChatAudit)
+);
 
 router.get('/chat-audit/stats', adminController.getChatAuditStats);
+
+// ==================== Reports (FULL + USER_SUPPORT) ====================
+router.get(
+  '/reports/broadcast-acceptances',
+  validateQuery(listAdminBroadcastAcceptanceReportQuerySchema),
+  asyncHandler(adminBroadcastAcceptanceReportController.listBroadcastAcceptanceReport)
+);
 
 // ==================== Appointment Management ====================
 

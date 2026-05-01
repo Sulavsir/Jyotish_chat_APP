@@ -4,6 +4,7 @@
  */
 
 import { Server } from 'socket.io';
+import { prisma } from '@jyotish/database';
 
 let ioInstance: Server | null = null;
 
@@ -145,14 +146,21 @@ export function notifyInstantChatRequestCancelled(requestId: string, clientId: s
 
 /**
  * Notify admins about a new broadcast message
+ * Loads full client contact for the admin audit panel (API payloads omit phone/email for peers).
  */
-export function notifyBroadcastMessageSent(message: any) {
+export async function notifyBroadcastMessageSent(message: any) {
   if (!ioInstance) return;
-  
+
+  const clientForAudit =
+    (await prisma.user.findFirst({
+      where: { id: message.clientId },
+      select: { id: true, name: true, phone: true, email: true, profilePhoto: true },
+    })) ?? message.client;
+
   ioInstance.to('admin').emit('broadcast:new', {
     id: message.id,
     clientId: message.clientId,
-    clientName: message.client?.name,
+    clientName: clientForAudit?.name ?? message.client?.name,
     content: message.content,
     type: message.type,
     status: message.status,
@@ -166,7 +174,7 @@ export function notifyBroadcastMessageSent(message: any) {
     type: 'BROADCAST_MESSAGE',
     action: message.status,
     status: message.status,
-    client: message.client,
+    client: clientForAudit,
     astrologer: null,
     content: message.content,
     messageType: message.type,
@@ -175,7 +183,7 @@ export function notifyBroadcastMessageSent(message: any) {
     expiresAt: message.expiresAt,
     acceptedAt: null,
   });
-  
+
   console.log(`📢 Admin notified: Broadcast message ${message.id} sent`);
 }
 

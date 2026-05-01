@@ -60,8 +60,13 @@ export interface User {
   updatedAt: string;
 }
 
+/** How the client↔astrologer chat thread was opened (monitor list/detail). */
+export type AdminMonitorChatOrigin = 'BROADCAST' | 'DIRECT' | 'MIXED';
+
 export interface Chat {
   id: string;
+  /** Set by GET /admin/chats monitor list — from BroadcastMessage / InstantChatRequest links. */
+  chatOrigin?: AdminMonitorChatOrigin;
   clientParticipant: {
     id: string;
     name: string;

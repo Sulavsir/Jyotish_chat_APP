@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label } from '@jyotish/ui';
+import { Button, Label, AdminMonthRangeFilter, getTodayDateRange } from '@jyotish/ui';
 import {
   AdminTable,
   AdminListPaginationSection,
@@ -20,6 +20,7 @@ import {
   ZODIAC_SIGNS,
   PAGINATION_DEFAULTS,
   ADMIN_ROWS_PER_PAGE_OPTIONS,
+  ADMIN_DATE_FILTER_DEBOUNCE_MS,
 } from '@/constants';
 import type {
   AdminHoroscopeEntry,
@@ -29,7 +30,7 @@ import type {
 } from '@/types';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { useDebouncedPageSize } from '@/hooks';
+import { useDebouncedPageSize, useDebounce } from '@/hooks';
 
 export default function AdminHoroscopesPage() {
   const router = useRouter();
@@ -37,8 +38,9 @@ export default function AdminHoroscopesPage() {
   const [categoryFilter, setCategoryFilter] = useState<HoroscopeCategory>('DAILY');
   const [zodiacFilter, setZodiacFilter] = useState('');
   const [languageFilter, setLanguageFilter] = useState<HoroscopeLanguage | ''>('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateRange, setDateRange] = useState(getTodayDateRange);
+  const debouncedDateFrom = useDebounce(dateRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
+  const debouncedDateTo = useDebounce(dateRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const [page, setPage] = useState(1);
   const {
     pageSize: rowsPerPage,
@@ -52,17 +54,32 @@ export default function AdminHoroscopesPage() {
       category: categoryFilter,
       ...(zodiacFilter && { zodiacSign: zodiacFilter }),
       ...(languageFilter && { language: languageFilter }),
-      ...(dateFrom && { dateFrom }),
-      ...(dateTo && { dateTo }),
+      ...(debouncedDateFrom && { dateFrom: debouncedDateFrom }),
+      ...(debouncedDateTo && { dateTo: debouncedDateTo }),
       page,
       limit: debouncedRowsPerPage,
     }),
-    [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, page, debouncedRowsPerPage]
+    [
+      categoryFilter,
+      zodiacFilter,
+      languageFilter,
+      debouncedDateFrom,
+      debouncedDateTo,
+      page,
+      debouncedRowsPerPage,
+    ]
   );
 
   useEffect(() => {
     setPage(PAGINATION_DEFAULTS.PAGE);
-  }, [categoryFilter, zodiacFilter, languageFilter, dateFrom, dateTo, debouncedRowsPerPage]);
+  }, [
+    categoryFilter,
+    zodiacFilter,
+    languageFilter,
+    debouncedDateFrom,
+    debouncedDateTo,
+    debouncedRowsPerPage,
+  ]);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ADMIN_QUERY_KEYS.HOROSCOPES.LIST(listParams),
@@ -88,6 +105,10 @@ export default function AdminHoroscopesPage() {
 
   const horoscopes = data?.horoscopes ?? [];
   const pagination = data?.pagination;
+
+  const defaultDateRange = getTodayDateRange();
+  const dateFilterActive =
+    dateRange.from !== defaultDateRange.from || dateRange.to !== defaultDateRange.to;
 
   const HOROSCOPE_LANGUAGES: HoroscopeLanguage[] = ['NEPALI', 'HINDI', 'ENGLISH'];
 
@@ -197,7 +218,7 @@ export default function AdminHoroscopesPage() {
           </Button>
         </div>
 
-        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 items-end">
+        <div className="cosmic-card p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 items-end">
           <div className="w-full">
             <Label className="text-xs text-slate-400 mb-1 block">Category</Label>
             <select
@@ -240,24 +261,18 @@ export default function AdminHoroscopesPage() {
               <option value="ENGLISH">ENGLISH</option>
             </select>
           </div>
-          <div className="w-full">
-            <Label className="text-xs text-slate-400 mb-1 block">Date from</Label>
-            <DateInput
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
-              iconClassName="text-purple-400"
-              nepaliDate
-            />
-          </div>
-          <div className="w-full">
-            <Label className="text-xs text-slate-400 mb-1 block">Date to</Label>
-            <DateInput
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-11 w-full bg-slate-800/50 border-purple-500/30 text-white [color-scheme:dark]"
-              iconClassName="text-purple-400"
-              nepaliDate
+          <div className="w-full min-w-0">
+            <Label className="text-xs text-slate-400 mb-1 block">Date</Label>
+            <AdminMonthRangeFilter
+              fromValue={dateRange.from}
+              toValue={dateRange.to}
+              onRangeChange={(from, to) => {
+                setDateRange({ from, to });
+                setPage(PAGINATION_DEFAULTS.PAGE);
+              }}
+              disabled={isLoading || isFetching}
+              showInlineFilterPrefix={false}
+              className="w-full min-w-0"
             />
           </div>
         </div>
@@ -271,11 +286,11 @@ export default function AdminHoroscopesPage() {
             emptyState={{
               title: 'No horoscopes found',
               description:
-                zodiacFilter || languageFilter || dateFrom || dateTo
+                zodiacFilter || languageFilter || dateFilterActive
                   ? 'Try adjusting filters'
                   : `No ${categoryFilter.toLowerCase()} horoscopes yet. Add your first entry.`,
               action:
-                !zodiacFilter && !languageFilter && !dateFrom && !dateTo
+                !zodiacFilter && !languageFilter && !dateFilterActive
                   ? {
                       label: 'Add Horoscope',
                       onClick: () => router.push(ADMIN_ROUTES.HOROSCOPES_CREATE),

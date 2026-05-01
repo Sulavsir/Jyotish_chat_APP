@@ -40,6 +40,9 @@ export const ADMIN_ROUTES = {
   
   // Chat Audit
   CHAT_AUDIT: '/admin/chat-audit',
+
+  /** Broadcast acceptances per astrologer (date range) */
+  ASTROLOGER_REPORTS: '/admin/astrologer-reports',
   
   // Admin Chats (Support Widget)
   ADMIN_CHATS: '/admin/admin-chats',

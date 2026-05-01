@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label } from '@jyotish/ui';
+import { Button, DateInput, Label, getTodayDateRange } from '@jyotish/ui';
 import {
   ADMIN_QUERY_KEYS,
   ADMIN_ROUTES,
@@ -30,10 +30,11 @@ export default function DailyPredictionsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  const defaultListDates = useMemo(() => getTodayDateRange(), []);
   const [languageFilter, setLanguageFilter] = useState<QuestionnaireLanguage | ''>('');
   const [audienceFilter, setAudienceFilter] = useState<TipAudience | ''>('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(defaultListDates.from);
+  const [dateTo, setDateTo] = useState(defaultListDates.to);
   const [page, setPage] = useState(1);
   const {
     pageSize: rowsPerPage,
@@ -149,7 +150,9 @@ export default function DailyPredictionsPage() {
     },
   ];
 
-  const hasFilters = Boolean(languageFilter || audienceFilter || dateFrom || dateTo);
+  const dateFilterActive =
+    dateFrom !== defaultListDates.from || dateTo !== defaultListDates.to;
+  const hasFilters = Boolean(languageFilter || audienceFilter || dateFilterActive);
 
   return (
     <>

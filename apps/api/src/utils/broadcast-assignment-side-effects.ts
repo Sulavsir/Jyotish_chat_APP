@@ -11,7 +11,7 @@ export type BroadcastAcceptanceForSideEffects = {
     clientId: string;
     acceptedAt: Date | null;
     acceptedAstrologer?: { id: string; name: string | null } | null;
-    client?: { name: string | null; phone: string | null } | null;
+    client?: { name: string | null; phone?: string | null } | null;
   };
   initialMessages: unknown[];
   allAcceptedMessageIds?: string[];
@@ -111,7 +111,7 @@ export async function emitPostBroadcastAssignment(params: {
   }
 
   try {
-    const clientName = accepted.message.client?.name || accepted.message.client?.phone || 'Client';
+    const clientName = accepted.message.client?.name || 'Client';
 
     const otherEligibleAstrologers = await prisma.astrologer.findMany({
       where: {

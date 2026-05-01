@@ -62,6 +62,8 @@ import type {
   ListAstrologersWithCoinEarningsResponse,
   BroadcastQuestionPricingTier,
   User,
+  AstrologerChatAcceptanceReportListResponse,
+  ListAstrologerChatAcceptanceReportParams,
 } from '@/types';
 import type {
   ListAstrologersParams,
@@ -152,6 +154,10 @@ export interface AdminSidebarCountsResponse {
     totalAstrologers: number;
     pendingAstrologerRegistrations: number;
     platformTransactions: number;
+    pendingBroadcastMessages: number;
+    pendingJyotishPandit: number;
+    pendingJyotishVaastu: number;
+    pendingJyotishKathaVachak: number;
   };
 }
 
@@ -618,10 +624,21 @@ export const adminApi = {
       status?: string;
       search?: string;
       type?: string;
+      /** When set, only rows where this astrologer accepted (broadcast or instant) */
+      astrologerId?: string;
     }): Promise<import('@/types').ChatAuditListResponse> => {
       const response = await apiClient.get<import('@/types').ChatAuditListResponse>(
         API_ENDPOINTS.CHAT_AUDIT.LIST,
-        { params }
+        {
+          params: {
+            ...(params?.page != null ? { page: params.page } : {}),
+            ...(params?.limit != null ? { limit: params.limit } : {}),
+            ...(params?.status ? { status: params.status } : {}),
+            ...(params?.search ? { search: params.search } : {}),
+            ...(params?.type ? { type: params.type } : {}),
+            ...(params?.astrologerId ? { astrologerId: params.astrologerId } : {}),
+          },
+        }
       );
       return response;
     },
@@ -634,10 +651,40 @@ export const adminApi = {
   },
 
   /**
+   * Reports (e.g. broadcast acceptances per astrologer)
+   */
+  reports: {
+    listAstrologerChatAcceptances: async (
+      params: ListAstrologerChatAcceptanceReportParams
+    ): Promise<AstrologerChatAcceptanceReportListResponse> => {
+      return apiClient.get<AstrologerChatAcceptanceReportListResponse>(
+        API_ENDPOINTS.REPORTS.BROADCAST_ACCEPTANCES,
+        {
+          params: {
+            page: params.page,
+            limit: params.limit,
+            sortBy: params.sortBy,
+            sortOrder: params.sortOrder,
+            ...(params.search ? { search: params.search } : {}),
+            ...(params.from ? { from: params.from } : {}),
+            ...(params.to ? { to: params.to } : {}),
+          },
+        }
+      );
+    },
+  },
+
+  /**
    * Chats
    */
   chats: {
-    list: async (params?: { page?: number; limit?: number; status?: string; search?: string }) => {
+    list: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      search?: string;
+      astrologerId?: string;
+    }) => {
       const response = await apiClient.get(API_ENDPOINTS.CHATS.LIST, { params });
       return response;
     },

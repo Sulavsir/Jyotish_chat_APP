@@ -10,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   AdminMonthRangeFilter,
-  getAllTimeDateRange,
+  getTodayDateRange,
 } from '@jyotish/ui';
 import { CreditCard, Banknote, Filter, ChevronDown, Check } from 'lucide-react';
 import {
@@ -101,7 +101,7 @@ export default function PaymentHistoryPage() {
     setPageSize: setItemsPerPage,
     debouncedPageSize: debouncedItemsPerPage,
   } = useDebouncedPageSize(20);
-  const [paymentRange, setPaymentRange] = useState(getAllTimeDateRange);
+  const [paymentRange, setPaymentRange] = useState(getTodayDateRange);
   const debouncedFrom = useDebounce(paymentRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedTo = useDebounce(paymentRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
 
@@ -212,23 +212,23 @@ export default function PaymentHistoryPage() {
   const showingFrom = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.limit + 1;
   const showingTo = Math.min(pagination.page * pagination.limit, pagination.total);
 
-  const allTime = getAllTimeDateRange();
+  const defaultPaymentRange = getTodayDateRange();
   const isDefaultView =
     !debouncedSearch &&
     !paymentMethod &&
-    debouncedFrom === allTime.from &&
-    debouncedTo === allTime.to;
+    debouncedFrom === defaultPaymentRange.from &&
+    debouncedTo === defaultPaymentRange.to;
 
   const hasPaymentFilters =
     Boolean(debouncedSearch) ||
     Boolean(paymentMethod) ||
-    debouncedFrom !== allTime.from ||
-    debouncedTo !== allTime.to;
+    debouncedFrom !== defaultPaymentRange.from ||
+    debouncedTo !== defaultPaymentRange.to;
 
   const clearPaymentFilters = () => {
     setSearchTerm('');
     setPaymentMethod('');
-    setPaymentRange(getAllTimeDateRange());
+    setPaymentRange(getTodayDateRange());
     setCurrentPage(1);
   };
 

@@ -621,8 +621,6 @@ export async function listAstrologers(req: AuthRequest, res: Response, next: Nex
       select: {
         id: true,
         name: true,
-        phone: true,
-        email: true,
         profilePhoto: true,
         bio: true,
         specialization: true,

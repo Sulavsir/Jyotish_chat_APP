@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/admin-api';
 import { Search, ChatIcon } from '@jyotish/ui';
 import {
@@ -32,10 +33,17 @@ import {
   AVATAR_GRADIENTS,
   ADMIN_SEARCH_DEBOUNCE_MS,
   ADMIN_QUERY_KEYS,
+  ADMIN_ROUTES,
 } from '@/constants';
 import { getImageUrl, formatAction, getStatusColor, getInitials, formatDate } from '@/utils';
 
+const ASTROLOGER_ID_PARAM = 'astrologerId';
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export default function ChatAuditPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
@@ -49,37 +57,41 @@ export default function ChatAuditPage() {
   const [typeFilter, setTypeFilter] = useState<ChatAuditTypeFilterValue>('');
   const { on, off, isConnected } = useAdminSocket();
 
+  const astrologerIdRaw = searchParams.get(ASTROLOGER_ID_PARAM);
+  const astrologerIdFilter = useMemo(
+    () => (astrologerIdRaw && UUID_RE.test(astrologerIdRaw) ? astrologerIdRaw : undefined),
+    [astrologerIdRaw]
+  );
+
+  const listQueryParams = useMemo(
+    () => ({
+      page: currentPage,
+      limit: debouncedItemsPerPage,
+      search: debouncedSearch.trim() || undefined,
+      status: statusFilter || undefined,
+      type: typeFilter || undefined,
+      astrologerId: astrologerIdFilter,
+    }),
+    [
+      currentPage,
+      debouncedItemsPerPage,
+      debouncedSearch,
+      statusFilter,
+      typeFilter,
+      astrologerIdFilter,
+    ]
+  );
+
   const {
     data: listResponse,
     isLoading,
     isFetching,
     refetch,
   } = useQuery<ChatAuditListResponse>({
-    queryKey: [
-      ...ADMIN_QUERY_KEYS.CHAT_AUDIT.LIST(),
-      currentPage,
-      debouncedSearch.trim(),
-      statusFilter,
-      typeFilter,
-      debouncedItemsPerPage,
-    ],
+    queryKey: [...ADMIN_QUERY_KEYS.CHAT_AUDIT.LIST(listQueryParams)],
     queryFn: async () => {
-      const params: {
-        page: number;
-        limit: number;
-        status?: string;
-        type?: string;
-        search?: string;
-      } = {
-        page: currentPage,
-        limit: debouncedItemsPerPage,
-      };
-      if (statusFilter) params.status = statusFilter;
-      if (typeFilter) params.type = typeFilter;
-      const q = debouncedSearch.trim();
-      if (q) params.search = q;
       try {
-        return (await adminApi.chatAudit.list(params)) as ChatAuditListResponse;
+        return (await adminApi.chatAudit.list(listQueryParams)) as ChatAuditListResponse;
       } catch (error) {
         console.error('Failed to load chat audit logs:', error);
         toast.error('Failed to load chat audit logs');
@@ -109,7 +121,7 @@ export default function ChatAuditPage() {
 
   useEffect(() => {
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
-  }, [debouncedSearch, statusFilter, typeFilter]);
+  }, [debouncedSearch, statusFilter, typeFilter, astrologerIdFilter]);
 
   // Real-time updates — invalidate list so server pagination stays in sync
   useEffect(() => {
@@ -153,13 +165,24 @@ export default function ChatAuditPage() {
   }, [isConnected, on, off, queryClient]);
 
   const hasChatAuditFilters =
-    Boolean(debouncedSearch.trim()) || Boolean(statusFilter) || Boolean(typeFilter);
+    Boolean(debouncedSearch.trim()) ||
+    Boolean(statusFilter) ||
+    Boolean(typeFilter) ||
+    Boolean(searchParams.get(ASTROLOGER_ID_PARAM));
 
   const clearChatAuditFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
     setTypeFilter('');
     setCurrentPage(CHAT_AUDIT_DEFAULTS.PAGE);
+    if (searchParams.get(ASTROLOGER_ID_PARAM)) {
+      router.replace(ADMIN_ROUTES.CHAT_AUDIT);
+    }
+  };
+
+  const clearAstrologerFilterOnly = () => {
+    setCurrentPage(CHAT_AUDIT_DEFAULTS.PAGE);
+    router.replace(ADMIN_ROUTES.CHAT_AUDIT);
   };
 
   const columns: AdminTableColumn<ChatAuditLog>[] = [
@@ -306,6 +329,27 @@ export default function ChatAuditPage() {
             {isConnected && <span className="ml-2 text-green-400">• Live</span>}
           </p>
         </div>
+
+        {astrologerIdFilter && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-cyan-500/35 bg-cyan-950/40 px-3 py-2.5 sm:px-4">
+            <p className="text-sm text-cyan-100/95">
+              Showing only requests accepted by this astrologer (broadcast + instant).
+            </p>
+            <button
+              type="button"
+              onClick={clearAstrologerFilterOnly}
+              className="text-sm font-medium text-cyan-300 hover:text-cyan-200 underline-offset-2 hover:underline shrink-0 text-left sm:text-right"
+            >
+              Clear astrologer filter
+            </button>
+          </div>
+        )}
+        {astrologerIdRaw && !astrologerIdFilter && (
+          <p className="text-sm text-amber-400/90">
+            Invalid astrologer id in URL; showing all astrologers. Clear filters to remove the query
+            param.
+          </p>
+        )}
 
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2 sm:hidden w-full">

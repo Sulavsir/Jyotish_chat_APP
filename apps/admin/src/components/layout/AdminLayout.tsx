@@ -57,13 +57,17 @@ type SidebarBadgeKey =
   | 'admin-chats'
   | 'chat-monitor'
   | 'chat-audit'
+  | 'pending-broadcasts'
   | 'complaints'
   | 'appointments'
   | 'kundali-match'
   | 'transactions'
   | 'users'
   | 'astrologers-all'
-  | 'astrologer-registrations';
+  | 'astrologer-registrations'
+  | 'jyotish-pandit'
+  | 'jyotish-vaastu'
+  | 'jyotish-katha';
 
 type SidebarBadgeState = Partial<Record<SidebarBadgeKey, number>>;
 
@@ -100,6 +104,14 @@ function getSidebarBadgeKeyForRoute(href: string): SidebarBadgeKey | null {
       return 'chat-monitor';
     case ADMIN_ROUTES.CHAT_AUDIT:
       return 'chat-audit';
+    case ADMIN_ROUTES.PENDING_BROADCASTS:
+      return 'pending-broadcasts';
+    case ADMIN_ROUTES.JYOTISH_BOOKINGS_PANDIT:
+      return 'jyotish-pandit';
+    case ADMIN_ROUTES.JYOTISH_BOOKINGS_VAASTU:
+      return 'jyotish-vaastu';
+    case ADMIN_ROUTES.JYOTISH_BOOKINGS_KATHA_VACHAK:
+      return 'jyotish-katha';
     case ADMIN_ROUTES.COMPLAINTS:
       return 'complaints';
     case ADMIN_ROUTES.APPOINTMENTS:
@@ -117,6 +129,20 @@ function getSidebarBadgeKeyForRoute(href: string): SidebarBadgeKey | null {
     default:
       return null;
   }
+}
+
+function getNavGroupChildBadgeClassName(href: string): string {
+  if (href === ADMIN_ROUTES.ADMIN_CHATS) return 'bg-red-500';
+  if (href === ADMIN_ROUTES.CHATS || href === ADMIN_ROUTES.CHAT_AUDIT) return 'bg-emerald-500';
+  if (href === ADMIN_ROUTES.PENDING_BROADCASTS) return 'bg-cyan-500';
+  if (
+    href === ADMIN_ROUTES.JYOTISH_BOOKINGS_PANDIT ||
+    href === ADMIN_ROUTES.JYOTISH_BOOKINGS_VAASTU ||
+    href === ADMIN_ROUTES.JYOTISH_BOOKINGS_KATHA_VACHAK
+  ) {
+    return 'bg-amber-500';
+  }
+  return 'bg-emerald-500';
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -164,6 +190,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     newUsersToday: 0,
     totalAstrologers: 0,
     pendingAstrologerRegistrations: 0,
+    pendingBroadcastMessages: 0,
+    pendingJyotishPandit: 0,
+    pendingJyotishVaastu: 0,
+    pendingJyotishKathaVachak: 0,
   };
 
   const getCurrentCountForKey = (key: SidebarBadgeKey): number => {
@@ -173,6 +203,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       case 'chat-monitor':
       case 'chat-audit':
         return sidebarCounts.activeChats;
+      case 'pending-broadcasts':
+        return sidebarCounts.pendingBroadcastMessages;
+      case 'jyotish-pandit':
+        return sidebarCounts.pendingJyotishPandit;
+      case 'jyotish-vaastu':
+        return sidebarCounts.pendingJyotishVaastu;
+      case 'jyotish-katha':
+        return sidebarCounts.pendingJyotishKathaVachak;
       case 'complaints':
         return sidebarCounts.pendingComplaints;
       case 'appointments':
@@ -446,6 +484,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       children: [
         { name: 'Chat Monitor', href: ADMIN_ROUTES.CHATS },
         { name: 'Chat Audit', href: ADMIN_ROUTES.CHAT_AUDIT },
+        { name: 'Astrologer Reports', href: ADMIN_ROUTES.ASTROLOGER_REPORTS },
         { name: 'Pending Broadcasts', href: ADMIN_ROUTES.PENDING_BROADCASTS },
         { name: 'Broadcast Settings', href: ADMIN_ROUTES.BROADCAST_SETTINGS },
         { name: 'Admin Chats', href: ADMIN_ROUTES.ADMIN_CHATS },
@@ -841,6 +880,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                           const isAdminChats = c.href === ADMIN_ROUTES.ADMIN_CHATS;
                           const isChatMonitor = c.href === ADMIN_ROUTES.CHATS;
                           const isChatAudit = c.href === ADMIN_ROUTES.CHAT_AUDIT;
+                          const isPendingBroadcasts = c.href === ADMIN_ROUTES.PENDING_BROADCASTS;
+                          const isJyotishPandit = c.href === ADMIN_ROUTES.JYOTISH_BOOKINGS_PANDIT;
+                          const isJyotishVaastu = c.href === ADMIN_ROUTES.JYOTISH_BOOKINGS_VAASTU;
+                          const isJyotishKatha = c.href === ADMIN_ROUTES.JYOTISH_BOOKINGS_KATHA_VACHAK;
                           const isAllAstrologers = c.href === ADMIN_ROUTES.ASTROLOGERS;
                           const isAstrologerRegistrations =
                             c.href === ADMIN_ROUTES.ASTROLOGERS_REGISTRATION_REQUESTS;
@@ -849,17 +892,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                             ? unreadCount
                             : isChatMonitor || isChatAudit
                               ? sidebarCounts.activeChats
-                              : isAllAstrologers
-                                ? sidebarCounts.totalAstrologers
-                                : isAstrologerRegistrations
-                                  ? sidebarCounts.pendingAstrologerRegistrations
-                                  : 0;
+                              : isPendingBroadcasts
+                                ? sidebarCounts.pendingBroadcastMessages
+                                : isJyotishPandit
+                                  ? sidebarCounts.pendingJyotishPandit
+                                  : isJyotishVaastu
+                                    ? sidebarCounts.pendingJyotishVaastu
+                                    : isJyotishKatha
+                                      ? sidebarCounts.pendingJyotishKathaVachak
+                                      : isAllAstrologers
+                                        ? sidebarCounts.totalAstrologers
+                                        : isAstrologerRegistrations
+                                          ? sidebarCounts.pendingAstrologerRegistrations
+                                          : 0;
 
                           const sidebarKey = getSidebarBadgeKeyForRoute(c.href);
                           const badgeCount =
                             !active && sidebarKey && badgeCountBase > 0
                               ? getNewBadgeCount(sidebarKey, badgeCountBase)
                               : 0;
+                          const childBadgeClass = getNavGroupChildBadgeClassName(c.href);
 
                           return (
                             <Link
@@ -876,7 +928,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                               <div className="flex items-center justify-between gap-2">
                                 <span className="truncate min-w-0">{c.name}</span>
                                 {badgeCount > 0 && (
-                                  <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 sm:min-w-[22px] sm:h-5 sm:px-1.5 rounded-full bg-emerald-500 text-white text-[10px] sm:text-xs font-bold shrink-0">
+                                  <span
+                                    className={`inline-flex items-center justify-center min-w-[18px] h-4 px-1 sm:min-w-[22px] sm:h-5 sm:px-1.5 rounded-full ${childBadgeClass} text-white text-[10px] sm:text-xs font-bold shrink-0`}
+                                  >
                                     {badgeCount > 99 ? '99+' : badgeCount}
                                   </span>
                                 )}

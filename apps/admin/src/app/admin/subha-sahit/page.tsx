@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Label, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
+import { Button, Label, AdminMonthRangeFilter, getTodayDateRange } from '@jyotish/ui';
 import {
   ADMIN_QUERY_KEYS,
   ADMIN_ROUTES,
@@ -32,7 +32,7 @@ export default function SubhaSahitPage() {
   const queryClient = useQueryClient();
 
   const [occasionFilter, setOccasionFilter] = useState('');
-  const [dateRange, setDateRange] = useState(getAllTimeDateRange);
+  const [dateRange, setDateRange] = useState(getTodayDateRange);
   const debouncedDateFrom = useDebounce(dateRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedDateTo = useDebounce(dateRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const [page, setPage] = useState(1);
@@ -84,14 +84,18 @@ export default function SubhaSahitPage() {
     setPage(PAGINATION_DEFAULTS.PAGE);
   }, [debouncedDateFrom, debouncedDateTo, occasionFilter, language]);
 
+  const defaultDateRange = getTodayDateRange();
   const hasListFilters = Boolean(
-    occasionFilter || language || dateRange.from || dateRange.to
+    occasionFilter ||
+      language ||
+      dateRange.from !== defaultDateRange.from ||
+      dateRange.to !== defaultDateRange.to
   );
 
   const clearListFilters = useCallback(() => {
     setOccasionFilter('');
     setLanguage('');
-    setDateRange(getAllTimeDateRange());
+    setDateRange(getTodayDateRange());
     setPage(PAGINATION_DEFAULTS.PAGE);
   }, []);
 

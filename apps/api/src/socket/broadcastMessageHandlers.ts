@@ -97,12 +97,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
           message.id
         );
 
-        // Build a display name for the client (name → phone → email fallback)
-        const clientDisplayName =
-          (message.client as any)?.name ||
-          (message.client as any)?.phone ||
-          (message.client as any)?.email ||
-          'A client';
+        const clientDisplayName = (message.client as { name?: string | null })?.name || 'A client';
         const astrologerNotifMessage = `${clientDisplayName} is requesting to chat with an astrologer`;
 
         // Create notifications for each eligible in-house astrologer
@@ -236,7 +231,7 @@ export function broadcastMessageHandlers(io: Server, socket: Socket) {
         select: { id: true },
       });
 
-      const clientName = result.message.client?.name || result.message.client?.phone || 'Client';
+      const clientName = result.message.client?.name || 'Client';
       const requestNoLongerActiveMsg = `${clientName}'s request is no longer active. It has already been accepted by another astrologer for counselling.`;
 
       // Create notifications only for eligible astrologers (PREMIUM should not see broadcast-related notifications)

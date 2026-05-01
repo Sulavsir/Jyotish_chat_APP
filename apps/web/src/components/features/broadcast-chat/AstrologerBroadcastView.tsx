@@ -312,18 +312,16 @@ export function AstrologerBroadcastView({ onChatCreated }: AstrologerBroadcastVi
                       alt={message.client?.name || 'Client'}
                     />
                     <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold">
-                      {!message.client?.profilePhoto && !message.client?.name ? (
+                      {!message.client?.profilePhoto && !message.client?.name?.trim() ? (
                         <User className="h-6 w-6 text-white" />
                       ) : (
-                        (message.client?.name || message.client?.phone || 'C')
-                          .charAt(0)
-                          .toUpperCase()
+                        (message.client?.name?.trim() || 'C').charAt(0).toUpperCase()
                       )}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900 text-lg">
-                      {message.client?.name || message.client?.phone}
+                      {message.client?.name?.trim() || 'Client'}
                     </p>
                     <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
                       <Clock className="h-4 w-4" />

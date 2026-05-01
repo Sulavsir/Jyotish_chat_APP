@@ -637,7 +637,6 @@ export function chatHandlers(io: Server, socket: Socket) {
               select: {
                 id: true,
                 name: true,
-                phone: true,
                 profilePhoto: true,
               },
             },
@@ -645,7 +644,6 @@ export function chatHandlers(io: Server, socket: Socket) {
               select: {
                 id: true,
                 name: true,
-                phone: true,
                 profilePhoto: true,
               },
             },
@@ -686,15 +684,15 @@ export function chatHandlers(io: Server, socket: Socket) {
         if (user.role === UserRole.CLIENT) {
           const sender = await prisma.user.findFirst({
             where: { id: user.id, ...ACTIVE_CLIENT_USER_WHERE },
-            select: { name: true, phone: true },
+            select: { name: true },
           });
-          senderName = sender?.name || sender?.phone || 'someone';
+          senderName = sender?.name || 'someone';
         } else if (user.role === UserRole.ASTROLOGER) {
           const sender = await prisma.astrologer.findUnique({
             where: { id: user.id },
-            select: { name: true, phone: true },
+            select: { name: true },
           });
-          senderName = sender?.name || sender?.phone || 'someone';
+          senderName = sender?.name || 'someone';
         }
 
         // Create or update grouped notification for receiver

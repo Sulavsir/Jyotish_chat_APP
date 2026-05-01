@@ -14,8 +14,6 @@ import { UserRole } from '@jyotish/shared';
 type AstrologerSelectResult = {
   id: string;
   name: string | null;
-  email: string | null;
-  phone: string;
   profilePhoto: string | null;
   isOnline: boolean;
   category: string;
@@ -50,8 +48,6 @@ export const getAstrologers = async (
     select: {
       id: true,
       name: true,
-      email: true,
-      phone: true,
       profilePhoto: true,
       isOnline: true,
       category: true,
@@ -90,8 +86,6 @@ export const getClients = async (limit = 10) => {
     select: {
       id: true,
       name: true,
-      email: true,
-      phone: true,
       profilePhoto: true,
       role: true,
       zodiacSign: true,

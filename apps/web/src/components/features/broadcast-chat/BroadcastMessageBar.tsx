@@ -160,7 +160,7 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
 
         if (!hasBatchAlready) {
           toast.info(
-            `New broadcast from ${message.client?.name || message.client?.phone || 'Client'}`
+            `New broadcast from ${message.client?.name?.trim() || 'Client'}`
           );
         }
 
@@ -522,21 +522,19 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
         <Avatar className="h-14 w-14 shrink-0 ring-2 ring-amber-200 ring-offset-2 dark:ring-amber-700/50 dark:ring-offset-slate-900">
           <AvatarImage
             src={getImageUrl(currentMessage.client?.profilePhoto) || undefined}
-            alt={currentMessage.client?.name || 'Client'}
+            alt={currentMessage.client?.name?.trim() || 'Client'}
           />
           <AvatarFallback className="bg-gradient-to-br from-amber-600 to-orange-700 text-xl font-bold text-white">
-            {!currentMessage.client?.profilePhoto && !currentMessage.client?.name ? (
+            {!currentMessage.client?.profilePhoto && !currentMessage.client?.name?.trim() ? (
               <User className="h-7 w-7 text-white" />
             ) : (
-              (currentMessage.client?.name || currentMessage.client?.phone || 'C')
-                .charAt(0)
-                .toUpperCase()
+              (currentMessage.client?.name?.trim() || 'C').charAt(0).toUpperCase()
             )}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="text-xl font-bold leading-tight text-gray-900 dark:text-white">
-            {currentMessage.client?.name || currentMessage.client?.phone || 'Client'}
+            {currentMessage.client?.name?.trim() || 'Client'}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
@@ -689,7 +687,7 @@ export function BroadcastMessageBar({ onHasItemsChange }: BroadcastMessageBarPro
                   >
                     <MessageSquare className="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" />
                     <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                      {currentMessage.client?.name || currentMessage.client?.phone || 'Client'} —{' '}
+                      {currentMessage.client?.name?.trim() || 'Client'} —{' '}
                       <span className="font-bold uppercase text-teal-700 dark:text-teal-300">
                         {batchTotalNr > 0 ? 'Paid' : 'Free'}
                       </span>

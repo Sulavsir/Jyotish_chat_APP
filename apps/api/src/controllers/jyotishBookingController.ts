@@ -4,6 +4,7 @@
 
 import type { Response, NextFunction, Request } from 'express';
 import { sendSuccess, AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
+import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import type { AuthRequest } from '../middleware/auth';
 import { jyotishBookingService } from '../services/jyotishBooking.service';
 import { JyotishBookingStatus, JyotishBookingType } from '@jyotish/database';
@@ -42,6 +43,12 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
       contactPhone: body.contactPhone,
       contactPhoneAlt: body.contactPhoneAlt,
     });
+
+    try {
+      AdminStatsEmitter.emitSidebarInvalidate();
+    } catch {
+      /* non-fatal */
+    }
 
     return sendSuccess(res, { booking: created });
   } catch (error) {
@@ -123,6 +130,11 @@ export async function updateStatusAdmin(req: Request, res: Response, next: NextF
     const { status, adminNotes } = req.body as { status: JyotishBookingStatus; adminNotes?: string };
 
     const updated = await jyotishBookingService.updateStatusAdmin({ id, status, adminNotes });
+    try {
+      AdminStatsEmitter.emitSidebarInvalidate();
+    } catch {
+      /* non-fatal */
+    }
     return sendSuccess(res, { booking: updated });
   } catch (error) {
     next(error);

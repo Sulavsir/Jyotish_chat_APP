@@ -16,7 +16,7 @@ import {
   Card,
   CardContent,
 } from '@jyotish/ui';
-import { Calendar, MapPin, Clock, User, Mail, Phone } from 'lucide-react';
+import { Calendar, MapPin, Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { Avatar, AvatarImage, AvatarFallback, Badge } from '@jyotish/ui';
 import { getImageUrl } from '@/utils/image.utils';
@@ -45,7 +45,7 @@ export function ClientDetailsModal({ isOpen, onClose, clientId }: ClientDetailsM
 
   // Extract client from response (API returns { client: {...} })
   const client: ClientDetails | null = response?.client || null;
-  const showClientIconFallback = !!client && !client.profilePhoto && !client.name;
+  const showClientIconFallback = !!client && !client.profilePhoto && !client.name?.trim();
 
   const formatDate = (date: Date | string | null): string => {
     if (!date) return 'Not provided';
@@ -90,13 +90,13 @@ export function ClientDetailsModal({ isOpen, onClose, clientId }: ClientDetailsM
                       {showClientIconFallback ? (
                         <User className="h-8 w-8 text-white" />
                       ) : (
-                        (client.name || client.phone || 'C').charAt(0).toUpperCase()
+                        (client.name?.trim() || 'C').charAt(0).toUpperCase()
                       )}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <h3 className="text-xl font-bold text-white mb-1">
-                      {client.name || client.phone || 'Unknown Client'}
+                      {client.name?.trim() || 'Client'}
                     </h3>
                     <div className="flex items-center gap-3">
                       {client.zodiacSign && (
@@ -109,32 +109,6 @@ export function ClientDetailsModal({ isOpen, onClose, clientId }: ClientDetailsM
                       )}
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Contact Information */}
-            <Card className="bg-slate-800/60 border border-slate-700/50 shadow-lg">
-              <CardContent className="p-6">
-                <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                    <Mail className="h-4 w-4 text-blue-400" />
-                  </div>
-                  Contact Information
-                </h4>
-                <div className="space-y-3">
-                  {client.email && (
-                    <div className="flex items-center gap-3 text-slate-200">
-                      <Mail className="h-4 w-4 text-blue-400" />
-                      <span className="text-sm">{client.email}</span>
-                    </div>
-                  )}
-                  {client.phone && (
-                    <div className="flex items-center gap-3 text-slate-200">
-                      <Phone className="h-4 w-4 text-blue-400" />
-                      <span className="text-sm">{client.phone}</span>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>

@@ -45,8 +45,6 @@ const chatInclude = {
     select: {
       id: true,
       name: true,
-      email: true,
-      phone: true,
       profilePhoto: true,
       role: true,
     },
@@ -55,7 +53,6 @@ const chatInclude = {
     select: {
       id: true,
       name: true,
-      phone: true,
       profilePhoto: true,
     },
   },
@@ -478,8 +475,6 @@ export const getChatById = async (chatId: string, userId: string) => {
         select: {
           id: true,
           name: true,
-          email: true,
-          phone: true,
           profilePhoto: true,
           role: true,
         },
@@ -488,7 +483,6 @@ export const getChatById = async (chatId: string, userId: string) => {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -543,8 +537,6 @@ export const getUserChats = async (userId: string) => {
         select: {
           id: true,
           name: true,
-          email: true,
-          phone: true,
           profilePhoto: true,
           role: true,
         },
@@ -553,7 +545,6 @@ export const getUserChats = async (userId: string) => {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -1057,7 +1048,6 @@ export const sendMessage = async (
       id: string;
       name: string | null;
       profilePhoto: string | null;
-      phone?: string | null;
       dateOfBirth?: Date | null;
       timeOfBirth?: string | null;
       placeOfBirth?: string | null;
@@ -1070,7 +1060,6 @@ export const sendMessage = async (
           id: true,
           name: true,
           profilePhoto: true,
-          phone: true,
           dateOfBirth: true,
           timeOfBirth: true,
           placeOfBirth: true,
@@ -1080,10 +1069,10 @@ export const sendMessage = async (
     } else {
       sender = await prisma.astrologer.findUnique({
         where: { id: senderId },
-        select: { id: true, name: true, profilePhoto: true, phone: true },
+        select: { id: true, name: true, profilePhoto: true },
       });
     }
-    const senderName = sender?.name || sender?.phone || 'someone';
+    const senderName = sender?.name || 'someone';
 
     const mergedSender = mergeClientSenderWithBirthMetadata(sender, message);
 
@@ -1619,7 +1608,6 @@ export const getActiveChat = async (userId: string) => {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
           role: true,
         },
@@ -1628,7 +1616,6 @@ export const getActiveChat = async (userId: string) => {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },

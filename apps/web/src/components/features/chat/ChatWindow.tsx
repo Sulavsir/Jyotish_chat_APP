@@ -69,17 +69,10 @@ interface SystemMessage {
   createdAt: string;
 }
 
-/** Prefer name, then phone, then email so the header never appears empty when data exists on the participant */
-function getParticipantDisplayName(u: {
-  name?: string | null;
-  phone?: string | null;
-  email?: string | null;
-  role?: string;
-}): string {
+/** Other party in 1:1 chat: show name only — never phone/email. */
+function getPeerChatDisplayName(u: { name?: string | null; role?: string }): string {
   const n = u.name?.trim();
   if (n) return n;
-  if (u.phone?.trim()) return u.phone.trim();
-  if (u.email?.trim()) return u.email.trim();
   const isAstro = u.role === UserRole.ASTROLOGER || u.role === 'ASTROLOGER';
   return isAstro ? 'Astrologer' : 'Client';
 }
@@ -568,18 +561,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     chat.clientParticipant.id === currentUserId
       ? chat.astrologerParticipant
       : chat.clientParticipant;
-  const displayName = getParticipantDisplayName({
+  const displayName = getPeerChatDisplayName({
     name: otherUser.name,
-    phone: otherUser.phone,
-    email: 'email' in otherUser ? (otherUser as { email?: string | null }).email : undefined,
     role: otherUser.role,
   });
 
   const showClientIconFallback =
-    otherUser.role === UserRole.CLIENT &&
-    !otherUser.profilePhoto &&
-    !otherUser.name?.trim() &&
-    !otherUser.phone?.trim();
+    otherUser.role === UserRole.CLIENT && !otherUser.profilePhoto && !otherUser.name?.trim();
 
   const showHistorySidebar =
     user?.role === UserRole.ASTROLOGER &&
@@ -1085,7 +1073,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               isActive={showClientChatHistory}
               onClose={() => setShowClientChatHistory(false)}
               clientId={chat.clientParticipant.id}
-              clientName={chat.clientParticipant.name || chat.clientParticipant.phone}
+              clientName={chat.clientParticipant.name?.trim() || 'Client'}
               layout="sidebar"
             />
           </div>
@@ -1315,7 +1303,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             isOpen={showClientChatHistory}
             onClose={() => setShowClientChatHistory(false)}
             clientId={chat.clientParticipant.id}
-            clientName={chat.clientParticipant.name || chat.clientParticipant.phone}
+            clientName={chat.clientParticipant.name?.trim() || 'Client'}
           />
         )}
     </div>

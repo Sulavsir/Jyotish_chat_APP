@@ -874,8 +874,6 @@ export async function getClientDetails(req: AuthRequest, res: Response, next: Ne
       select: {
         id: true,
         name: true,
-        email: true,
-        phone: true,
         role: true,
         profilePhoto: true,
         dateOfBirth: true,
@@ -899,6 +897,7 @@ export async function getClientDetails(req: AuthRequest, res: Response, next: Ne
       return sendError(res, 'User is not a client', HTTP_STATUS.BAD_REQUEST);
     }
 
+    // Phone/email are admin-only; jyotish sees profile and birth/address fields only.
     return sendSuccess(res, { client });
   } catch (error) {
     next(error);

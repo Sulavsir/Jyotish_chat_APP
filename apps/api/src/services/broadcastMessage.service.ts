@@ -163,7 +163,6 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
         select: {
           id: true,
           name: true,
-          phone: true,
         },
       },
     },
@@ -351,7 +350,6 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -372,7 +370,7 @@ export async function createBroadcastMessage(data: CreateBroadcastMessageData) {
   });
 
   // Notify admin
-  notifyBroadcastMessageSent(message);
+  await notifyBroadcastMessageSent(message);
 
   invalidatePendingBroadcastCache();
   return message;
@@ -517,7 +515,6 @@ export async function createMultipleBroadcastMessages(
           select: {
             id: true,
             name: true,
-            phone: true,
             profilePhoto: true,
           },
         },
@@ -534,7 +531,7 @@ export async function createMultipleBroadcastMessages(
       userId: clientId,
       details: { messageId: message.id, batchId, totalInBatch: count },
     });
-    notifyBroadcastMessageSent(message);
+    await notifyBroadcastMessageSent(message);
   }
 
   return { messages };
@@ -589,7 +586,6 @@ export async function cancelBroadcastMessage(messageId: string, clientId: string
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -675,7 +671,6 @@ export async function getPendingBroadcastMessages(astrologerId?: string) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -726,7 +721,6 @@ export async function getAllBroadcastMessages(astrologerId?: string) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -734,7 +728,6 @@ export async function getAllBroadcastMessages(astrologerId?: string) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -768,7 +761,6 @@ export async function getClientBroadcastMessages(clientId: string) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -1049,7 +1041,6 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -1057,7 +1048,6 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -1119,8 +1109,8 @@ export async function acceptBroadcastMessage(data: AcceptBroadcastMessageData) {
         acceptedAt: new Date(),
       },
       include: {
-        client: { select: { id: true, name: true, phone: true, profilePhoto: true } },
-        acceptedAstrologer: { select: { id: true, name: true, phone: true, profilePhoto: true } },
+        client: { select: { id: true, name: true, profilePhoto: true } },
+        acceptedAstrologer: { select: { id: true, name: true, profilePhoto: true } },
       },
     });
     acceptedSiblings.push(accepted);
@@ -1456,7 +1446,6 @@ export async function getBroadcastMessageById(messageId: string) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },
@@ -1464,7 +1453,6 @@ export async function getBroadcastMessageById(messageId: string) {
         select: {
           id: true,
           name: true,
-          phone: true,
           profilePhoto: true,
         },
       },

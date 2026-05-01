@@ -144,6 +144,7 @@ export default function KathaVachakBookingsPage() {
       await queryClient.invalidateQueries({
         queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
       });
+      void queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS() });
       toast.success('Updated successfully');
       setAction({ open: false });
       setAdminNotes('');

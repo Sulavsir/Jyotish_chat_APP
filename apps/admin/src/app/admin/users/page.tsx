@@ -6,7 +6,7 @@ import { isAxiosError } from 'axios';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { toast } from 'sonner';
 import { adminApi } from '@/lib/admin-api';
-import { Button, Search, UsersIcon, AdminMonthRangeFilter, getAllTimeDateRange } from '@jyotish/ui';
+import { Button, Search, UsersIcon, AdminMonthRangeFilter, getTodayDateRange } from '@jyotish/ui';
 import { Banknote, Plus } from 'lucide-react';
 import {
   AdminTable,
@@ -48,7 +48,7 @@ export default function UsersPage() {
     balance?: number;
   } | null>(null);
   const [showAddCoinsModal, setShowAddCoinsModal] = useState(false);
-  const [joinedRange, setJoinedRange] = useState(getAllTimeDateRange);
+  const [joinedRange, setJoinedRange] = useState(getTodayDateRange);
   const debouncedJoinedFrom = useDebounce(joinedRange.from, ADMIN_DATE_FILTER_DEBOUNCE_MS);
   const debouncedJoinedTo = useDebounce(joinedRange.to, ADMIN_DATE_FILTER_DEBOUNCE_MS);
 
@@ -115,23 +115,23 @@ export default function UsersPage() {
     toggleStatusMutation.mutate(id);
   };
 
-  const allTime = getAllTimeDateRange();
+  const defaultJoinedRange = getTodayDateRange();
   const isDefaultView =
     statusFilter === 'ALL' &&
     !debouncedSearch &&
-    debouncedJoinedFrom === allTime.from &&
-    debouncedJoinedTo === allTime.to;
+    debouncedJoinedFrom === defaultJoinedRange.from &&
+    debouncedJoinedTo === defaultJoinedRange.to;
 
   const hasUserFilters =
     Boolean(debouncedSearch) ||
     statusFilter !== 'ALL' ||
-    debouncedJoinedFrom !== allTime.from ||
-    debouncedJoinedTo !== allTime.to;
+    debouncedJoinedFrom !== defaultJoinedRange.from ||
+    debouncedJoinedTo !== defaultJoinedRange.to;
 
   const clearUserFilters = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
-    setJoinedRange(getAllTimeDateRange());
+    setJoinedRange(getTodayDateRange());
     setCurrentPage(PAGINATION_DEFAULTS.PAGE);
   };
 

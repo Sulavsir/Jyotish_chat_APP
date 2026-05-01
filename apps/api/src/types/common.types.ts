@@ -47,11 +47,12 @@ export interface ServiceResponse<T = unknown> {
 /**
  * Lightweight user summary used in relation includes (e.g. consultation.client)
  */
+/** Embedded user row in appointments/consultations — phone/email omitted for non-admin peers. */
 export interface UserSummary {
   id: string;
   name: string | null;
-  phone: string | null;
-  email: string | null;
+  phone?: string | null;
+  email?: string | null;
   profilePhoto: string | null;
 }
 
@@ -61,8 +62,8 @@ export interface UserSummary {
 export interface AstrologerSummary {
   id: string;
   name: string | null;
-  phone: string;
-  email: string | null;
+  phone?: string | null;
+  email?: string | null;
   profilePhoto: string | null;
 }
 

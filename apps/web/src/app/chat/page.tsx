@@ -38,6 +38,10 @@ import { clientProfileService } from '@/services/clientProfile.service';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
 import { useChatProfileStore } from '@/store/chat-profile.store';
 import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
+import {
+  redactPeerContactFieldsForChatViewer,
+  redactPeerContactFieldsForChats,
+} from '@/utils/chat-privacy.utils';
 
 export default function ChatPage() {
   // Require CLIENT role to access this page
@@ -566,8 +570,9 @@ export default function ChatPage() {
       );
 
       const sorted = sortChatsByRecentActivity(uniqueConversations);
-      setChats(sorted);
-      return sorted;
+      const redacted = redactPeerContactFieldsForChats(sorted, UserRole.CLIENT);
+      setChats(redacted);
+      return redacted;
     } catch (error) {
       console.error('Error loading conversations:', error);
       toast.error('Failed to load conversations');
@@ -608,8 +613,10 @@ export default function ChatPage() {
         return;
       }
 
+      const chatForUi = redactPeerContactFieldsForChatViewer(chat, UserRole.CLIENT);
+
       // Get the other user (for clients, the other user is the astrologer)
-      const otherUser = chat.astrologerParticipant;
+      const otherUser = chatForUi.astrologerParticipant;
 
       if (!otherUser || !otherUser.id) {
         return;
@@ -619,7 +626,7 @@ export default function ChatPage() {
       setMessages([]);
 
       // Set the active chat FIRST (this triggers ChatWindow to prepare for new chat)
-      setActiveChat(chat);
+      setActiveChat(chatForUi);
       setActiveChatId(chat.id);
 
       // ✅ Only toggle mobile chat if not skipping (prevents layout shift)
@@ -668,14 +675,12 @@ export default function ChatPage() {
         astrologerParticipant: {
           id: astrologer.id,
           name: astrologer.name ?? null,
-          email: astrologer.email ?? null,
-          phone: astrologer.phone ?? undefined,
           profilePhoto: astrologer.profilePhoto ?? undefined,
           role: 'ASTROLOGER',
         },
       };
       setMessages([]);
-      setActiveChat(syntheticChat);
+      setActiveChat(redactPeerContactFieldsForChatViewer(syntheticChat, UserRole.CLIENT));
       setActiveChatId(syntheticChatId);
       currentOtherUserId.current = astrologerId;
       setShowMobileChat(true);

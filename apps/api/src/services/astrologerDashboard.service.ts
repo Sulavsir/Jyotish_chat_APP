@@ -133,7 +133,7 @@ export async function getAstrologerDashboardStats(
         scheduledAt: { gte: todayStart, lte: todayEnd },
       },
       include: {
-        client: { select: { id: true, name: true, phone: true, profilePhoto: true } },
+        client: { select: { id: true, name: true, profilePhoto: true } },
       },
       orderBy: { scheduledAt: 'asc' },
     }),
@@ -143,7 +143,7 @@ export async function getAstrologerDashboardStats(
     prisma.appointment.findMany({
       where: { astrologerId },
       include: {
-        client: { select: { id: true, name: true, phone: true, profilePhoto: true } },
+        client: { select: { id: true, name: true, profilePhoto: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: RECENT_ACTIVITY_LIMIT * 2,
@@ -151,7 +151,7 @@ export async function getAstrologerDashboardStats(
     prisma.consultation.findMany({
       where: { astrologerId },
       include: {
-        client: { select: { id: true, name: true, phone: true, profilePhoto: true } },
+        client: { select: { id: true, name: true, profilePhoto: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: RECENT_ACTIVITY_LIMIT * 2,
@@ -167,7 +167,7 @@ export async function getAstrologerDashboardStats(
         lastMessageText: true,
         updatedAt: true,
         clientParticipant: {
-          select: { id: true, name: true, phone: true, profilePhoto: true },
+          select: { id: true, name: true, profilePhoto: true },
         },
       },
       orderBy: { lastMessageAt: 'desc' },
@@ -227,7 +227,7 @@ export async function getAstrologerDashboardStats(
       type: 'appointment' as const,
       title: 'New appointment booked',
       description: 'Appointment scheduled',
-      clientName: apt.client?.name || apt.client?.phone || 'Client',
+      clientName: apt.client?.name || 'Client',
       timestamp: apt.createdAt.toISOString(),
       avatar: apt.client?.profilePhoto ?? null,
     }));
@@ -239,7 +239,7 @@ export async function getAstrologerDashboardStats(
       type: 'consultation' as const,
       title: 'New consultation booked',
       description: truncate(c.type || 'Consultation', DESCRIPTION_MAX_LEN),
-      clientName: c.client?.name || c.client?.phone || 'Client',
+      clientName: c.client?.name || 'Client',
       timestamp: c.createdAt.toISOString(),
       avatar: c.client?.profilePhoto ?? null,
     }));
@@ -249,7 +249,7 @@ export async function getAstrologerDashboardStats(
     type: 'chat' as const,
     title: 'Chat message received',
     description: truncate(chat.lastMessageText || 'New message', DESCRIPTION_MAX_LEN),
-    clientName: chat.clientParticipant?.name || chat.clientParticipant?.phone || 'Client',
+    clientName: chat.clientParticipant?.name || 'Client',
     timestamp: (chat.lastMessageAt ?? chat.updatedAt).toISOString(),
     avatar: chat.clientParticipant?.profilePhoto ?? null,
   }));

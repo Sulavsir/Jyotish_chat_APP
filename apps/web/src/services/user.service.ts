@@ -21,8 +21,9 @@ export interface ChatableUser {
 interface ClientDetails {
   id: string;
   name: string | null;
-  email: string | null;
-  phone: string | null;
+  /** Omitted for jyotish-facing client details API */
+  email?: string | null;
+  phone?: string | null;
   profilePhoto: string | null;
   dateOfBirth: Date | string | null;
   timeOfBirth: string | null;

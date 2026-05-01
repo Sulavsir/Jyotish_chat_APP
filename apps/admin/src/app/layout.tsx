@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { QueryProvider } from '@/providers/query-provider';
+import { NepaliDateProvider } from '@/providers/nepali-date-provider';
 import { TooltipProvider } from '@/components/ui/Tooltip';
 import { MaintenanceGate } from '@/components/maintenance/MaintenanceGate';
 import './globals.css';
-
 const inter = Inter({ subsets: ['latin'] });
 
 // Define metadataBase as a constant to ensure it's always available
@@ -54,10 +54,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <QueryProvider>
           <MaintenanceGate>
-            <TooltipProvider delayDuration={300}>
-              {children}
-              <Toaster position="top-right" richColors />
-            </TooltipProvider>
+            <NepaliDateProvider>
+              <TooltipProvider delayDuration={300}>
+                {children}
+                <Toaster position="top-right" richColors />
+              </TooltipProvider>
+            </NepaliDateProvider>
           </MaintenanceGate>
         </QueryProvider>
       </body>

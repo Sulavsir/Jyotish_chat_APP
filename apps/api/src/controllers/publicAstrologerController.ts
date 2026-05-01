@@ -22,8 +22,6 @@ export async function getPublicAstrologerProfile(req: Request, res: Response, ne
       select: {
         id: true,
         name: true,
-        phone: true,
-        email: true,
         profilePhoto: true,
         address: true,
         bio: true,

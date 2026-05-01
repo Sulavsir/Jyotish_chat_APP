@@ -337,16 +337,10 @@ function AstrologerProfileContent() {
                   <span className="text-gray-400">Country:</span>
                   <span className="text-white ml-2">{formatCountry(astrologer.country)}</span>
                 </div>
-                <div>
-                  <span className="text-gray-400">Phone:</span>
-                  <span className="text-white ml-2">{astrologer.phone}</span>
-                </div>
-                {astrologer.email && (
-                  <div>
-                    <span className="text-gray-400">Email:</span>
-                    <span className="text-white ml-2">{astrologer.email}</span>
-                  </div>
-                )}
+                <p className="text-gray-500 text-sm pt-1">
+                  Phone and email are not shown here; they may be shared when you book an
+                  appointment.
+                </p>
               </div>
             </CardContent>
           </Card>

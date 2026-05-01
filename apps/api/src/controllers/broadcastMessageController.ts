@@ -220,7 +220,7 @@ export async function acceptMessage(req: AuthRequest, res: Response) {
         allAcceptedMessageIds: allAcceptedIds,
         acceptedBy: result.message.acceptedAstrologer,
         acceptedAt: result.message.acceptedAt,
-        clientName: result.message.client?.name || result.message.client?.phone,
+        clientName: result.message.client?.name || 'Client',
       };
       const eligibleAstrologers = await prisma.astrologer.findMany({
         where: { category: { in: [AstrologerCategory.ORDINARY, AstrologerCategory.PROFESSIONAL] } },

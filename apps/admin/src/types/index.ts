@@ -10,6 +10,7 @@ export * from './kundaliMatch.types';
 export * from './horoscope.types';
 export * from './tip.types';
 export * from './subha-sahit.types';
+export * from './broadcastAcceptanceReport.types';
 
 // Re-export commonly used types for convenience
 export type {
@@ -35,6 +36,7 @@ export type {
   ChatAuditUpdateEvent,
   ChatAuditChatEndedEvent,
   ChatAuditMetadata,
+  AdminMonitorChatOrigin,
   BroadcastMessageStatus,
   MessageType,
   UserProfile,

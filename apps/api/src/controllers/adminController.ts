@@ -27,6 +27,10 @@ import {
   AppointmentStatus,
   ComplaintStatus,
   CoinTransactionReason as DbCoinTransactionReason,
+  BroadcastMessageStatus,
+  InstantChatRequestStatus,
+  JyotishBookingStatus,
+  JyotishBookingType,
 } from '@jyotish/database';
 import { KundaliMatchStatus } from '@prisma/client';
 import { AdminRole, NotificationType } from '@jyotish/shared';
@@ -45,6 +49,7 @@ import { ASTROLOGER_ACCOUNT_STATUS } from '../constants/astrologer.constants';
 import type { ListAdminUsersQuery } from '../validators/adminUsersList.validators';
 import type { ListAdminMonitorChatsQuery } from '../validators/adminChat.validators';
 import type { ListAdminPlatformPaymentQuery } from '../validators/adminPlatformPayment.validators';
+import type { ListChatAuditQuery } from '../validators/chatAudit.validators';
 import type {
   AssignPendingBroadcastBody,
   UpdateAdminBroadcastSettingsBody,
@@ -81,6 +86,20 @@ const ADMIN_MONITOR_CHAT_CLIENT_SELECT = {
   timeOfBirth: true,
   placeOfBirth: true,
 } satisfies Prisma.UserSelect;
+
+/** Monitor list/detail: broadcast accept vs instant accept vs ad-hoc (neither row). */
+type AdminMonitorChatOrigin = 'BROADCAST' | 'DIRECT' | 'MIXED';
+
+function monitorChatOriginFromLinks(
+  hasAcceptedBroadcastForChat: boolean,
+  hasAcceptedInstantForChat: boolean
+): AdminMonitorChatOrigin {
+  return hasAcceptedBroadcastForChat && hasAcceptedInstantForChat
+    ? 'MIXED'
+    : hasAcceptedBroadcastForChat
+      ? 'BROADCAST'
+      : 'DIRECT';
+}
 
 // ==================== Admin Authentication ====================
 
@@ -998,7 +1017,8 @@ export async function getAstrologerAuditLogs(req: AuthRequest, res: Response, ne
  */
 export async function listChats(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page, limit, status, search } = req.query as unknown as ListAdminMonitorChatsQuery;
+    const { page, limit, status, search, astrologerId } =
+      req.query as unknown as ListAdminMonitorChatsQuery;
 
     const pageNum = page ?? 1;
     const limitNum = limit ?? 10;
@@ -1007,6 +1027,10 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
 
     if (status) {
       where.status = status;
+    }
+
+    if (astrologerId) {
+      where.participant2Id = astrologerId;
     }
 
     if (search?.trim()) {
@@ -1053,8 +1077,49 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
       prisma.chat.count({ where }),
     ]);
 
+    const chatIds = chats.map((c) => c.id);
+    const [broadcastChatLinks, instantChatLinks] =
+      chatIds.length === 0
+        ? [[], []]
+        : await Promise.all([
+            prisma.broadcastMessage.findMany({
+              where: {
+                chatId: { in: chatIds },
+                status: BroadcastMessageStatus.ACCEPTED,
+              },
+              select: { chatId: true },
+              distinct: ['chatId'],
+            }),
+            prisma.instantChatRequest.findMany({
+              where: {
+                chatId: { in: chatIds },
+                status: InstantChatRequestStatus.ACCEPTED,
+              },
+              select: { chatId: true },
+              distinct: ['chatId'],
+            }),
+          ]);
+
+    const fromBroadcast = new Set(
+      broadcastChatLinks
+        .map((r) => r.chatId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    );
+    const fromDirect = new Set(
+      instantChatLinks
+        .map((r) => r.chatId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+    );
+
+    // Most 1:1 chats are opened from the first client message (chatHandlers) — no BroadcastMessage
+    // or InstantChatRequest row. Treat "not from an accepted Everyone Jyotish broadcast" as Direct.
+    const chatsWithOrigin = chats.map((c) => ({
+      ...c,
+      chatOrigin: monitorChatOriginFromLinks(fromBroadcast.has(c.id), fromDirect.has(c.id)),
+    }));
+
     return sendSuccess(res, {
-      chats,
+      chats: chatsWithOrigin,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -1097,7 +1162,20 @@ export async function getChat(req: AuthRequest, res: Response, next: NextFunctio
       throw new AppError('Chat not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
-    return sendSuccess(res, { chat });
+    const [broadcastLink, instantLink] = await Promise.all([
+      prisma.broadcastMessage.findFirst({
+        where: { chatId: id, status: BroadcastMessageStatus.ACCEPTED },
+        select: { id: true },
+      }),
+      prisma.instantChatRequest.findFirst({
+        where: { chatId: id, status: InstantChatRequestStatus.ACCEPTED },
+        select: { id: true },
+      }),
+    ]);
+
+    const chatOrigin = monitorChatOriginFromLinks(!!broadcastLink, !!instantLink);
+
+    return sendSuccess(res, { chat: { ...chat, chatOrigin } });
   } catch (error) {
     next(error);
   }
@@ -1858,27 +1936,32 @@ export async function markEarningPaid(req: AuthRequest, res: Response, next: Nex
  */
 export async function getChatAudit(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const { page = '1', limit = '10', status, search, type } = req.query;
+    const q = req.query as unknown as ListChatAuditQuery;
 
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
-    const take = parseInt(limit as string);
+    const skip = (q.page - 1) * q.limit;
+    const take = q.limit;
 
-    // Build where clauses (AND of status + search). Status uses wall-clock for PENDING/EXPIRED.
+    // Build where clauses (AND of status + search + astrologer). Status uses wall-clock for PENDING/EXPIRED.
     const broadcastConditions: Record<string, unknown>[] = [];
     const instantConditions: Record<string, unknown>[] = [];
 
-    if (status && status !== 'ALL') {
-      broadcastConditions.push(broadcastStatusFilterWhere(status as string));
-      instantConditions.push(instantChatStatusFilterWhere(status as string));
+    if (q.status && q.status !== 'ALL') {
+      broadcastConditions.push(broadcastStatusFilterWhere(q.status));
+      instantConditions.push(instantChatStatusFilterWhere(q.status));
     }
 
-    if (search) {
+    if (q.search) {
       const searchCondition = [
-        { client: { name: { contains: search as string, mode: 'insensitive' } } },
-        { client: { phone: { contains: search as string } } },
+        { client: { name: { contains: q.search, mode: 'insensitive' } } },
+        { client: { phone: { contains: q.search } } },
       ];
       broadcastConditions.push({ OR: searchCondition });
       instantConditions.push({ OR: searchCondition });
+    }
+
+    if (q.astrologerId) {
+      broadcastConditions.push({ acceptedBy: q.astrologerId });
+      instantConditions.push({ acceptedBy: q.astrologerId });
     }
 
     const broadcastWhere: Record<string, unknown> =
@@ -1887,8 +1970,8 @@ export async function getChatAudit(req: AuthRequest, res: Response, next: NextFu
       instantConditions.length > 0 ? { AND: instantConditions } : {};
 
     // Type filter
-    const shouldFetchBroadcast = !type || type === 'BROADCAST_MESSAGE';
-    const shouldFetchInstant = !type || type === 'INSTANT_CHAT_REQUEST';
+    const shouldFetchBroadcast = !q.type || q.type === 'BROADCAST_MESSAGE';
+    const shouldFetchInstant = !q.type || q.type === 'INSTANT_CHAT_REQUEST';
 
     // Fetch both types in parallel
     const [broadcastMessages, instantChatRequests] = await Promise.all([
@@ -2001,7 +2084,7 @@ export async function getChatAudit(req: AuthRequest, res: Response, next: NextFu
     return sendSuccess(res, {
       logs: paginatedLogs,
       pagination: {
-        page: parseInt(page as string),
+        page: q.page,
         limit: take,
         total,
         totalPages: Math.ceil(total / take),
@@ -2386,6 +2469,8 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       totalAstrologers,
       pendingAstrologerRegistrations,
       platformTransactions,
+      pendingBroadcastMessages,
+      jyotishPendingByType,
     ] = await Promise.all([
       prisma.chat.count({ where: { status: ChatStatus.ACTIVE } }),
       prisma.complaint.count({ where: { status: ComplaintStatus.PENDING } }),
@@ -2400,7 +2485,21 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       prisma.coinTransaction.count({
         where: { type: 'ADD', reason: DbCoinTransactionReason.PAYMENT_SUCCESS },
       }),
+      prisma.broadcastMessage.count({ where: { status: BroadcastMessageStatus.PENDING } }),
+      prisma.jyotishBookingRequest.groupBy({
+        by: ['type'],
+        where: { status: JyotishBookingStatus.PENDING },
+        _count: { _all: true },
+      }),
     ]);
+
+    const pendingJyotishPandit =
+      jyotishPendingByType.find((r) => r.type === JyotishBookingType.PANDIT)?._count._all ?? 0;
+    const pendingJyotishVaastu =
+      jyotishPendingByType.find((r) => r.type === JyotishBookingType.VAASTU)?._count._all ?? 0;
+    const pendingJyotishKathaVachak =
+      jyotishPendingByType.find((r) => r.type === JyotishBookingType.KATHA_VACHAK)?._count._all ??
+      0;
 
     const isUserSupport = req.user?.adminRole === AdminRole.USER_SUPPORT;
 
@@ -2415,6 +2514,10 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
         totalAstrologers,
         pendingAstrologerRegistrations,
         platformTransactions: isUserSupport ? 0 : platformTransactions,
+        pendingBroadcastMessages,
+        pendingJyotishPandit,
+        pendingJyotishVaastu,
+        pendingJyotishKathaVachak,
       },
     });
   } catch (error) {

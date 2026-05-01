@@ -21,8 +21,6 @@ const defaultInclude = {
     select: {
       id: true,
       name: true,
-      phone: true,
-      email: true,
       profilePhoto: true,
     },
   },
@@ -30,8 +28,6 @@ const defaultInclude = {
     select: {
       id: true,
       name: true,
-      phone: true,
-      email: true,
       profilePhoto: true,
       category: true,
       appointmentFee: true,
@@ -249,8 +245,6 @@ export const listAppointments = async (input: {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
           },
         },
@@ -258,8 +252,6 @@ export const listAppointments = async (input: {
           select: {
             id: true,
             name: true,
-            phone: true,
-            email: true,
             profilePhoto: true,
             category: true,
             appointmentFee: true,
@@ -310,8 +302,6 @@ export const getAppointmentById = async (id: string): Promise<AppointmentWithRel
         select: {
           id: true,
           name: true,
-          phone: true,
-          email: true,
           profilePhoto: true,
         },
       },
@@ -319,8 +309,6 @@ export const getAppointmentById = async (id: string): Promise<AppointmentWithRel
         select: {
           id: true,
           name: true,
-          phone: true,
-          email: true,
           profilePhoto: true,
           category: true,
           appointmentFee: true,
@@ -371,8 +359,6 @@ export const updateAppointment = async (
         select: {
           id: true,
           name: true,
-          phone: true,
-          email: true,
           profilePhoto: true,
         },
       },
@@ -380,8 +366,6 @@ export const updateAppointment = async (
         select: {
           id: true,
           name: true,
-          phone: true,
-          email: true,
           profilePhoto: true,
           category: true,
           appointmentFee: true,
