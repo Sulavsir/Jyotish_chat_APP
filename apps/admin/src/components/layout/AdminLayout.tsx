@@ -197,12 +197,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     pendingJyotishTotal: 0,
   };
 
-  const pendingJyotishTotal =
-    sidebarCounts.pendingJyotishTotal ??
-    sidebarCounts.pendingJyotishPandit +
-      sidebarCounts.pendingJyotishVaastu +
-      sidebarCounts.pendingJyotishKathaVachak;
-
   const getCurrentCountForKey = (key: SidebarBadgeKey): number => {
     switch (key) {
       case 'admin-chats':
@@ -248,6 +242,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     }
     return currentCount - lastSeen;
   };
+
+  /** Same delta semantics as child links: sum of unseen pendings across Pujari / Vaastu / Katha. */
+  const getJyotishBookingsSidebarNewCombined = (): number =>
+    getNewBadgeCount('jyotish-pandit', sidebarCounts.pendingJyotishPandit) +
+    getNewBadgeCount('jyotish-vaastu', sidebarCounts.pendingJyotishVaastu) +
+    getNewBadgeCount('jyotish-katha', sidebarCounts.pendingJyotishKathaVachak);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -763,6 +763,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const isSidebarExpanded = sidebarOpen || mobileMenuOpen;
 
+  const jyotishBookingsNavNewCombined = getJyotishBookingsSidebarNewCombined();
+
   return (
     <div className="h-screen flex overflow-hidden">
       {mobileMenuOpen && (
@@ -854,9 +856,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                               </span>
                             );
                           })()}
-                        {item.key === 'jyotish-bookings' && pendingJyotishTotal > 0 && (
+                        {item.key === 'jyotish-bookings' && jyotishBookingsNavNewCombined > 0 && (
                           <span className="absolute -top-0.5 -right-0.5 lg:-top-1 lg:-right-1 inline-flex items-center justify-center min-w-[14px] h-[14px] lg:min-w-[18px] lg:h-[18px] px-0.5 lg:px-1 rounded-full bg-amber-500 text-white text-[9px] lg:text-[10px] font-bold">
-                            {pendingJyotishTotal > 99 ? '99+' : pendingJyotishTotal}
+                            {jyotishBookingsNavNewCombined > 99 ? '99+' : jyotishBookingsNavNewCombined}
                           </span>
                         )}
                       </span>
@@ -868,9 +870,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                           >
                             {item.name}
                           </span>
-                          {item.key === 'jyotish-bookings' && pendingJyotishTotal > 0 && (
+                          {item.key === 'jyotish-bookings' && jyotishBookingsNavNewCombined > 0 && (
                             <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 sm:min-w-[22px] sm:h-5 sm:px-1.5 rounded-full bg-amber-500 text-white text-[10px] sm:text-xs font-bold shrink-0">
-                              {pendingJyotishTotal > 99 ? '99+' : pendingJyotishTotal}
+                              {jyotishBookingsNavNewCombined > 99 ? '99+' : jyotishBookingsNavNewCombined}
                             </span>
                           )}
                           <svg
@@ -924,13 +926,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                           : 0;
 
                           const sidebarKey = getSidebarBadgeKeyForRoute(c.href);
-                          const isJyotishBookingChild =
-                            isJyotishPandit || isJyotishVaastu || isJyotishKatha;
-                          const badgeCount = isJyotishBookingChild
-                            ? badgeCountBase > 0
-                              ? badgeCountBase
-                              : 0
-                            : !active && sidebarKey && badgeCountBase > 0
+                          const badgeCount =
+                            !active && sidebarKey && badgeCountBase > 0
                               ? getNewBadgeCount(sidebarKey, badgeCountBase)
                               : 0;
                           const childBadgeClass = getNavGroupChildBadgeClassName(c.href);
