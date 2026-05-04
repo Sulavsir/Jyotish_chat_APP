@@ -194,7 +194,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     pendingJyotishPandit: 0,
     pendingJyotishVaastu: 0,
     pendingJyotishKathaVachak: 0,
+    pendingJyotishTotal: 0,
   };
+
+  const pendingJyotishTotal =
+    sidebarCounts.pendingJyotishTotal ??
+    sidebarCounts.pendingJyotishPandit +
+      sidebarCounts.pendingJyotishVaastu +
+      sidebarCounts.pendingJyotishKathaVachak;
 
   const getCurrentCountForKey = (key: SidebarBadgeKey): number => {
     switch (key) {
@@ -847,6 +854,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                               </span>
                             );
                           })()}
+                        {item.key === 'jyotish-bookings' && pendingJyotishTotal > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 lg:-top-1 lg:-right-1 inline-flex items-center justify-center min-w-[14px] h-[14px] lg:min-w-[18px] lg:h-[18px] px-0.5 lg:px-1 rounded-full bg-amber-500 text-white text-[9px] lg:text-[10px] font-bold">
+                            {pendingJyotishTotal > 99 ? '99+' : pendingJyotishTotal}
+                          </span>
+                        )}
                       </span>
                       {isSidebarExpanded && (
                         <>
@@ -856,6 +868,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                           >
                             {item.name}
                           </span>
+                          {item.key === 'jyotish-bookings' && pendingJyotishTotal > 0 && (
+                            <span className="inline-flex items-center justify-center min-w-[18px] h-4 px-1 sm:min-w-[22px] sm:h-5 sm:px-1.5 rounded-full bg-amber-500 text-white text-[10px] sm:text-xs font-bold shrink-0">
+                              {pendingJyotishTotal > 99 ? '99+' : pendingJyotishTotal}
+                            </span>
+                          )}
                           <svg
                             className={`w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                             fill="none"
@@ -907,8 +924,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                                           : 0;
 
                           const sidebarKey = getSidebarBadgeKeyForRoute(c.href);
-                          const badgeCount =
-                            !active && sidebarKey && badgeCountBase > 0
+                          const isJyotishBookingChild =
+                            isJyotishPandit || isJyotishVaastu || isJyotishKatha;
+                          const badgeCount = isJyotishBookingChild
+                            ? badgeCountBase > 0
+                              ? badgeCountBase
+                              : 0
+                            : !active && sidebarKey && badgeCountBase > 0
                               ? getNewBadgeCount(sidebarKey, badgeCountBase)
                               : 0;
                           const childBadgeClass = getNavGroupChildBadgeClassName(c.href);

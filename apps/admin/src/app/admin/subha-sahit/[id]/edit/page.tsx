@@ -171,9 +171,7 @@ export default function EditSubhaSahitDatePage() {
               <div className="space-y-0.5 text-xs text-slate-500">
                 <p>
                   Language:{' '}
-                  <span className="font-medium text-slate-300">
-                    {data?.language ?? 'EN'}
-                  </span>
+                  <span className="font-medium text-slate-300">{data?.language ?? 'EN'}</span>
                 </p>
               </div>
             </div>

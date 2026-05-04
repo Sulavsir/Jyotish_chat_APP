@@ -9,6 +9,7 @@ import {
   AdminTable,
   AdminListPaginationSection,
   AdminRefreshButton,
+  AdminDualCalendarDateCell,
   type AdminTableColumn,
 } from '@/components/admin';
 import { ConfirmDialog } from '@/components/ui';
@@ -31,6 +32,9 @@ import type {
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useDebouncedPageSize, useDebounce } from '@/hooks';
+import { useNepaliDateBulkMap } from '@/hooks/useNepaliDateBulkMap';
+import { calendarPrimaryFromAdminLanguageFilter } from '@/utils/admin-table-calendar-primary';
+import { toIsoDateKeyLocal } from '@/utils/to-iso-date-key-local';
 
 export default function AdminHoroscopesPage() {
   const router = useRouter();
@@ -106,6 +110,11 @@ export default function AdminHoroscopesPage() {
   const horoscopes = data?.horoscopes ?? [];
   const pagination = data?.pagination;
 
+  const horoscopeDatesForBs = useMemo(() => horoscopes.map((h) => h.date), [horoscopes]);
+  const { data: horoscopeBsMap = {}, isLoading: horoscopeBsLoading } =
+    useNepaliDateBulkMap(horoscopeDatesForBs);
+  const horoscopeDatePrimary = calendarPrimaryFromAdminLanguageFilter(languageFilter || '');
+
   const defaultDateRange = getTodayDateRange();
   const dateFilterActive =
     dateRange.from !== defaultDateRange.from || dateRange.to !== defaultDateRange.to;
@@ -139,13 +148,12 @@ export default function AdminHoroscopesPage() {
     {
       header: 'Date',
       accessor: (row) => (
-        <span className="text-slate-300">
-          {new Date(row.date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </span>
+        <AdminDualCalendarDateCell
+          value={row.date}
+          bsMapping={horoscopeBsMap[toIsoDateKeyLocal(row.date)]}
+          primary={horoscopeDatePrimary}
+          isLoading={horoscopeBsLoading}
+        />
       ),
     },
     {

@@ -158,6 +158,8 @@ export interface AdminSidebarCountsResponse {
     pendingJyotishPandit: number;
     pendingJyotishVaastu: number;
     pendingJyotishKathaVachak: number;
+    /** Sum of pending Pujari Ji + Vaastu + Katha Vachak (sidebar parent badge). */
+    pendingJyotishTotal: number;
   };
 }
 

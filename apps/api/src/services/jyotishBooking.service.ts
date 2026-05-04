@@ -2,10 +2,31 @@
  * Jyotish Booking Service (Pandit Ji / Vaastu Shastri)
  */
 
-import { prisma, JyotishBookingStatus, JyotishBookingType } from '@jyotish/database';
+import { prisma, JyotishBookingStatus, JyotishBookingType, SubhaSahitLanguage } from '@jyotish/database';
 import { buildJyotishBookingLocationSummary } from '@jyotish/shared';
 import { AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
 import { subhaSahitService } from './subha-sahit.service';
+
+const SUBHA_META_LANG_PRIORITY: readonly SubhaSahitLanguage[] = ['EN', 'NE', 'HI'];
+
+function pickOccasionMetaForCategory(
+  metas: Array<{
+    language: SubhaSahitLanguage;
+    occasion: string;
+    pujaItems: string | null;
+    estimatedTime: string | null;
+  }>,
+  category: string
+): { pujaItems: string | null; estimatedTime: string | null } | null {
+  const low = category.trim().toLowerCase();
+  const matches = metas.filter((m) => m.occasion.trim().toLowerCase() === low);
+  if (matches.length === 0) return null;
+  for (const lang of SUBHA_META_LANG_PRIORITY) {
+    const hit = matches.find((m) => m.language === lang);
+    if (hit) return { pujaItems: hit.pujaItems, estimatedTime: hit.estimatedTime };
+  }
+  return { pujaItems: matches[0].pujaItems, estimatedTime: matches[0].estimatedTime };
+}
 
 export const jyotishBookingService = {
   async createForClient(input: {
@@ -45,12 +66,13 @@ export const jyotishBookingService = {
       );
     }
 
-    if (input.type === JyotishBookingType.PANDIT) {
-      // Validate category is either a standard PANDIT category or a valid occasion
-      const occasions = await subhaSahitService.getDistinctOccasionNames();
-      const validCategories = [...occasions];
+    let categoryToStore = input.category.trim();
 
-      if (!validCategories.includes(input.category)) {
+    if (input.type === JyotishBookingType.PANDIT) {
+      const canonicalOccasion =
+        await subhaSahitService.resolveCanonicalOccasionForPanditBooking(input.category);
+
+      if (!canonicalOccasion) {
         throw new AppError(
           'Invalid category for Pujari Ji booking. Please select a valid occasion or category.',
           HTTP_STATUS.BAD_REQUEST,
@@ -58,11 +80,13 @@ export const jyotishBookingService = {
         );
       }
 
+      categoryToStore = canonicalOccasion;
+
       // Check if the date is a Subha Sahit date for the selected occasion/category
       const availableDates = await subhaSahitService.getAvailableDates({
         dateFrom: bookingDateStr,
         dateTo: bookingDateStr,
-        occasion: input.category, // Filter by the selected occasion/category
+        occasion: canonicalOccasion,
       });
 
       const isSubhaSahit = availableDates.some(
@@ -74,7 +98,7 @@ export const jyotishBookingService = {
 
       if (!isSubhaSahit) {
         throw new AppError(
-          `Pujari Ji bookings can only be made on Subha Sahit (auspicious) dates for "${input.category}". Please select a date from the available dates for this occasion.`,
+          `Pujari Ji bookings can only be made on Subha Sahit (auspicious) dates for "${canonicalOccasion}". Please select a date from the available dates for this occasion.`,
           HTTP_STATUS.BAD_REQUEST,
           ERROR_CODES.VALIDATION_ERROR
         );
@@ -127,7 +151,7 @@ export const jyotishBookingService = {
         clientId: input.clientId,
         type: input.type,
         preferredAstrologerId: input.preferredAstrologerId,
-        category: input.category,
+        category: categoryToStore,
         bookingDate: bookingDateUTC, // Use normalized UTC date
         details: input.details,
         location: locationSummary,
@@ -214,8 +238,53 @@ export const jyotishBookingService = {
       prisma.jyotishBookingRequest.count({ where }),
     ]);
 
+    const panditCategories = [
+      ...new Set(
+        bookings
+          .filter((b) => b.type === JyotishBookingType.PANDIT)
+          .map((b) => b.category.trim())
+          .filter(Boolean)
+      ),
+    ];
+
+    let occasionMetas: Array<{
+      language: SubhaSahitLanguage;
+      occasion: string;
+      pujaItems: string | null;
+      estimatedTime: string | null;
+    }> = [];
+
+    if (panditCategories.length > 0) {
+      occasionMetas = await prisma.subhaSahitOccasionMeta.findMany({
+        where: {
+          OR: panditCategories.map((c) => ({
+            occasion: { equals: c, mode: 'insensitive' },
+          })),
+        },
+        select: {
+          language: true,
+          occasion: true,
+          pujaItems: true,
+          estimatedTime: true,
+        },
+      });
+    }
+
+    const bookingsOut = bookings.map((b) => {
+      if (b.type !== JyotishBookingType.PANDIT) {
+        return b;
+      }
+      const meta = pickOccasionMetaForCategory(occasionMetas, b.category);
+      return {
+        ...b,
+        occasionKey: b.category.trim().toLowerCase(),
+        pujaItems: meta?.pujaItems ?? null,
+        estimatedTime: meta?.estimatedTime ?? null,
+      };
+    });
+
     return {
-      bookings,
+      bookings: bookingsOut,
       pagination: {
         page: input.page,
         limit: input.limit,

@@ -19,13 +19,17 @@ import {
   AdminListPaginationSection,
   AdminRefreshButton,
   AdminClearFiltersButton,
+  AdminDualCalendarDateCell,
   type AdminTableColumn,
 } from '@/components/admin';
 import { ConfirmDialog } from '@/components/ui';
 import { toast } from 'sonner';
 import { Plus, Trash2, Pencil, BookOpen } from 'lucide-react';
-import { formatAdminDate } from '@/utils/helpers';
 import { useDebouncedPageSize, useDebounce } from '@/hooks';
+import { useNepaliDateBulkMap } from '@/hooks/useNepaliDateBulkMap';
+import { calendarPrimaryFromAdminLanguageFilter } from '@/utils/admin-table-calendar-primary';
+import { toIsoDateKeyLocal } from '@/utils/to-iso-date-key-local';
+import { formatAdminDate } from '@/utils/helpers';
 
 export default function SubhaSahitPage() {
   const router = useRouter();
@@ -76,6 +80,10 @@ export default function SubhaSahitPage() {
     totalPages: 0,
   };
 
+  const subhaDatesForBs = useMemo(() => dates.map((d) => d.date), [dates]);
+  const { data: subhaBsMap = {}, isLoading: subhaBsLoading } = useNepaliDateBulkMap(subhaDatesForBs);
+  const subhaDatePrimary = calendarPrimaryFromAdminLanguageFilter(language);
+
   useEffect(() => {
     setPage(PAGINATION_DEFAULTS.PAGE);
   }, [debouncedRowsPerPage]);
@@ -87,9 +95,9 @@ export default function SubhaSahitPage() {
   const defaultDateRange = getTodayDateRange();
   const hasListFilters = Boolean(
     occasionFilter ||
-      language ||
-      dateRange.from !== defaultDateRange.from ||
-      dateRange.to !== defaultDateRange.to
+    language ||
+    dateRange.from !== defaultDateRange.from ||
+    dateRange.to !== defaultDateRange.to
   );
 
   const clearListFilters = useCallback(() => {
@@ -120,7 +128,14 @@ export default function SubhaSahitPage() {
   const columns: AdminTableColumn<SubhaSahitDate>[] = [
     {
       header: 'Date',
-      accessor: (date) => <span className="text-slate-300">{formatAdminDate(date.date)}</span>,
+      accessor: (date) => (
+        <AdminDualCalendarDateCell
+          value={date.date}
+          bsMapping={subhaBsMap[toIsoDateKeyLocal(date.date)]}
+          primary={subhaDatePrimary}
+          isLoading={subhaBsLoading}
+        />
+      ),
     },
     {
       header: 'Occasion',
@@ -262,10 +277,7 @@ export default function SubhaSahitPage() {
               >
                 <option value="">All occasions</option>
                 {occasionList.map((row) => (
-                  <option
-                    key={`${row.language ?? 'x'}-${row.occasion}`}
-                    value={row.occasion}
-                  >
+                  <option key={`${row.language ?? 'x'}-${row.occasion}`} value={row.occasion}>
                     {row.language ? `${row.occasion} (${row.language})` : row.occasion}
                   </option>
                 ))}

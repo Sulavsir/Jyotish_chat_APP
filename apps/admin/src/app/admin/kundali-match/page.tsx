@@ -38,6 +38,8 @@ import {
 } from '@/constants';
 import { formatGregorianDateEnShort, formatTimeStringAmPm } from '@jyotish/shared';
 import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
+import { AdminDualCalendarDateCell } from '@/components/admin';
+import { toIsoDateKeyLocal } from '@/utils/to-iso-date-key-local';
 import { toast } from 'sonner';
 import { Banknote, User, Eye } from 'lucide-react';
 import { useDebouncedPageSize, useDebounce } from '@/hooks';
@@ -132,12 +134,16 @@ export default function KundaliMatchPage() {
       const g = toYmd(r.girlDateOfBirth);
       if (b) keys.add(b);
       if (g) keys.add(g);
+      const issue = toIsoDateKeyLocal(r.createdAt);
+      if (issue) keys.add(issue);
     };
     for (const r of requests) addReq(r);
     if (viewModalRequest) addReq(viewModalRequest);
     if (reviewModalRequest) addReq(reviewModalRequest);
     return [...keys].sort();
   }, [requests, viewModalRequest, reviewModalRequest]);
+
+  const tableLocalePrimary = displayLocale === 'en' ? 'english' : 'nepali';
 
   const { data: bsMap = {}, isLoading: isBsLoading } = useQuery({
     queryKey: ['admin', 'kundali-match', 'bs', dobKeys.join(',')],
@@ -180,7 +186,12 @@ export default function KundaliMatchPage() {
     {
       header: 'Date of Issue',
       accessor: (r) => (
-        <span className="text-sm text-slate-400">{formatGregorianDateEnShort(r.createdAt)}</span>
+        <AdminDualCalendarDateCell
+          value={r.createdAt}
+          bsMapping={bsMap[toIsoDateKeyLocal(r.createdAt)]}
+          primary={tableLocalePrimary}
+          isLoading={isBsLoading}
+        />
       ),
     },
     {
@@ -191,6 +202,8 @@ export default function KundaliMatchPage() {
             iso={r.boyDateOfBirth}
             mapEntry={bsMap[toYmd(r.boyDateOfBirth)]}
             isLoading={isBsLoading}
+            layout="locale-split"
+            localePrimary={tableLocalePrimary}
           />
           <div className="shrink-0">
             <p className="text-slate-500 text-[10px] uppercase">Time of birth</p>
@@ -208,6 +221,8 @@ export default function KundaliMatchPage() {
             iso={r.girlDateOfBirth}
             mapEntry={bsMap[toYmd(r.girlDateOfBirth)]}
             isLoading={isBsLoading}
+            layout="locale-split"
+            localePrimary={tableLocalePrimary}
           />
           <div className="shrink-0">
             <p className="text-slate-500 text-[10px] uppercase">Time of birth</p>
@@ -368,8 +383,9 @@ export default function KundaliMatchPage() {
             />
           </div>
           <p className="mt-3 text-[11px] text-slate-500 leading-snug border-t border-slate-700/60 pt-3">
-            DOB is always shown in both BS and AD. Province and district use Devanagari when Nepali
-            or Hindi is selected.
+            Table dates show Bikram Sambat and English (AD): bold line follows the language above;
+            the other calendar is shown below in smaller text. Province and district use Devanagari
+            when Nepali or Hindi is selected.
           </p>
         </div>
 

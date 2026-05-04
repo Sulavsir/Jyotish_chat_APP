@@ -141,6 +141,11 @@ export interface JyotishBookingRequest {
   type: JyotishBookingType;
   preferredAstrologerId?: string | null;
   category: string;
+  /** Present on GET /jyotish-bookings/my for `PANDIT` rows when occasion meta exists (camelCase). */
+  pujaItems?: string | null;
+  estimatedTime?: string | null;
+  /** Same normalization as Subha Sahit `occasionKey` (`category.trim().toLowerCase()`). */
+  occasionKey?: string | null;
   bookingDate: Date;
   details?: string | null;
   location: string;

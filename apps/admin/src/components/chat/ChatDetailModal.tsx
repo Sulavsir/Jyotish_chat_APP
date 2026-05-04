@@ -601,8 +601,11 @@ export default function ChatDetailModal({ chat, isOpen, onClose }: ChatDetailMod
         <div className="flex items-center justify-between p-6 border-t border-slate-800">
           <div className="text-sm text-slate-400">
             <span className="font-medium">{messages.length}</span> messages loaded
-            {chat._count?.messages && chat._count.messages > messages.length && (
-              <span> • {chat._count.messages - messages.length} more available</span>
+            {(chat._count?.messages ?? 0) > messages.length && (
+              <span>
+                {' • '}
+                {(chat._count?.messages ?? 0) - messages.length} more available
+              </span>
             )}
           </div>
           <div className="flex gap-2">

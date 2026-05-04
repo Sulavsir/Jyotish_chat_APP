@@ -101,6 +101,16 @@ function monitorChatOriginFromLinks(
       : 'DIRECT';
 }
 
+/** Align with client chat list: reopened threads use direct pricing, not broadcast. */
+function adminMonitorChatOrigin(
+  reopenedAfterEnded: boolean,
+  hasBroadcastLink: boolean,
+  hasInstantLink: boolean
+): AdminMonitorChatOrigin {
+  if (reopenedAfterEnded) return 'DIRECT';
+  return monitorChatOriginFromLinks(hasBroadcastLink, hasInstantLink);
+}
+
 // ==================== Admin Authentication ====================
 
 /**
@@ -1115,7 +1125,11 @@ export async function listChats(req: AuthRequest, res: Response, next: NextFunct
     // or InstantChatRequest row. Treat "not from an accepted Everyone Jyotish broadcast" as Direct.
     const chatsWithOrigin = chats.map((c) => ({
       ...c,
-      chatOrigin: monitorChatOriginFromLinks(fromBroadcast.has(c.id), fromDirect.has(c.id)),
+      chatOrigin: adminMonitorChatOrigin(
+        c.reopenedAfterEnded,
+        fromBroadcast.has(c.id),
+        fromDirect.has(c.id)
+      ),
     }));
 
     return sendSuccess(res, {
@@ -1173,7 +1187,11 @@ export async function getChat(req: AuthRequest, res: Response, next: NextFunctio
       }),
     ]);
 
-    const chatOrigin = monitorChatOriginFromLinks(!!broadcastLink, !!instantLink);
+    const chatOrigin = adminMonitorChatOrigin(
+      chat.reopenedAfterEnded,
+      !!broadcastLink,
+      !!instantLink
+    );
 
     return sendSuccess(res, { chat: { ...chat, chatOrigin } });
   } catch (error) {
@@ -2501,6 +2519,9 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
       jyotishPendingByType.find((r) => r.type === JyotishBookingType.KATHA_VACHAK)?._count._all ??
       0;
 
+    const pendingJyotishTotal =
+      pendingJyotishPandit + pendingJyotishVaastu + pendingJyotishKathaVachak;
+
     const isUserSupport = req.user?.adminRole === AdminRole.USER_SUPPORT;
 
     return sendSuccess(res, {
@@ -2518,6 +2539,7 @@ export async function getSidebarCounts(req: AuthRequest, res: Response, next: Ne
         pendingJyotishPandit,
         pendingJyotishVaastu,
         pendingJyotishKathaVachak,
+        pendingJyotishTotal,
       },
     });
   } catch (error) {

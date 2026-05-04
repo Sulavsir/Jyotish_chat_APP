@@ -19,8 +19,7 @@ import { ERROR_CODES, HTTP_STATUS } from '../constants/http.constants';
 import {
   type ReportingYmd,
   getReportingYmd,
-  reportingDayEndInclusive,
-  reportingDayStart,
+  utcDateFromGregorianYmd,
 } from '../utils/reporting-date.utils';
 
 export interface SubhaSahitDate {
@@ -54,23 +53,35 @@ function subhaSahitDbLangToApi(lang: SubhaSahitLanguage): SubhaSahitApiLanguage 
 }
 
 export class SubhaSahitService {
-  private toReportingDayDate(dateLike: string | Date): Date {
-    const raw = typeof dateLike === 'string' ? dateLike : dateLike.toISOString();
-    const ymd = raw.slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-      // Fall back to Date parsing, then normalize to reporting day start
-      return reportingDayStart(getReportingYmd(new Date(raw)));
+  /**
+   * Subha Sahit stores a plain Gregorian calendar day (`YYYY-MM-DD`). Use UTC midnight so Postgres
+   * `DATE` matches the payload — not {@link reportingDayStart}, which shifts civil dates by TZ.
+   */
+  private calendarGregorianDateForDb(dateLike: string | Date): Date {
+    const raw = typeof dateLike === 'string' ? dateLike.trim() : dateLike.toISOString();
+    const head = raw.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(head)) {
+      return utcDateFromGregorianYmd(head as ReportingYmd);
     }
-    return reportingDayStart(ymd as ReportingYmd);
+    return utcDateFromGregorianYmd(getReportingYmd(new Date(raw)));
   }
 
-  private toReportingDayEndInclusive(dateLike: string | Date): Date {
-    const raw = typeof dateLike === 'string' ? dateLike : dateLike.toISOString();
-    const ymd = raw.slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
-      return reportingDayEndInclusive(getReportingYmd(new Date(raw)));
-    }
-    return reportingDayEndInclusive(ymd as ReportingYmd);
+  /**
+   * Canonical `occasion` string as stored on Subha Sahit rows (preserves DB casing).
+   * Used so booking `category` matches occasions API `occasion` after case-normalization.
+   */
+  async resolveCanonicalOccasionForPanditBooking(category: string): Promise<string | null> {
+    const t = category.trim();
+    if (!t) return null;
+    const row = await prisma.subhaSahitDate.findFirst({
+      where: {
+        isActive: true,
+        occasion: { equals: t, mode: 'insensitive' },
+      },
+      select: { occasion: true },
+      orderBy: [{ occasion: 'asc' }],
+    });
+    return row?.occasion ?? null;
   }
 
   async createOccasion(
@@ -114,7 +125,7 @@ export class SubhaSahitService {
       };
     }
 
-    const placeholderDate = this.toReportingDayDate('2099-12-31');
+    const placeholderDate = this.calendarGregorianDateForDb('2099-12-31');
 
     const created = await prisma.subhaSahitDate.create({
       data: {
@@ -204,7 +215,7 @@ export class SubhaSahitService {
     const lang = normalizeToDbLanguageCode(language);
     const created: SubhaSahitDate[] = [];
     for (const item of items) {
-      const date = this.toReportingDayDate(item.date);
+      const date = this.calendarGregorianDateForDb(item.date);
 
       // No need to create placeholder - occasions are derived from actual dates
 
@@ -241,7 +252,7 @@ export class SubhaSahitService {
     const skip = (page - 1) * limit;
 
     // Exclude placeholder dates (2099-12-31) used for occasion-only entries
-    const placeholderDate = this.toReportingDayDate('2099-12-31');
+    const placeholderDate = this.calendarGregorianDateForDb('2099-12-31');
 
     // Build date filter
     const dateFilter: Prisma.DateTimeFilter<'SubhaSahitDate'> = {
@@ -249,10 +260,10 @@ export class SubhaSahitService {
     };
 
     if (params.dateFrom) {
-      dateFilter.gte = this.toReportingDayDate(params.dateFrom);
+      dateFilter.gte = this.calendarGregorianDateForDb(params.dateFrom);
     }
     if (params.dateTo) {
-      dateFilter.lte = this.toReportingDayEndInclusive(params.dateTo);
+      dateFilter.lte = this.calendarGregorianDateForDb(params.dateTo);
     }
 
     const where: Prisma.SubhaSahitDateWhereInput = {
@@ -292,19 +303,19 @@ export class SubhaSahitService {
     language?: string;
   }): Promise<SubhaSahitDate[]> {
     // Exclude placeholder dates (2099-12-31) used for occasion-only entries
-    const placeholderDate = this.toReportingDayDate('2099-12-31');
+    const placeholderDate = this.calendarGregorianDateForDb('2099-12-31');
 
     // Default to today - only show upcoming dates (not yesterday or earlier)
-    const today = reportingDayStart(getReportingYmd(new Date()));
+    const today = utcDateFromGregorianYmd(getReportingYmd(new Date()));
 
     // Build date filter
     const dateFilter: Prisma.DateTimeFilter<'SubhaSahitDate'> = {
       not: placeholderDate,
-      gte: params.dateFrom ? this.toReportingDayDate(params.dateFrom) : today,
+      gte: params.dateFrom ? this.calendarGregorianDateForDb(params.dateFrom) : today,
     };
 
     if (params.dateTo) {
-      dateFilter.lte = this.toReportingDayEndInclusive(params.dateTo);
+      dateFilter.lte = this.calendarGregorianDateForDb(params.dateTo);
     }
 
     const where: Prisma.SubhaSahitDateWhereInput = {
@@ -338,7 +349,7 @@ export class SubhaSahitService {
     const updateData: Prisma.SubhaSahitDateUpdateInput = {};
 
     if (data.date !== undefined) {
-      updateData.date = this.toReportingDayDate(data.date);
+      updateData.date = this.calendarGregorianDateForDb(data.date);
     }
     if (data.occasion !== undefined) {
       updateData.occasion = data.occasion;
@@ -417,27 +428,30 @@ export class SubhaSahitService {
 
     if (pairs.length === 0) return [];
 
+    const langs = [...new Set(pairs.map((p) => p.language))];
     const metas = await prisma.subhaSahitOccasionMeta.findMany({
-      where: {
-        OR: pairs.map((p) => ({ language: p.language, occasion: p.occasion })),
-      },
+      where: { language: { in: langs } },
     });
-    const metaByKey = new Map(
-      metas.map((m) => [`${m.language}\0${m.occasion.toLowerCase()}`, m] as const)
+    const metaByKey = new Map<string, (typeof metas)[number]>(
+      metas.map((m) => [`${m.language}\0${m.occasion.trim().toLowerCase()}`, m])
     );
 
     return pairs.map((p) => {
+      const key = `${p.language}\0${p.occasion.trim().toLowerCase()}`;
       const m =
-        metaByKey.get(`${p.language}\0${p.occasion.toLowerCase()}`) ??
+        metaByKey.get(key) ??
         metas.find(
           (x) =>
-            x.language === p.language && x.occasion.toLowerCase() === p.occasion.toLowerCase()
+            x.language === p.language && x.occasion.trim().toLowerCase() === p.occasion.trim().toLowerCase()
         );
+      const pujaItems = m?.pujaItems ?? null;
+      const estimatedTime = m?.estimatedTime ?? null;
       return {
         occasion: p.occasion,
+        occasionKey: p.occasion.trim().toLowerCase(),
         ...(!language ? { language: subhaSahitDbLangToApi(p.language) } : {}),
-        pujaItems: m?.pujaItems ?? null,
-        estimatedTime: m?.estimatedTime ?? null,
+        pujaItems,
+        estimatedTime,
       };
     });
   }
@@ -453,7 +467,7 @@ export class SubhaSahitService {
       throw new AppError('Occasion is required', HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_ERROR);
     }
 
-    const placeholderDate = this.toReportingDayDate('2099-12-31');
+    const placeholderDate = this.calendarGregorianDateForDb('2099-12-31');
 
     const realDatesCount = await prisma.subhaSahitDate.count({
       where: {

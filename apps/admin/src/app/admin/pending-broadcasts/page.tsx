@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, LoadingButton } from '@jyotish/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  LoadingButton,
+} from '@jyotish/ui';
 import { ChatIcon } from '@jyotish/ui';
 import { EyeIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,7 +40,11 @@ function formatRequestedAt(iso: string) {
       month: 'short',
       day: 'numeric',
     }),
-    time: d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    time: d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }),
   };
 }
 
@@ -223,7 +234,9 @@ export default function PendingBroadcastsPage() {
       accessor: (row) => (
         <div className="flex justify-end">
           <LoadingButton
-            loading={assignMutation.isPending && assignMutation.variables?.messageId === row.messageId}
+            loading={
+              assignMutation.isPending && assignMutation.variables?.messageId === row.messageId
+            }
             disabled={!assignSelection[row.id]}
             onClick={() =>
               assignMutation.mutate({
@@ -278,7 +291,10 @@ export default function PendingBroadcastsPage() {
           />
         </div>
       </div>
-      <Dialog open={viewingQuestions !== null} onOpenChange={(open) => !open && setViewingQuestions(null)}>
+      <Dialog
+        open={viewingQuestions !== null}
+        onOpenChange={(open) => !open && setViewingQuestions(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Broadcast Questions</DialogTitle>

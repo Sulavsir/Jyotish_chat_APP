@@ -194,10 +194,7 @@ export default function VaastuBookingsPage() {
       header: 'Nearest landmark',
       accessor: (b) =>
         b.nearestLandmark?.trim() ? (
-          <span
-            className="text-slate-200 truncate block max-w-[160px]"
-            title={b.nearestLandmark}
-          >
+          <span className="text-slate-200 truncate block max-w-[160px]" title={b.nearestLandmark}>
             {b.nearestLandmark}
           </span>
         ) : (

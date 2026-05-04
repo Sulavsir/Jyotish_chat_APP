@@ -12,6 +12,8 @@ export type SubhaSahitApiLanguage = 'en' | 'ne' | 'hi';
  */
 export interface SubhaSahitOccasionListItem {
   occasion: string;
+  /** Stable match key: trimmed lowercase `occasion`. Use with booking `category` (case-insensitive). */
+  occasionKey: string;
   language?: SubhaSahitApiLanguage;
   pujaItems: string | null;
   estimatedTime: string | null;

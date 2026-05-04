@@ -19,12 +19,16 @@ import {
   AdminTable,
   AdminListPaginationSection,
   AdminRefreshButton,
+  AdminDualCalendarDateCell,
   type AdminTableColumn,
 } from '@/components/admin';
 import { ConfirmDialog } from '@/components/ui';
 import { toast } from 'sonner';
 import { Plus, Trash2, Pencil } from 'lucide-react';
 import { useDebouncedPageSize } from '@/hooks';
+import { useNepaliDateBulkMap } from '@/hooks/useNepaliDateBulkMap';
+import { calendarPrimaryFromAdminLanguageFilter } from '@/utils/admin-table-calendar-primary';
+import { toIsoDateKeyLocal } from '@/utils/to-iso-date-key-local';
 
 export default function DailyPredictionsPage() {
   const router = useRouter();
@@ -74,6 +78,10 @@ export default function DailyPredictionsPage() {
   const tips = data?.tips ?? [];
   const pagination = data?.pagination;
 
+  const tipDatesForBs = useMemo(() => tips.map((t) => t.date), [tips]);
+  const { data: tipBsMap = {}, isLoading: tipBsLoading } = useNepaliDateBulkMap(tipDatesForBs);
+  const tipDatePrimary = calendarPrimaryFromAdminLanguageFilter(languageFilter || '');
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => adminApi.tips.delete(id),
     onSuccess: () => {
@@ -90,13 +98,12 @@ export default function DailyPredictionsPage() {
     {
       header: 'Date',
       accessor: (tip) => (
-        <span className="text-slate-300">
-          {new Date(tip.date).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          })}
-        </span>
+        <AdminDualCalendarDateCell
+          value={tip.date}
+          bsMapping={tipBsMap[toIsoDateKeyLocal(tip.date)]}
+          primary={tipDatePrimary}
+          isLoading={tipBsLoading}
+        />
       ),
     },
     {
@@ -150,8 +157,7 @@ export default function DailyPredictionsPage() {
     },
   ];
 
-  const dateFilterActive =
-    dateFrom !== defaultListDates.from || dateTo !== defaultListDates.to;
+  const dateFilterActive = dateFrom !== defaultListDates.from || dateTo !== defaultListDates.to;
   const hasFilters = Boolean(languageFilter || audienceFilter || dateFilterActive);
 
   return (

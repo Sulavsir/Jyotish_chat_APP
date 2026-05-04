@@ -104,7 +104,9 @@ export function JyotishBookingDetailDialog({
             </DetailRow>
           ) : null}
 
-          <DetailRow label="Pujari needed">{b.pujariCount != null ? String(b.pujariCount) : '—'}</DetailRow>
+          <DetailRow label="Pujari needed">
+            {b.pujariCount != null ? String(b.pujariCount) : '—'}
+          </DetailRow>
 
           {structured ? (
             <>

@@ -340,9 +340,17 @@ export default function ChatsPage() {
     },
     {
       header: 'Last Message',
-      accessor: (chat) => (
-        <span className="max-w-xs truncate block">{formatLastMessage(chat.lastMessageText)}</span>
-      ),
+      accessor: (chat) => {
+        const preview = formatLastMessage(chat.lastMessageText);
+        return (
+          <span
+            className="max-w-[min(20rem,40vw)] block text-sm whitespace-normal break-words line-clamp-3"
+            title={preview === 'No messages yet' ? undefined : preview}
+          >
+            {preview}
+          </span>
+        );
+      },
     },
     {
       header: 'Time',

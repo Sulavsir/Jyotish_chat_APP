@@ -38,8 +38,7 @@ import {
 import { getImageUrl, formatAction, getStatusColor, getInitials, formatDate } from '@/utils';
 
 const ASTROLOGER_ID_PARAM = 'astrologerId';
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export default function ChatAuditPage() {
   const router = useRouter();
@@ -354,7 +353,11 @@ export default function ChatAuditPage() {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2 sm:hidden w-full">
             <div className="w-full [&_button]:w-full">
-              <ChatAuditTypeFilter value={typeFilter} onChange={setTypeFilter} disabled={isLoading} />
+              <ChatAuditTypeFilter
+                value={typeFilter}
+                onChange={setTypeFilter}
+                disabled={isLoading}
+              />
             </div>
             <div className="flex w-full items-center gap-2 min-w-0">
               <div className="min-w-0 flex-1 [&_button]:w-full">

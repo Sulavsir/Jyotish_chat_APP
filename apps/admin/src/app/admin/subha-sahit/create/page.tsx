@@ -4,7 +4,19 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/admin-api';
-import { Button, DateInput, Label, Textarea, ArrowLeftIcon, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, Input } from '@jyotish/ui';
+import {
+  Button,
+  DateInput,
+  Label,
+  Textarea,
+  ArrowLeftIcon,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Input,
+} from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES } from '@/constants';
 import { toast } from 'sonner';
@@ -48,8 +60,10 @@ export default function CreateSubhaSahitPage() {
   const occasions = occasionsData?.occasions ?? [];
 
   const batchMutation = useMutation({
-    mutationFn: (payload: { dates: { date: string; occasion: string; description?: string }[]; language?: 'en' | 'ne' | 'hi' }) =>
-      adminApi.subhaSahit.create(payload),
+    mutationFn: (payload: {
+      dates: { date: string; occasion: string; description?: string }[];
+      language?: 'en' | 'ne' | 'hi';
+    }) => adminApi.subhaSahit.create(payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SUBHA_SAHIT.ALL });
       toast.success(`${variables.dates.length} Subha Sahit date(s) created`);
@@ -115,9 +129,7 @@ export default function CreateSubhaSahitPage() {
       setIsOccasionModalOpen(false);
       // Pre-fill first empty row with this occasion
       setRows((prev) =>
-        prev.map((row) =>
-          !row.occasion.trim() ? { ...row, occasion: trimmed } : row
-        )
+        prev.map((row) => (!row.occasion.trim() ? { ...row, occasion: trimmed } : row))
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Failed to add occasion';
@@ -319,7 +331,9 @@ export default function CreateSubhaSahitPage() {
         <Dialog open={isOccasionModalOpen} onOpenChange={setIsOccasionModalOpen}>
           <DialogContent className="bg-slate-900 border border-purple-500/30 w-[92vw] max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle className="text-slate-100">Add Occasion for Selected Language</DialogTitle>
+              <DialogTitle className="text-slate-100">
+                Add Occasion for Selected Language
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
@@ -344,7 +358,8 @@ export default function CreateSubhaSahitPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="new-puja-items" className="text-slate-200 text-sm">
-                  Puja items <span className="text-slate-500 font-normal">(optional, comma-separated)</span>
+                  Puja items{' '}
+                  <span className="text-slate-500 font-normal">(optional, comma-separated)</span>
                 </Label>
                 <Input
                   id="new-puja-items"

@@ -13,6 +13,7 @@ import {
   AstrologerCategory,
   CHAT_MESSAGE_MAX_LENGTH_CLIENT,
   CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+  CHAT_LAST_MESSAGE_PREVIEW_MAX_LENGTH,
 } from '@jyotish/shared';
 import { AdminStatsEmitter } from '../utils/admin-stats-emitter';
 import { ERROR_CODES } from '@/constants/http.constants';
@@ -601,10 +602,10 @@ export function chatHandlers(io: Server, socket: Socket) {
 
         // Update chat with last message info
         const lastMessageText = content.trim()
-          ? content.substring(0, 100)
+          ? content.substring(0, CHAT_LAST_MESSAGE_PREVIEW_MAX_LENGTH)
           : metadata
             ? '📎 Sent an attachment'
-            : content.substring(0, 100);
+            : content.substring(0, CHAT_LAST_MESSAGE_PREVIEW_MAX_LENGTH);
 
         // Prepare turn-based messaging updates
         const turnBasedUpdates: any = {};

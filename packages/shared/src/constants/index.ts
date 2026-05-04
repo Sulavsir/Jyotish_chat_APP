@@ -7,9 +7,12 @@ export const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:4
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
-/** Direct chat: max characters per message (socket + HTTP + UI). Clients: 100; astrologers can send longer readings. */
+/** Direct chat: max characters per message (socket + HTTP + UI). Astrologers can send longer readings. */
 export const CHAT_MESSAGE_MAX_LENGTH_CLIENT = 500;
 export const CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER = 10000;
+
+/** Stored on `Chat.lastMessageText` for list UIs (admin monitor, chat lists). */
+export const CHAT_LAST_MESSAGE_PREVIEW_MAX_LENGTH = CHAT_MESSAGE_MAX_LENGTH_CLIENT;
 
 // Consultation durations (in minutes)
 export const CONSULTATION_DURATIONS = {

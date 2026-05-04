@@ -243,7 +243,13 @@ export function AdminMonthRangeFilter({
                 />
               </div>
             </div>
-            <Button type="button" size="sm" color="secondary" className="w-full" onClick={applyCustom}>
+            <Button
+              type="button"
+              size="sm"
+              color="secondary"
+              className="w-full"
+              onClick={applyCustom}
+            >
               Apply custom range
             </Button>
           </div>

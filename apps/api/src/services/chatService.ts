@@ -11,6 +11,7 @@ import {
   AstrologerCategory,
   CHAT_MESSAGE_MAX_LENGTH_CLIENT,
   CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+  CHAT_LAST_MESSAGE_PREVIEW_MAX_LENGTH,
   MessageType as SharedMessageType,
   AstrologerNotificationSoundCue,
 } from '@jyotish/shared';
@@ -1000,7 +1001,7 @@ export const sendMessage = async (
   // participant1 is client, participant2 is astrologer
   const chatUpdateData: Prisma.ChatUpdateInput = {
     lastMessageAt: new Date(),
-    lastMessageText: content.substring(0, 100),
+    lastMessageText: content.substring(0, CHAT_LAST_MESSAGE_PREVIEW_MAX_LENGTH),
     participant1Read: senderId === chat.participant1Id, // Client read if client sent
     participant2Read: senderId === chat.participant2Id, // Astrologer read if astrologer sent
   };
