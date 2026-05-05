@@ -5,7 +5,6 @@
 import { prisma, JyotishBookingStatus, JyotishBookingType, SubhaSahitLanguage } from '@jyotish/database';
 import { buildJyotishBookingLocationSummary } from '@jyotish/shared';
 import { AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
-import { subhaSahitService } from './subha-sahit.service';
 import { notifyClientJyotishBookingDecision } from './jyotishBookingNotification.service';
 
 const SUBHA_META_LANG_PRIORITY: readonly SubhaSahitLanguage[] = ['EN', 'NE', 'HI'];
@@ -67,71 +66,7 @@ export const jyotishBookingService = {
       );
     }
 
-    let categoryToStore = input.category.trim();
-
-    if (input.type === JyotishBookingType.PANDIT) {
-      const canonicalOccasion =
-        await subhaSahitService.resolveCanonicalOccasionForPanditBooking(input.category);
-
-      if (!canonicalOccasion) {
-        throw new AppError(
-          'Invalid category for Pujari Ji booking. Please select a valid occasion or category.',
-          HTTP_STATUS.BAD_REQUEST,
-          ERROR_CODES.VALIDATION_ERROR
-        );
-      }
-
-      categoryToStore = canonicalOccasion;
-
-      // Check if the date is a Subha Sahit date for the selected occasion/category
-      const availableDates = await subhaSahitService.getAvailableDates({
-        dateFrom: bookingDateStr,
-        dateTo: bookingDateStr,
-        occasion: canonicalOccasion,
-      });
-
-      const isSubhaSahit = availableDates.some(
-        (d) => {
-          const availableDateStr = d.date.toISOString().split('T')[0];
-          return availableDateStr === bookingDateStr;
-        }
-      );
-
-      if (!isSubhaSahit) {
-        throw new AppError(
-          `Pujari Ji bookings can only be made on Subha Sahit (auspicious) dates for "${canonicalOccasion}". Please select a date from the available dates for this occasion.`,
-          HTTP_STATUS.BAD_REQUEST,
-          ERROR_CODES.VALIDATION_ERROR
-        );
-      }
-
-      // Check if the client already has a booking for this date
-      // Use date range query to match any booking on this date (regardless of time component)
-      const startOfDay = new Date(`${bookingDateStr}T00:00:00.000Z`);
-      const endOfDay = new Date(`${bookingDateStr}T23:59:59.999Z`);
-
-      const existingBooking = await prisma.jyotishBookingRequest.findFirst({
-        where: {
-          clientId: input.clientId,
-          type: JyotishBookingType.PANDIT,
-          bookingDate: {
-            gte: startOfDay,
-            lte: endOfDay,
-          },
-          status: {
-            in: [JyotishBookingStatus.PENDING, JyotishBookingStatus.APPROVED],
-          },
-        },
-      });
-
-      if (existingBooking) {
-        throw new AppError(
-          `You already have a Pujari Ji booking for ${bookingDateStr}. You cannot book multiple times for the same date.`,
-          HTTP_STATUS.BAD_REQUEST,
-          ERROR_CODES.VALIDATION_ERROR
-        );
-      }
-    }
+    const categoryToStore = input.category.trim();
 
     const tole = input.tole?.trim() || null;
     const nearestLandmark = input.nearestLandmark?.trim() || null;

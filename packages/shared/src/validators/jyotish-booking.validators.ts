@@ -1,11 +1,5 @@
 import { z } from 'zod';
 import { JyotishBookingStatus, JyotishBookingType } from '../types';
-import {
-  KATHA_VACHAK_BOOKING_CATEGORIES,
-  PANDIT_BOOKING_CATEGORIES,
-  VAASTU_BOOKING_CATEGORIES,
-} from '../constants';
-
 const isValidISODate = (value: string) => {
   // HTML date input sends YYYY-MM-DD
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -89,33 +83,6 @@ export const createJyotishBookingRequestSchema = z
         message: 'Preferred Jyotish selection is only allowed for Katha Vachak bookings',
         path: ['preferredAstrologerId'],
       });
-    }
-
-    if (data.type === JyotishBookingType.PANDIT) {
-      if (!data.category || data.category.trim() === '') {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Category is required',
-          path: ['category'],
-        });
-      }
-    } else {
-      const allowedByType: Partial<Record<JyotishBookingType, readonly string[]>> = {
-        [JyotishBookingType.VAASTU]: VAASTU_BOOKING_CATEGORIES,
-        [JyotishBookingType.KATHA_VACHAK]: KATHA_VACHAK_BOOKING_CATEGORIES,
-      };
-
-      const allowed = allowedByType[data.type];
-      if (allowed) {
-        const isAllowed = (allowed as readonly string[]).includes(data.category);
-        if (!isAllowed) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Invalid category for selected booking type',
-            path: ['category'],
-          });
-        }
-      }
     }
 
     const alt = data.contactPhoneAlt;

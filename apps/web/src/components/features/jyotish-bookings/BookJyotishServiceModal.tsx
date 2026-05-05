@@ -41,7 +41,6 @@ import astrologerService from '@/services/astrologer.service';
 import { getImageUrl } from '@/utils/image.utils';
 import { subhaSahitService } from '@/services/subha-sahit.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
-import { useNepaliDateConvert } from '@/hooks/useNepaliDateConvert';
 import { toApiLanguageCode } from '@jyotish/shared';
 import { useAuthStore } from '@/store/auth-store';
 import { useProvincesQuery, useDistrictsByProvinceQuery } from '@/hooks/useLocationQueries';
@@ -87,7 +86,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     wardNo.trim().length > 0 && /^\d+$/.test(wardNo.trim()) && parseInt(wardNo.trim(), 10) >= 1;
 
   const needsAstrologerSelection = type === JyotishBookingType.KATHA_VACHAK;
-  const needsSubhaSahit = type === JyotishBookingType.PANDIT;
+  const isPanditBooking = type === JyotishBookingType.PANDIT;
 
   const astrologerSearch = '';
 
@@ -151,40 +150,6 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     [eligibleAstrologers, preferredAstrologerId]
   );
 
-  // Fetch Subha Sahit dates filtered by selected occasion/category and language
-  const { data: subhaSahitResp } = useQuery({
-    queryKey: QUERY_KEYS.SUBHA_SAHIT.AVAILABLE({
-      dateFrom: todayISO(),
-      occasion: needsSubhaSahit && category ? category : undefined,
-      language: apiLanguage,
-    }),
-    queryFn: () =>
-      subhaSahitService.getAvailableDates({
-        dateFrom: todayISO(),
-        occasion: needsSubhaSahit && category ? category : undefined,
-        language: apiLanguage,
-      }),
-    enabled: isOpen && needsSubhaSahit,
-    refetchOnMount: true,
-    refetchOnWindowFocus: false,
-  });
-
-  const availableDates = useMemo<string[]>(() => {
-    const today = todayISO();
-    const dates = (subhaSahitResp?.dates ?? [])
-      .map((d) => d.date.split('T')[0])
-      .filter((dateStr) => {
-        return dateStr >= today;
-      })
-      .sort();
-    return dates;
-  }, [subhaSahitResp?.dates]);
-
-  const { getDisplayDate: getDateDisplay } = useNepaliDateConvert(
-    availableDates,
-    questionnaireLanguage
-  );
-
   const { data: provinces = [], isLoading: provincesLoading } = useProvincesQuery({
     enabled: isOpen,
   });
@@ -210,42 +175,8 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     setContactPhoneAlt('');
     setPreferredAstrologerId(undefined);
     setDateError('');
-    // Don't set bookingDate here - let the category/date effect handle it
-    if (!needsSubhaSahit) {
-      setBookingDate(todayISO());
-    } else {
-      setBookingDate(''); // Will be set when dates load
-    }
-  }, [isOpen, categories, needsSubhaSahit, apiLanguage, user?.phone, user?.phoneNumber]);
-
-  // When category or available dates change, update selected date
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!needsSubhaSahit) return;
-
-    // If no category selected yet, don't set a date
-    if (!category) {
-      setBookingDate('');
-      setDateError('');
-      return;
-    }
-
-    // If no dates available for this occasion, clear date
-    if (!availableDates.length) {
-      setBookingDate('');
-      setDateError('');
-      return;
-    }
-
-    // If current selected date is not in available dates for this occasion, reset to first available
-    setBookingDate((prev) => {
-      if (prev && availableDates.includes(prev)) {
-        return prev; // Keep current date if it's still valid for this occasion
-      }
-      return availableDates[0]; // Otherwise select first available date
-    });
-    setDateError('');
-  }, [isOpen, needsSubhaSahit, availableDates, category]);
+    setBookingDate(todayISO());
+  }, [isOpen, categories, apiLanguage, user?.phone, user?.phoneNumber]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -275,18 +206,6 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
         );
       }
 
-      // For PANDIT bookings, validate that the date is a Subha Sahit date
-      if (needsSubhaSahit && availableDates.length > 0 && !availableDates.includes(bookingDate)) {
-        throw new Error(
-          'Please select a Subha Sahit (auspicious) date. Only dates listed by admin are available for Pandit Ji bookings.'
-        );
-      }
-
-      if (needsSubhaSahit && availableDates.length === 0) {
-        throw new Error(
-          'No Subha Sahit dates are available. Please contact admin to add auspicious dates.'
-        );
-      }
       if (!category) {
         throw new Error('Category is required');
       }
@@ -353,8 +272,8 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm text-purple-200/90">
-                  {needsSubhaSahit
-                    ? 'Select your puja category and Subha Sahit date. Admin will review your request.'
+                  {isPanditBooking
+                    ? 'Select your puja category and date. Admin will review your request.'
                     : 'Select your preferred date and category. Admin will review and approve/reject your request.'}
                 </DialogDescription>
               </div>
@@ -372,7 +291,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="flex flex-col gap-2">
                   <Label className="text-white">
-                    {needsSubhaSahit ? (
+                    {isPanditBooking ? (
                       <>
                         Puja Category <span className="text-red-400">*</span>
                       </>
@@ -390,17 +309,12 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                     value={category}
                     onValueChange={(value) => {
                       setCategory(value);
-                      // Reset date when category changes - dates will be filtered by new occasion
-                      if (needsSubhaSahit) {
-                        setBookingDate('');
-                        setDateError('');
-                      }
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue
                         placeholder={
-                          needsSubhaSahit ? 'Select a puja category...' : 'Select a category...'
+                          isPanditBooking ? 'Select a puja category...' : 'Select a category...'
                         }
                       />
                     </SelectTrigger>
@@ -419,66 +333,19 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                     Select date <span className="text-red-400">*</span>
                   </Label>
 
-                  {needsSubhaSahit ? (
-                    <>
-                      {!category ? (
-                        <div className="text-sm text-amber-300/80 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                          Please select a puja category first to see available Subha Sahit dates.
-                        </div>
-                      ) : availableDates.length > 0 ? (
-                        <Select
-                          value={bookingDate}
-                          onValueChange={(value) => {
-                            setBookingDate(value);
-                            setDateError('');
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={`Select a Subha Sahit date for ${category}...`}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableDates.map((d) => {
-                              const dateObj = subhaSahitResp?.dates.find(
-                                (sd) => sd.date.split('T')[0] === d
-                              );
-                              return (
-                                <SelectItem key={d} value={d}>
-                                  {getDateDisplay(d)}
-                                  {dateObj?.description && (
-                                    <span className="text-xs text-gray-400 ml-2">
-                                      ({dateObj.description})
-                                    </span>
-                                  )}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <div className="text-sm text-red-300/90 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                          No Subha Sahit dates are available for &quot;{category}&quot;. Please
-                          select a different occasion or contact admin to add dates for this
-                          occasion.
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <DateInput
-                      min={todayISO()}
-                      value={bookingDate}
-                      onChange={(e) => setBookingDate(e.target.value)}
-                      required
-                      nepaliDate
-                    />
-                  )}
+                  <DateInput
+                    min={todayISO()}
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    required
+                    nepaliDate
+                  />
 
                   {dateError && <p className="text-sm text-red-400 mt-1">{dateError}</p>}
                 </div>
               </div>
 
-              {needsSubhaSahit && category ? (
+              {isPanditBooking && category ? (
                 <div className="rounded-xl border border-purple-500/25 bg-slate-950/40 p-4 space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-purple-300/90">
                     About this occasion
@@ -789,7 +656,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
 
               <div className="flex flex-col gap-2">
                 <Label className="text-white">
-                  {needsSubhaSahit
+                  {isPanditBooking
                     ? 'Additional notes (optional)'
                     : 'Booking details / remarks (optional)'}
                 </Label>
