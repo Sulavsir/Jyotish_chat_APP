@@ -91,4 +91,9 @@ export const listAdminKundaliMatchQuerySchema = queryPaginationSchema.extend({
     ),
   dateFrom: optionalYmdQuery,
   dateTo: optionalYmdQuery,
+  search: z
+    .string()
+    .max(200)
+    .optional()
+    .transform((s) => (s && s.trim() ? s.trim() : undefined)),
 });

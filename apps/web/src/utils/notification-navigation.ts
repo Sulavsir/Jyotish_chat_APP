@@ -3,7 +3,7 @@
  * Keep in sync with NotificationBell routing behavior.
  */
 
-import { KUNDALI_APPOINTMENT_NOTIFICATION_EVENT } from '@jyotish/shared';
+import { KUNDALI_APPOINTMENT_NOTIFICATION_EVENT, NotificationType } from '@jyotish/shared';
 import { ROUTES } from '@/constants/route.constants';
 
 export interface NotificationNavInput {
@@ -76,6 +76,10 @@ export function getNotificationDestination(input: NotificationNavInput): string 
       return `${prefix}/notifications`;
     }
     return `${prefix}/transactions`;
+  }
+
+  if (type === NotificationType.JYOTISH_BOOKING && !isAstrologer) {
+    return ROUTES.MY_BOOKINGS;
   }
 
   return `${prefix}/notifications`;

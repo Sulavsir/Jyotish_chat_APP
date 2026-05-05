@@ -136,6 +136,16 @@ export const API_ENDPOINTS = {
     LIST: '/api/v1/admin/kundali-match',
     GET: (id: string) => `/api/v1/admin/kundali-match/${id}`,
     SUBMIT_REVIEW: (id: string) => `/api/v1/admin/kundali-match/${id}/review`,
+    CONSULTATION_CATALOGUE: '/api/v1/admin/kundali-match/consultation-catalogue',
+    CONSULTATION_CATALOGUE_LOOKUP: '/api/v1/admin/kundali-match/consultation-catalogue/lookup',
+    CONSULTATION_CATALOGUE_TITLE: '/api/v1/admin/kundali-match/consultation-catalogue/title',
+    CONSULTATION_CATALOGUE_QUESTIONS: '/api/v1/admin/kundali-match/consultation-catalogue/questions',
+    CONSULTATION_CATALOGUE_QUESTIONS_ORDER:
+      '/api/v1/admin/kundali-match/consultation-catalogue/questions/order',
+    CONSULTATION_CATALOGUE_QUESTION: (questionId: string) =>
+      `/api/v1/admin/kundali-match/consultation-catalogue/questions/${encodeURIComponent(questionId)}`,
+    CONSULTATION_CATALOGUE_QUESTION_MOVE: (questionId: string) =>
+      `/api/v1/admin/kundali-match/consultation-catalogue/questions/${encodeURIComponent(questionId)}/move`,
   },
 
   PRICING: {

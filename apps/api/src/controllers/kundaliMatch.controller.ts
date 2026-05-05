@@ -10,10 +10,7 @@ import { AuthRequest } from '../types';
 import { sendSuccess } from '../utils';
 import { HTTP_STATUS } from '../constants';
 import * as kundaliMatchService from '../services/kundaliMatch.service';
-import {
-  KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS,
-  KUNDALI_MATCH_PREMIUM_CONSULTATION_TITLE_NE,
-} from '@jyotish/shared';
+import * as kundaliConsultationCatalogue from '../services/kundaliMatchConsultationCatalogue.service';
 
 type ValidatedBody = {
   boyDateOfBirth: string;
@@ -66,10 +63,8 @@ export async function listPublicPremiumConsultationQuestions(
   next: NextFunction
 ): Promise<void> {
   try {
-    sendSuccess(res, {
-      titleNe: KUNDALI_MATCH_PREMIUM_CONSULTATION_TITLE_NE,
-      questions: KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS,
-    });
+    const catalogue = await kundaliConsultationCatalogue.getPublicCatalogue();
+    sendSuccess(res, catalogue);
   } catch (e) {
     next(e);
   }
@@ -177,6 +172,7 @@ export async function listAdmin(req: AuthRequest, res: Response, next: NextFunct
       status?: 'PENDING' | 'REVIEWED';
       dateFrom?: string;
       dateTo?: string;
+      search?: string;
     };
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(100, Math.max(1, query.limit || 10));
@@ -186,6 +182,7 @@ export async function listAdmin(req: AuthRequest, res: Response, next: NextFunct
       status: query.status,
       dateFrom: query.dateFrom,
       dateTo: query.dateTo,
+      search: query.search,
     });
     return sendSuccess(res, result);
   } catch (e) {

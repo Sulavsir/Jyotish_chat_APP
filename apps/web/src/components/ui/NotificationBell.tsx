@@ -76,7 +76,7 @@ interface Notification {
   lastUpdated?: string;
   count?: number;
   groupKey?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 type NotificationsBundle = {
@@ -296,7 +296,6 @@ export function NotificationBell({ themeColor = 'purple' }: NotificationBellProp
               if (n.type !== 'BROADCAST_MESSAGE') return;
               const msgId = n.metadata?.broadcastMessageId as string | undefined;
               if (!msgId) return;
-              // Socket event already gave a definitive status — preserve it
               if (next.has(msgId)) return;
 
               const acceptedByMe =

@@ -269,6 +269,7 @@ export enum NotificationType {
   SYSTEM = 'SYSTEM',
   CHAT_ENDED = 'CHAT_ENDED',
   CHAT_ABANDONED = 'CHAT_ABANDONED',
+  JYOTISH_BOOKING = 'JYOTISH_BOOKING',
 }
 
 // Payment types

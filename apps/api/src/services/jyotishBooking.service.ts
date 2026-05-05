@@ -6,6 +6,7 @@ import { prisma, JyotishBookingStatus, JyotishBookingType, SubhaSahitLanguage } 
 import { buildJyotishBookingLocationSummary } from '@jyotish/shared';
 import { AppError, ERROR_CODES, HTTP_STATUS } from '../utils';
 import { subhaSahitService } from './subha-sahit.service';
+import { notifyClientJyotishBookingDecision } from './jyotishBookingNotification.service';
 
 const SUBHA_META_LANG_PRIORITY: readonly SubhaSahitLanguage[] = ['EN', 'NE', 'HI'];
 
@@ -414,7 +415,7 @@ export const jyotishBookingService = {
       throw new AppError('Booking request not found', HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND);
     }
 
-    return prisma.jyotishBookingRequest.update({
+    const updated = await prisma.jyotishBookingRequest.update({
       where: { id: input.id },
       data: {
         status: input.status,
@@ -426,5 +427,17 @@ export const jyotishBookingService = {
             : null,
       },
     });
+
+    void notifyClientJyotishBookingDecision({
+      clientId: existing.clientId,
+      bookingId: updated.id,
+      bookingType: existing.type,
+      category: existing.category,
+      bookingDateIso: updated.bookingDate,
+      nextStatus: input.status,
+      previousStatus: existing.status,
+    });
+
+    return updated;
   },
 };

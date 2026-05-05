@@ -16,6 +16,7 @@ import {
   LoadingButton,
   AdminMonthRangeFilter,
   getTodayDateRange,
+  Search,
 } from '@jyotish/ui';
 import { nepaliDateService } from '@/services/nepali-date.service';
 import { KundaliMatchPlaceBlock } from '@/components/kundali-match/kundali-match-place-block';
@@ -35,6 +36,7 @@ import {
   PAGINATION_DEFAULTS,
   ADMIN_ROWS_PER_PAGE_OPTIONS,
   ADMIN_DATE_FILTER_DEBOUNCE_MS,
+  ADMIN_SEARCH_DEBOUNCE_MS,
 } from '@/constants';
 import { formatGregorianDateEnShort, formatTimeStringAmPm } from '@jyotish/shared';
 import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
@@ -47,6 +49,8 @@ const LOCALE_STORAGE_KEY = 'admin-kundali-match-display-locale';
 export type KundaliAdminDisplayLocale = 'en' | 'ne' | 'hi';
 
 export default function KundaliMatchPage() {
+  const [requestSearchTerm, setRequestSearchTerm] = useState('');
+  const debouncedRequestSearch = useDebounce(requestSearchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
   const [currentPage, setCurrentPage] = useState(1);
   const {
     pageSize: rowsPerPage,
@@ -85,6 +89,7 @@ export default function KundaliMatchPage() {
 
   const defaultRequestRange = getTodayDateRange();
   const hasKundaliListFilters =
+    debouncedRequestSearch !== '' ||
     statusFilter !== 'ALL' ||
     debouncedRequestFrom !== defaultRequestRange.from ||
     debouncedRequestTo !== defaultRequestRange.to;
@@ -92,6 +97,7 @@ export default function KundaliMatchPage() {
   const clearKundaliListFilters = () => {
     setStatusFilter('ALL');
     setRequestDateRange(getTodayDateRange());
+    setRequestSearchTerm('');
     setCurrentPage(1);
   };
 
@@ -103,6 +109,7 @@ export default function KundaliMatchPage() {
       debouncedRowsPerPage,
       debouncedRequestFrom,
       debouncedRequestTo,
+      debouncedRequestSearch,
     ],
     queryFn: () =>
       adminApi.kundaliMatch.list({
@@ -111,6 +118,7 @@ export default function KundaliMatchPage() {
         status: statusFilter === 'ALL' ? undefined : statusFilter,
         ...(debouncedRequestFrom?.trim() && { dateFrom: debouncedRequestFrom.trim() }),
         ...(debouncedRequestTo?.trim() && { dateTo: debouncedRequestTo.trim() }),
+        ...(debouncedRequestSearch !== '' ? { search: debouncedRequestSearch } : {}),
       }),
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
@@ -124,7 +132,13 @@ export default function KundaliMatchPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, debouncedRowsPerPage, debouncedRequestFrom, debouncedRequestTo]);
+  }, [
+    statusFilter,
+    debouncedRowsPerPage,
+    debouncedRequestFrom,
+    debouncedRequestTo,
+    debouncedRequestSearch,
+  ]);
 
   const requests = data?.requests ?? [];
   const dobKeys = useMemo(() => {
@@ -150,6 +164,12 @@ export default function KundaliMatchPage() {
     queryFn: () => nepaliDateService.convertBulk(dobKeys),
     enabled: dobKeys.length > 0,
     staleTime: 1000 * 60 * 60,
+  });
+
+  const { data: consultationCatalogue } = useQuery({
+    queryKey: ADMIN_QUERY_KEYS.KUNDALI_MATCH.CONSULTATION_LOOKUP(),
+    queryFn: () => adminApi.kundaliMatch.consultationCatalogueLookup(),
+    staleTime: 60_000,
   });
 
   const submitReviewMutation = useMutation({
@@ -326,10 +346,6 @@ export default function KundaliMatchPage() {
               />
             </div>
           </div>
-          <p className="text-sm sm:text-base text-slate-400">
-            Review requests and send the kundali match report (text) to the user. Use Filter to
-            narrow by request date (when the user submitted), same as Payment History.
-          </p>
         </div>
 
         <div className="cosmic-card p-4 sm:p-5">
@@ -382,7 +398,17 @@ export default function KundaliMatchPage() {
               className="w-full shrink-0 self-end lg:w-auto"
             />
           </div>
-          <p className="mt-3 text-[11px] text-slate-500 leading-snug border-t border-slate-700/60 pt-3">
+        </div>
+
+        <div className="w-full min-w-0 space-y-2">
+          <Label className="text-white font-medium text-sm block">Search requests</Label>
+          <Search
+            containerClassName="w-full max-w-none"
+            placeholder="User name, phone, email, or request ID..."
+            value={requestSearchTerm}
+            onChange={(e) => setRequestSearchTerm(e.target.value)}
+          />
+          <p className="text-[11px] text-slate-500 leading-snug pt-1">
             Table dates show Bikram Sambat and English (AD): bold line follows the language above;
             the other calendar is shown below in smaller text. Province and district use Devanagari
             when Nepali or Hindi is selected.
@@ -405,10 +431,10 @@ export default function KundaliMatchPage() {
                 emptyState={{
                   icon: <span className="text-4xl">🔮</span>,
                   title: hasKundaliListFilters
-                    ? 'No kundali match requests in this range'
+                    ? 'No kundali match requests match your filters'
                     : 'No kundali match requests',
                   description: hasKundaliListFilters
-                    ? 'Try adjusting the date range or status filter.'
+                    ? 'Try changing search, date range, or status.'
                     : 'Requests will appear here when users submit from the dashboard.',
                 }}
               />
@@ -446,6 +472,7 @@ export default function KundaliMatchPage() {
                 bsMap={bsMap}
                 isBsLoading={isBsLoading}
                 useDevanagari={useDevanagari}
+                consultationCatalogue={consultationCatalogue}
               />
               {viewModalRequest.status === 'REVIEWED' && viewModalRequest.adminReviewMessage && (
                 <div>
@@ -523,6 +550,7 @@ export default function KundaliMatchPage() {
                 useDevanagari={useDevanagari}
                 showUser={false}
                 showPaymentStatus={false}
+                consultationCatalogue={consultationCatalogue}
               />
             ) : null}
           </div>

@@ -1074,12 +1074,60 @@ export const adminApi = {
    * Kundali Match
    */
   kundaliMatch: {
+    consultationCatalogueLookup: async (): Promise<
+      import('@/types/kundaliMatchConsultationCatalogue.types').KundaliConsultationCatalogueLookupResponse
+    > => {
+      return apiClient.get(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_LOOKUP);
+    },
+    consultationCatalogueList: async (params: {
+      page: number;
+      limit: number;
+      search?: string;
+    }): Promise<
+      import('@/types/kundaliMatchConsultationCatalogue.types').PaginatedKundaliConsultationTopicsResponse
+    > => {
+      return apiClient.get(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE, { params });
+    },
+    updateConsultationTitle: async (body: { titleNe: string }): Promise<{ titleNe: string }> => {
+      return apiClient.patch(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_TITLE, body);
+    },
+    createConsultationQuestion: async (body: {
+      textNe: string;
+      sortOrder?: number;
+    }): Promise<{
+      question: import('@/types/kundaliMatchConsultationCatalogue.types').KundaliConsultationQuestionAdminDTO;
+    }> => {
+      return apiClient.post(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_QUESTIONS, body);
+    },
+    updateConsultationQuestion: async (
+      questionId: string,
+      body: { textNe?: string; isActive?: boolean; sortOrder?: number }
+    ): Promise<{
+      question: import('@/types/kundaliMatchConsultationCatalogue.types').KundaliConsultationQuestionAdminDTO;
+    }> => {
+      return apiClient.patch(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_QUESTION(questionId), body);
+    },
+    deleteConsultationQuestion: async (questionId: string): Promise<{ ok: boolean }> => {
+      return apiClient.delete(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_QUESTION(questionId));
+    },
+    reorderConsultationQuestions: async (body: {
+      orderedIds: string[];
+    }): Promise<{ ok: boolean }> => {
+      return apiClient.put(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_QUESTIONS_ORDER, body);
+    },
+    moveConsultationQuestion: async (
+      questionId: string,
+      body: { direction: 'up' | 'down' }
+    ): Promise<{ ok: boolean }> => {
+      return apiClient.post(API_ENDPOINTS.KUNDALI_MATCH.CONSULTATION_CATALOGUE_QUESTION_MOVE(questionId), body);
+    },
     list: async (params?: {
       page?: number;
       limit?: number;
       status?: string;
       dateFrom?: string;
       dateTo?: string;
+      search?: string;
     }): Promise<{
       requests: import('@/types/kundaliMatch.types').KundaliMatchRequest[];
       pagination: { page: number; limit: number; total: number; totalPages: number };

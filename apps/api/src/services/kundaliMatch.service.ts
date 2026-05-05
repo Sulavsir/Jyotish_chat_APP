@@ -8,6 +8,7 @@ import { KundaliMatchStatus } from '@prisma/client';
 import { AppError } from '../middleware/error-handler';
 import { HTTP_STATUS, ERROR_CODES } from '../constants';
 import * as coinService from './coin.service';
+import * as kundaliConsultationCatalogue from './kundaliMatchConsultationCatalogue.service';
 import {
   reportingDayEndInclusive,
   reportingDayStart,
@@ -88,6 +89,9 @@ function parseDateOnly(dateStr: string): Date {
 }
 
 export async function createRequest(input: CreateKundaliMatchInput): Promise<KundaliMatchRequestRow> {
+  await kundaliConsultationCatalogue.assertActiveConsultationQuestionIds(
+    input.selectedConsultationQuestionIds
+  );
   const result = await coinService.deductCoinsForKundaliMatch(input.userId);
   const coinCost = result.coinCost;
   const coinTransactionId = result.coinTransactionId || null;
@@ -189,14 +193,26 @@ export async function listAdmin(options: {
   status?: KundaliMatchStatus;
   dateFrom?: string;
   dateTo?: string;
+  search?: string;
 }) {
-  const { page, limit, status, dateFrom, dateTo } = options;
+  const { page, limit, status, dateFrom, dateTo, search } = options;
   const skip = (page - 1) * limit;
   const createdFilter = kundaliCreatedAtRange(dateFrom, dateTo);
-  const where: Prisma.KundaliMatchRequestWhereInput = {
-    ...(status ? { status } : {}),
-    ...(createdFilter ? { createdAt: createdFilter } : {}),
-  };
+  const clauses: Prisma.KundaliMatchRequestWhereInput[] = [];
+  if (status) clauses.push({ status });
+  if (createdFilter) clauses.push({ createdAt: createdFilter });
+  if (search?.length) {
+    clauses.push({
+      OR: [
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+        { user: { phone: { contains: search } } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { id: { contains: search, mode: 'insensitive' } },
+      ],
+    });
+  }
+  const where: Prisma.KundaliMatchRequestWhereInput =
+    clauses.length > 0 ? { AND: clauses } : {};
 
   const [requests, total] = await Promise.all([
     prisma.kundaliMatchRequest.findMany({

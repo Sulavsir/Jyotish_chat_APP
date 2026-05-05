@@ -56,7 +56,9 @@ export const ADMIN_ROUTES = {
 
   // Kundali Match
   KUNDALI_MATCH: '/admin/kundali-match',
-  
+  /** Premium match consultation topics (admin catalogue UI) */
+  KUNDALI_MATCH_QUESTIONS: '/admin/kundali-match/questions',
+
   // Earnings
   EARNINGS: '/admin/earnings',
   TRANSACTIONS: '/admin/transactions',

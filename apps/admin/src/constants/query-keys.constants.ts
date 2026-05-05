@@ -206,6 +206,11 @@ export const ADMIN_QUERY_KEYS = {
   // Kundali Match
   KUNDALI_MATCH: {
     ALL: ['admin', 'kundali-match'] as const,
+    CONSULTATION_CATALOGUE_ROOT: ['admin', 'kundali-match', 'consultation-catalogue'] as const,
+    CONSULTATION_LOOKUP: () =>
+      ['admin', 'kundali-match', 'consultation-catalogue', 'lookup'] as const,
+    CONSULTATION_LIST: (params: { page: number; limit: number; search: string }) =>
+      ['admin', 'kundali-match', 'consultation-catalogue', 'list', params] as const,
     LIST: (page?: number) =>
       page
         ? (['admin', 'kundali-match', 'list', page] as const)

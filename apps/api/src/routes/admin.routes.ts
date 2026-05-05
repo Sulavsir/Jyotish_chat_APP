@@ -48,6 +48,13 @@ import {
   updateAstrologerSchema,
   deleteAstrologerBodySchema,
   verifyEditPasswordBodySchema,
+  createKundaliConsultationQuestionSchema,
+  reorderKundaliConsultationQuestionsSchema,
+  updateKundaliConsultationQuestionSchema,
+  updateKundaliConsultationTitleSchema,
+  kundaliConsultationQuestionIdParamSchema,
+  listAdminConsultationCatalogueQuerySchema,
+  moveKundaliConsultationQuestionBodySchema,
 } from '../validators';
 import {
   listAdminPlatformPaymentQuerySchema,
@@ -63,6 +70,7 @@ import {
 import { updateBroadcastQuestionPricingBodySchema } from '../validators/broadcastQuestionPricing.validators';
 import { jyotishBookingController, adminCoinRatesController, tipController, subhaSahitController } from '../controllers';
 import * as kundaliMatchController from '../controllers/kundaliMatch.controller';
+import * as kundaliMatchConsultationCatalogueController from '../controllers/kundaliMatchConsultationCatalogue.controller';
 import {
   listAdminKundaliMatchQuerySchema,
   submitKundaliMatchReviewSchema,
@@ -524,6 +532,53 @@ router.patch(
 );
 
 // ==================== Kundali Match ====================
+router.get(
+  '/kundali-match/consultation-catalogue/lookup',
+  asyncHandler(kundaliMatchConsultationCatalogueController.getConsultationCatalogueLookup)
+);
+router.get(
+  '/kundali-match/consultation-catalogue',
+  validateQuery(listAdminConsultationCatalogueQuerySchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.listAdminConsultationCataloguePaginated)
+);
+router.patch(
+  '/kundali-match/consultation-catalogue/title',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchConsultationCatalogue'),
+  validateBody(updateKundaliConsultationTitleSchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.updateTitle)
+);
+router.put(
+  '/kundali-match/consultation-catalogue/questions/order',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchConsultationCatalogue'),
+  validateBody(reorderKundaliConsultationQuestionsSchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.reorderQuestions)
+);
+router.post(
+  '/kundali-match/consultation-catalogue/questions',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchConsultationCatalogue'),
+  validateBody(createKundaliConsultationQuestionSchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.createQuestion)
+);
+router.post(
+  '/kundali-match/consultation-catalogue/questions/:questionId/move',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchConsultationCatalogue'),
+  validateParams(kundaliConsultationQuestionIdParamSchema),
+  validateBody(moveKundaliConsultationQuestionBodySchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.moveQuestion)
+);
+router.delete(
+  '/kundali-match/consultation-catalogue/questions/:questionId',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchConsultationCatalogue'),
+  validateParams(kundaliConsultationQuestionIdParamSchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.deleteQuestion)
+);
+router.patch(
+  '/kundali-match/consultation-catalogue/questions/:questionId',
+  auditLogger(AuditAction.ADMIN_ACTION, 'KundaliMatchConsultationCatalogue'),
+  validateParams(kundaliConsultationQuestionIdParamSchema),
+  validateBody(updateKundaliConsultationQuestionSchema),
+  asyncHandler(kundaliMatchConsultationCatalogueController.updateQuestion)
+);
 router.get(
   '/kundali-match',
   validateQuery(listAdminKundaliMatchQuerySchema),

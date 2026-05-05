@@ -32,6 +32,7 @@
     "db:migrate:rollback": "pnpm --filter database db:migrate:rollback",
     "db:migrate:resolve-applied": "pnpm --filter database db:migrate:resolve-applied",
     "db:migrate:status": "pnpm --filter database db:migrate:status",
+    "db:migrate:history": "pnpm --filter database db:migrate:history",
     "db:migrate:baseline-to-nepal-geography": "pnpm --filter database db:migrate:baseline-to-nepal-geography",
     "db:studio": "pnpm --filter database db:studio",
     "db:format": "pnpm --filter database db:format"

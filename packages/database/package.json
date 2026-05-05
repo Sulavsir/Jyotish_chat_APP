@@ -14,6 +14,7 @@
     "db:migrate:rollback": "dotenv -e ../../../.env -- prisma migrate resolve --rolled-back",
     "db:migrate:resolve-applied": "dotenv -e ../../../.env -- prisma migrate resolve --applied",
     "db:migrate:status": "dotenv -e ../../../.env -- prisma migrate status",
+    "db:migrate:history": "dotenv -e ../../../.env -- ts-node scripts/print-applied-migrations.ts",
     "db:migrate:baseline-to-nepal-geography": "dotenv -e ../../../.env -- bash ./scripts/baseline-migrations-up-to-nepal-geography.sh",
     "db:migrate:reset": "dotenv -e ../../../.env -- prisma migrate reset",
     "db:studio": "dotenv -e ../../../.env -- prisma studio",

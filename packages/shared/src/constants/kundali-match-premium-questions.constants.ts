@@ -85,12 +85,49 @@ const PREMIUM_QUESTION_BY_ID = new Map(
   KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS.map((q) => [q.id, q])
 );
 
-/** Returns questions in catalogue order for the given stored IDs. */
-export function orderKundaliMatchPremiumQuestionIds(
-  ids: readonly string[]
-): KundaliMatchPremiumConsultationQuestion[] {
-  const set = new Set(ids);
-  return KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS.filter((q) => set.has(q.id));
+export interface KundaliConsultationQuestionView {
+  readonly id: string;
+  readonly textNe: string;
+}
+
+/**
+ * Orders selected IDs by `catalogueOrdered`, then appends any remaining IDs (archived / legacy)
+ * using their catalogue text when available, otherwise a short fallback label.
+ */
+export function orderSelectedKundaliConsultationQuestions<Q extends KundaliConsultationQuestionView>(
+  catalogueOrdered: readonly Q[],
+  selectedIds: readonly string[]
+): Q[] {
+  const catalogueById = new Map<string, Q>(catalogueOrdered.map((q) => [q.id, q]));
+  const selSet = new Set(selectedIds);
+  const ordered: Q[] = [];
+  for (const q of catalogueOrdered) {
+    if (selSet.has(q.id)) ordered.push(q);
+  }
+  const seen = new Set(ordered.map((q) => q.id));
+  for (const id of selectedIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const known = catalogueById.get(id);
+    if (known) {
+      ordered.push(known);
+      continue;
+    }
+    ordered.push({
+      id,
+      textNe:
+        '(Archived or unknown topic — administrators can review the stored ID in the match request.)',
+    } as Q);
+  }
+  return ordered;
+}
+
+/**
+ * Legacy static ordering when the runtime API catalogue is unavailable (offline tools / tests).
+ * Prefer `orderSelectedKundaliConsultationQuestions` with the public API payload in apps.
+ */
+export function orderKundaliMatchPremiumQuestionIds(ids: readonly string[]): KundaliConsultationQuestionView[] {
+  return orderSelectedKundaliConsultationQuestions(KUNDALI_MATCH_PREMIUM_CONSULTATION_QUESTIONS, ids);
 }
 
 export function getKundaliMatchPremiumQuestionById(

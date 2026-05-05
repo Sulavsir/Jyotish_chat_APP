@@ -914,7 +914,7 @@ model KundaliMatchRequest {
   girlPlaceOfBirthPradeshId   String?
   girlPlaceOfBirthDistrictId  String?
   girlPlaceOfBirthLocation    String?
-  /// Premium consultation topics selected by the client (stable IDs from shared catalogue).
+  /// Premium consultation topics selected by the client (IDs from KundaliMatchConsultationQuestion).
   selectedConsultationQuestionIds String[] @default([])
   status              KundaliMatchStatus   @default(PENDING)
   adminReviewMessage  String?              // Long text reply from admin
@@ -935,6 +935,17 @@ model KundaliMatchRequest {
   @@index([userId])
   @@index([status])
   @@index([createdAt])
+}
+
+model KundaliMatchConsultationQuestion {
+  id        String   @id
+  textNe    String
+  sortOrder Int      @default(1)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
 }
 
 model PricingPlan {
@@ -1097,6 +1108,7 @@ enum NotificationType {
   SYSTEM
   CHAT_ENDED
   CHAT_ABANDONED
+  JYOTISH_BOOKING
 }
 
 enum PaymentStatus {

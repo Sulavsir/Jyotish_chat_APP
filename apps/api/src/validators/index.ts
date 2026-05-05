@@ -62,3 +62,4 @@ export * from './adminUsersList.validators';
 export * from './adminBroadcastAcceptanceReport.validators';
 export * from './chatAudit.validators';
 export * from './chat.validators';
+export * from './kundaliMatchConsultationCatalogue.validators';

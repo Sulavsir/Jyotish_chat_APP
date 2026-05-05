@@ -7,6 +7,7 @@ import {
 } from '@jyotish/shared';
 import { Badge } from '@jyotish/ui';
 import type { KundaliMatchRequest } from '@/types/kundaliMatch.types';
+import type { KundaliConsultationCatalogueAdminResponse } from '@/types/kundaliMatchConsultationCatalogue.types';
 import { KundaliMatchPlaceBlock } from './kundali-match-place-block';
 import { KundaliMatchDobLines, toYmd } from './kundali-match-dob-lines';
 import { KundaliMatchPremiumTopicsBlock } from './KundaliMatchPremiumTopicsBlock';
@@ -20,6 +21,7 @@ export function KundaliMatchRequestDetailPanel({
   showUser = true,
   showTopics = true,
   showPaymentStatus = true,
+  consultationCatalogue,
 }: {
   r: KundaliMatchRequest;
   bsMap: Record<string, NepaliDateMappingInput | undefined>;
@@ -28,6 +30,7 @@ export function KundaliMatchRequestDetailPanel({
   showUser?: boolean;
   showTopics?: boolean;
   showPaymentStatus?: boolean;
+  consultationCatalogue?: KundaliConsultationCatalogueAdminResponse | null;
 }) {
   return (
     <div className="space-y-4 text-sm min-w-0">
@@ -50,7 +53,10 @@ export function KundaliMatchRequestDetailPanel({
       {showTopics && (
         <div className="rounded-lg bg-slate-800/40 border border-slate-700 p-3 space-y-2 min-w-0">
           <p className="text-slate-400 font-medium text-sm">Consultation topics requested</p>
-          <KundaliMatchPremiumTopicsBlock selectedIds={r.selectedConsultationQuestionIds ?? []} />
+          <KundaliMatchPremiumTopicsBlock
+            selectedIds={r.selectedConsultationQuestionIds ?? []}
+            consultationCatalogue={consultationCatalogue}
+          />
         </div>
       )}
 
