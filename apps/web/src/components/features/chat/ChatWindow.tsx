@@ -53,10 +53,10 @@ import {
   ClientChatHistoryModal,
   ClientChatHistoryPanel,
 } from '@/components/modals';
-import type { ClientProfile } from '@jyotish/shared';
 import {
-  CHAT_MESSAGE_MAX_LENGTH_CLIENT,
   CHAT_MESSAGE_MAX_LENGTH_ASTROLOGER,
+  CHAT_MESSAGE_MAX_LENGTH_CLIENT,
+  type ClientProfile,
 } from '@jyotish/shared';
 import { ChatClientQuestionBundle } from './ChatClientQuestionBundle';
 

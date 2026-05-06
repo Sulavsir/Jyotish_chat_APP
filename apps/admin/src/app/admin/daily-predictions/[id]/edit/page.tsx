@@ -8,8 +8,7 @@ import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, TIP_AUDIENCES } from '@/constants';
 import type { AdminDailyTip } from '@/types';
 import { Button, DateInput, Label, Textarea } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
-import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
-import type { QuestionnaireLanguage, TipAudience } from '@jyotish/shared';
+import { QUESTIONNAIRE_LANGUAGES, type QuestionnaireLanguage, type TipAudience } from '@jyotish/shared';
 import { toast } from 'sonner';
 
 const selectClassName =

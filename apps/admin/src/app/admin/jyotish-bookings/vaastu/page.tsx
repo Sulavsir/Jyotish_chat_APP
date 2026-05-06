@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+  ADMIN_JYOTISH_BOOKING_LIST_FILTER,
   ADMIN_QUERY_KEYS,
   PAGINATION_DEFAULTS,
   ADMIN_ROWS_PER_PAGE_OPTIONS,
@@ -92,7 +93,7 @@ export default function VaastuBookingsPage() {
     isFetching,
   } = useQuery<JyotishBookingsResponse>({
     queryKey: [
-      ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.VAASTU }),
+      ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST(ADMIN_JYOTISH_BOOKING_LIST_FILTER.VAASTU),
       currentPage,
       debouncedSearch,
       statusFilter,
@@ -139,7 +140,7 @@ export default function VaastuBookingsPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.VAASTU }),
+        queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST(ADMIN_JYOTISH_BOOKING_LIST_FILTER.VAASTU),
       });
       void queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS() });
       toast.success('Updated successfully');

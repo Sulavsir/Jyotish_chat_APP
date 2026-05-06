@@ -3,6 +3,15 @@
  * Centralized query keys for React Query
  */
 
+import { JyotishBookingType } from '@jyotish/shared';
+
+//Booking list filters
+export const ADMIN_JYOTISH_BOOKING_LIST_FILTER = {
+  KATHA_VACHAK: { type: JyotishBookingType.KATHA_VACHAK },
+  PANDIT: { type: JyotishBookingType.PANDIT },
+  VAASTU: { type: JyotishBookingType.VAASTU },
+} as const;
+
 export const ADMIN_QUERY_KEYS = {
   APP_VERSION: ['admin', 'app', 'version'] as const,
 

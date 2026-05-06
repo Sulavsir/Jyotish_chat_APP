@@ -34,7 +34,7 @@ import {
   ActiveChatConflictModal,
 } from '@/components/modals';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { QuestionnaireCategory } from '@jyotish/shared';
+import { CHAT_MESSAGE_MAX_LENGTH_CLIENT, type QuestionnaireCategory } from '@jyotish/shared';
 import { questionnaireService } from '@/services/questionnaire.service';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
@@ -53,7 +53,6 @@ import { useCoinRates } from '@/hooks/useCoinRates';
 import coinService from '@/services/coin.service';
 import { AstrologerCategory } from '@/types/astrologer';
 import { SelectedQuestionsModal, type SelectedQuestionDetailed } from './SelectedQuestionsModal';
-import { CHAT_MESSAGE_MAX_LENGTH_CLIENT } from '@jyotish/shared';
 import {
   computeBroadcastBaseTotalNr,
   computeBroadcastTotalNrWithQ1Discount,

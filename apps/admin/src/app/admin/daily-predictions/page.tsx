@@ -13,8 +13,7 @@ import {
   ADMIN_ROWS_PER_PAGE_OPTIONS,
 } from '@/constants';
 import type { AdminDailyTip, ListTipsParams } from '@/types';
-import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
-import type { QuestionnaireLanguage, TipAudience } from '@jyotish/shared';
+import { QUESTIONNAIRE_LANGUAGES, type QuestionnaireLanguage, type TipAudience } from '@jyotish/shared';
 import {
   AdminTable,
   AdminListPaginationSection,

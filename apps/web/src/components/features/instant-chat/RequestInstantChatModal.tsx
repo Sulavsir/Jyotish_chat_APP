@@ -39,7 +39,7 @@ import { clientProfileService } from '@/services/clientProfile.service';
 import broadcastMessageService from '@/services/broadcastMessage.service';
 import { SelectProfileSection } from '@/components/profile';
 import { AddFamilyMemberModal, BroadcastPaymentDetailsModal } from '@/components/modals';
-import type { QuestionnaireCategory, ClientProfile } from '@jyotish/shared';
+import type { ClientProfile, QuestionnaireCategory } from '@jyotish/shared';
 import type {
   BroadcastPriceBreakdownEntry,
   SendBroadcastQuestionsRequest,

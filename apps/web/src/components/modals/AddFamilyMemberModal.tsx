@@ -27,9 +27,8 @@ import {
 import { X } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { createClientProfileSchema } from '@jyotish/shared';
+import { createClientProfileSchema, type ClientProfile } from '@jyotish/shared';
 import { z } from 'zod';
-import type { ClientProfile } from '@jyotish/shared';
 import { clientProfileService } from '@/services/clientProfile.service';
 import { QUERY_KEYS } from '@/constants';
 import { showErrorToast } from '@/lib/error-handler';

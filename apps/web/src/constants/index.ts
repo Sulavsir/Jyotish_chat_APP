@@ -16,6 +16,7 @@ export * from './gender.constants';
 export * from './file-upload.constants';
 export * from './appointment.constants';
 export * from './query-keys.constants';
+export * from './astrologer-list.constants';
 export * from './pricing.constants';
 export * from './payment.constants';
 export * from './error.constants';

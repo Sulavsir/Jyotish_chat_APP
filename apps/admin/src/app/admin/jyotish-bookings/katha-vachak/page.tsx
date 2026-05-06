@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+  ADMIN_JYOTISH_BOOKING_LIST_FILTER,
   ADMIN_QUERY_KEYS,
   PAGINATION_DEFAULTS,
   ADMIN_ROWS_PER_PAGE_OPTIONS,
@@ -95,7 +96,7 @@ export default function KathaVachakBookingsPage() {
     isFetching,
   } = useQuery<JyotishBookingsResponse>({
     queryKey: [
-      ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
+      ...ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST(ADMIN_JYOTISH_BOOKING_LIST_FILTER.KATHA_VACHAK),
       currentPage,
       debouncedSearch,
       statusFilter,
@@ -142,7 +143,9 @@ export default function KathaVachakBookingsPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST({ type: JyotishBookingType.KATHA_VACHAK }),
+        queryKey: ADMIN_QUERY_KEYS.JYOTISH_BOOKINGS.LIST(
+          ADMIN_JYOTISH_BOOKING_LIST_FILTER.KATHA_VACHAK
+        ),
       });
       void queryClient.invalidateQueries({ queryKey: ADMIN_QUERY_KEYS.SIDEBAR_COUNTS() });
       toast.success('Updated successfully');

@@ -1,10 +1,10 @@
 'use client';
 
-import type { JyotishBookingRequest } from '@jyotish/shared';
 import {
   jyotishBookingVenuePrimaryLine,
   jyotishBookingVenueSecondaryLine,
   jyotishBookingVenueTitle,
+  type JyotishBookingRequest,
 } from '@jyotish/shared';
 
 export function JyotishBookingVenueCell({ booking }: { booking: JyotishBookingRequest }) {

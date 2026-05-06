@@ -35,8 +35,11 @@ import {
   SelectValue,
   Textarea,
 } from '@jyotish/ui';
-import type { QuestionnaireCategory } from '@jyotish/shared';
-import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
+import {
+  AdminRole,
+  QUESTIONNAIRE_LANGUAGES,
+  type QuestionnaireCategory,
+} from '@jyotish/shared';
 import { toast } from 'sonner';
 import {
   AdminTable,
@@ -48,7 +51,6 @@ import { ConfirmDialog } from '@/components/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import React from 'react';
 import { useAdminStore } from '@/store/admin-store';
-import { AdminRole } from '@jyotish/shared';
 
 type QuestionnairesListResponse = {
   categories: QuestionnaireCategory[];

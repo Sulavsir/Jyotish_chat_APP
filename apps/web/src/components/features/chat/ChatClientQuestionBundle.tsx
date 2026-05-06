@@ -15,8 +15,8 @@ import {
   LoadingButton,
 } from '@jyotish/ui';
 import { ChevronDown, ChevronUp, Coins, ListChecks } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import type { QuestionnaireCategory } from '@jyotish/shared';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { ClientProfile, QuestionnaireCategory, User } from '@jyotish/shared';
 import { AstrologerCategory } from '@/types/astrologer';
 import { QUERY_KEYS } from '@/constants';
 import { questionnaireService } from '@/services/questionnaire.service';
@@ -28,11 +28,8 @@ import { sendDirectQuestionBundle } from '@/services/chat.service';
 import { buildDirectBundleQuestionItems } from '@/utils/directQuestionBundle.utils';
 import { checkClientProfileCompletion } from '@/utils/profile-completion';
 import { getBirthDetailsForProfile } from '@/utils/birth-details.utils';
-import type { User } from '@jyotish/shared';
-import type { ClientProfile } from '@jyotish/shared';
 import { toast } from 'sonner';
 import { refetchClientBalanceAndStats } from '@/utils/query.utils';
-import { useQueryClient } from '@tanstack/react-query';
 
 export interface ChatClientQuestionBundleProps {
   astrologerId: string;

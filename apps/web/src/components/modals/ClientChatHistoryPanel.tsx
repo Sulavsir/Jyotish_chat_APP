@@ -10,9 +10,8 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Badge, Avatar, AvatarFallback, Button, LoadingButton } from '@jyotish/ui';
 import { History, User, X } from 'lucide-react';
 import { getClientChatHistory, type ClientChatHistoryMessage } from '@/services/clientChatHistory.service';
-import { QUERY_KEYS } from '@/constants';
+import { API_BASE_URL, QUERY_KEYS } from '@/constants';
 import { format, isToday, isYesterday } from 'date-fns';
-import { API_BASE_URL } from '@/constants';
 import { userService } from '@/services/user.service';
 import {
   formatBirthDetailsSingleLine,

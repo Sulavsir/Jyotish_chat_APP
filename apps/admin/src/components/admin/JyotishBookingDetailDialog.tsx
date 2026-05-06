@@ -1,8 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { JyotishBookingRequest, AstrologerCategory } from '@jyotish/shared';
-import { hasStructuredJyotishVenue } from '@jyotish/shared';
+import {
+  hasStructuredJyotishVenue,
+  type AstrologerCategory,
+  type JyotishBookingRequest,
+} from '@jyotish/shared';
 import {
   Button,
   Dialog,

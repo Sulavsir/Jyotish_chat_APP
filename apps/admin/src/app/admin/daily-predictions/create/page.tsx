@@ -8,8 +8,7 @@ import { Button, DateInput, Label, Textarea, ArrowLeftIcon } from '@jyotish/ui';
 import { LoadingButton } from '@/components/ui';
 import { ADMIN_QUERY_KEYS, ADMIN_ROUTES, TIP_AUDIENCES } from '@/constants';
 import type { CreateTipRequest } from '@/types';
-import type { QuestionnaireLanguage, TipAudience } from '@jyotish/shared';
-import { QUESTIONNAIRE_LANGUAGES } from '@jyotish/shared';
+import { QUESTIONNAIRE_LANGUAGES, type QuestionnaireLanguage, type TipAudience } from '@jyotish/shared';
 import { toast } from 'sonner';
 import { Plus, Trash2 } from 'lucide-react';
 

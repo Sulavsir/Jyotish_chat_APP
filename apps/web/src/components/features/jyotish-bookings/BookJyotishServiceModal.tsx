@@ -32,19 +32,18 @@ import {
   KATHA_VACHAK_BOOKING_CATEGORIES,
   PANDIT_BOOKING_CATEGORIES,
   VAASTU_BOOKING_CATEGORIES,
-  AstrologerCategory,
+  toApiLanguageCode,
+  type NepalGeography,
 } from '@jyotish/shared';
 import jyotishBookingService from '@/services/jyotishBooking.service';
-import { QUERY_KEYS } from '@/constants';
+import { KATHA_VACHAK_BOOKING_ASTROLOGER_LIST_FILTERS, QUERY_KEYS } from '@/constants';
 import type { PublicAstrologerProfile } from '@/types/astrologer';
 import astrologerService from '@/services/astrologer.service';
 import { getImageUrl } from '@/utils/image.utils';
 import { subhaSahitService } from '@/services/subha-sahit.service';
 import { useQuestionnaireLanguageStore } from '@/store/questionnaire-language.store';
-import { toApiLanguageCode } from '@jyotish/shared';
 import { useAuthStore } from '@/store/auth-store';
 import { useProvincesQuery, useDistrictsByProvinceQuery } from '@/hooks/useLocationQueries';
-import type { NepalGeography } from '@jyotish/shared';
 
 type Props = {
   isOpen: boolean;
@@ -82,13 +81,12 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
   const [preferredAstrologerId, setPreferredAstrologerId] = useState<string | undefined>(undefined);
   const [dateError, setDateError] = useState<string>('');
 
+  const wardNoTrimmed = wardNo.trim();
   const wardNoIsValidNumber =
-    wardNo.trim().length > 0 && /^\d+$/.test(wardNo.trim()) && parseInt(wardNo.trim(), 10) >= 1;
+    wardNoTrimmed.length > 0 && /^\d+$/.test(wardNoTrimmed) && parseInt(wardNoTrimmed, 10) >= 1;
 
   const needsAstrologerSelection = type === JyotishBookingType.KATHA_VACHAK;
   const isPanditBooking = type === JyotishBookingType.PANDIT;
-
-  const astrologerSearch = '';
 
   // Get language from store and convert to API format
   const questionnaireLanguage = useQuestionnaireLanguageStore((s) => s.language);
@@ -111,6 +109,12 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
     [panditOccasionDetails, category]
   );
 
+  const selectedPujariOccasionItems = useMemo(() => {
+    const raw = selectedPujariOccasion?.pujaItems;
+    if (!raw) return [];
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }, [selectedPujariOccasion?.pujaItems]);
+
   const categories = useMemo(() => {
     if (type === JyotishBookingType.PANDIT) {
       return panditOccasionDetails.length
@@ -122,21 +126,8 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
   }, [type, panditOccasionDetails]);
 
   const { data: astrologersResp, isLoading: isAstrologersLoading } = useQuery({
-    queryKey: QUERY_KEYS.ASTROLOGERS.LIST({
-      search: astrologerSearch,
-      category: AstrologerCategory.KATHA_VACHAK,
-      limit: 50,
-      sortBy: 'rating',
-      sortOrder: 'desc',
-    }),
-    queryFn: () =>
-      astrologerService.listAstrologers({
-        search: astrologerSearch,
-        category: AstrologerCategory.KATHA_VACHAK,
-        limit: 50,
-        sortBy: 'rating',
-        sortOrder: 'desc',
-      }),
+    queryKey: QUERY_KEYS.ASTROLOGERS.LIST(KATHA_VACHAK_BOOKING_ASTROLOGER_LIST_FILTERS),
+    queryFn: () => astrologerService.listAstrologers(KATHA_VACHAK_BOOKING_ASTROLOGER_LIST_FILTERS),
     enabled: isOpen && needsAstrologerSelection,
   });
 
@@ -223,7 +214,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
         details: details.trim() ? details.trim() : undefined,
         province: provinceRow.nameEn,
         district: districtRow.nameEn,
-        wardNo: wardNo.trim(),
+        wardNo: wardNoTrimmed,
         place: place.trim(),
         tole: tole.trim() ? tole.trim() : undefined,
         nearestLandmark: nearestLandmark.trim() ? nearestLandmark.trim() : undefined,
@@ -305,12 +296,7 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                       </>
                     )}
                   </Label>
-                  <Select
-                    value={category}
-                    onValueChange={(value) => {
-                      setCategory(value);
-                    }}
-                  >
+                  <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger>
                       <SelectValue
                         placeholder={
@@ -366,18 +352,14 @@ export function BookJyotishServiceModal({ isOpen, onClose, type, title }: Props)
                     <div>
                       <p className="text-xs text-slate-400 mb-2">Puja items (arrange as needed)</p>
                       <ul className="flex flex-wrap gap-2">
-                        {selectedPujariOccasion.pujaItems
-                          .split(',')
-                          .map((s) => s.trim())
-                          .filter(Boolean)
-                          .map((item, idx) => (
-                            <li
-                              key={`${item}-${idx}`}
-                              className="inline-flex items-center rounded-full border border-purple-500/35 bg-purple-500/10 px-3 py-1 text-xs text-purple-100"
-                            >
-                              {item}
-                            </li>
-                          ))}
+                        {selectedPujariOccasionItems.map((item, idx) => (
+                          <li
+                            key={`${item}-${idx}`}
+                            className="inline-flex items-center rounded-full border border-purple-500/35 bg-purple-500/10 px-3 py-1 text-xs text-purple-100"
+                          >
+                            {item}
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   ) : null}

@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X, XCircle } from 'lucide-react';
 import {
@@ -45,11 +45,14 @@ export function JyotishSelector({ selectedAstrologerId, onSelect, onClear }: Jyo
   const onlineUsers = useStore((state) => state.onlineUsers);
   const onlineCount = useStore((state) => state.onlineUsers.size);
 
-  const listFilters: AstrologerListParams = {
-    isOnline: true,
-    search: searchTerm || undefined,
-    limit: 50,
-  };
+  const listFilters = useMemo<AstrologerListParams>(
+    () => ({
+      isOnline: true,
+      search: searchTerm || undefined,
+      limit: 50,
+    }),
+    [searchTerm]
+  );
 
   const { data: astrologersData, isLoading } = useQuery({
     queryKey: [...QUERY_KEYS.ASTROLOGERS.LIST(listFilters), onlineCount],
