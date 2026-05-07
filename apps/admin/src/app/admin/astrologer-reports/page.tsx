@@ -3,18 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import {
-  Search,
-  StarIcon,
-  AdminMonthRangeFilter,
-  getTodayDateRange,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Label,
-} from '@jyotish/ui';
+import { Search, StarIcon, AdminMonthRangeFilter, getTodayDateRange, Label } from '@jyotish/ui';
 import { useDebounce, useDebouncedPageSize } from '@/hooks';
 import { adminApi } from '@/lib/admin-api';
 import {
@@ -22,6 +11,7 @@ import {
   AdminClearFiltersButton,
   AdminListPaginationSection,
   AdminRefreshButton,
+  SortFilter,
   type AdminTableColumn,
 } from '@/components/admin';
 import {
@@ -32,7 +22,11 @@ import {
   ADMIN_DATE_FILTER_DEBOUNCE_MS,
   ADMIN_SEARCH_DEBOUNCE_MS,
 } from '@/constants';
-import type { AstrologerChatAcceptanceReportRow } from '@/types';
+import {
+  ASTROLOGER_CHAT_ACCEPTANCE_REPORT_SORT_OPTIONS,
+  type AstrologerChatAcceptanceReportRow,
+  type AstrologerChatAcceptanceReportSortBy,
+} from '@/types';
 import { AstrologerCategory } from '@jyotish/shared';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,9 +40,7 @@ export default function AstrologerReportsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm.trim(), ADMIN_SEARCH_DEBOUNCE_MS);
 
-  const [sortBy, setSortBy] = useState<
-    'broadcastAcceptedCount' | 'directChatAcceptedCount' | 'totalAcceptances' | 'name'
-  >('totalAcceptances');
+  const [sortBy, setSortBy] = useState<AstrologerChatAcceptanceReportSortBy>('totalAcceptances');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,8 +89,7 @@ export default function AstrologerReportsPage() {
   };
 
   const todayRange = getTodayDateRange();
-  const isDefaultDateRange =
-    dateRange.from === todayRange.from && dateRange.to === todayRange.to;
+  const isDefaultDateRange = dateRange.from === todayRange.from && dateRange.to === todayRange.to;
   const isDefaultSort =
     sortBy === 'totalAcceptances' && sortOrder === 'desc' && isDefaultDateRange && !debouncedSearch;
 
@@ -120,6 +111,7 @@ export default function AstrologerReportsPage() {
     totalPages: 0,
   };
   const periodBroadcast = data?.periodTotals.broadcastAccepted ?? 0;
+  const periodFirstBroadcast = data?.periodTotals.firstBroadcastAccepted ?? 0;
   const periodDirect = data?.periodTotals.directChatAccepted ?? 0;
 
   const columns: AdminTableColumn<AstrologerChatAcceptanceReportRow>[] = useMemo(
@@ -161,6 +153,16 @@ export default function AstrologerReportsPage() {
         className: 'text-right',
       },
       {
+        header: 'First broadcast',
+        accessor: (row) => (
+          <span className="tabular-nums font-semibold text-emerald-200/90">
+            {row.firstBroadcastAcceptedCount}
+          </span>
+        ),
+        className: 'text-right',
+      },
+
+      {
         header: 'Direct chat count',
         accessor: (row) => (
           <span className="tabular-nums font-semibold text-violet-200">
@@ -188,10 +190,15 @@ export default function AstrologerReportsPage() {
               Astrologer Reports
             </h1>
             <p className="text-sm sm:text-base text-slate-400 mt-1 max-w-3xl">
-              Everyone Jyotish (broadcast) and direct (instant) chat acceptances per astrologer.
-              Dates use acceptance time (UTC). Click a row to open Chat Monitor filtered to that
-              jyotish.
+              Jyotish broadcast and direct chat acceptances per astrologer. Broadcast count excludes
+              first-broadcast promo accepts (shown in First broadcast).
             </p>
+            {!isLoading && (
+              <p className="text-xs text-slate-500 mt-2 tabular-nums">
+                In this filter: {periodBroadcast} standard broadcast, {periodFirstBroadcast} first
+                broadcast, {periodDirect} direct chat threads.
+              </p>
+            )}
           </div>
           <AdminRefreshButton
             onClick={() => refetch()}
@@ -224,6 +231,7 @@ export default function AstrologerReportsPage() {
           <div className="flex-1 min-w-0 space-y-1">
             <Label className="text-slate-400 text-xs block">Search</Label>
             <Search
+              outerLayer={false}
               containerClassName="w-full"
               placeholder="Name, email, or phone..."
               value={searchTerm}
@@ -235,52 +243,14 @@ export default function AstrologerReportsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full lg:w-[420px] shrink-0">
-            <div className="space-y-1">
-              <Label className="text-slate-400 text-xs block">Sort by</Label>
-              <Select
-                value={sortBy}
-                onValueChange={(v) =>
-                  setSortBy(
-                    v === 'name'
-                      ? 'name'
-                      : v === 'directChatAcceptedCount'
-                        ? 'directChatAcceptedCount'
-                        : v === 'broadcastAcceptedCount'
-                          ? 'broadcastAcceptedCount'
-                          : 'totalAcceptances'
-                  )
-                }
-                disabled={isLoading || isFetching}
-              >
-                <SelectTrigger className="border-slate-700 bg-slate-900 text-white w-full h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="totalAcceptances">Total acceptances</SelectItem>
-                  <SelectItem value="broadcastAcceptedCount">Broadcast count</SelectItem>
-                  <SelectItem value="directChatAcceptedCount">Direct chat count</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-slate-400 text-xs block">Order</Label>
-              <Select
-                value={sortOrder}
-                onValueChange={(v) => setSortOrder(v === 'asc' ? 'asc' : 'desc')}
-                disabled={isLoading || isFetching}
-              >
-                <SelectTrigger className="border-slate-700 bg-slate-900 text-white w-full h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="desc">Descending</SelectItem>
-                  <SelectItem value="asc">Ascending</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <SortFilter<AstrologerChatAcceptanceReportSortBy>
+            sortBy={sortBy}
+            onSortByChange={setSortBy}
+            sortOptions={ASTROLOGER_CHAT_ACCEPTANCE_REPORT_SORT_OPTIONS}
+            sortOrder={sortOrder}
+            onSortOrderChange={setSortOrder}
+            disabled={isLoading || isFetching}
+          />
 
           <div className="hidden min-[1100px]:flex items-end gap-2 shrink-0">
             <div className="space-y-1 min-w-[220px]">
@@ -317,7 +287,7 @@ export default function AstrologerReportsPage() {
             icon: <StarIcon className="w-16 h-16 text-slate-600" />,
             title: 'No astrologers in this range',
             description:
-              'Adjust the date filter or search. Rows appear when an astrologer has accepted at least one broadcast or direct chat in the selected period.',
+              'Adjust the date filter or search. Rows appear when an astrologer has at least one standard broadcast, first-broadcast promo, or direct chat acceptance in the period. First broadcast uses the first-broadcast discount tier (not included in broadcast count).',
           }}
         />
       </div>

@@ -35,11 +35,7 @@ import {
   SelectValue,
   Textarea,
 } from '@jyotish/ui';
-import {
-  AdminRole,
-  QUESTIONNAIRE_LANGUAGES,
-  type QuestionnaireCategory,
-} from '@jyotish/shared';
+import { AdminRole, QUESTIONNAIRE_LANGUAGES, type QuestionnaireCategory } from '@jyotish/shared';
 import { toast } from 'sonner';
 import {
   AdminTable,
@@ -106,8 +102,9 @@ function toFormDefaults(item?: QuestionnaireCategory): QuestionnaireFormValues {
 }
 
 export default function QuestionnairesManagementPage() {
-  const canViewBroadcastQuestionPricing =
-    useAdminStore((s) => s.admin?.adminRole !== AdminRole.USER_SUPPORT);
+  const canViewBroadcastQuestionPricing = useAdminStore(
+    (s) => s.admin?.adminRole !== AdminRole.USER_SUPPORT
+  );
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = React.useState('');
   const debouncedSearch = useDebounce(searchTerm, ADMIN_SEARCH_DEBOUNCE_MS);
@@ -486,28 +483,70 @@ export default function QuestionnairesManagementPage() {
 
         {canViewBroadcastQuestionPricing && (
           <Card className="cosmic-card border border-slate-700 overflow-hidden">
-              <CardHeader className="space-y-1 p-4 sm:p-6">
-                <CardTitle className="text-lg sm:text-xl text-white">
-                  Broadcast question pricing (NRs)
-                </CardTitle>
-                <p className="text-sm text-slate-400">
-                  Set NRs per number of questions. First row is for 1 question; add custom rows for
-                  more (e.g. 2 questions = 190 NRs, 5 = 400 NRs).
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
-                <div className="space-y-3">
-                  {pricingRows.map((row) => (
-                    <div
-                      key={row.id}
-                      className="flex flex-col gap-3 rounded-lg border border-slate-600 bg-slate-800/50 p-3 sm:flex-row sm:flex-wrap sm:items-center"
-                    >
-                      {row.id === FIRST_ROW_ID ? (
-                        <>
-                          <span className="text-slate-300 text-sm shrink-0 sm:w-32">
-                            1 question
-                          </span>
-                          <Label className="sr-only">Price (NRs)</Label>
+            <CardHeader className="space-y-1 p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-xl text-white">
+                Broadcast question pricing (NRs)
+              </CardTitle>
+              <p className="text-sm text-slate-400">
+                Set NRs per number of questions. First row is for 1 question; add custom rows for
+                more (e.g. 2 questions = 190 NRs, 5 = 400 NRs).
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+              <div className="space-y-3">
+                {pricingRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-col gap-3 rounded-lg border border-slate-600 bg-slate-800/50 p-3 sm:flex-row sm:flex-wrap sm:items-center"
+                  >
+                    {row.id === FIRST_ROW_ID ? (
+                      <>
+                        <span className="text-slate-300 text-sm shrink-0 sm:w-32">1 question</span>
+                        <Label className="sr-only">Price (NRs)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="NRs"
+                          value={row.amountNr}
+                          onChange={(e) =>
+                            setPricingRows((prev) =>
+                              prev.map((r) =>
+                                r.id === FIRST_ROW_ID ? { ...r, amountNr: e.target.value } : r
+                              )
+                            )
+                          }
+                          className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-28"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                          <Label className="text-slate-300 text-sm shrink-0">
+                            No. of questions
+                          </Label>
+                          <Input
+                            type="number"
+                            min={2}
+                            max={50}
+                            step={1}
+                            value={row.questionCount}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (Number.isNaN(v) || v < 2) return;
+                              setPricingRows((prev) =>
+                                prev.map((r) =>
+                                  r.id === row.id
+                                    ? { ...r, questionCount: Math.min(50, Math.max(2, v)) }
+                                    : r
+                                )
+                              );
+                            }}
+                            className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-24"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                          <Label className="text-slate-300 text-sm shrink-0">Price (NRs)</Label>
                           <Input
                             type="number"
                             min={0}
@@ -517,132 +556,88 @@ export default function QuestionnairesManagementPage() {
                             onChange={(e) =>
                               setPricingRows((prev) =>
                                 prev.map((r) =>
-                                  r.id === FIRST_ROW_ID ? { ...r, amountNr: e.target.value } : r
+                                  r.id === row.id ? { ...r, amountNr: e.target.value } : r
                                 )
                               )
                             }
                             className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-28"
                           />
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-                            <Label className="text-slate-300 text-sm shrink-0">
-                              No. of questions
-                            </Label>
-                            <Input
-                              type="number"
-                              min={2}
-                              max={50}
-                              step={1}
-                              value={row.questionCount}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value, 10);
-                                if (Number.isNaN(v) || v < 2) return;
-                                setPricingRows((prev) =>
-                                  prev.map((r) =>
-                                    r.id === row.id
-                                      ? { ...r, questionCount: Math.min(50, Math.max(2, v)) }
-                                      : r
-                                  )
-                                );
-                              }}
-                              className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-24"
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
-                            <Label className="text-slate-300 text-sm shrink-0">Price (NRs)</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={1}
-                              placeholder="NRs"
-                              value={row.amountNr}
-                              onChange={(e) =>
-                                setPricingRows((prev) =>
-                                  prev.map((r) =>
-                                    r.id === row.id ? { ...r, amountNr: e.target.value } : r
-                                  )
-                                )
-                              }
-                              className="bg-slate-800 border-slate-600 text-white h-9 w-full min-w-0 sm:w-28"
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="self-end text-slate-400 hover:text-red-400 sm:self-center"
-                            onClick={() =>
-                              setPricingRows((prev) => prev.filter((r) => r.id !== row.id))
-                            }
-                            aria-label="Remove row"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-slate-600 text-slate-300 sm:w-auto"
-                    onClick={() => {
-                      const maxCount =
-                        pricingRows.length === 0
-                          ? 1
-                          : Math.max(...pricingRows.map((r) => r.questionCount), 1);
-                      const nextCount = maxCount + 1;
-                      setPricingRows((prev) => [
-                        ...prev,
-                        {
-                          id: `custom-${Date.now()}`,
-                          questionCount: nextCount,
-                          amountNr: '',
-                        },
-                      ]);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add custom
-                  </Button>
-                  <LoadingButton
-                    loading={pricingMutation.isPending}
-                    loadingText="Saving..."
-                    className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
-                    onClick={() => {
-                      const tiers = pricingRows.map((r) => {
-                        const v = parseInt(r.amountNr, 10);
-                        return {
-                          questionCount: r.questionCount,
-                          amountNr: Number.isNaN(v) ? 0 : Math.max(0, v),
-                        };
-                      });
-                      const withAmount = tiers.filter((t) => t.amountNr > 0);
-                      if (withAmount.length === 0) {
-                        toast.error('Set at least one tier amount (NRs).');
-                        return;
-                      }
-                      const counts = tiers.map((t) => t.questionCount);
-                      const dup = counts.find((c, i) => counts.indexOf(c) !== i);
-                      if (dup != null) {
-                        toast.error(
-                          `Duplicate number of questions: ${dup}. Each row must be unique.`
-                        );
-                        return;
-                      }
-                      pricingMutation.mutate(tiers);
-                    }}
-                  >
-                    Save pricing
-                  </LoadingButton>
-                </div>
-              </CardContent>
-            </Card>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="self-end text-slate-400 hover:text-red-400 sm:self-center"
+                          onClick={() =>
+                            setPricingRows((prev) => prev.filter((r) => r.id !== row.id))
+                          }
+                          aria-label="Remove row"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-slate-600 text-slate-300 sm:w-auto"
+                  onClick={() => {
+                    const maxCount =
+                      pricingRows.length === 0
+                        ? 1
+                        : Math.max(...pricingRows.map((r) => r.questionCount), 1);
+                    const nextCount = maxCount + 1;
+                    setPricingRows((prev) => [
+                      ...prev,
+                      {
+                        id: `custom-${Date.now()}`,
+                        questionCount: nextCount,
+                        amountNr: '',
+                      },
+                    ]);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add custom
+                </Button>
+                <LoadingButton
+                  loading={pricingMutation.isPending}
+                  loadingText="Saving..."
+                  className="w-full bg-gradient-to-r from-cosmic-purple to-nebula-pink hover:opacity-90 sm:w-auto"
+                  onClick={() => {
+                    const tiers = pricingRows.map((r) => {
+                      const v = parseInt(r.amountNr, 10);
+                      return {
+                        questionCount: r.questionCount,
+                        amountNr: Number.isNaN(v) ? 0 : Math.max(0, v),
+                      };
+                    });
+                    const withAmount = tiers.filter((t) => t.amountNr > 0);
+                    if (withAmount.length === 0) {
+                      toast.error('Set at least one tier amount (NRs).');
+                      return;
+                    }
+                    const counts = tiers.map((t) => t.questionCount);
+                    const dup = counts.find((c, i) => counts.indexOf(c) !== i);
+                    if (dup != null) {
+                      toast.error(
+                        `Duplicate number of questions: ${dup}. Each row must be unique.`
+                      );
+                      return;
+                    }
+                    pricingMutation.mutate(tiers);
+                  }}
+                >
+                  Save pricing
+                </LoadingButton>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <Dialog

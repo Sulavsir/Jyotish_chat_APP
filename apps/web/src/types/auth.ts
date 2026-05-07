@@ -152,3 +152,13 @@ export interface ResetPasswordWithOtpResponse {
 export interface GetProfileResponse {
   user: User;
 }
+
+// ─── Page / UI flow (client app) ───────────────────────────────────────────
+
+export type AuthLoginMethod = 'password' | 'otp';
+export type AuthLoginOtpStep = 'request' | 'verify';
+
+export type AuthForgotPasswordStep = 'request' | 'otp' | 'reset' | 'done';
+
+/** Jyotish portal forgot-password (magic-link token step). */
+export type JyotishForgotPasswordStep = 'request' | 'otp' | 'reset' | 'token' | 'done';

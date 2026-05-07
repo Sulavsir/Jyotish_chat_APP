@@ -130,6 +130,21 @@ class ApiClient {
   }
 
   /**
+   * Preserve HTTP status (and API error code) after wrapping axios errors so callers
+   * can distinguish 401/403 from network failures — plain Error loses `response`.
+   */
+  private normalizeAxiosError(error: unknown): Error {
+    const message = this.getErrorMessage(error);
+    const normalized = new Error(message) as Error & { status?: number; code?: string };
+    if (axios.isAxiosError(error) && error.response) {
+      normalized.status = error.response.status;
+      const data = error.response.data as { error?: { code?: string }; code?: string } | undefined;
+      normalized.code = data?.error?.code ?? data?.code;
+    }
+    return normalized;
+  }
+
+  /**
    * Extract user-friendly error message from axios error
    */
   private getErrorMessage(error: any): string {
@@ -170,8 +185,8 @@ class ApiClient {
     try {
       const response = await this.client.get(url, config);
       return response.data.data || response.data;
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error));
+    } catch (error: unknown) {
+      throw this.normalizeAxiosError(error);
     }
   }
 
@@ -179,8 +194,8 @@ class ApiClient {
     try {
       const response = await this.client.post(url, data, config);
       return response.data.data || response.data;
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error));
+    } catch (error: unknown) {
+      throw this.normalizeAxiosError(error);
     }
   }
 
@@ -188,8 +203,8 @@ class ApiClient {
     try {
       const response = await this.client.put(url, data, config);
       return response.data.data || response.data;
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error));
+    } catch (error: unknown) {
+      throw this.normalizeAxiosError(error);
     }
   }
 
@@ -197,8 +212,8 @@ class ApiClient {
     try {
       const response = await this.client.patch(url, data, config);
       return response.data.data || response.data;
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error));
+    } catch (error: unknown) {
+      throw this.normalizeAxiosError(error);
     }
   }
 
@@ -206,8 +221,8 @@ class ApiClient {
     try {
       const response = await this.client.delete(url, config);
       return response.data.data || response.data;
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error));
+    } catch (error: unknown) {
+      throw this.normalizeAxiosError(error);
     }
   }
 
@@ -224,8 +239,8 @@ class ApiClient {
         },
       });
       return response.data.data || response.data;
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error));
+    } catch (error: unknown) {
+      throw this.normalizeAxiosError(error);
     }
   }
 }

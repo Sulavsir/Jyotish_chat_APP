@@ -20,3 +20,5 @@ export interface PricingPlan {
 export interface PricingPlansResponse {
   plans: PricingPlan[];
 }
+
+export type PricingPageTabFilter = 'all' | 'packs' | 'unlimited';

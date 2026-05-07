@@ -1,6 +1,9 @@
 /**
  * Admin report: broadcast (Everyone Jyotish) + direct (1:1) chat activity per astrologer
  *
+ * Broadcast counts exclude first-broadcast promo (`metadata.isFirstBroadcastDiscount`); those are
+ * reported separately as `firstBroadcastAcceptedCount`.
+ *
  * Direct includes: (1) accepted instant-chat requests and (2) ad-hoc / mixed chats: any client↔jyotish
  * thread with no accepted broadcast, OR with at least one message before the first broadcast
  * acceptance (so direct-then-broadcast on the same chat still counts as direct).
@@ -13,6 +16,7 @@ import {
   ParticipantType,
   Prisma,
 } from '@jyotish/database';
+import type { AstrologerChatAcceptanceReportSortBy } from '@jyotish/shared';
 
 export type AstrologerChatAcceptanceReportRow = {
   astrologerId: string;
@@ -20,7 +24,10 @@ export type AstrologerChatAcceptanceReportRow = {
   email: string | null;
   phone: string;
   category: string;
+  /** Standard broadcast accepts (excludes first-broadcast). */
   broadcastAcceptedCount: number;
+  /** First-broadcast discount  */
+  firstBroadcastAcceptedCount: number;
   directChatAcceptedCount: number;
 };
 
@@ -30,11 +37,7 @@ export type ListAstrologerChatAcceptanceReportParams = {
   search?: string;
   page: number;
   limit: number;
-  sortBy:
-    | 'broadcastAcceptedCount'
-    | 'directChatAcceptedCount'
-    | 'totalAcceptances'
-    | 'name';
+  sortBy: AstrologerChatAcceptanceReportSortBy;
   sortOrder: 'asc' | 'desc';
 };
 
@@ -48,14 +51,12 @@ export type ListAstrologerChatAcceptanceReportResult = {
   };
   periodTotals: {
     broadcastAccepted: number;
+    firstBroadcastAccepted: number;
     directChatAccepted: number;
   };
 };
 
-function buildBroadcastWhere(
-  from?: Date,
-  to?: Date
-): Prisma.BroadcastMessageWhereInput {
+function buildBroadcastWhere(from?: Date, to?: Date): Prisma.BroadcastMessageWhereInput {
   const acceptedAt: Prisma.DateTimeNullableFilter =
     from || to
       ? {
@@ -72,11 +73,26 @@ function buildBroadcastWhere(
   };
 }
 
+/** Standard broadcast accepts (excludes first-broadcast). */
+function buildStandardBroadcastWhere(from?: Date, to?: Date): Prisma.BroadcastMessageWhereInput {
+  return {
+    ...buildBroadcastWhere(from, to),
+    NOT: {
+      metadata: { path: ['isFirstBroadcastDiscount'], equals: true },
+    },
+  };
+}
+
+/** First-broadcast promo accepts only (`metadata.isFirstBroadcastDiscount`); excluded from `broadcastAcceptedCount`. */
+function buildFirstBroadcastPromoWhere(from?: Date, to?: Date): Prisma.BroadcastMessageWhereInput {
+  return {
+    ...buildBroadcastWhere(from, to),
+    metadata: { path: ['isFirstBroadcastDiscount'], equals: true },
+  };
+}
+
 /** Chats whose created / last-message / end time overlaps the report window (for instant + ad-hoc). */
-function chatTouchesReportingPeriodWhere(
-  from?: Date,
-  to?: Date
-): Prisma.ChatWhereInput | null {
+function chatTouchesReportingPeriodWhere(from?: Date, to?: Date): Prisma.ChatWhereInput | null {
   if (!from && !to) return null;
   const or: Prisma.ChatWhereInput[] = [];
   if (from && to) {
@@ -213,7 +229,8 @@ export async function listAstrologerChatAcceptanceReport(
   params: ListAstrologerChatAcceptanceReportParams
 ): Promise<ListAstrologerChatAcceptanceReportResult> {
   const { from, to, search, page, limit, sortBy, sortOrder } = params;
-  const broadcastWhere = buildBroadcastWhere(from, to);
+  const standardBroadcastWhere = buildStandardBroadcastWhere(from, to);
+  const firstBroadcastWhere = buildFirstBroadcastPromoWhere(from, to);
 
   const chatPeriodWhere = chatTouchesReportingPeriodWhere(from, to);
   let chatIdsTouchingPeriod: string[] = [];
@@ -230,11 +247,24 @@ export async function listAstrologerChatAcceptanceReport(
 
   const instantWhere = buildInstantWhere(from, to, chatIdsTouchingPeriod);
 
-  const [periodBroadcastTotal, broadcastGrouped, instantRows, adHocChats] = await Promise.all([
-    prisma.broadcastMessage.count({ where: broadcastWhere }),
+  const [
+    periodBroadcastTotal,
+    periodFirstBroadcastTotal,
+    broadcastGrouped,
+    firstBroadcastGrouped,
+    instantRows,
+    adHocChats,
+  ] = await Promise.all([
+    prisma.broadcastMessage.count({ where: standardBroadcastWhere }),
+    prisma.broadcastMessage.count({ where: firstBroadcastWhere }),
     prisma.broadcastMessage.groupBy({
       by: ['acceptedBy'],
-      where: broadcastWhere,
+      where: standardBroadcastWhere,
+      _count: { _all: true },
+    }),
+    prisma.broadcastMessage.groupBy({
+      by: ['acceptedBy'],
+      where: firstBroadcastWhere,
       _count: { _all: true },
     }),
     prisma.instantChatRequest.findMany({
@@ -265,8 +295,14 @@ export async function listAstrologerChatAcceptanceReport(
       .map((g) => [g.acceptedBy, g._count._all])
   );
 
+  const firstBroadcastCounts = new Map(
+    firstBroadcastGrouped
+      .filter((g): g is typeof g & { acceptedBy: string } => g.acceptedBy != null)
+      .map((g) => [g.acceptedBy, g._count._all])
+  );
+
   const astrologerIds = [
-    ...new Set([...broadcastCounts.keys(), ...directCounts.keys()]),
+    ...new Set([...broadcastCounts.keys(), ...firstBroadcastCounts.keys(), ...directCounts.keys()]),
   ];
 
   if (astrologerIds.length === 0) {
@@ -275,6 +311,7 @@ export async function listAstrologerChatAcceptanceReport(
       pagination: { page, limit, total: 0, totalPages: 0 },
       periodTotals: {
         broadcastAccepted: periodBroadcastTotal,
+        firstBroadcastAccepted: periodFirstBroadcastTotal,
         directChatAccepted: periodDirectTotal,
       },
     };
@@ -297,6 +334,7 @@ export async function listAstrologerChatAcceptanceReport(
 
   for (const id of astrologerIds) {
     const broadcastAcceptedCount = broadcastCounts.get(id) ?? 0;
+    const firstBroadcastAcceptedCount = firstBroadcastCounts.get(id) ?? 0;
     const directChatAcceptedCount = directCounts.get(id) ?? 0;
     const a = astroById.get(id);
     if (a) {
@@ -307,6 +345,7 @@ export async function listAstrologerChatAcceptanceReport(
         phone: a.phone,
         category: a.category,
         broadcastAcceptedCount,
+        firstBroadcastAcceptedCount,
         directChatAcceptedCount,
       });
     } else {
@@ -317,6 +356,7 @@ export async function listAstrologerChatAcceptanceReport(
         phone: '—',
         category: '—',
         broadcastAcceptedCount,
+        firstBroadcastAcceptedCount,
         directChatAcceptedCount,
       });
     }
@@ -328,15 +368,13 @@ export async function listAstrologerChatAcceptanceReport(
     filtered = rows.filter((r) => {
       const email = r.email?.toLowerCase() ?? '';
       return (
-        r.name.toLowerCase().includes(q) ||
-        email.includes(q) ||
-        r.phone.toLowerCase().includes(q)
+        r.name.toLowerCase().includes(q) || email.includes(q) || r.phone.toLowerCase().includes(q)
       );
     });
   }
 
   const totalActivity = (r: AstrologerChatAcceptanceReportRow) =>
-    r.broadcastAcceptedCount + r.directChatAcceptedCount;
+    r.broadcastAcceptedCount + r.firstBroadcastAcceptedCount + r.directChatAcceptedCount;
 
   filtered.sort((a, b) => {
     if (sortBy === 'name') {
@@ -348,6 +386,11 @@ export async function listAstrologerChatAcceptanceReport(
     }
     if (sortBy === 'directChatAcceptedCount') {
       const cmp = a.directChatAcceptedCount - b.directChatAcceptedCount;
+      if (cmp !== 0) return sortOrder === 'asc' ? cmp : -cmp;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    }
+    if (sortBy === 'firstBroadcastAcceptedCount') {
+      const cmp = a.firstBroadcastAcceptedCount - b.firstBroadcastAcceptedCount;
       if (cmp !== 0) return sortOrder === 'asc' ? cmp : -cmp;
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     }
@@ -371,6 +414,7 @@ export async function listAstrologerChatAcceptanceReport(
     pagination: { page, limit, total, totalPages },
     periodTotals: {
       broadcastAccepted: periodBroadcastTotal,
+      firstBroadcastAccepted: periodFirstBroadcastTotal,
       directChatAccepted: periodDirectTotal,
     },
   };

@@ -55,6 +55,7 @@ import {
   JyotishBookingType,
 } from '@jyotish/shared';
 import { AppointmentStatus } from '@/types/appointment.types';
+import type { MyBookingsPageSection } from '@/types/my-bookings.types';
 import { Banknote, Eye } from 'lucide-react';
 
 type MyBookingsResponse = Awaited<ReturnType<typeof jyotishBookingService.listMine>>;
@@ -62,8 +63,6 @@ type MyBooking = MyBookingsResponse['bookings'][number];
 
 type MyAppointmentsResponse = Awaited<ReturnType<typeof appointmentService.listMine>>;
 type MyAppointment = MyAppointmentsResponse['appointments'][number];
-
-type Section = 'BOOKINGS' | 'APPOINTMENTS' | 'KUNDALI_MATCH';
 
 function typeLabel(t: JyotishBookingType) {
   if (t === JyotishBookingType.PANDIT) return 'Pandit Ji';
@@ -130,7 +129,7 @@ function appointmentStatusBadge(status: AppointmentStatus) {
 const LIST_DATE_DEBOUNCE_MS = 400;
 
 export default function MyBookingsPage() {
-  const [section, setSection] = useState<Section>('BOOKINGS');
+  const [section, setSection] = useState<MyBookingsPageSection>('BOOKINGS');
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'ALL' | JyotishBookingType>('ALL');
   const [status, setStatus] = useState<'ALL' | JyotishBookingStatus>('ALL');

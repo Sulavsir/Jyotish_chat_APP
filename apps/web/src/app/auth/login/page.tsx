@@ -20,7 +20,7 @@ import { FormInput, FormPasswordInput } from '@/components/form';
 import { authApi } from '@/lib/auth-api';
 import { useAuthStore } from '@/store/auth-store';
 import { useRedirectIfAuthenticated } from '@/hooks';
-import type { ApiError } from '@/types/auth';
+import type { ApiError, AuthLoginMethod, AuthLoginOtpStep } from '@/types/auth';
 import { displayError, displaySuccess, parseApiError } from '@/utils/error-handler';
 import { OTP_EXPIRY_SECONDS } from '@/utils/otp.utils';
 import { UserRole } from '@/types';
@@ -33,9 +33,6 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
 import { SocialOAuthSignInRow } from '@/components/auth/SocialOAuthSignInRow';
-
-type LoginMethod = 'password' | 'otp';
-type OTPStep = 'request' | 'verify';
 
 export default function LoginPage() {
   const { setAuth } = useAuthStore();
@@ -53,10 +50,10 @@ export default function LoginPage() {
   }, [searchParams]);
 
   // Login method tabs
-  const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
+  const [loginMethod, setLoginMethod] = useState<AuthLoginMethod>('password');
 
   // OTP state
-  const [otpStep, setOtpStep] = useState<OTPStep>('request');
+  const [otpStep, setOtpStep] = useState<AuthLoginOtpStep>('request');
   const [otpSessionId, setOtpSessionId] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');

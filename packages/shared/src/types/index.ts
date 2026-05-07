@@ -380,3 +380,9 @@ export type {
   UpdateSubhaSahitOccasionMetaRequest,
   DeleteSubhaSahitOccasionRequest,
 } from './subha-sahit.types';
+
+export type {
+  AstrologerChatAcceptanceReportSortBy,
+  AstrologerChatAcceptanceReportSortOption,
+} from './astrologer-chat-acceptance-report.types';
+export { ASTROLOGER_CHAT_ACCEPTANCE_REPORT_SORT_OPTIONS } from './astrologer-chat-acceptance-report.types';

@@ -29,12 +29,10 @@ import {
 } from '@/lib/validations';
 import { displayError, displaySuccess, parseApiError } from '@/utils/error-handler';
 import { OTP_EXPIRY_SECONDS } from '@/utils/otp.utils';
-import type { ApiError } from '@/types/auth';
-
-type ForgotPasswordStep = 'request' | 'otp' | 'reset' | 'done';
+import type { ApiError, AuthForgotPasswordStep } from '@/types/auth';
 
 export default function ForgotPasswordPage() {
-  const [step, setStep] = useState<ForgotPasswordStep>('request');
+  const [step, setStep] = useState<AuthForgotPasswordStep>('request');
   const [doneMessage, setDoneMessage] = useState('');
   const [otpSessionId, setOtpSessionId] = useState('');
   const [otpPhoneNumber, setOtpPhoneNumber] = useState('');

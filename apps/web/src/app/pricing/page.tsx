@@ -8,15 +8,13 @@ import { Check, Sparkles, Zap, Clock, Infinity as InfinityIcon } from 'lucide-re
 import { ROUTES, QUERY_KEYS } from '@/constants';
 import { Navbar } from '@/components/ui';
 import { pricingService } from '@/services/pricing.service';
-import type { PricingPlan } from '@/types/pricing.types';
+import type { PricingPlan, PricingPageTabFilter } from '@/types/pricing.types';
 import { useAuthStore } from '@/store/auth-store';
 import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 
-type TabFilter = 'all' | 'packs' | 'unlimited';
-
 function PricingContent() {
   const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState<TabFilter>('all');
+  const [selectedTab, setSelectedTab] = useState<PricingPageTabFilter>('all');
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data, isLoading } = useQuery({
@@ -151,7 +149,7 @@ function PricingContent() {
                 return (
                   <Button
                     key={tab.id}
-                    onClick={() => setSelectedTab(tab.id as TabFilter)}
+                    onClick={() => setSelectedTab(tab.id as PricingPageTabFilter)}
                     variant={selectedTab === tab.id ? 'default' : 'ghost'}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-md font-medium transition-all ${
                       selectedTab === tab.id

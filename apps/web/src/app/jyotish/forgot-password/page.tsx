@@ -31,15 +31,13 @@ import {
 } from '@/lib/validations';
 import { displayError, displaySuccess, parseApiError } from '@/utils/error-handler';
 import { OTP_EXPIRY_SECONDS } from '@/utils/otp.utils';
-import type { ApiError } from '@/types/auth';
-
-type Step = 'request' | 'otp' | 'reset' | 'token' | 'done';
+import type { ApiError, JyotishForgotPasswordStep } from '@/types/auth';
 
 export default function JyotishForgotPasswordPage() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get('token');
 
-  const [step, setStep] = useState<Step>(tokenFromUrl ? 'token' : 'request');
+  const [step, setStep] = useState<JyotishForgotPasswordStep>(tokenFromUrl ? 'token' : 'request');
   const [doneMessage, setDoneMessage] = useState('');
   const [otpSessionId, setOtpSessionId] = useState('');
   const [otpPhoneNumber, setOtpPhoneNumber] = useState('');

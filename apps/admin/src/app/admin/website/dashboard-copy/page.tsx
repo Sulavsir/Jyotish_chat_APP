@@ -205,7 +205,6 @@ export default function DashboardCopyManagementPage() {
   return (
     <>
       <div className="space-y-5 sm:space-y-6">
-
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">
             <h1 className="min-w-0 flex-1 pr-1 text-2xl sm:text-3xl font-bold cosmic-text break-words">

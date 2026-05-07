@@ -66,7 +66,9 @@ export default function EarningsPage() {
 
   const defaultRange = getTodayDateRange();
   const hasActiveFilters =
-    Boolean(debouncedSearch) || debouncedFrom !== defaultRange.from || debouncedTo !== defaultRange.to;
+    Boolean(debouncedSearch) ||
+    debouncedFrom !== defaultRange.from ||
+    debouncedTo !== defaultRange.to;
 
   const clearFilters = () => {
     setSearchTerm('');

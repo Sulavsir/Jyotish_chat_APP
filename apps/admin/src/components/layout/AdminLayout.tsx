@@ -349,15 +349,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           console.log('✅ Session validated successfully');
         }
       })
-      .catch((error) => {
-        // Only logout on 401 (unauthorized) errors
-        if (error?.response?.status === 401) {
-          console.log('🔒 Session expired, redirecting to login');
+      .catch((error: unknown) => {
+        const status =
+          error &&
+          typeof error === 'object' &&
+          'status' in error &&
+          typeof (error as { status: unknown }).status === 'number'
+            ? (error as { status: number }).status
+            : undefined;
+        // 401: missing/expired access token (after refresh). 403: token is valid but not an admin
+        // (e.g. client/astrologer session on same origin) — treat like logout so Zustand state matches cookies.
+        if (status === 401 || status === 403) {
+          console.log('🔒 Admin session invalid, redirecting to login');
           logout();
           router.replace(ADMIN_ROUTES.LOGIN);
         } else {
           // Other errors (network, etc.) - keep user logged in
-          console.warn('⚠️ Session validation failed (keeping user logged in):', error?.message);
+          console.warn(
+            '⚠️ Session validation failed (keeping user logged in):',
+            error instanceof Error ? error.message : error
+          );
         }
       });
   }, [_hasHydrated, isAuthenticated, router, setAdmin, logout]);

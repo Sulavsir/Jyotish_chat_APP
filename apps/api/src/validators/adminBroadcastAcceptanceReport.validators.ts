@@ -5,19 +5,19 @@
 
 import { z } from 'zod';
 import { parseEarningsDateQueryParam } from '../utils/date-query.utils';
+import type { AstrologerChatAcceptanceReportSortBy } from '@jyotish/shared';
 
 const sortBySchema = z
   .string()
   .optional()
   .transform(
-    (v):
-      | 'broadcastAcceptedCount'
-      | 'directChatAcceptedCount'
-      | 'totalAcceptances'
-      | 'name' => {
+    (v): AstrologerChatAcceptanceReportSortBy => {
       if (v === 'name') return 'name';
       if (v === 'directChatAcceptedCount') return 'directChatAcceptedCount';
       if (v === 'totalAcceptances') return 'totalAcceptances';
+      if (v === 'firstBroadcastAcceptedCount') return 'firstBroadcastAcceptedCount';
+      /** @deprecated query param alias */
+      if (v === 'freeBroadcastAcceptedCount') return 'firstBroadcastAcceptedCount';
       if (v === 'acceptedCount') return 'broadcastAcceptedCount';
       return 'broadcastAcceptedCount';
     }
